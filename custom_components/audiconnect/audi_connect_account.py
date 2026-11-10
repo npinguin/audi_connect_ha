@@ -50,10 +50,12 @@ def _active_diagnostic_report(report: dict[str, Any] | None) -> bool:
     if not isinstance(report, dict):
         return False
     timestamp = report.get("ran_at")
-    if not isinstance(timestamp, str):
+    if timestamp is None:
         # Legacy in-memory reports without timestamps remain readable until a
         # restart, but all new reports carry a bounded timestamp.
         return True
+    if not isinstance(timestamp, str):
+        return False
     try:
         moment = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     except ValueError:
