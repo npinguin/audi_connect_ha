@@ -61,7 +61,7 @@ jobs:
         run: |
           mkdir -p dist
           (cd custom_components && zip -qr ../dist/audiconnect-ha-install.zip audiconnect)
-          (cd custom_components/audiconnect && zip -qr ../../../dist/audiconnect-hacs.zip .)
+          (cd custom_components/audiconnect && zip -qr ../../dist/audiconnect-hacs.zip .)
           unzip -l dist/audiconnect-ha-install.zip | grep -q 'audiconnect/manifest.json'
           unzip -l dist/audiconnect-hacs.zip | grep -q 'manifest.json'
           sha256sum dist/*.zip > dist/SHA256SUMS.txt
