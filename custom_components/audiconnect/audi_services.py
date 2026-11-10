@@ -365,7 +365,8 @@ class AudiService:
         )
 
     async def probe_known_read_only_paths(
-        self, vin: str, *, extended: bool = False, restore: bool = False
+        self, vin: str, *, extended: bool = False, restore: bool = False,
+        restore_group: str = "trips",
     ) -> dict[str, Any]:
         """Use active CARIAD credentials only for explicitly requested GET probes."""
         token = self._bearer_token_json
@@ -391,6 +392,7 @@ class AudiService:
             vehicle_url,
             extended=extended,
             restore=restore,
+            restore_group=restore_group,
             restore_url_for_route=restore_url if restore else None,
         )
 

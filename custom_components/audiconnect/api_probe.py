@@ -38,12 +38,12 @@ EXTENDED_READ_ONLY_PROBES: tuple[tuple[str, str, str | None], ...] = (
 )
 # Experimental candidates from third-party Audi/VW client implementations.
 # Read-only, on explicit user invocation; data is never retained in reports.
-FEATURE_RESTORE_PROBES: tuple[tuple[str, str, str | None], ...] = (
+TRIP_DATA_PROBES: tuple[tuple[str, str, str | None], ...] = (
     ("trip_shortterm", "trips:shortterm", None),
     ("trip_longterm", "trips:longterm", None),
     ("trip_last", "trips:shortterm/last", None),
-    ("tripstatistics_shortterm", "tripstatistics?type=shortTerm", None),
-    ("tripstatistics_longterm", "tripstatistics?type=longTerm", None),
+)
+VEHICLE_HEALTH_PROBES: tuple[tuple[str, str, str | None], ...] = (
     ("battery_support", "selectivestatus?jobs=batterySupport", "batterySupport"),
     ("tyre_pressure", "selectivestatus?jobs=tyrePressure", "tyrePressure"),
     (
@@ -52,13 +52,19 @@ FEATURE_RESTORE_PROBES: tuple[tuple[str, str, str | None], ...] = (
         "vehicleHealthWarnings",
     ),
 )
+RESTORE_PROBE_GROUPS = {
+    "trips": TRIP_DATA_PROBES,
+    "vehicle_health": VEHICLE_HEALTH_PROBES,
+}
+FEATURE_RESTORE_PROBES = TRIP_DATA_PROBES + VEHICLE_HEALTH_PROBES
+# Two alternative tripstatistics routes returned 404 for the tested Q8.
+# Do not repeat them in every diagnostic scan without new evidence.
 KNOWN_TRIP_ROUTES = frozenset({"shortterm", "longterm", "shortterm/last"})
-MAX_FEATURE_RESTORE_PROBES = 8
+MAX_FEATURE_RESTORE_PROBES = 3
 MIN_FEATURE_RESTORE_START_BUDGET = 20
 MIN_FEATURE_RESTORE_RESERVE = 12
-# Audi may omit Vcf-Remaining-Calls entirely. One explicit probe invocation
-# can still inspect five fixed GET routes, but never more while unmetered.
-UNKNOWN_BUDGET_RESTORE_MAX_REQUESTS = 5
+# Unknown Audi quota: one explicit action is limited to three GETs.
+UNKNOWN_BUDGET_RESTORE_MAX_REQUESTS = 3
 
 MAX_PROBES = 8
 MAX_EXTENDED_PROBES = 13
@@ -136,17 +142,22 @@ async def run_read_only_probes(
     *,
     extended: bool = False,
     restore: bool = False,
+    restore_group: str = "trips",
     restore_url_for_route: Callable[[str], str] | None = None,
 ) -> dict[str, Any]:
     """Run only fixed, bounded GET probes on explicit user request."""
     if restore and extended:
         raise ValueError("Extended and restore probes are mutually exclusive")
+    if restore_group not in RESTORE_PROBE_GROUPS:
+        raise ValueError("Unknown Audi restore probe group")
+    if not restore and restore_group != "trips":
+        raise ValueError("Restore group requires restore=true")
     if restore and restore_url_for_route is None:
         raise ValueError("Restore probes require an approved route resolver")
     if not access_token:
         raise ValueError("Missing active Audi access token")
     if restore:
-        paths = FEATURE_RESTORE_PROBES[:MAX_FEATURE_RESTORE_PROBES]
+        paths = RESTORE_PROBE_GROUPS[restore_group][:MAX_FEATURE_RESTORE_PROBES]
         minimum_budget = MIN_FEATURE_RESTORE_RESERVE
         mode = "restore"
     else:
@@ -212,6 +223,7 @@ async def run_read_only_probes(
         "attempted": sum(row["outcome"] != "skipped" for row in outcomes),
         "max_allowed": len(paths),
         "mode": mode,
+        **({"restore_group": restore_group} if restore else {}),
         "mutating_requests": 0,
         "results": outcomes,
     }

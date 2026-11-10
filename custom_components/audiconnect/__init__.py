@@ -62,6 +62,9 @@ PROBE_SCHEMA = vol.Schema({
     vol.Required(CONF_DEVICE_ID): cv.string,
     vol.Optional("extended", default=False): bool,
     vol.Optional("restore", default=False): bool,
+    vol.Optional("restore_group", default="trips"): vol.In(
+        ("trips", "vehicle_health")
+    ),
 })
 LOCAL_DEALER_SCHEMA = vol.Schema({
     vol.Required(CONF_DEVICE_ID): cv.string,
@@ -250,6 +253,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 vin,
                 extended=service.data.get("extended", False),
                 restore=service.data.get("restore", False),
+                restore_group=service.data.get("restore_group", "trips"),
             )
         except RuntimeError as exc:
             # The API layer enforces the cooldown. Do not surface an

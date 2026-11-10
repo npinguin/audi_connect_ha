@@ -90,11 +90,16 @@ class AudiConnectAccount:
         self._readonly_probe_lock = asyncio.Lock()
 
     async def probe_read_only_api(
-        self, vin: str, *, extended: bool = False, restore: bool = False
+        self, vin: str, *, extended: bool = False, restore: bool = False,
+        restore_group: str = "trips",
     ) -> dict[str, Any]:
         """Explicit, rate-limited GET probes; never a vehicle action."""
         if extended and restore:
             raise ValueError("Extended and restore probes are mutually exclusive")
+        if restore_group not in ("trips", "vehicle_health"):
+            raise ValueError("Unknown Audi restore probe group")
+        if not restore and restore_group != "trips":
+            raise ValueError("Restore group requires restore=true")
         vin_key = vin.lower()
         if not self._loggedin:
             raise RuntimeError("Audi connection is not authenticated")
@@ -109,7 +114,14 @@ class AudiConnectAccount:
                 expected_mode = (
                     "restore" if restore else "extended" if extended else "core"
                 )
-                if report is not None and report.get("mode") == expected_mode:
+                if (
+                    report is not None
+                    and report.get("mode") == expected_mode
+                    and (
+                        not restore
+                        or report.get("restore_group", "trips") == restore_group
+                    )
+                ):
                     return report
                 retry_after = ceil((900 - (now - last_attempt)) / 60)
                 raise RuntimeError(
@@ -119,7 +131,8 @@ class AudiConnectAccount:
             # Record before dispatch so repeated failed scans cannot hammer Audi.
             self._readonly_probe_attempted[vin_key] = now
             report = await self._audi_service.probe_known_read_only_paths(
-                vin, extended=extended, restore=restore
+                vin, extended=extended, restore=restore,
+                restore_group=restore_group,
             )
             self._readonly_probe_reports[vin_key] = report
             return report
