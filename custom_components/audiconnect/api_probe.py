@@ -102,7 +102,7 @@ async def run_read_only_probes(
             # identical to the integration's existing successful GET calls.
             response = await api.get(url_for_suffix(suffix))
             outcome = classify_payload(response, job)
-            outcomes.append({"probe": name, "outcome": outcome, "http_status": 200})
+            outcomes.append({"probe": name, "outcome": outcome, "http_status": "2xx"})
         except ClientResponseError as exc:
             outcome = classify_http_status(exc.status)
             outcomes.append({
