@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 
 from .audi_api import AudiAPI
 from .api_probe import run_read_only_probes
+from .capability_jobs import capability_snapshot, select_jobs
 from .audi_models import TripDataResponse, VehicleDataResponse, VehiclesResponse
 from .const import AUTH0_REDIRECT_URI, AUTH0_REFRESH_TOKEN_PREFIX, DEFAULT_API_LEVEL
 from .util import get_attr, to_byte_array
@@ -297,6 +298,9 @@ class AudiService:
         self._authorizationEndpoint = ""
         self._bearer_token_json = None
         self._uses_auth0 = False
+        # Scoped to the live session: next polling cycles omit explicitly
+        # unsupported CARIAD jobs, without any additional Audi requests.
+        self._cariad_capabilities: dict[str, tuple[frozenset[str], frozenset[str]]] = {}
         self._client_id = ""
         self._authorizationServerBaseURLLive = ""
         self._api_level = api_level
@@ -378,39 +382,31 @@ class AudiService:
         )
 
     async def get_stored_vehicle_data(self, vin: str):
-        JOBS2QUERY = {
-            "access",
-            "activeVentilation",
-            "auxiliaryHeating",
-            "batteryChargingCare",
-            "batterySupport",
-            "charging",
-            "chargingProfiles",
-            "chargingTimers",
-            "climatisation",
-            "climatisationTimers",
-            "departureProfiles",
-            "departureTimers",
-            "fuelStatus",
-            "honkAndFlash",
-            "hybridCarAuxiliaryHeating",
-            "lvBattery",
-            "measurements",
-            "oilLevel",
-            "readiness",
-            "userCapabilities",
-            "vehicleHealthInspection",
-            "vehicleHealthWarnings",
-            "vehicleLights",
-        }
+        """Read vehicle data, avoiding jobs Audi explicitly says it cannot serve.
+
+        First poll stays broad to discover the car's capabilities. Subsequent
+        polls retain only the reported, healthy jobs. A missing capabilities
+        list keeps the original broad query; no negative assumptions or new
+        API requests. Refresh userCapabilities on every poll so changes to
+        services are picked up automatically.
+        """
+        key = vin.upper()
+        known = self._cariad_capabilities.get(key)
+        jobs = select_jobs(*known) if known is not None else select_jobs()
         self._api.use_token(self._bearer_token_json)
         data = await self._api.get(
             self.__get_cariad_url_for_vin(
-                vin, "selectivestatus?jobs={jobs}", jobs=",".join(JOBS2QUERY)
+                vin, "selectivestatus?jobs={jobs}", jobs=",".join(jobs)
             )
         )
-
-        _LOGGER.debug("Vehicle selective-status response received (payload redacted)")
+        snapshot = capability_snapshot(data)
+        if snapshot is not None:
+            self._cariad_capabilities[key] = snapshot
+        _LOGGER.debug(
+            "Vehicle selective-status received (%d jobs; capabilities %s; "
+            "payload redacted)",
+            len(jobs), "known" if snapshot is not None else "unknown",
+        )
         return VehicleDataResponse(data)
 
     async def get_charger(self, vin: str):
