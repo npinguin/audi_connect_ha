@@ -947,37 +947,41 @@ class AudiConnectVehicle:
                     self._vehicle.vin,
                 )
                 return
-            self._vehicle.fields = {
-                status.data_fields[i].name: status.data_fields[i].value
-                for i in range(len(status.data_fields))
-            }
+            new_fields = {field.name: field.value for field in status.data_fields}
+            if status.error_count:
+                # Some CARIAD jobs may fail while other ones succeed with HTTP 200.
+                # Preserve unaffected fields rather than removing sensors after
+                # every partial response. A cached value is NOT freshly measured.
+                self._vehicle.fields.update(new_fields)
+            else:
+                self._vehicle.fields = new_fields
 
-            # Initialize with a default very old datetime
-            self._vehicle.state["last_update_time"] = datetime(1970, 1, 1, tzinfo=UTC)
-
-            # Update with the newest carCapturedTimestamp from data_fields
-            for f in status.data_fields:
-                new_time = parse_datetime(f.measure_time)
-                if new_time:
-                    self._vehicle.state["last_update_time"] = max(
-                        self._vehicle.state["last_update_time"], new_time
-                    )
-
-            # Update with the newest carCapturedTimestamp from states.
-            # A state can carry no timestamp: userCapabilities is a statement
-            # about the vehicle rather than a reading from it. Skipping those
-            # here keeps the scan independent of how lenient parse_datetime is.
-            for state in status.states:
-                ts = state.get("measure_time")
-                if not ts:
+            # The newest source measurement can remain old while an HTTP request
+            # succeeds. A partial/untimestamped response must never reset the
+            # vehicle to the 1970 sentinel or claim a fresh car reading.
+            prior = self._vehicle.state.get("last_update_time")
+            last_observed = (
+                prior if isinstance(prior, datetime) and prior.tzinfo
+                and prior.year >= 2020
+                else datetime(1970, 1, 1, tzinfo=UTC)
+            )
+            for field in status.data_fields:
+                if not field.measure_time:
                     continue
-                new_time = parse_datetime(ts)
-                if new_time:
-                    self._vehicle.state["last_update_time"] = max(
-                        self._vehicle.state["last_update_time"], new_time
-                    )
+                new_time = parse_datetime(field.measure_time)
+                if new_time and new_time.tzinfo and new_time.year >= 2020:
+                    last_observed = max(last_observed, new_time)
+            for state in status.states:
+                timestamp = state.get("measure_time")
+                if not timestamp:
+                    continue
+                new_time = parse_datetime(timestamp)
+                if new_time and new_time.tzinfo and new_time.year >= 2020:
+                    last_observed = max(last_observed, new_time)
+            self._vehicle.state["last_update_time"] = last_observed
 
-            # Update other states
+            # Keep previous per-feature readings when CARIAD reports only a
+            # partial response; the global latest timestamp is not their age.
             for state in status.states:
                 self._vehicle.state[state["name"]] = state["value"]
 
