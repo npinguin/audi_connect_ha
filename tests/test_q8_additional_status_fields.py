@@ -31,6 +31,8 @@ def test_modern_charging_settings_and_readiness():
     assert s["vehicleReportedOnline"] is True
     assert s["vehicleReportedActive"] is False
     car = AudiConnectVehicle(None, NS(vin="FAKEVIN", state=s, fields={}))
+    # The wrapper initializes fresh state at construction, matching live setup.
+    car._vehicle.state.update(s)
     assert car.charging_current_limit_a == 12
     assert car.charging_current_limit_mode == "reduced"
     assert car.charging_plug_auto_unlock == "enabled"
