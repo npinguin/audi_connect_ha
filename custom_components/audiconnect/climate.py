@@ -166,10 +166,18 @@ class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
 
     async def async_turn_on(self) -> None:
         connection = self.coordinator.account.connection
-        # Only temp_c is sent: the service prefers temp_f when both are given,
-        # so passing a converted Fahrenheit value would quantise the 0.5 step.
+        # Some CARIAD cars accept start only with no body: use stored car
+        # settings when explicitly enabled. Never silently override user temp.
+        quick_start = bool(
+            self.coordinator.config_entry.options.get("climate_quick_start", False)
+        )
+        service = connection._audi_service
+        modern_api = service.uses_auth0 or self.coordinator.config_entry.data.get(
+            "api_level", 0
+        ) == 1
+        temperature = None if quick_start and modern_api else self.native_target_temperature
         if not await connection.start_climate_control(
-            self._vehicle.vin, temp_c=self.native_target_temperature
+            self._vehicle.vin, temp_c=temperature
         ):
             raise HomeAssistantError(
                 "Failed to start climatisation; see the log for details"
