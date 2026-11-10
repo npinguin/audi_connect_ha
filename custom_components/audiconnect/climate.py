@@ -168,11 +168,12 @@ class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
         connection = self.coordinator.account.connection
         # Some CARIAD cars accept start only with no body: use stored car
         # settings when explicitly enabled. Never silently override user temp.
-        quick_start = bool(
-            self.coordinator.config_entry.options.get("climate_quick_start", False)
-        )
-        service = connection._audi_service
-        modern_api = service.uses_auth0 or self.coordinator.config_entry.data.get(
+        entry = getattr(self.coordinator, "config_entry", None)
+        options = getattr(entry, "options", {}) if entry is not None else {}
+        data = getattr(entry, "data", {}) if entry is not None else {}
+        quick_start = bool(options.get("climate_quick_start", False))
+        service = getattr(connection, "_audi_service", None)
+        modern_api = bool(getattr(service, "uses_auth0", False)) or data.get(
             "api_level", 0
         ) == 1
         temperature = None if quick_start and modern_api else self.native_target_temperature
