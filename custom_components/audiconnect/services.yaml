@@ -1,6 +1,20 @@
 ---
 # Describes the format for available services for audiconnect
 
+probe_api_paths:
+  name: Probe known read-only Audi API paths
+  description: >
+    On-demand, rate-limited validation of eight known CARIAD GET endpoints for
+    a single vehicle. No remote control actions. Results appear in the next
+    Home Assistant Download diagnostics export. Only run when investigating
+    missing vehicle data.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: audiconnect
+
 refresh_vehicle_data:
   fields:
     device_id:
