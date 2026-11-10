@@ -35,8 +35,7 @@ class TestDiagnostics(unittest.TestCase):
         event = module.build_http_event(
             "POST", "https://example.org/oauth/token", 200
         )
-        self.assertEqual(event["route"], "other")
-        self.assertEqual(event["outcome"], "http_accepted_not_vehicle_confirmed")
+        self.assertIsNone(event)
 
     def test_vehicle_wake_acknowledgement_is_not_physical_wake_proof(self):
         for path, expected in (
@@ -67,6 +66,14 @@ class TestDiagnostics(unittest.TestCase):
         )
         self.assertEqual(failed["route"], "authentication")
         self.assertEqual(failed["outcome"], "http_rejected")
+
+    def test_unknown_post_failure_remains_diagnostic(self):
+        event = module.build_http_event(
+            "POST", "https://example.org/oauth/token?key=SECRET", 403
+        )
+        self.assertEqual(event["route"], "other")
+        self.assertEqual(event["outcome"], "http_rejected")
+        self.assertNotIn("SECRET", str(event))
 
     def test_auth0_failed_token_exchange(self):
         event = module.build_http_event(
