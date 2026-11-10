@@ -62,6 +62,7 @@ BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
         key="start_climate_car_settings",
         name="Start climate (car settings)",
         icon="mdi:air-conditioner",
+        entity_category=EntityCategory.DIAGNOSTIC,
         # Explicit bodyless CARIAD start; does not send the HA temperature.
         # Useful when a model rejects incomplete settings payloads.
         supported_fn=lambda vehicle: bool(
@@ -74,6 +75,7 @@ BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
         key="stop_climate",
         name="Stop climate",
         icon="mdi:air-conditioner-off",
+        entity_category=EntityCategory.DIAGNOSTIC,
         supported_fn=lambda vehicle: bool(
             getattr(getattr(vehicle, "_audi_service", None), "uses_auth0", False)
         )
