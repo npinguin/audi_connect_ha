@@ -2259,6 +2259,22 @@ class AudiConnectVehicle:
         return self._vehicle.state.get("preferredChargingTimeEnabled")
 
     @property
+    def climatisation_timers(self):
+        return self._vehicle.state.get("climatisationTimers")
+
+    @property
+    def climatisation_timer_count(self):
+        return self._vehicle.state.get("climatisationTimerCount")
+
+    @property
+    def climatisation_timer_enabled_count(self):
+        return self._vehicle.state.get("climatisationTimerEnabledCount")
+
+    @property
+    def next_climatisation_timer_local(self):
+        return self._vehicle.state.get("nextClimatisationTimerLocal")
+
+    @property
     def charging_timers(self):
         """Return the departure/charging timers, for the attribute payload."""
         return self._vehicle.state.get("chargingTimers")
