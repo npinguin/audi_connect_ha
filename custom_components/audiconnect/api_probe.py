@@ -34,11 +34,12 @@ EXTENDED_READ_ONLY_PROBES: tuple[tuple[str, str, str | None], ...] = (
     ("measurements", "selectivestatus?jobs=measurements", "measurements"),
     ("vehicle_health_inspection", "selectivestatus?jobs=vehicleHealthInspection", "vehicleHealthInspection"),
     ("trip_statistics_experimental", "selectivestatus?jobs=tripStatistics", "tripStatistics"),
+    ("auxiliary_heating", "selectivestatus?jobs=auxiliaryHeating", "auxiliaryHeating"),
 )
 MAX_PROBES = 8
-MAX_EXTENDED_PROBES = 12
+MAX_EXTENDED_PROBES = 13
 MIN_RATE_LIMIT_REMAINING = 12
-MIN_EXTENDED_RATE_LIMIT_REMAINING = 16
+MIN_EXTENDED_RATE_LIMIT_REMAINING = 17
 
 
 def _has_error(value: Any, max_nodes: int = 64) -> bool:
