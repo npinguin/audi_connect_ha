@@ -1,4 +1,6 @@
 {
-  "name": "Audi connect",
-  "homeassistant": "0.110.0"
+  "name": "Audi Connect (Robotix Q8 beta)",
+  "zip_release": true,
+  "filename": "audiconnect-hacs.zip",
+  "hide_default_branch": true
 }
