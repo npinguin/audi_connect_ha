@@ -377,7 +377,6 @@ class AudiService:
         )
 
     async def get_stored_vehicle_data(self, vin: str):
-        redacted_vin = "*" * (len(vin) - 4) + vin[-4:]
         JOBS2QUERY = {
             "access",
             "activeVentilation",
