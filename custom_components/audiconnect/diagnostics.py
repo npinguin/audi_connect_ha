@@ -208,9 +208,10 @@ async def async_get_config_entry_diagnostics(
         "trip_restore_attempts": [
             {"vehicle_slot": index, "report": report}
             for index, vehicle in enumerate(vehicles[:10], 1)
-            if (
-                report := connection.get_auth0_trip_report(vehicle.vin)
-            ) is not None
+            if callable(
+                handler := getattr(connection, "get_auth0_trip_report", None)
+            )
+            if (report := handler(vehicle.vin)) is not None
         ],
         "read_only_api_probes": [
             {"vehicle_slot": index, "report": report}
