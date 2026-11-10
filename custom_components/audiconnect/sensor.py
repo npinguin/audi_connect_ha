@@ -106,6 +106,29 @@ def _charging_timer_attrs(vehicle: Any) -> dict[str, Any]:
     return {k: v for k, v in attrs.items() if v is not None}
 
 
+def _model_attrs(vehicle: Any) -> dict[str, Any]:
+    """Disclose when Model is sourced from a user nickname, not Audi metadata."""
+    return {
+        "model_source": getattr(vehicle, "model_source", "unavailable"),
+        "model_year": getattr(vehicle, "model_year", "") or None,
+    }
+
+
+def _park_time_attrs(vehicle: Any) -> dict[str, Any]:
+    """A GPS-position capture is an approximation, not an engine-off event."""
+    source = getattr(vehicle, "park_time_source", "unavailable")
+    return {
+        "time_source": source,
+        "estimated": source == "last_parked_position_capture_estimate",
+        "meaning": (
+            "Time Audi reported the last parked location; not verified time parked"
+            if source == "last_parked_position_capture_estimate"
+            else "Vehicle parking clock" if source == "vehicle_parking_clock"
+            else "No parking timestamp reported"
+        ),
+    }
+
+
 SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
     AudiSensorEntityDescription(
         key="last_update_time",
@@ -151,7 +174,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         attr_key="model",
         name="Model",
         icon="mdi:car-info",
-        entity_category=EntityCategory.DIAGNOSTIC,
+        extra_attrs_fn=_model_attrs,
     ),
     AudiSensorEntityDescription(
         key="mileage",
@@ -406,6 +429,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Park Time",
         icon="mdi:car-clock",
         device_class=SensorDeviceClass.TIMESTAMP,
+        extra_attrs_fn=_park_time_attrs,
     ),
     AudiSensorEntityDescription(
         key="position_last_updated",
