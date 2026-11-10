@@ -1456,7 +1456,46 @@ class AudiService:
             #     "action.actionState",
             # )
 
+    async def trigger_vehicle_wakeup(self, vin: str) -> None:
+        """Explicit modern CARIAD vehicle wake-up; never called by polling.
+
+        Based on CarConnectivity-connector-audi's wake command. The API can
+        acknowledge a request without the car actually waking. Use only on a
+        direct user action, respecting Audi's request limits.
+        """
+        if not self._uses_auth0:
+            raise AudiAuthError("Modern CARIAD wake-up requires Auth0")
+        headers = {
+            "Authorization": "Bearer " + self._bearer_token_json["access_token"],
+            "Content-Type": "application/json",
+        }
+        try:
+            await self._api.request(
+                "POST", self.__get_cariad_url_for_vin(vin, "vehiclewakeuptrigger"),
+                headers=headers, data="{}",
+            )
+        except ClientResponseError as err:
+            if err.status != 204:
+                raise
+
     async def set_window_heating(self, vin: str, start: bool):
+        if self._uses_auth0:
+            # The legacy fs-car XML endpoint cannot be authorized by Auth0.
+            # Do not accidentally reroute proven climate START/STOP here.
+            headers = {
+                "Authorization": "Bearer " + self._bearer_token_json["access_token"],
+                "Content-Type": "application/json",
+            }
+            suffix = "windowheating/start" if start else "windowheating/stop"
+            try:
+                await self._api.request(
+                    "POST", self.__get_cariad_url_for_vin(vin, suffix),
+                    headers=headers, data="{}",
+                )
+            except ClientResponseError as err:
+                if err.status != 204:
+                    raise
+            return
         data = '<?xml version="1.0" encoding= "UTF-8" ?><action><type>{action}</type></action>'.format(
             action="startWindowHeating" if start else "stopWindowHeating"
         )
