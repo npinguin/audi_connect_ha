@@ -960,7 +960,7 @@ class AudiService:
                     _LOGGER.debug("%s %s confirmed by CARIAD", noun, action)
                     return
                 raise RuntimeError(
-                    f"{noun} {action} rejected by vehicle "
+                    f"{noun} {action} rejected by the vehicle "
                     f"(confirmation state {str(status)[:32]})"
                 )
 
