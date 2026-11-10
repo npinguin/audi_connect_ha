@@ -84,7 +84,12 @@ class AudiLock(AudiEntity, LockEntity):
 
     async def async_lock(self, **kwargs: Any) -> None:
         connection = self.coordinator.account.connection
-        if not await connection.set_vehicle_lock(self._vehicle.vin, True):
+        # The Lock platform itself performs exactly one post-command refresh.
+        # Suppress the legacy inner notify() to avoid duplicate cloud polls
+        # and excessive rate-limit consumption on every lock attempt.
+        if not await connection.set_vehicle_lock(
+            self._vehicle.vin, True, refresh=False
+        ):
             raise HomeAssistantError(
                 "Failed to lock the vehicle; see the log for details"
             )
@@ -102,7 +107,9 @@ class AudiLock(AudiEntity, LockEntity):
 
     async def async_unlock(self, **kwargs: Any) -> None:
         connection = self.coordinator.account.connection
-        if not await connection.set_vehicle_lock(self._vehicle.vin, False):
+        if not await connection.set_vehicle_lock(
+            self._vehicle.vin, False, refresh=False
+        ):
             raise HomeAssistantError(
                 "Failed to unlock the vehicle; see the log for details"
             )
