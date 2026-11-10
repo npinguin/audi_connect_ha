@@ -124,6 +124,40 @@ inside HA config options. The diagnostics export includes only a
 status matrix; it never includes dealer names, numbers, addresses or
 other locally saved values.
 
+
+
+## D0.4 — visible cloud and vehicle freshness (2.5.3b3)
+
+Home Assistant's Audi Q8 device now gets **three visible sensors** by default
+(not merely entries in the Download diagnostics JSON):
+
+- **Vehicle data freshness** (`fresh`, `delayed`, `stale`, `unknown`).
+- **Vehicle data age** (minutes, suitable for automations and RHI Mobility).
+- **Cloud last successful poll** (timestamp of the most recent completed
+  successful Home Assistant cloud update).
+
+Freshness comes from the newest *vehicle-reported* timestamp on the car
+object, never the time Home Assistant queried the cloud. Thresholds:
+0–30 minutes is `fresh`; 31–120 is `delayed`; greater than 120 is
+`stale`. Empty, naive, 1970 sentinel or implausibly future timestamps
+produce `unknown`, not `fresh`. The freshness and age sensors update
+every five minutes locally, including when cloud polling fails; **these
+updates make no extra Audi API requests**. The cloud timestamp advances
+only after `account.async_refresh_data()` succeeds. An API GET success
+does not imply the vehicle transmitted fresh readings.
+
+The existing **Last Update** sensor and all pre-existing entity unique IDs
+remain unchanged. The new sensors link to the original Audi vehicle device.
+The freshness sensor's attributes separate cloud poll attempt/success from
+vehicle timestamp and explicitly mark the timestamp's scope as the newest
+reading, not proof that every individual data field is up to date.
+Diagnostics includes anonymized vehicle-data age/status and the actual
+cloud last-success / last-attempt timestamps, without VIN or response body.
+
+If the vehicle sleeps or stays parked, an older timestamp may be normal.
+This is intentionally reported as old vehicle data rather than falsely
+describing the cloud connection as broken.
+
 **Safety:** Capability statuses distinguish reported, reported-impaired,
 not-reported and unknown. Remote command authorization is never inferred.
 Do not delete/recreate an existing configured Audi entry to install a beta.
