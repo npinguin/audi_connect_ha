@@ -49,7 +49,7 @@ jobs:
           if requested:
               assert actual == requested, f"manifest={actual!r} requested={requested!r}"
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
-              f.write(f"VERSION={actual}\\n")
+              f.write(f"VERSION={actual}\n")
           PY
 
       - name: Install test dependencies
