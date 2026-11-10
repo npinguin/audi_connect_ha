@@ -15,7 +15,8 @@ class Connection:
         self.accepted = accepted
         self.calls = []
 
-    async def set_vehicle_lock(self, vin: str, lock: bool):
+    async def set_vehicle_lock(self, vin: str, lock: bool, *, refresh: bool = True):
+        assert refresh is False  # Exactly one refresh belongs to AudiLock.
         self.calls.append((vin, lock))
         return self.accepted
 
