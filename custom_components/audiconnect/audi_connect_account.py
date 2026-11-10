@@ -88,8 +88,12 @@ class AudiConnectAccount:
         self._readonly_probe_attempted: dict[str, float] = {}
         self._readonly_probe_lock = asyncio.Lock()
 
-    async def probe_read_only_api(self, vin: str, *, extended: bool = False) -> dict[str, Any]:
-        """Explicit, rate-limited diagnostic GET probes; never a vehicle action."""
+    async def probe_read_only_api(
+        self, vin: str, *, extended: bool = False, restore: bool = False
+    ) -> dict[str, Any]:
+        """Explicit, rate-limited GET probes; never a vehicle action."""
+        if extended and restore:
+            raise ValueError("Extended and restore probes are mutually exclusive")
         vin_key = vin.lower()
         if not self._loggedin:
             raise RuntimeError("Audi connection is not authenticated")
@@ -101,14 +105,16 @@ class AudiConnectAccount:
             last_attempt = self._readonly_probe_attempted.get(vin_key)
             if last_attempt is not None and now - last_attempt < 900:
                 report = self._readonly_probe_reports.get(vin_key)
-                expected_mode = "extended" if extended else "core"
+                expected_mode = (
+                    "restore" if restore else "extended" if extended else "core"
+                )
                 if report is not None and report.get("mode") == expected_mode:
                     return report
                 raise RuntimeError("API diagnostic probe cooldown is active; retry later")
             # Record before dispatch so repeated failed scans cannot hammer Audi.
             self._readonly_probe_attempted[vin_key] = now
             report = await self._audi_service.probe_known_read_only_paths(
-                vin, extended=extended
+                vin, extended=extended, restore=restore
             )
             self._readonly_probe_reports[vin_key] = report
             return report

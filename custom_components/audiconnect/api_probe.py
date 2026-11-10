@@ -36,6 +36,27 @@ EXTENDED_READ_ONLY_PROBES: tuple[tuple[str, str, str | None], ...] = (
     ("trip_statistics_experimental", "selectivestatus?jobs=tripStatistics", "tripStatistics"),
     ("auxiliary_heating", "selectivestatus?jobs=auxiliaryHeating", "auxiliaryHeating"),
 )
+# Experimental candidates from third-party Audi/VW client implementations.
+# Read-only, on explicit user invocation; data is never retained in reports.
+FEATURE_RESTORE_PROBES: tuple[tuple[str, str, str | None], ...] = (
+    ("trip_shortterm", "trips:shortterm", None),
+    ("trip_longterm", "trips:longterm", None),
+    ("trip_last", "trips:shortterm/last", None),
+    ("tripstatistics_shortterm", "tripstatistics?type=shortTerm", None),
+    ("tripstatistics_longterm", "tripstatistics?type=longTerm", None),
+    ("battery_support", "selectivestatus?jobs=batterySupport", "batterySupport"),
+    ("tyre_pressure", "selectivestatus?jobs=tyrePressure", "tyrePressure"),
+    (
+        "vehicle_health_warnings",
+        "selectivestatus?jobs=vehicleHealthWarnings",
+        "vehicleHealthWarnings",
+    ),
+)
+KNOWN_TRIP_ROUTES = frozenset({"shortterm", "longterm", "shortterm/last"})
+MAX_FEATURE_RESTORE_PROBES = 8
+MIN_FEATURE_RESTORE_START_BUDGET = 20
+MIN_FEATURE_RESTORE_RESERVE = 12
+
 MAX_PROBES = 8
 MAX_EXTENDED_PROBES = 13
 MIN_RATE_LIMIT_REMAINING = 12
@@ -91,20 +112,52 @@ def classify_http_status(status: int) -> str:
     return "http_error"
 
 
+def resolve_restore_probe_url(
+    suffix: str,
+    vehicle_url: Callable[[str], str],
+    trip_url: Callable[[str], str],
+) -> str:
+    """Resolve only hard-coded, reviewed trip routes to the BFF trips path."""
+    if suffix.startswith("trips:"):
+        kind = suffix.removeprefix("trips:")
+        if kind not in KNOWN_TRIP_ROUTES:
+            raise ValueError("Unrecognised trip restore route")
+        return trip_url(kind)
+    if suffix not in {probe[1] for probe in FEATURE_RESTORE_PROBES}:
+        raise ValueError("Unrecognised feature restore route")
+    return vehicle_url(suffix)
+
+
 async def run_read_only_probes(
     api: Any, access_token: str, url_for_suffix: Callable[[str], str],
-    *, extended: bool = False,
+    *,
+    extended: bool = False,
+    restore: bool = False,
+    restore_url_for_route: Callable[[str], str] | None = None,
 ) -> dict[str, Any]:
-    """Run a strictly fixed set of GETs on explicit user request only."""
+    """Run only fixed, bounded GET probes on explicit user request."""
+    if restore and extended:
+        raise ValueError("Extended and restore probes are mutually exclusive")
+    if restore and restore_url_for_route is None:
+        raise ValueError("Restore probes require an approved route resolver")
     if not access_token:
         raise ValueError("Missing active Audi access token")
-    paths = READ_ONLY_PROBES[:MAX_PROBES]
-    if extended:
-        paths += EXTENDED_READ_ONLY_PROBES[:MAX_EXTENDED_PROBES - MAX_PROBES]
-    minimum_budget = (
-        MIN_EXTENDED_RATE_LIMIT_REMAINING if extended
-        else MIN_RATE_LIMIT_REMAINING
-    )
+    if restore:
+        paths = FEATURE_RESTORE_PROBES[:MAX_FEATURE_RESTORE_PROBES]
+        minimum_budget = MIN_FEATURE_RESTORE_RESERVE
+        mode = "restore"
+    else:
+        paths = READ_ONLY_PROBES[:MAX_PROBES]
+        if extended:
+            paths += EXTENDED_READ_ONLY_PROBES[
+                : MAX_EXTENDED_PROBES - MAX_PROBES
+            ]
+        minimum_budget = (
+            MIN_EXTENDED_RATE_LIMIT_REMAINING
+            if extended
+            else MIN_RATE_LIMIT_REMAINING
+        )
+        mode = "extended" if extended else "core"
     outcomes: list[dict[str, Any]] = []
     stop_reason: str | None = None
     for name, suffix, job in paths:
@@ -112,14 +165,24 @@ async def run_read_only_probes(
             outcomes.append({"probe": name, "outcome": "skipped", "reason": stop_reason})
             continue
         remaining = getattr(api, "vcf_remaining_calls", None)
-        if remaining is not None and remaining < minimum_budget:
+        if restore and not isinstance(remaining, int):
+            stop_reason = "rate_limit_budget_unknown"
+        elif (
+            restore
+            and not outcomes
+            and remaining < MIN_FEATURE_RESTORE_START_BUDGET
+        ):
             stop_reason = "low_rate_limit_budget"
+        elif remaining is not None and remaining < minimum_budget:
+            stop_reason = "low_rate_limit_budget"
+        if stop_reason:
             outcomes.append({"probe": name, "outcome": "skipped", "reason": stop_reason})
             continue
         try:
-            # Reuse AudiAPI.get so headers and active token handling are
-            # identical to the integration's existing successful GET calls.
-            response = await api.get(url_for_suffix(suffix))
+            # Existing authenticated API path; payload never persisted.
+            resolver = restore_url_for_route if restore else url_for_suffix
+            assert resolver is not None
+            response = await api.get(resolver(suffix))
             outcome = classify_payload(response, job)
             outcomes.append({"probe": name, "outcome": outcome, "http_status": "2xx"})
         except ClientResponseError as exc:
@@ -127,7 +190,7 @@ async def run_read_only_probes(
             outcomes.append({
                 "probe": name, "outcome": outcome, "http_status": int(exc.status)
             })
-            if exc.status in (401, 429):
+            if exc.status in (401, 429) or (restore and exc.status >= 500):
                 stop_reason = outcome
         except TimeoutError:
             outcomes.append({"probe": name, "outcome": "request_timed_out"})
@@ -141,7 +204,7 @@ async def run_read_only_probes(
         "ran_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "attempted": sum(row["outcome"] != "skipped" for row in outcomes),
         "max_allowed": len(paths),
-        "mode": "extended" if extended else "core",
+        "mode": mode,
         "mutating_requests": 0,
         "results": outcomes,
     }

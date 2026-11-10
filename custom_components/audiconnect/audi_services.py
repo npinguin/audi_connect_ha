@@ -17,7 +17,7 @@ from aiohttp import ClientResponseError
 from bs4 import BeautifulSoup
 
 from .audi_api import AudiAPI
-from .api_probe import run_read_only_probes
+from .api_probe import resolve_restore_probe_url, run_read_only_probes
 from .capability_jobs import capability_snapshot, select_jobs
 from .audi_models import TripDataResponse, VehicleDataResponse, VehiclesResponse
 from .const import AUTH0_REDIRECT_URI, AUTH0_REFRESH_TOKEN_PREFIX, DEFAULT_API_LEVEL
@@ -364,21 +364,34 @@ class AudiService:
             f"{await self._get_home_region(vin.upper())}/fs-car/bs/rs/v1/{self._type}/{self._country}/vehicles/{vin.upper()}/status"
         )
 
-    async def probe_known_read_only_paths(self, vin: str, *, extended: bool = False) -> dict[str, Any]:
-        """Use current CARIAD credentials for opt-in diagnostic GET probes.
-
-        Does not create/refresh an auth session or send an action.
-        """
+    async def probe_known_read_only_paths(
+        self, vin: str, *, extended: bool = False, restore: bool = False
+    ) -> dict[str, Any]:
+        """Use active CARIAD credentials only for explicitly requested GET probes."""
         token = self._bearer_token_json
         access_token = token.get("access_token") if isinstance(token, dict) else None
         if not isinstance(access_token, str) or not access_token:
             raise ValueError("Active CARIAD access token unavailable")
         self._api.use_token(token)
+
+        def vehicle_url(suffix: str) -> str:
+            return self.__get_cariad_url_for_vin(vin, suffix)
+
+        def trip_url(kind: str) -> str:
+            return self.__get_cariad_url(
+                "vehicle/v1/trips/{vin}/{kind}", vin=vin.upper(), kind=kind
+            )
+
+        def restore_url(suffix: str) -> str:
+            return resolve_restore_probe_url(suffix, vehicle_url, trip_url)
+
         return await run_read_only_probes(
             self._api,
             access_token,
-            lambda suffix: self.__get_cariad_url_for_vin(vin, suffix),
+            vehicle_url,
             extended=extended,
+            restore=restore,
+            restore_url_for_route=restore_url if restore else None,
         )
 
     async def get_stored_vehicle_data(self, vin: str):

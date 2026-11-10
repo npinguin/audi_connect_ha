@@ -10,6 +10,11 @@ probe_api_paths:
     missing vehicle data. Extended mode adds four experimental GET-only checks,
     including climate timers, measurements, inspection and trip statistics.
     Re-running with a different mode within 15 minutes is rejected.
+    The separate experimental restore mode probes fixed candidate trip, 12V
+    battery, tyre-pressure and vehicle-warning GET endpoints. No sensors are
+    restored automatically. Extended and restore must not both be enabled.
+    Restore requires a known Audi rate-limit budget (20 or more remaining)
+    and stops before consuming the final 12 available calls.
   fields:
     device_id:
       required: true
@@ -17,6 +22,9 @@ probe_api_paths:
         device:
           integration: audiconnect
     extended:
+      selector:
+        boolean:
+    restore:
       selector:
         boolean:
 

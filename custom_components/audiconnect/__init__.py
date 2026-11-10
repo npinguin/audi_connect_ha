@@ -61,6 +61,7 @@ SERVICE_SET_LOCAL_DEALER = "set_local_dealer"
 PROBE_SCHEMA = vol.Schema({
     vol.Required(CONF_DEVICE_ID): cv.string,
     vol.Optional("extended", default=False): bool,
+    vol.Optional("restore", default=False): bool,
 })
 LOCAL_DEALER_SCHEMA = vol.Schema({
     vol.Required(CONF_DEVICE_ID): cv.string,
@@ -245,7 +246,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         await account.connection.probe_read_only_api(
-            vin, extended=service.data.get("extended", False)
+            vin,
+            extended=service.data.get("extended", False),
+            restore=service.data.get("restore", False),
         )
 
     async def _handle_set_local_dealer(service: ServiceCall) -> None:
