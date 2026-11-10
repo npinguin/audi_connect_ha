@@ -68,3 +68,53 @@ Safeguards:
 This is an investigative tool for missing features; avoid unnecessary
 repeated scans. Run a manual Audi cloud refresh before the probe only
 when needed, not automatically.
+
+## D0.3 — Audi Q8 browser evidence and optional local extensions (2.5.3b2)
+
+Live evidence: Home Assistant 2026.11.1 on Audi Connect 2.5.3b1 completed
+8/8 explicit GET probes: capabilities, charging, charging timers,
+climatisation and parking position returned readable shapes. Charging
+profiles returned an embedded job error; hybrid auxiliary heating did not
+appear under that requested key; pendingrequests returned HTTP 204.
+
+A user-provided myAudi browser HAR advertised 72 capability identifiers
+including chargingTimers, climatisationTimers, tripStatistics,
+dealerAppointment and vehicleHealthInspection. A capability advertisement
+is not proof that a CARIAD endpoint works or a command is authorized.
+The HAR also contained a GraphQL vehicle-list query and a measurements
+GET through a **website proxy**. This is NOT a reusable Auth0 endpoint:
+do not replay its browser tokens, cookies, CSRF headers or proxy session
+in Home Assistant. No HAR content, VIN or personal data is committed.
+
+**Extended opt-in API probes:** In Developer tools → Actions run
+`audiconnect.probe_api_paths` for the car and set `extended: true`.
+This runs at most 12 GETs total (the existing 8 and four additional
+experimental paths: climatisationTimers, measurements,
+vehicleHealthInspection, tripStatistics). Core mode stays at 8. A 15-minute
+per-car cooldown applies across both modes; switching modes during
+cooldown is rejected. Known rate-limit budget must be at least 16 before
+running the extended set; stop on 401/429, timeout or unexpected error.
+Only the latest bounded sanitized classifications are in Download diagnostics.
+
+**Local dealer & service details (optional, offline):** Run
+`audiconnect.set_local_dealer` and pick one Audi device. Set any of:
+`dealer_name`, `dealer_city`, `dealer_address`, `dealer_phone`,
+`dealer_website`, `next_service_date` (YYYY-MM-DD) and
+`warranty_expiry` (YYYY-MM-DD). A new entity
+`sensor.<car>_dealer_local` is then created under the *same* Audi
+device, with dealer name as state and other data as attributes.
+Omit fields to retain existing values; supply empty text to remove a
+single field; `clear: true` removes all local fields for that car.
+The edit is persisted in HA options and triggers an entry reload, not a
+remote Audi request. Saving regular options preserves local data.
+
+There is no automatic dealer lookup, myAudi account scraping, external
+cloud storage, push sync, or additional login. Per-vehicle VIN keys stay
+inside HA config options. The diagnostics export includes only a
+`local_dealer_configured` boolean and a fixed allowlisted capability
+status matrix; it never includes dealer names, numbers, addresses or
+other locally saved values.
+
+**Safety:** Capability statuses distinguish reported, reported-impaired,
+not-reported and unknown. Remote command authorization is never inferred.
+Do not delete/recreate an existing configured Audi entry to install a beta.
