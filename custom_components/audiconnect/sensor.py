@@ -65,6 +65,7 @@ def _trip_data_attrs(vehicle: Any, attr_key: str) -> dict[str, Any]:
     if not td or not isinstance(td, dict):
         return {}
     return {
+        "data_source": td.get("source", "legacy"),
         "averageElectricEngineConsumption": td.get("averageElectricEngineConsumption"),
         "averageFuelConsumption": td.get("averageFuelConsumption"),
         "averageSpeed": td.get("averageSpeed"),
@@ -74,6 +75,7 @@ def _trip_data_attrs(vehicle: Any, attr_key: str) -> dict[str, Any]:
         "traveltime": td.get("traveltime"),
         "tripID": td.get("tripID"),
         "zeroEmissionDistance": td.get("zeroEmissionDistance"),
+        "units": td.get("units"),
     }
 
 
@@ -154,6 +156,14 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TIMESTAMP,
         value_fn=lambda v: _trip_data_value(v, "shortterm_current"),
         extra_attrs_fn=lambda v: _trip_data_attrs(v, "shortterm_current"),
+    ),
+    AudiSensorEntityDescription(
+        key="last_trip",
+        attr_key="last_trip",
+        name="Last trip (CARIAD)",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda v: _trip_data_value(v, "last_trip"),
+        extra_attrs_fn=lambda v: _trip_data_attrs(v, "last_trip"),
     ),
     AudiSensorEntityDescription(
         key="shortterm_reset",
@@ -622,7 +632,23 @@ async def async_setup_entry(
             AudiServiceOverviewSensor(runtime_data.coordinator, vehicle, config_entry)
         )
         for description in SENSOR_DESCRIPTIONS:
-            if should_create_entity(
+            # Keep existing trip entity unique IDs under Auth0 even before
+            # the first explicit manual read. They remain unavailable until a
+            # correctly normalized trip with an actual timestamp is received.
+            trip_key = description.key in {
+                "shortterm_current", "shortterm_reset",
+                "longterm_current", "longterm_reset", "last_trip",
+            }
+            service = getattr(vehicle, "_audi_service", None)
+            modern_trip_available = (
+                trip_key
+                and getattr(service, "uses_auth0", False)
+                and (
+                    not hasattr(vehicle, "has_capability")
+                    or vehicle.has_capability("tripStatistics") is not False
+                )
+            )
+            if modern_trip_available or should_create_entity(
                 hass,
                 "sensor",
                 description.key,

@@ -102,6 +102,11 @@ def _vehicle_snapshot(vehicle: Any, index: int, uses_auth0: bool) -> dict[str, A
                 "unavailable",
             } else "unavailable"
         ),
+        "trip_read_presence": {
+            "shortterm_current": isinstance(state.get("shortterm_current"), dict),
+            "longterm_current": isinstance(state.get("longterm_current"), dict),
+            "last_trip": isinstance(state.get("last_trip"), dict),
+        },
         "capability_inventory": snapshot_capabilities(vehicle),
         "vehicle_data_age_minutes": vehicle_age_minutes(
             getattr(vehicle, "last_update_time", None)
@@ -200,6 +205,13 @@ async def async_get_config_entry_diagnostics(
         "recent_http_observations": list(
             getattr(api, "diagnostic_events", [])
         )[-40:],
+        "trip_restore_attempts": [
+            {"vehicle_slot": index, "report": report}
+            for index, vehicle in enumerate(vehicles[:10], 1)
+            if (
+                report := connection.get_auth0_trip_report(vehicle.vin)
+            ) is not None
+        ],
         "read_only_api_probes": [
             {"vehicle_slot": index, "report": report}
             for index, vehicle in enumerate(vehicles[:10], 1)

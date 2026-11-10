@@ -43,6 +43,22 @@ probe_api_paths:
             - label: Vehicle health (12V, tyres, warnings; 3 requests)
               value: vehicle_health
 
+refresh_trip_data:
+  name: Read modern Audi trip data
+  description: >
+    Explicit, read-only CARIAD shortterm, longterm and last-trip GET requests.
+    Attempts to restore existing trip sensors only when real data has a
+    timestamp and supported measurement fields. No automatic polling, writes,
+    location history or guessed consumption units. Maximum three requests
+    with a shared 15-minute cooldown and an API quota guard.
+    Inspect the sanitized diagnostics for schema outcomes.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: audiconnect
+
 set_local_dealer:
   name: Set local dealer and service information
   description: >-

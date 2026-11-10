@@ -57,6 +57,7 @@ from .local_extensions import DEALER_FIELDS, update_local_dealer_options
 _LOGGER = logging.getLogger(__name__)
 
 SERVICE_PROBE_API_PATHS = "probe_api_paths"
+SERVICE_REFRESH_TRIP_DATA = "refresh_trip_data"
 SERVICE_SET_LOCAL_DEALER = "set_local_dealer"
 PROBE_SCHEMA = vol.Schema({
     vol.Required(CONF_DEVICE_ID): cv.string,
@@ -260,6 +261,22 @@ def _async_register_services(hass: HomeAssistant) -> None:
             # unexplained "Unknown error" for a normal safety limit.
             raise HomeAssistantError(str(exc)) from exc
 
+    async def _handle_refresh_trip_data(service: ServiceCall) -> None:
+        """User-triggered modern trip read; no background poll or new writes."""
+        result = _resolve_service_call(hass, service)
+        if result is None:
+            return
+        vin, account = result
+        try:
+            report = await account.connection.refresh_auth0_trip_data(vin)
+        except RuntimeError as exc:
+            raise HomeAssistantError(str(exc)) from exc
+        # Update the existing entity values without a fresh cloud/API poll.
+        if report.get("normalized", 0) > 0:
+            runtime = getattr(account.config_entry, "runtime_data", None)
+            if runtime is not None:
+                runtime.coordinator.async_set_updated_data(account.config_vehicles)
+
     async def _handle_set_local_dealer(service: ServiceCall) -> None:
         """Opt-in local metadata only; no Audi network calls."""
         result = _resolve_service_call(hass, service)
@@ -347,6 +364,13 @@ def _async_register_services(hass: HomeAssistant) -> None:
             SERVICE_PROBE_API_PATHS,
             _handle_probe_api_paths,
             schema=PROBE_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_TRIP_DATA):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REFRESH_TRIP_DATA,
+            _handle_refresh_trip_data,
+            schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_LOCAL_DEALER):
         hass.services.async_register(
