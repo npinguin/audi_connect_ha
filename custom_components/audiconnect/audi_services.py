@@ -369,6 +369,7 @@ class AudiService:
         access_token = token.get("access_token") if isinstance(token, dict) else None
         if not isinstance(access_token, str) or not access_token:
             raise ValueError("Active CARIAD access token unavailable")
+        self._api.use_token(token)
         return await run_read_only_probes(
             self._api,
             access_token,
@@ -409,7 +410,7 @@ class AudiService:
             )
         )
 
-        _LOGGER.debug("Vehicle data returned for VIN: %s: %s", redacted_vin, data)
+        _LOGGER.debug("Vehicle selective-status response received (payload redacted)")
         return VehicleDataResponse(data)
 
     async def get_charger(self, vin: str):
