@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "custom_components/audiconnect/**"
+      - "hacs.json"
       - ".github/workflows/robotix-prerelease.yml"
   workflow_dispatch:
     inputs:
@@ -72,13 +73,22 @@ jobs:
         if: steps.hacs.outcome == 'failure'
         run: echo "::warning::HACS repository validation is NOT green. Check Issues enabled in the repository settings before production release."
 
-      - name: Build install and optional HACS ZIP assets
+      - name: Build HACS ZIP assets and verify metadata
         run: |
           mkdir -p dist
           (cd custom_components && zip -qr ../dist/audiconnect-ha-install.zip audiconnect)
           (cd custom_components/audiconnect && zip -qr ../../dist/audiconnect-hacs.zip .)
           unzip -l dist/audiconnect-ha-install.zip | grep -q 'audiconnect/manifest.json'
           unzip -l dist/audiconnect-hacs.zip | grep -q 'manifest.json'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("hacs.json").read_text())
+          assert data.get("zip_release") is True, "HACS must download the release ZIP"
+          assert data.get("filename") == "audiconnect-hacs.zip", "HACS ZIP metadata drift"
+          assert Path("dist", data["filename"]).is_file(), "HACS ZIP asset missing"
+          assert data.get("hide_default_branch") is True, "Avoid installing default master branch"
+          PY
           sha256sum dist/*.zip > dist/SHA256SUMS.txt
 
       - name: Create GitHub beta release
