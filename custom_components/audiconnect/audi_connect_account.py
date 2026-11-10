@@ -2470,12 +2470,22 @@ class AudiConnectVehicle:
 
     @property
     def park_time(self):
-        if self.park_time_supported:
-            return self._vehicle.state.get("vehicleParkingClock")
+        """Prefer genuine parking-clock time, fall back to parked GPS capture.
+
+        Legacy parking clock comes from fs-car climater polling, disabled for
+        European Auth0 accounts. Modern CARIAD parkingposition instead includes
+        a carCapturedTimestamp. This reports an observation, NOT a guaranteed
+        engine-off or parking-start time.
+        """
+        legacy = self._vehicle.state.get("vehicleParkingClock")
+        if legacy is not None:
+            return legacy
+        position = self._vehicle.state.get("position") or {}
+        return position.get("parktime") if isinstance(position, dict) else None
 
     @property
     def park_time_supported(self):
-        return self._vehicle.state.get("vehicleParkingClock") is not None
+        return self.park_time is not None
 
     @property
     def remaining_climatisation_time(self):
