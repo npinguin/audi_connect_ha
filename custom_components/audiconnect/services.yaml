@@ -15,6 +15,44 @@ probe_api_paths:
         device:
           integration: audiconnect
 
+set_local_dealer:
+  name: Set local dealer and service information
+  description: >-
+    Optional details kept locally in Home Assistant. No Audi API requests.
+    Fields not supplied keep their previous values. Empty text removes a field.
+    Clear removes the whole local record for this vehicle.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: audiconnect
+    dealer_name:
+      selector:
+        text:
+    dealer_city:
+      selector:
+        text:
+    dealer_address:
+      selector:
+        text:
+    dealer_phone:
+      selector:
+        text:
+    dealer_website:
+      selector:
+        text:
+          type: url
+    next_service_date:
+      selector:
+        date:
+    warranty_expiry:
+      selector:
+        date:
+    clear:
+      selector:
+        boolean:
+
 refresh_vehicle_data:
   fields:
     device_id:
