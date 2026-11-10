@@ -13,7 +13,10 @@ from custom_components.audiconnect.audi_connect_account import (
     AudiConnectAccount,
     AudiConnectVehicle,
 )
-from custom_components.audiconnect.trip_restore import normalize_cariad_trip
+from custom_components.audiconnect.trip_restore import (
+    describe_cariad_trip_schema,
+    normalize_cariad_trip,
+)
 from custom_components.audiconnect.util import parse_datetime
 
 VIN = "SYNTHETICVIN000001"
@@ -219,3 +222,84 @@ def test_last_trip_is_new_key_and_prior_trip_entity_ids_are_unchanged():
     assert entity_unique_id(vehicle, "sensor", "last_trip") == (
         f"{VIN.lower()}_sensor_last_trip"
     )
+
+
+
+def test_safe_schema_fingerprint_does_not_expose_response_values_or_unknown_keys():
+    payload = {
+        "data": {
+            "vin": VIN,
+            "authorization": "Bearer secret",
+            "location": {"latitude": 50.5, "longitude": 4.5},
+            "id": "private-trip-id",
+            "tripEndTimestamp": "2026-11-10T21:00:00Z",
+            "mileage_km": 11,
+            "averageFuelConsumption": 8.1,
+            "tripType": "shortTerm",
+        }
+    }
+    shape = describe_cariad_trip_schema(payload)
+    assert shape == {
+        "envelope": "object",
+        "recognized_record": True,
+        "known_fields": [
+            "averageFuelConsumption", "mileage_km", "tripEndTimestamp", "tripType"
+        ],
+        "timestamp_with_timezone": True,
+    }
+    text = repr(shape)
+    for value in (VIN, "Bearer secret", "private-trip-id", "50.5", "4.5", "11", "8.1"):
+        # Numeric fragments can occur in metadata flags, so only the uniquely
+        # identifying personal strings have to be excluded.
+        if value in (VIN, "Bearer secret", "private-trip-id"):
+            assert value not in text
+
+
+def test_ambiguous_legacy_scaled_fuel_reading_is_not_published_as_modern_consumption():
+    payload = {
+        "data": {
+            "tripEndTimestamp": "2026-11-10T21:00:00Z",
+            "mileage_km": 10,
+            "averageFuelConsumption": 81,
+        }
+    }
+    trip, status = normalize_cariad_trip(payload)
+    assert status == "normalized"
+    assert trip["averageFuelConsumption"] is None
+    assert trip["mileage"] == 10
+
+
+def test_explicitly_unit_suffixed_consumption_is_not_divided_by_ten():
+    payload = {
+        "data": {
+            "tripEndTimestamp": "2026-11-10T21:00:00Z",
+            "mileage_km": 10,
+            "averageFuelConsumption_L_per_100km": 8.1,
+        }
+    }
+    trip, status = normalize_cariad_trip(payload)
+    assert status == "normalized"
+    assert trip["averageFuelConsumption"] == 8.1
+
+
+def test_sanitized_schema_information_is_in_manual_trip_read_report():
+    account, _vehicle, service = _account()
+    report = asyncio.run(account.refresh_auth0_trip_data(VIN))
+    assert report["results"][0]["schema"]["recognized_record"] is True
+    assert "mileage_km" in report["results"][0]["schema"]["known_fields"]
+    assert "private-trip-id" not in repr(report)
+    assert VIN not in repr(report)
+    assert service.calls == [
+        (VIN, "shortterm"),
+        (VIN, "longterm"),
+        (VIN, "shortterm/last"),
+    ]
+
+
+def test_schema_for_unknown_cariad_payload_is_anonymized():
+    payload = {"data": {"unknownCarIdentifier": VIN, "private": "secret"}}
+    shape = describe_cariad_trip_schema(payload)
+    assert shape["recognized_record"] is False
+    assert shape["known_fields"] == []
+    assert VIN not in repr(shape)
+    assert "unknownCarIdentifier" not in repr(shape)
