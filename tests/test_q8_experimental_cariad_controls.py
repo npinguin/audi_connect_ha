@@ -78,8 +78,8 @@ def test_unproven_controls_require_user_opt_in_and_explicit_capability():
                 "wake_vehicle_modern"):
         assert new[key].experimental is True
         assert new[key].supported_fn(v) is True
-    assert new["start_climate_car_settings"].experimental is False
-    assert new["stop_climate"].experimental is False
+    assert "start_climate_car_settings" not in new
+    assert "stop_climate" not in new
     assert new["flash_lights"].experimental is False
 
 
