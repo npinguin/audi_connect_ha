@@ -39,3 +39,32 @@ Run targeted tests, then the upstream suite and formatting/lint checks. Test in 
 Do **not** delete the Audi Connect config entry to switch GitHub sources. In Home Assistant 2026.11 Marketplace, **Delete and uninstall** removes the entry and vehicle/entity registrations. Keep the original Marketplace installation until a safe non-destructive source transition is established. Test using an isolated HA instance or a controlled file-only replacement with backups and update management.
 
 **Next:** D0.2 command-lifecycle correlation, then vehicle-specific command fixes.
+
+
+## D0.2 — explicit read-only API path discovery
+
+Run **Settings → Developer tools → Actions → `audiconnect.probe_api_paths`**
+and select exactly one Audi Connect vehicle. The service performs up to **eight
+GET requests** to the known CARIAD BFF: capability list, charging status,
+charging profiles/timers, climatisation, hybrid auxiliary heating, parked
+position and pending requests. It does not enumerate unknown endpoints.
+
+The probe uses the current authenticated session without reauthentication,
+and never starts/stops charging, locks doors, changes settings, moves the car
+or starts its engine. It is **not** performed during normal polling or
+Download diagnostics. Results are held in memory, matched to an anonymized
+vehicle slot and embedded in the subsequent standard diagnostics download.
+
+Safeguards:
+- one run per vehicle per 15 minutes, reused from cache when repeated
+- maximum eight sequential requests; no arbitrary URL or method input
+- skip requests if the last known remaining API budget is below 12
+- stop after first 401, 429, timeout or general request exception
+- no VIN, API URL, headers, token, GPS, response body, trip or account identity
+  is ever stored in the probe report
+- 200 with a missing/error job does not mean that feature is available
+- successful read access **does not prove remote command support**
+
+This is an investigative tool for missing features; avoid unnecessary
+repeated scans. Run a manual Audi cloud refresh before the probe only
+when needed, not automatically.
