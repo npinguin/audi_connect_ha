@@ -1,4 +1,4 @@
-name: Robotix Audi Connect — validated prerelease
+name: Audi Connect — validated HACS test prerelease
 
 on:
   push:
@@ -64,7 +64,7 @@ jobs:
 
       - name: HACS repository validation (metadata advisory for beta)
         id: hacs
-        continue-on-error: true # Known external blocker: repository Issues setting
+        continue-on-error: true # Advisory only for prereleases; investigate any failure
         uses: hacs/action@main
         with:
           category: integration
@@ -103,5 +103,5 @@ jobs:
           gh release create "v${VERSION}" dist/*.zip dist/SHA256SUMS.txt \
             --target "${COMMIT}" \
             --prerelease \
-            --title "Robotix Audi Connect v${VERSION} (test)" \
-            --notes "Robotix test release from main. See docs/DIAGNOSTICS_D0.1.md and docs/ROBOTIX_RELEASE_WORKFLOW.md. Install only with backup and explicit test acceptance."
+            --title "Audi Connect v${VERSION} (test)" \
+            --notes "Community test candidate. Back up Home Assistant before installing. Validate vehicle controls and compatibility before upstream submission."
