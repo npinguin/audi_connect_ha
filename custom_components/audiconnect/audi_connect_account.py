@@ -1979,6 +1979,43 @@ class AudiConnectVehicle:
             return True
 
     @property
+    def charging_current_limit_a(self):
+        """Modern numeric AC charging current limit reported by CARIAD."""
+        value = self._vehicle.state.get("chargingCurrentLimitA")
+        return parse_float(value) if value is not None else None
+
+    @property
+    def charging_current_limit_mode(self):
+        return self._vehicle.state.get("chargingCurrentLimitMode")
+
+    @property
+    def charging_plug_auto_unlock(self):
+        value = self._vehicle.state.get("chargingPlugAutoUnlock")
+        if value == "on":
+            return "enabled"
+        if value == "off":
+            return "disabled"
+        return None
+
+    @property
+    def vehicle_reported_online(self):
+        value = self._vehicle.state.get("vehicleReportedOnline")
+        if value is True:
+            return "online"
+        if value is False:
+            return "offline"
+        return None
+
+    @property
+    def vehicle_reported_active(self):
+        value = self._vehicle.state.get("vehicleReportedActive")
+        if value is True:
+            return "active"
+        if value is False:
+            return "inactive"
+        return None
+
+    @property
     def max_charge_current(self):
         """Return max charge current"""
         if self.max_charge_current_supported:
