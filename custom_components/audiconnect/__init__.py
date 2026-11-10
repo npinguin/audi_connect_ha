@@ -58,6 +58,10 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_PROBE_API_PATHS = "probe_api_paths"
 SERVICE_SET_LOCAL_DEALER = "set_local_dealer"
+PROBE_SCHEMA = vol.Schema({
+    vol.Required(CONF_DEVICE_ID): cv.string,
+    vol.Optional("extended", default=False): bool,
+})
 LOCAL_DEALER_SCHEMA = vol.Schema({
     vol.Required(CONF_DEVICE_ID): cv.string,
     vol.Optional("clear", default=False): bool,
@@ -240,7 +244,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
         if result is None:
             return
         vin, account = result
-        await account.connection.probe_read_only_api(vin)
+        await account.connection.probe_read_only_api(
+            vin, extended=service.data.get("extended", False)
+        )
 
     async def _handle_set_local_dealer(service: ServiceCall) -> None:
         """Opt-in local metadata only; no Audi network calls."""
@@ -328,7 +334,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             DOMAIN,
             SERVICE_PROBE_API_PATHS,
             _handle_probe_api_paths,
-            schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
+            schema=PROBE_SCHEMA,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_SET_LOCAL_DEALER):
         hass.services.async_register(
