@@ -488,6 +488,9 @@ class OptionsFlowHandler(OptionsFlow):
             user_input[CONF_SCAN_INTERVAL] = max(
                 int(user_input[CONF_SCAN_INTERVAL]), MIN_UPDATE_INTERVAL
             )
+            # OptionsFlow replaces all options; preserve per-vehicle metadata.
+            if "local_dealers" in self.config_entry.options:
+                user_input["local_dealers"] = self.config_entry.options["local_dealers"]
             return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
