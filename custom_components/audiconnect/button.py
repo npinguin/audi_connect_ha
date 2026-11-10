@@ -15,25 +15,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import AudiRuntimeData
 from .audi_entity import AudiEntity, is_entity_supported
 from .coordinator import AudiDataUpdateCoordinator
+from .vehicle_controls import engine_start_stop_supported
 
 
-def _spin_available(vehicle: Any) -> bool:
-    """Engine start/stop needs the S-PIN, the same gate the lock entity uses."""
-    service = getattr(vehicle, "_audi_service", None)
-    return getattr(service, "_spin", None) is not None
-
-
-def _engine_controls_supported(vehicle: Any) -> bool:
-    """Battery-electric cars have no engine to start, so they get no buttons.
-
-    Only a positive "electric" suppresses them: an unreported or unrecognised
-    car type leaves the buttons in place, since omitting a control the car does
-    support is the worse failure.
-    """
-    if not _spin_available(vehicle):
-        return False
-    car_type = getattr(vehicle, "car_type", None)
-    return not (isinstance(car_type, str) and car_type.lower() == "electric")
+# Retain the historical helper symbol for test compatibility.
+_engine_controls_supported = engine_start_stop_supported
 
 
 @dataclass(frozen=True, kw_only=True)
