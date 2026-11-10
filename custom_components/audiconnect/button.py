@@ -10,6 +10,7 @@ from homeassistant.components.button import ButtonEntity, ButtonEntityDescriptio
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import EntityCategory
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AudiRuntimeData
@@ -37,6 +38,30 @@ BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
         icon="mdi:cloud-refresh",
         entity_category=EntityCategory.DIAGNOSTIC,
         press_fn=lambda account, vin: account.refresh_vehicle_data(vin),
+    ),
+    AudiButtonEntityDescription(
+        key="start_climate_car_settings",
+        name="Start climate (car settings)",
+        icon="mdi:air-conditioner",
+        # Explicit bodyless CARIAD start; does not send the HA temperature.
+        # Useful when a model rejects incomplete settings payloads.
+        supported_fn=lambda vehicle: bool(
+            getattr(getattr(vehicle, "_audi_service", None), "uses_auth0", False)
+        )
+        and is_entity_supported(vehicle, "climatisation_state", "climatisation"),
+        press_fn=lambda account, vin: account.connection.start_climate_control(vin),
+    ),
+    AudiButtonEntityDescription(
+        key="stop_climate",
+        name="Stop climate",
+        icon="mdi:air-conditioner-off",
+        supported_fn=lambda vehicle: bool(
+            getattr(getattr(vehicle, "_audi_service", None), "uses_auth0", False)
+        )
+        and is_entity_supported(vehicle, "climatisation_state", "climatisation"),
+        press_fn=lambda account, vin: account.connection.set_vehicle_climatisation(
+            vin, False
+        ),
     ),
     AudiButtonEntityDescription(
         key="flash_lights",
@@ -98,9 +123,19 @@ class AudiButton(AudiEntity, ButtonEntity):
         self._attr_unique_id = f"{vehicle.vin.lower()}_button_{description.key}"
 
     async def async_press(self) -> None:
-        await self.entity_description.press_fn(
+        result = await self.entity_description.press_fn(
             self.coordinator.account, self._vehicle.vin
         )
+        if result is False:
+            # Prevent UI from silently accepting a failed API action.
+            raise HomeAssistantError(
+                f"Audi {self.entity_description.name} request failed; "
+                "check the Audi Connect integration logs"
+            )
+        if self.entity_description.key in {
+            "start_climate_car_settings", "stop_climate"
+        }:
+            await self.coordinator.async_request_refresh()
 
 
 __all__ = ["AudiButton", "async_setup_entry"]

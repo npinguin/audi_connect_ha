@@ -27,6 +27,12 @@ def classify_route(url: str) -> str:
         or path == "/token"
     ):
         return "authentication"
+    if "/access/lock" in path or "/access/unlock" in path:
+        return "modern_access"
+    if "/api/bs/rlu/" in path:
+        return "legacy_access"
+    if "/spin/verify" in path:
+        return "security_pin_verification"
     if "/services/rlu_v1/" in path or "security-pin-auth-requested" in path:
         return "remote_lock_authorization"
     if "/fs-car/bs/climatisation/" in path:

@@ -717,6 +717,61 @@ class AudiService:
         return self.__build_url(base_url, path_and_query, **path_and_query_kwargs)
 
     async def set_vehicle_lock(self, vin: str, lock: bool):
+        """Use the CARIAD access API with Auth0, legacy RLU only with legacy auth.
+
+        Audi's 2026 Auth0 sessions no longer authorize the old
+        rolesrights/rlu_v1 PIN challenge used by the pre-2026 integration.
+        Do not retry a failed access command on another backend: unlocking is a
+        security-sensitive mutation and blind retries can have side effects.
+        """
+        if self._uses_auth0:
+            return await self._set_vehicle_lock_cariad(vin, lock)
+        return await self._set_vehicle_lock_legacy(vin, lock)
+
+    async def _set_vehicle_lock_cariad(self, vin: str, lock: bool) -> None:
+        """Modern /access/lock and /access/unlock route (Audi connector reference).
+
+        The Audi BFF expects the S-PIN as a JSON field, unlike legacy RLU
+        challenge/response. Never log the payload, VIN, or authorization data.
+        HTTP 200 means *accepted by gateway*, not proven physical door state.
+        """
+        if not self._spin:
+            raise ValueError("An Audi S-PIN is required for remote door control")
+        if not self._bearer_token_json or not self._bearer_token_json.get("access_token"):
+            raise AudiAuthError("Audi Auth0 access token is unavailable")
+        action = "lock" if lock else "unlock"
+        headers = {
+            "Authorization": "Bearer " + self._bearer_token_json["access_token"],
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        self._api.use_token(self._bearer_token_json)
+        try:
+            reply = await self._api.request(
+                "POST",
+                self.__get_cariad_url_for_vin(vin, f"access/{action}"),
+                headers=headers,
+                data=json.dumps({"spin": self._spin}),
+            )
+        except ClientResponseError as err:
+            # CARIAD may acknowledge a mutation with 204 No Content.
+            # This is only a transport acknowledgement, not a door-state check.
+            if err.status != 204:
+                raise
+            reply = None
+        request_id = get_attr(reply, "data.requestID") if isinstance(reply, dict) else None
+        if request_id:
+            await self._confirm_vehicle_request(
+                vin, action, request_id, noun="Door lock"
+            )
+        else:
+            _LOGGER.debug(
+                "Door %s request acknowledged without a confirmation id; "
+                "verify lock status after the next vehicle refresh",
+                action,
+            )
+
+    async def _set_vehicle_lock_legacy(self, vin: str, lock: bool) -> None:
         security_token = await self._get_security_token(
             vin, "rlu_v1/operations/" + ("LOCK" if lock else "UNLOCK")
         )
@@ -882,14 +937,24 @@ class AudiService:
 
         for _ in range(attempts):
             await asyncio.sleep(sleep)
-            res = await self._api.request(
-                "GET",
-                self.__get_cariad_url_for_vin(vin, "pendingrequests"),
-                headers=headers,
-                data=None,
-            )
+            try:
+                res = await self._api.request(
+                    "GET",
+                    self.__get_cariad_url_for_vin(vin, "pendingrequests"),
+                    headers=headers,
+                    data=None,
+                )
+            except ClientResponseError as err:
+                if err.status != 204:
+                    raise
+                res = None
 
-            for pending_request in get_attr(res, "data") or []:
+            entries = get_attr(res, "data") or []
+            if not isinstance(entries, list):
+                entries = []
+            for pending_request in entries:
+                if not isinstance(pending_request, dict):
+                    continue
                 if pending_request.get("id") != request_id:
                     continue
                 status = pending_request.get("status")
@@ -1155,12 +1220,24 @@ class AudiService:
                 headers = {
                     "Authorization": "Bearer " + self._bearer_token_json["access_token"]
                 }
-                res = await self._api.request(
-                    "POST",
-                    self.__get_cariad_url_for_vin(vin, "climatisation/stop"),
-                    headers=headers,
-                    data=data,
-                )
+                try:
+                    res = await self._api.request(
+                        "POST",
+                        self.__get_cariad_url_for_vin(vin, "climatisation/stop"),
+                        headers=headers,
+                        data=data,
+                    )
+                except ClientResponseError as err:
+                    if err.status != 204:
+                        raise
+                    res = None
+                request_id = get_attr(res, "data.requestID")
+                if request_id:
+                    await self._confirm_vehicle_request(
+                        vin, "stop", request_id, noun="Climatisation",
+                        attempts=CLIMATISATION_CONFIRM_ATTEMPTS,
+                        sleep=CLIMATISATION_CONFIRM_SLEEP,
+                    )
 
                 # checkUrl = "https://emea.bff.cariad.digital/vehicle/v1/vehicles/{vin}/pendingrequests".format(
                 #     vin=vin.upper(),
@@ -1336,12 +1413,19 @@ class AudiService:
             headers = {
                 "Authorization": "Bearer " + self._bearer_token_json["access_token"]
             }
-            res = await self._api.request(
-                "POST",
-                self.__get_cariad_url_for_vin(vin, "climatisation/start"),
-                headers=headers,
-                data=data,
-            )
+            try:
+                res = await self._api.request(
+                    "POST",
+                    self.__get_cariad_url_for_vin(vin, "climatisation/start"),
+                    headers=headers,
+                    data=data,
+                )
+            except ClientResponseError as err:
+                # No-content is a valid acknowledgement for certain BFF
+                # actions. Never mistake it for a verified vehicle transition.
+                if err.status != 204:
+                    raise
+                res = None
 
             # The 200 is the gateway accepting the request, not the car acting on
             # it. Measured on a live vehicle 2026-09-13: a start the car ignored
