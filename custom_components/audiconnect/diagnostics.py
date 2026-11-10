@@ -168,5 +168,12 @@ async def async_get_config_entry_diagnostics(
         "recent_http_observations": list(
             getattr(api, "diagnostic_events", [])
         )[-40:],
+        "read_only_api_probes": [
+            {"vehicle_slot": index, "report": report}
+            for index, vehicle in enumerate(vehicles[:10], 1)
+            if (
+                report := connection.get_read_only_probe_report(vehicle.vin)
+            ) is not None
+        ] if hasattr(connection, "get_read_only_probe_report") else [],
     }
     return result
