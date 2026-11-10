@@ -370,7 +370,7 @@ class AudiConnectAccount:
             )
             return False
 
-    async def set_vehicle_lock(self, vin: str, lock: bool):
+    async def set_vehicle_lock(self, vin: str, lock: bool, *, refresh: bool = True):
         if not self._loggedin:
             await self.login()
 
@@ -387,9 +387,8 @@ class AudiConnectAccount:
             await self._audi_service.set_vehicle_lock(vin, lock)
 
             _LOGGER.debug(
-                "Successfully %s vehicle %s",
-                "locked" if lock else "unlocked",
-                vin,
+                "Audi %s request acknowledged by gateway; physical door state "
+                "awaiting verification", "lock" if lock else "unlock",
             )
 
             return True
@@ -397,18 +396,20 @@ class AudiConnectAccount:
         except Exception as exception:
             log_exception(
                 exception,
-                "Unable to {action} {vin}".format(
-                    action="lock" if lock else "unlock", vin=vin
+                "Unable to %s vehicle %s" % (
+                    "lock" if lock else "unlock",
+                    "*" * max(0, len(vin) - 4) + vin[-4:],
                 ),
             )
             return False
         finally:
-            try:
-                await self.notify(vin, ACTION_LOCK)
-            except Exception as ex:
-                _LOGGER.warning(
-                    "Cloud refresh failed after lock/unlock for %s: %s", vin, ex
-                )
+            if refresh:
+                try:
+                    await self.notify(vin, ACTION_LOCK)
+                except Exception:
+                    _LOGGER.warning(
+                        "Cloud refresh after Audi access request failed"
+                    )
 
     async def set_location_charge_target(self, vin: str, profile_id, target_soc: int):
         """Set a location charging profile's target SoC (the governing value)."""
