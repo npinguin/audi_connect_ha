@@ -98,12 +98,9 @@ async def run_read_only_probes(
             outcomes.append({"probe": name, "outcome": "skipped", "reason": stop_reason})
             continue
         try:
-            response = await api.request(
-                "GET",
-                url_for_suffix(suffix),
-                headers={"Authorization": "Bearer " + access_token},
-                data=None,
-            )
+            # Reuse AudiAPI.get so headers and active token handling are
+            # identical to the integration's existing successful GET calls.
+            response = await api.get(url_for_suffix(suffix))
             outcome = classify_payload(response, job)
             outcomes.append({"probe": name, "outcome": outcome, "http_status": 200})
         except ClientResponseError as exc:
