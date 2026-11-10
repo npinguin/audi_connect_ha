@@ -205,6 +205,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="range",
@@ -214,6 +215,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="hybrid_range",
@@ -223,6 +225,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="service_inspection_time",
@@ -231,6 +234,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:room-service-outline",
         native_unit_of_measurement=UnitOfTime.DAYS,
         entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="service_inspection_distance",
@@ -241,6 +245,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.DISTANCE,
         entity_category=EntityCategory.DIAGNOSTIC,
         suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="oil_change_time",
@@ -249,6 +254,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:oil",
         native_unit_of_measurement=UnitOfTime.DAYS,
         entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="oil_change_distance",
@@ -259,6 +265,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.DISTANCE,
         entity_category=EntityCategory.DIAGNOSTIC,
         suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="oil_level",
@@ -266,6 +273,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Oil level",
         icon="mdi:oil",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="charging_state",
@@ -295,6 +303,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:current-ac",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="charging_current_limit_a",
@@ -304,6 +313,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:current-ac",
         native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
         device_class=SensorDeviceClass.CURRENT,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="charging_current_limit_mode",
@@ -355,6 +365,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="secondary_engine_range",
@@ -364,6 +375,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
         suggested_display_precision=0,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="primary_engine_range_percent",
@@ -371,6 +383,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Primary engine Percent",
         icon="mdi:gauge",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="car_type",
@@ -385,6 +398,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Secondary engine Percent",
         icon="mdi:gauge",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="charging_power",
@@ -393,6 +407,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:flash",
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="actual_charge_rate",
@@ -407,6 +422,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Tank level",
         icon="mdi:gauge",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="state_of_charge",
@@ -414,6 +430,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="State of charge",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="remaining_charging_time",
@@ -435,6 +452,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Target State of charge",
         icon="mdi:ev-station",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="external_power",
@@ -468,6 +486,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:temperature-celsius",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="park_time",
@@ -493,6 +512,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Remaining Climatisation Time",
         icon="mdi:fan-clock",
         native_unit_of_measurement=UnitOfTime.MINUTES,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="preheater_duration",
@@ -500,6 +520,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Preheater runtime",
         icon="mdi:clock",
         native_unit_of_measurement=UnitOfTime.MINUTES,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="preheater_remaining",
@@ -507,6 +528,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Preheater remaining",
         icon="mdi:clock",
         native_unit_of_measurement=UnitOfTime.MINUTES,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="active_charging_profile_target_soc",
@@ -531,6 +553,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:battery-alert-variant-outline",
         native_unit_of_measurement=PERCENTAGE,
         entity_category=EntityCategory.DIAGNOSTIC,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     AudiSensorEntityDescription(
         key="preferred_charging_time_start",
