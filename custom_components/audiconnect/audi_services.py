@@ -1105,6 +1105,24 @@ class AudiService:
             data=json.dumps(body),
         )
 
+    async def get_charging_settings_raw(self, vin: str) -> dict[str, Any]:
+        """Read actual car charging settings before an Auth0 settings mutation.
+
+        CARIAD charging/settings can replace several settings. Never overwrite
+        unknown car preferences with a partial request or guessed defaults.
+        """
+        self._api.use_token(self._bearer_token_json)
+        response = await self._api.get(self.__get_cariad_url_for_vin(
+            vin, "selectivestatus?jobs={jobs}", jobs="charging"
+        ))
+        settings = (response or {}).get("charging", {}).get("chargingSettings", {})
+        value = settings.get("value") if isinstance(settings, dict) else None
+        if not isinstance(value, dict) or not value:
+            raise ValueError(
+                "Audi has not returned charging settings; refusing blind update"
+            )
+        return value
+
     async def set_target_state_of_charge(self, vin: str, target_soc: int):
         """Set the target state of charge (battery percentage)."""
         if not (20 <= target_soc <= 100):
@@ -1116,6 +1134,17 @@ class AudiService:
         headers = {"Authorization": "Bearer " + self._bearer_token_json["access_token"]}
 
         data = {"targetSOC_pct": target_soc}
+        if self._uses_auth0:
+            current = await self.get_charging_settings_raw(vin)
+            # Only copy known charging setting keys; never replay arbitrary
+            # fields or the source timestamp in a write payload.
+            data = {
+                key: current[key] for key in (
+                    "maxChargeCurrentAC_A", "maxChargeCurrentAC",
+                    "autoUnlockPlugWhenChargedAC", "targetSOC_pct",
+                ) if key in current and current[key] is not None
+            }
+            data["targetSOC_pct"] = target_soc
 
         await self._api.request(
             "PUT",
