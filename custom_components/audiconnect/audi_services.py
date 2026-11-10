@@ -516,6 +516,26 @@ class AudiService:
             f"{await self._get_home_region(vin.upper())}/fs-car/vehicleMgmt/vehicledata/v2/{self._type}/{self._country}/vehicles/{vin.upper()}/"
         )
 
+    async def get_auth0_trip_payload(self, vin: str, kind: str) -> Any:
+        """Fetch one explicitly requested, allowlisted read-only CARIAD trip.
+
+        Not used by periodic polling; callers enforce per-vehicle cooldown
+        and maximum requests. No legacy MBB bearer token is used.
+        """
+        if kind not in ("shortterm", "longterm", "shortterm/last"):
+            raise ValueError("Unsupported modern trip route")
+        token = self._bearer_token_json
+        if not isinstance(token, dict) or not token.get("access_token"):
+            raise ValueError("Active CARIAD access token unavailable")
+        if not self.uses_auth0:
+            raise ValueError("Modern trip reader is intended for Auth0 sessions")
+        self._api.use_token(token)
+        return await self._api.get(
+            self.__get_cariad_url(
+                "vehicle/v1/trips/{vin}/{kind}", vin=vin.upper(), kind=kind
+            )
+        )
+
     async def get_tripdata(self, vin: str, kind: str):
         self._api.use_token(self.vwToken)
 
