@@ -49,6 +49,26 @@ def test_lock_success_returns_normally():
     assert conn.calls[0][0] == "lock"
 
 
+def test_legacy_named_start_climatisation_uses_modern_bodyless_start():
+    obj, conn = account(result=True)
+    asyncio.run(
+        obj.execute_vehicle_action(
+            "EXAMPLEVIN00000001", NS(data={CONF_ACTION: "start_climatisation"})
+        )
+    )
+    assert conn.calls == [("climate", ("examplevin00000001",))]
+
+
+def test_legacy_named_start_climatisation_reports_rejection():
+    obj, _ = account(result=False)
+    with pytest.raises(HomeAssistantError, match="start climatisation"):
+        asyncio.run(
+            obj.execute_vehicle_action(
+                "EXAMPLEVIN00000001", NS(data={CONF_ACTION: "start_climatisation"})
+            )
+        )
+
+
 def test_climate_direct_service_rejection_raises():
     obj, conn = account(result=False)
     with pytest.raises(HomeAssistantError, match="start climate control"):
