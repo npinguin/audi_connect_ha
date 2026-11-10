@@ -1068,8 +1068,19 @@ class AudiService:
         )
         return value if isinstance(value, dict) else {}
 
+    def _climate_api_level(self) -> int:
+        """Auth0 tokens cannot authorize legacy fs-car climatisation actions.
+
+        Route Auth0 sessions to the existing CARIAD command implementation even
+        if the entry still holds the historical API Level 0 configuration.
+        Do not change other endpoints or the saved user preference.
+        """
+        if self._uses_auth0:
+            return 1
+        return self._api_level
+
     async def set_climatisation(self, vin: str, start: bool):
-        api_level = self._api_level
+        api_level = self._climate_api_level()
         country = self._country
 
         if start:
@@ -1160,7 +1171,7 @@ class AudiService:
         climatisation_at_unlock: bool | None = None,
         climatisation_mode: str | None = None,
     ):
-        api_level = self._api_level
+        api_level = self._climate_api_level()
         country = self._country
         target_temperature = None
 
