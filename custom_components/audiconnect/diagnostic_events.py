@@ -55,14 +55,15 @@ def build_http_event(method: str, url: str, status: int) -> dict[str, object] | 
     method = method.upper()
     if method not in _MUTATION_METHODS and status < 400:
         return None
+    route = classify_route(url)
     return {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "method": method if method in _MUTATION_METHODS or method == "GET" else "OTHER",
-        "route": classify_route(url),
+        "route": route,
         "http_status": int(status),
         "outcome": (
             "http_rejected" if status >= 400 else
-            "authentication_http_success" if classify_route(url) == "authentication" else
+            "authentication_http_success" if route == "authentication" else
             "http_accepted_not_vehicle_confirmed" if method in _MUTATION_METHODS else
             "http_response"
         ),
