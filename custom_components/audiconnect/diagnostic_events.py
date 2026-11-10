@@ -70,7 +70,10 @@ def build_http_event(method: str, url: str, status: int) -> dict[str, object] | 
     route = classify_route(url)
     # Successful token rotations are frequent housekeeping, not an
     # actionable vehicle event. Authentication failures remain visible.
-    if route == "authentication" and status < 400:
+    if route in {"authentication", "other"} and status < 400:
+        # Silent routine credential refreshes and unclassified successful
+        # internal POSTs; failures remain in diagnostics. Known commands,
+        # including wake-up, are still logged with explicit route categories.
         return None
     return {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
