@@ -57,6 +57,8 @@ from .local_extensions import DEALER_FIELDS, update_local_dealer_options
 _LOGGER = logging.getLogger(__name__)
 
 SERVICE_PROBE_API_PATHS = "probe_api_paths"
+SERVICE_PROBE_VEHICLE_HEALTH = "probe_vehicle_health"
+SERVICE_PROBE_TRIP_DATA = "probe_trip_data"
 SERVICE_REFRESH_TRIP_DATA = "refresh_trip_data"
 SERVICE_SET_LOCAL_DEALER = "set_local_dealer"
 PROBE_SCHEMA = vol.Schema({
@@ -243,23 +245,43 @@ def _async_register_services(hass: HomeAssistant) -> None:
         vin, account = result
         await account.refresh_vehicle_data(vin)
 
-    async def _handle_probe_api_paths(service: ServiceCall) -> None:
-        """Explicit user action. A diagnostics download never triggers probes."""
+    async def _run_probe(
+        service: ServiceCall, *, restore: bool = False,
+        extended: bool = False, restore_group: str = "trips"
+    ) -> None:
+        """Perform one explicit GET-only probe for the selected Audi device."""
         result = _resolve_service_call(hass, service)
         if result is None:
-            return
+            raise HomeAssistantError("Audi device or account was not found")
         vin, account = result
         try:
             await account.connection.probe_read_only_api(
                 vin,
-                extended=service.data.get("extended", False),
-                restore=service.data.get("restore", False),
-                restore_group=service.data.get("restore_group", "trips"),
+                extended=extended,
+                restore=restore,
+                restore_group=restore_group,
             )
-        except RuntimeError as exc:
-            # The API layer enforces the cooldown. Do not surface an
-            # unexplained "Unknown error" for a normal safety limit.
+        except (RuntimeError, ValueError) as exc:
+            # Invalid combinations and the shared cooldown are user errors,
+            # not a mysterious Home Assistant service execution failure.
             raise HomeAssistantError(str(exc)) from exc
+
+    async def _handle_probe_api_paths(service: ServiceCall) -> None:
+        """Backward-compatible advanced probe service for existing scripts."""
+        await _run_probe(
+            service,
+            extended=service.data.get("extended", False),
+            restore=service.data.get("restore", False),
+            restore_group=service.data.get("restore_group", "trips"),
+        )
+
+    async def _handle_probe_vehicle_health(service: ServiceCall) -> None:
+        """One-click 12V/TPMS/warnings probe; no restore switches to confuse."""
+        await _run_probe(service, restore=True, restore_group="vehicle_health")
+
+    async def _handle_probe_trip_data(service: ServiceCall) -> None:
+        """One-click trip endpoint probe; does not update vehicle sensors."""
+        await _run_probe(service, restore=True, restore_group="trips")
 
     async def _handle_refresh_trip_data(service: ServiceCall) -> None:
         """User-triggered modern trip read; no background poll or new writes."""
@@ -364,6 +386,20 @@ def _async_register_services(hass: HomeAssistant) -> None:
             SERVICE_PROBE_API_PATHS,
             _handle_probe_api_paths,
             schema=PROBE_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_PROBE_VEHICLE_HEALTH):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_PROBE_VEHICLE_HEALTH,
+            _handle_probe_vehicle_health,
+            schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_PROBE_TRIP_DATA):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_PROBE_TRIP_DATA,
+            _handle_probe_trip_data,
+            schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_TRIP_DATA):
         hass.services.async_register(
@@ -524,6 +560,9 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     if len(hass.config_entries.async_entries(DOMAIN)) <= 1:
         for service in (
             SERVICE_PROBE_API_PATHS,
+            SERVICE_PROBE_VEHICLE_HEALTH,
+            SERVICE_PROBE_TRIP_DATA,
+            SERVICE_REFRESH_TRIP_DATA,
             SERVICE_SET_LOCAL_DEALER,
             SERVICE_REFRESH_CLOUD_DATA,
             SERVICE_REFRESH_VEHICLE_DATA,
