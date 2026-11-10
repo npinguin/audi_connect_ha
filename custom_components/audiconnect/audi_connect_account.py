@@ -25,6 +25,10 @@ REQUEST_STATUS_SLEEP = 5
 # count can never stretch a single login into an unbounded wait.
 MAX_LOGIN_RETRY_DELAY = 60
 
+# A single parking-position 404 is not proof of missing capability. Retry with
+# a bounded cooldown on normal polls; no additional Audi requests are scheduled.
+POSITION_404_MAX_BACKOFF_SECONDS = 3600
+
 ACTION_LOCK = "lock"
 ACTION_CLIMATISATION = "climatisation"
 ACTION_CHARGER = "charger"
@@ -613,7 +617,7 @@ class AudiConnectAccount:
                 climatisation_mode,
             )
 
-            await self._audi_service.start_climate_control(
+            confirmed = await self._audi_service.start_climate_control(
                 vin,
                 temp_f,
                 temp_c,
@@ -626,10 +630,20 @@ class AudiConnectAccount:
                 climatisation_mode,
             )
 
-            _LOGGER.debug(
-                "Successfully started climate control of vehicle %s",
-                vin,
-            )
+            if confirmed is True:
+                _LOGGER.debug("Successfully started climate control of vehicle %s", vin)
+            elif confirmed is False:
+                _LOGGER.debug(
+                    "Climate start accepted for vehicle %s but not confirmed "
+                    "within the vehicle-status polling window",
+                    vin,
+                )
+            else:
+                _LOGGER.debug(
+                    "Climate start request sent for vehicle %s; "
+                    "vehicle confirmation unavailable",
+                    vin,
+                )
 
             return True
 
@@ -662,14 +676,33 @@ class AudiConnectAccount:
                 vin,
             )
 
-            await self._audi_service.set_battery_charger(vin, activate, timer)
-
-            _LOGGER.debug(
-                "Successfully %s%s charger for vehicle %s",
-                "started" if activate else "stopped",
-                " timed" if timer else "",
-                vin,
+            confirmed = await self._audi_service.set_battery_charger(
+                vin, activate, timer
             )
+
+            if confirmed is True:
+                _LOGGER.debug(
+                    "Successfully %s%s charger for vehicle %s",
+                    "started" if activate else "stopped",
+                    " timed" if timer else "",
+                    vin,
+                )
+            elif confirmed is False:
+                _LOGGER.debug(
+                    "Charging %s%s accepted for vehicle %s but not confirmed "
+                    "within the vehicle-status polling window",
+                    "start" if activate else "stop",
+                    " timed" if timer else "",
+                    vin,
+                )
+            else:
+                _LOGGER.debug(
+                    "Charging %s%s request submitted for vehicle %s; "
+                    "vehicle confirmation unavailable",
+                    "start" if activate else "stop",
+                    " timed" if timer else "",
+                    vin,
+                )
 
             return True
 
@@ -853,6 +886,8 @@ class AudiConnectVehicle:
 
         self.support_status_report = True
         self.support_position = True
+        self._position_404_count = 0
+        self._position_retry_after = 0.0
 
         # Auth0 uses selectivestatus; the legacy fs-car polls reject its token.
         uses_auth0 = getattr(self._audi_service, "uses_auth0", False)
@@ -1038,6 +1073,12 @@ class AudiConnectVehicle:
                 redacted_vin,
             )
             return
+        if time.monotonic() < self._position_retry_after:
+            _LOGGER.debug(
+                "POSITION: Waiting for bounded retry after HTTP 404 for VIN: %s.",
+                redacted_vin,
+            )
+            return
 
         try:
             _LOGGER.debug(
@@ -1086,6 +1127,8 @@ class AudiConnectVehicle:
                 }
 
                 self._vehicle.state["is_moving"] = False
+                self._position_404_count = 0
+                self._position_retry_after = 0.0
 
                 _LOGGER.debug(
                     "POSITION: Vehicle position updated successfully for VIN: %s",
@@ -1105,12 +1148,18 @@ class AudiConnectVehicle:
             raise
         except ClientResponseError as cre:
             if cre.status == 404:
-                _LOGGER.debug(
-                    "POSITION: ClientResponseError with status %s for VIN: %s. Vehicle does not support position — disabling.",
-                    cre.status,
-                    redacted_vin,
+                self._position_404_count = min(self._position_404_count + 1, 7)
+                backoff = min(
+                    60 * 2 ** (self._position_404_count - 1),
+                    POSITION_404_MAX_BACKOFF_SECONDS,
                 )
-                self.support_position = False
+                self._position_retry_after = time.monotonic() + backoff
+                _LOGGER.debug(
+                    "POSITION: HTTP 404 for VIN: %s; keeping position capability "
+                    "and retrying on a later scheduled poll (cooldown %ss).",
+                    redacted_vin,
+                    backoff,
+                )
             elif cre.status in (403, 502):
                 _LOGGER.debug(
                     "POSITION: Received status %s while updating vehicle position for VIN: %s. This is typically transient and may resolve on its own.",
@@ -1129,8 +1178,11 @@ class AudiConnectVehicle:
                     "POSITION: Vehicle position currently not available for VIN: %s (Is moving?!). Received 204 status.",
                     redacted_vin,
                 )
-                # we receive a 204 when the vehicle is moving.
+                # We receive a 204 when the vehicle is moving; the endpoint
+                # remains supported even though no location is available.
                 self._vehicle.state["is_moving"] = True
+                self._position_404_count = 0
+                self._position_retry_after = 0.0
 
         except Exception as e:
             _LOGGER.error(
