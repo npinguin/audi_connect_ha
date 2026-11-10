@@ -746,12 +746,30 @@ class AudiService:
             "Content-Type": "application/json",
         }
         self._api.use_token(self._bearer_token_json)
-        await self._api.request(
-            "POST",
-            self.__get_cariad_url_for_vin(vin, f"access/{action}"),
-            headers=headers,
-            data=json.dumps({"spin": self._spin}),
-        )
+        try:
+            reply = await self._api.request(
+                "POST",
+                self.__get_cariad_url_for_vin(vin, f"access/{action}"),
+                headers=headers,
+                data=json.dumps({"spin": self._spin}),
+            )
+        except ClientResponseError as err:
+            # CARIAD may acknowledge a mutation with 204 No Content.
+            # This is only a transport acknowledgement, not a door-state check.
+            if err.status != 204:
+                raise
+            reply = None
+        request_id = get_attr(reply, "data.requestID") if isinstance(reply, dict) else None
+        if request_id:
+            await self._confirm_vehicle_request(
+                vin, action, request_id, noun="Door lock"
+            )
+        else:
+            _LOGGER.debug(
+                "Door %s request acknowledged without a confirmation id; "
+                "verify lock status after the next vehicle refresh",
+                action,
+            )
 
     async def _set_vehicle_lock_legacy(self, vin: str, lock: bool) -> None:
         security_token = await self._get_security_token(
