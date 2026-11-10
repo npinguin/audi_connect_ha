@@ -140,7 +140,7 @@ class AudiAPI:
                         if DEBUG_VERBOSE:
                             _LOGGER.debug("Parsed JSON data (full): %s", json_data)
                         else:
-                            _LOGGER.debug("Returning JSON data: %s", json_data)
+                            _LOGGER.debug("Returning parsed JSON response (payload redacted)")
                         return json_data
 
                     else:
