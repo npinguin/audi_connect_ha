@@ -14,6 +14,7 @@ from aiohttp import ClientResponseError, ClientSession
 
 from .audi_api import AudiAPI
 from .audi_services import AudiAuthError, AudiService
+from .trip_restore import normalize_cariad_trip
 from .util import get_attr, log_exception, parse_datetime, parse_float, parse_int
 import builtins
 
@@ -88,6 +89,7 @@ class AudiConnectAccount:
         self._readonly_probe_reports: dict[str, dict[str, Any]] = {}
         self._readonly_probe_attempted: dict[str, float] = {}
         self._readonly_probe_lock = asyncio.Lock()
+        self._modern_trip_reports: dict[str, dict[str, Any]] = {}
 
     async def probe_read_only_api(
         self, vin: str, *, extended: bool = False, restore: bool = False,
@@ -136,6 +138,111 @@ class AudiConnectAccount:
             )
             self._readonly_probe_reports[vin_key] = report
             return report
+
+    async def refresh_auth0_trip_data(self, vin: str) -> dict[str, Any]:
+        """Manually fetch three known reachable CARIAD paths for this vehicle.
+
+        Uses the diagnostic cooldown and lock. Never participates in automatic
+        polling or creates new API requests on Home Assistant startup.
+        """
+        key = vin.lower()
+        if not self._loggedin or not getattr(self._audi_service, "uses_auth0", False):
+            raise RuntimeError("Active Audi Auth0 session required for trip refresh")
+        vehicle = next((v for v in self._vehicles if v.vin.lower() == key), None)
+        if vehicle is None:
+            raise ValueError("Vehicle is not present in this Audi account")
+
+        async with self._readonly_probe_lock:
+            now = time.monotonic()
+            last = self._readonly_probe_attempted.get(key)
+            if last is not None and now - last < 900:
+                wait = ceil((900 - (now - last)) / 60)
+                raise RuntimeError(
+                    f"Audi Connect trip read cooldown active. "
+                    f"Try again in {wait} minute(s)."
+                )
+
+            api = self._audi_service._api
+            remaining = getattr(api, "vcf_remaining_calls", None)
+            if isinstance(remaining, int) and remaining < 20:
+                report = {
+                    "attempted": 0,
+                    "outcome": "low_rate_limit_budget",
+                    "normalized": 0,
+                    "results": [],
+                }
+                self._modern_trip_reports[key] = report
+                return report
+
+            # Mark before the first request to protect against repeated errors.
+            self._readonly_probe_attempted[key] = now
+            outcomes: list[dict[str, str]] = []
+            normalized = 0
+            for kind, state_key in (
+                ("shortterm", "shortterm_current"),
+                ("longterm", "longterm_current"),
+                ("shortterm/last", "last_trip"),
+            ):
+                remaining = getattr(api, "vcf_remaining_calls", None)
+                if isinstance(remaining, int) and remaining <= 12:
+                    outcomes.append({"source": kind, "outcome": "low_rate_limit_budget"})
+                    break
+                try:
+                    payload = await self._audi_service.get_auth0_trip_payload(vin, kind)
+                    trip, status = normalize_cariad_trip(payload)
+                    outcomes.append({"source": kind, "outcome": status})
+                    if trip is None:
+                        continue
+                    # Trip data returned from the endpoint is not necessarily
+                    # newer than previously stored data. Ignore regressions.
+                    existing = vehicle._vehicle.state.get(state_key)
+                    if isinstance(existing, dict) and existing.get("timestamp"):
+                        from .util import parse_datetime
+                        previous_time = parse_datetime(existing["timestamp"])
+                        updated_time = parse_datetime(trip["timestamp"])
+                        if (
+                            previous_time is not None
+                            and updated_time is not None
+                            and updated_time < previous_time
+                        ):
+                            outcomes[-1]["outcome"] = "older_than_existing"
+                            continue
+                    vehicle._vehicle.state[state_key] = trip
+                    normalized += 1
+                except ClientResponseError as exc:
+                    outcomes.append({
+                        "source": kind,
+                        "outcome": (
+                            "authentication_rejected" if exc.status == 401
+                            else "rate_limited" if exc.status == 429
+                            else "not_found" if exc.status == 404
+                            else "authorization_denied" if exc.status == 403
+                            else "server_error" if exc.status >= 500
+                            else "http_error"
+                        ),
+                    })
+                    if exc.status in (401, 403, 429) or exc.status >= 500:
+                        break
+                except TimeoutError:
+                    outcomes.append({"source": kind, "outcome": "timeout"})
+                    break
+                except Exception:
+                    # Never log the raw exception, URLs or vehicle response.
+                    outcomes.append({"source": kind, "outcome": "request_error"})
+                    break
+
+            report = {
+                "attempted": len(outcomes),
+                "outcome": "completed",
+                "normalized": normalized,
+                "results": outcomes,
+            }
+            self._modern_trip_reports[key] = report
+            return report
+
+    def get_auth0_trip_report(self, vin: str) -> dict[str, Any] | None:
+        """Return only fixed route/result labels for privacy-safe diagnostics."""
+        return self._modern_trip_reports.get(vin.lower())
 
     def get_read_only_probe_report(self, vin: str) -> dict[str, Any] | None:
         """Return only the sanitized previous report, never start new traffic."""
@@ -2749,6 +2856,15 @@ class AudiConnectVehicle:
         check = self._vehicle.state.get("longterm_reset")
         if check:
             return True
+
+    @property
+    def last_trip(self):
+        """Most recent trip from explicit CARIAD reading, when validated."""
+        return self._vehicle.state.get("last_trip")
+
+    @property
+    def last_trip_supported(self) -> bool:
+        return isinstance(self._vehicle.state.get("last_trip"), dict)
 
     @property
     def is_moving(self):
