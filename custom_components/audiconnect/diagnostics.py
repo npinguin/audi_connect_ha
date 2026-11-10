@@ -88,6 +88,20 @@ def _vehicle_snapshot(vehicle: Any, index: int, uses_auth0: bool) -> dict[str, A
         },
         "state_field_count": len(state),
         "vehicle_field_count": len(fields),
+        "model_metadata_source": (
+            getattr(vehicle, "model_source", "unavailable")
+            if getattr(vehicle, "model_source", "unavailable") in {
+                "audi_long_name", "audi_short_name", "nickname_fallback", "unavailable"
+            } else "unavailable"
+        ),
+        "park_time_source": (
+            getattr(vehicle, "park_time_source", "unavailable")
+            if getattr(vehicle, "park_time_source", "unavailable") in {
+                "vehicle_parking_clock",
+                "last_parked_position_capture_estimate",
+                "unavailable",
+            } else "unavailable"
+        ),
         "capability_inventory": snapshot_capabilities(vehicle),
         "vehicle_data_age_minutes": vehicle_age_minutes(
             getattr(vehicle, "last_update_time", None)
