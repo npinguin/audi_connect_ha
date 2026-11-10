@@ -27,8 +27,10 @@ def classify_route(url: str) -> str:
         or path == "/token"
     ):
         return "authentication"
-    if "/access/lock" in path or "/access/unlock" in path:
-        return "modern_access"
+    if path.endswith("/access/lock"):
+        return "modern_access_lock"
+    if path.endswith("/access/unlock"):
+        return "modern_access_unlock"
     if "/api/bs/rlu/" in path:
         return "legacy_access"
     if "/spin/verify" in path:
