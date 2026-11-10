@@ -81,6 +81,20 @@ non-error response could replace the entire cached field dictionary.
   This branch **does not** copy legacy Java sources or incompatible license
   code into the Audi integration.
 
+### Homey comparison versus existing Audi Connect code
+
+| Feature reported by Homey | Audi Connect current code | Q8 evidence and next gate |
+| --- | --- | --- |
+| Plug locked/unlocked | Existing `plug_lock_state` binary sensor and `charging.plugStatus.value.plugLockState` parser | Already implemented; validate boolean semantics in the physical car, no duplicate entity |
+| Inspection due | Existing `vehicleHealthInspection.maintenanceStatus` fields for days/km | Already implemented; preserve timestamp and partial-response behavior |
+| Dashboard warning lights | `vehicleHealthWarnings` capability and read-only probe; no verified warning-light detail parser | b16 returned a readable job; determine actual schema before creating sensors/triggers |
+| Auxiliary heater status | Related climate fields and controls exist; no verified standalone Q8 heater-status contract | Earlier Q8 legacy preheater did not work; don't fabricate availability |
+| S-PIN validation without login | Current remote access S-PIN use; no independent validation UX | Explore endpoint and error redaction; do not store invalid PIN or force reauthentication |
+| Multi-step remote actions | Existing command wrappers and confirmation polling | Evaluate serialization only after model-specific commands are proven |
+
+This comparison prevents rebuilding existing plug-lock and inspection sensors
+just because a third-party application lists them as new capabilities.
+
 ### Next gates
 
 1. Resolve PR #17 review and merge into upstream-contribution PR #915 only
