@@ -189,3 +189,33 @@ def test_older_response_does_not_overwrite_fresher_trip():
     report = asyncio.run(account.refresh_auth0_trip_data(VIN))
     assert vehicle.shortterm_current["mileage"] == 99
     assert report["results"][0]["outcome"] == "older_than_existing"
+
+
+def test_wrapped_trip_record_not_hidden_by_unrelated_numeric_wrapper_metadata():
+    payload = {
+        "data": {
+            "mileage": 100,
+            "meta": {"requestCount": 1},
+            "trips": [
+                {"tripEndTimestamp": "2026-11-10T21:00:00Z", "mileage_km": 21}
+            ],
+        }
+    }
+    record, status = normalize_cariad_trip(payload)
+    assert status == "normalized"
+    assert record["mileage"] == 21
+
+
+def test_last_trip_is_new_key_and_prior_trip_entity_ids_are_unchanged():
+    from custom_components.audiconnect.audi_entity import entity_unique_id
+
+    vehicle = SimpleNamespace(vin=VIN)
+    assert entity_unique_id(vehicle, "sensor", "shortterm_current") == (
+        f"{VIN.lower()}_sensor_shortterm_current"
+    )
+    assert entity_unique_id(vehicle, "sensor", "longterm_current") == (
+        f"{VIN.lower()}_sensor_longterm_current"
+    )
+    assert entity_unique_id(vehicle, "sensor", "last_trip") == (
+        f"{VIN.lower()}_sensor_last_trip"
+    )
