@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .capability_catalog import snapshot_capabilities
+from .freshness import vehicle_age_minutes, vehicle_freshness
 from .const import (
     CONF_API_LEVEL,
     CONF_REFRESH_AFTER_ACTION,
@@ -88,6 +89,12 @@ def _vehicle_snapshot(vehicle: Any, index: int, uses_auth0: bool) -> dict[str, A
         "state_field_count": len(state),
         "vehicle_field_count": len(fields),
         "capability_inventory": snapshot_capabilities(vehicle),
+        "vehicle_data_age_minutes": vehicle_age_minutes(
+            getattr(vehicle, "last_update_time", None)
+        ),
+        "vehicle_data_freshness": vehicle_freshness(
+            getattr(vehicle, "last_update_time", None)
+        ),
     }
 
 
@@ -149,7 +156,10 @@ async def async_get_config_entry_diagnostics(
             getattr(coordinator, "last_update_success", False)
         ),
         "last_successful_refresh": _iso(
-            getattr(coordinator, "last_update_success_time", None)
+            getattr(coordinator, "last_cloud_poll_success", None)
+        ),
+        "last_cloud_poll_attempt": _iso(
+            getattr(coordinator, "last_cloud_poll_attempt", None)
         ),
         "last_poll_exception_type": (
             type(coordinator.last_exception).__name__
