@@ -24,7 +24,7 @@ POSITION = {
     "data": {
         "lat": 50.85,
         "lon": 4.35,
-        "carCapturedTimestamp": "2026-11-10T18:00:00+00:00",
+        "carCapturedTimestamp": "2026-11-10T18:00:00.000Z",
     }
 }
 
