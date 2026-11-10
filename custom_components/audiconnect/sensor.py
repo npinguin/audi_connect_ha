@@ -98,6 +98,16 @@ def _active_profile_attrs(vehicle: Any) -> dict[str, Any]:
     return {k: v for k, v in attrs.items() if v is not None}
 
 
+def _climatisation_timer_attrs(vehicle: Any) -> dict[str, Any]:
+    """Safe, bounded climate timers returned by the car (not inferred)."""
+    timers = getattr(vehicle, "climatisation_timers", None)
+    return {
+        "timers": timers[:12] if isinstance(timers, list) else [],
+        "start_timezone": "vehicle_local_not_inferred",
+        "meaning": "Configured climate timers, not proof that the car will start",
+    }
+
+
 def _charging_timer_attrs(vehicle: Any) -> dict[str, Any]:
     attrs: dict[str, Any] = {
         "timers": getattr(vehicle, "charging_timers", None),
@@ -498,6 +508,22 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Preferred Charging Window End",
         icon="mdi:clock-end",
         entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    AudiSensorEntityDescription(
+        key="climatisation_timer_enabled_count",
+        attr_key="climatisation_timer_enabled_count",
+        capability="climatisationTimers",
+        name="Climate Timers Enabled",
+        icon="mdi:calendar-clock",
+        extra_attrs_fn=_climatisation_timer_attrs,
+    ),
+    AudiSensorEntityDescription(
+        key="next_climatisation_timer_local",
+        attr_key="next_climatisation_timer_local",
+        capability="climatisationTimers",
+        name="Next Climate Timer (Car Local Time)",
+        icon="mdi:calendar-start",
+        extra_attrs_fn=_climatisation_timer_attrs,
     ),
     AudiSensorEntityDescription(
         key="charging_timer_enabled_count",
