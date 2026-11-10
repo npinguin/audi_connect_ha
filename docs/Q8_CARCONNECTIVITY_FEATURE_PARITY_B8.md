@@ -15,11 +15,13 @@ Legend: **Existing** = already in b7; **b8** = added in this iteration; **Experi
 | Hybrid fuel and electric ranges | Fuel/SOC, charging, primary/secondary range | Existing |
 | Fuel level, low battery 12V | Fuel present; detailed 12V battery condition not mapped | Existing + Gap |
 | Doors/boot and windows states | Door/window/lock sensors | Existing; all values depend on vehicle model |
-| Door Lock and Unlock | Modern CARIAD Auth0 access endpoints with local S-PIN | Existing; Unlock physically works; Lock HTTP 200 but physically unconfirmed |
+| Door Lock and Unlock | Modern CARIAD Auth0 access endpoints with local S-PIN | Existing; Lock AND Unlock physically confirmed on owner's b7 test |
 | Parking GPS | HA-native device_tracker with parked-position capture and age | Existing; parked fix, not continuous phone-like GPS |
 | Park Time | Legacy parking clock or estimated parked-position capture | Existing b6 |
 | Vehicle lights status | Current light/sensor fields | Existing |
 | Flash / honk | Flash lights working; horn deliberately not enabled | Existing + Gap; avoid accidental horn |
+| One-tap climate quick control | A stateful native HA switch using proven car-settings start and stop | b8; real car state, no speculative toggle, no duplicate polling |
+| One native door lock control | Existing native lock entity, HA Lock/Unlock dialog or tile command feature | Existing, no duplicate generic lock switch |
 | Charging SOC/power/state/rate/plug | HA sensors and active controls | Existing; actual car capability varies |
 | Charging limits | Numeric AC current, categorical current mode | b8 read-only |
 | Plug auto-unlock setting | Car-reported on/off setting | b8 read-only |
@@ -43,7 +45,7 @@ Legend: **Existing** = already in b7; **b8** = added in this iteration; **Experi
 ## Important acceptance gates
 
 1. No regressions: physical climate start/stop, unlock and flash lights.
-2. Never report Lock as working from HTTP 200 alone; one post-action refresh maximum; respect 429.
+2. Physical Lock and Unlock were confirmed on b7; still do not report HTTP 200 as success without real state; one post-action refresh maximum; respect 429.
 3. Local dealer shows 'Not configured' until configured; Configure -> edit dealer -> choose car -> save; update options without deleting normal scan settings.
 4. Additional read-only sensors are backed by explicit CARIAD source fields and return unavailable/unknown when absent; false is not 'missing'.
 5. Experimental remote commands are OFF by default; require both opt-in and reported capability. They are never called by background polling.
