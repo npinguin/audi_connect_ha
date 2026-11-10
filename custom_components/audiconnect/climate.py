@@ -164,7 +164,7 @@ class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
         else:
             await self.async_turn_on()
 
-    async def async_turn_on(self) -> None:
+    async def async_turn_on(self, *, force_temperature: bool = False) -> None:
         connection = self.coordinator.account.connection
         # Some CARIAD cars accept start only with no body: use stored car
         # settings when explicitly enabled. Never silently override user temp.
@@ -176,7 +176,10 @@ class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
         modern_api = bool(getattr(service, "uses_auth0", False)) or data.get(
             "api_level", 0
         ) == 1
-        temperature = None if quick_start and modern_api else self.native_target_temperature
+        temperature = (
+            None if quick_start and modern_api and not force_temperature
+            else self.native_target_temperature
+        )
         if not await connection.start_climate_control(
             self._vehicle.vin, temp_c=temperature
         ):
@@ -201,7 +204,9 @@ class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
         # Re-send only if it is already running, so setting a temperature while
         # off does not start the car climatising.
         if self._is_running:
-            await self.async_turn_on()
+            # An explicit temperature change must never be silently discarded
+            # by the optional bodyless quick-start mode.
+            await self.async_turn_on(force_temperature=True)
 
 
 __all__ = ["AudiClimate", "async_setup_entry"]
