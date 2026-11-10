@@ -248,11 +248,11 @@ def test_safe_schema_fingerprint_does_not_expose_response_values_or_unknown_keys
         "timestamp_with_timezone": True,
     }
     text = repr(shape)
-    for value in (VIN, "Bearer secret", "private-trip-id", "50.5", "4.5", "11", "8.1"):
-        # Numeric fragments can occur in metadata flags, so only the uniquely
-        # identifying personal strings have to be excluded.
-        if value in (VIN, "Bearer secret", "private-trip-id"):
-            assert value not in text
+    assert VIN not in text
+    assert "Bearer secret" not in text
+    assert "private-trip-id" not in text
+    assert "longitude" not in text
+    assert "latitude" not in text
 
 
 def test_ambiguous_legacy_scaled_fuel_reading_is_not_published_as_modern_consumption():
@@ -303,3 +303,28 @@ def test_schema_for_unknown_cariad_payload_is_anonymized():
     assert shape["known_fields"] == []
     assert VIN not in repr(shape)
     assert "unknownCarIdentifier" not in repr(shape)
+
+
+
+def test_legacy_mbb_scaling_is_kept_separate_from_modern_cariad():
+    from custom_components.audiconnect.audi_models import TripDataResponse
+
+    legacy = TripDataResponse({
+        "tripID": "synthetic",
+        "averageFuelConsumption": 81,
+        "averageElectricEngineConsumption": 245,
+    })
+    assert legacy.averageFuelConsumption == 8.1
+    assert legacy.averageElectricEngineConsumption == 24.5
+
+    modern, status = normalize_cariad_trip({
+        "data": {
+            "tripEndTimestamp": "2026-11-10T21:00:00Z",
+            "mileage_km": 10,
+            "averageFuelConsumption": 8.1,
+            "averageElectricEngineConsumption_kWh_per_100km": 24.5,
+        }
+    })
+    assert status == "normalized"
+    assert modern["averageFuelConsumption"] == 8.1
+    assert modern["averageElectricEngineConsumption"] == 24.5
