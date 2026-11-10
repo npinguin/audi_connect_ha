@@ -29,6 +29,25 @@ class AudiButtonEntityDescription(ButtonEntityDescription):
 
     press_fn: Callable[[Any, str], Coroutine[Any, Any, None]]
     supported_fn: Callable[[Any], bool] = lambda vehicle: True
+    experimental: bool = False
+
+
+def _modern_capable(vehicle: Any, capability: str) -> bool:
+    service = getattr(vehicle, "_audi_service", None)
+    check = getattr(vehicle, "has_capability", None)
+    impaired = getattr(vehicle, "impaired_capabilities", frozenset()) or frozenset()
+    return (
+        bool(getattr(service, "uses_auth0", False))
+        and callable(check)
+        and check(capability) is True
+        and capability not in impaired
+    )
+
+
+def _wakeup_capable(vehicle: Any) -> bool:
+    return _modern_capable(vehicle, "vehicleWakeUp") or _modern_capable(
+        vehicle, "vehicleWakeUpTrigger"
+    )
 
 
 BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
@@ -43,6 +62,7 @@ BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
         key="start_climate_car_settings",
         name="Start climate (car settings)",
         icon="mdi:air-conditioner",
+        entity_category=EntityCategory.DIAGNOSTIC,
         # Explicit bodyless CARIAD start; does not send the HA temperature.
         # Useful when a model rejects incomplete settings payloads.
         supported_fn=lambda vehicle: bool(
@@ -55,6 +75,7 @@ BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
         key="stop_climate",
         name="Stop climate",
         icon="mdi:air-conditioner-off",
+        entity_category=EntityCategory.DIAGNOSTIC,
         supported_fn=lambda vehicle: bool(
             getattr(getattr(vehicle, "_audi_service", None), "uses_auth0", False)
         )
@@ -74,6 +95,46 @@ BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
             vehicle, "position", "honkAndFlash"
         ),
         press_fn=lambda account, vin: account.connection.flash_lights(vin),
+    ),
+    AudiButtonEntityDescription(
+        key="start_charging_modern",
+        name="Start charging (experimental)",
+        icon="mdi:ev-station",
+        experimental=True,
+        supported_fn=lambda v: _modern_capable(v, "charging"),
+        press_fn=lambda account, vin: account.connection.set_battery_charger(vin, True, False),
+    ),
+    AudiButtonEntityDescription(
+        key="stop_charging_modern",
+        name="Stop charging (experimental)",
+        icon="mdi:ev-station",
+        experimental=True,
+        supported_fn=lambda v: _modern_capable(v, "charging"),
+        press_fn=lambda account, vin: account.connection.set_battery_charger(vin, False, False),
+    ),
+    AudiButtonEntityDescription(
+        key="start_window_heating_modern",
+        name="Start window heating (experimental)",
+        icon="mdi:car-defrost-rear",
+        experimental=True,
+        supported_fn=lambda v: _modern_capable(v, "climatisation"),
+        press_fn=lambda account, vin: account.connection.set_vehicle_window_heating(vin, True),
+    ),
+    AudiButtonEntityDescription(
+        key="stop_window_heating_modern",
+        name="Stop window heating (experimental)",
+        icon="mdi:car-defrost-rear",
+        experimental=True,
+        supported_fn=lambda v: _modern_capable(v, "climatisation"),
+        press_fn=lambda account, vin: account.connection.set_vehicle_window_heating(vin, False),
+    ),
+    AudiButtonEntityDescription(
+        key="wake_vehicle_modern",
+        name="Wake vehicle (experimental)",
+        icon="mdi:car-connected",
+        experimental=True,
+        supported_fn=_wakeup_capable,
+        press_fn=lambda account, vin: account.connection.trigger_vehicle_wakeup(vin),
     ),
     AudiButtonEntityDescription(
         key="start_engine",
@@ -102,7 +163,10 @@ async def async_setup_entry(
         AudiButton(runtime_data.coordinator, description, vehicle)
         for config_vehicle in runtime_data.account.config_vehicles
         for description in BUTTON_DESCRIPTIONS
-        if description.supported_fn(vehicle := config_vehicle.vehicle)
+        if (not description.experimental or config_entry.options.get(
+            "experimental_commands", False
+        ))
+        and description.supported_fn(vehicle := config_vehicle.vehicle)
     ]
     async_add_entities(entities)
 

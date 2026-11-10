@@ -297,6 +297,43 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.CURRENT,
     ),
     AudiSensorEntityDescription(
+        key="charging_current_limit_a",
+        attr_key="charging_current_limit_a",
+        capability="charging",
+        name="Charging AC current limit",
+        icon="mdi:current-ac",
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=SensorDeviceClass.CURRENT,
+    ),
+    AudiSensorEntityDescription(
+        key="charging_current_limit_mode",
+        attr_key="charging_current_limit_mode",
+        capability="charging",
+        name="Charging current mode",
+        icon="mdi:ev-station",
+    ),
+    AudiSensorEntityDescription(
+        key="charging_plug_auto_unlock",
+        attr_key="charging_plug_auto_unlock",
+        capability="charging",
+        name="Unlock charging plug after charge",
+        icon="mdi:ev-plug-type2",
+    ),
+    AudiSensorEntityDescription(
+        key="vehicle_reported_online",
+        attr_key="vehicle_reported_online",
+        capability="readiness",
+        name="Vehicle reported connectivity",
+        icon="mdi:car-connected",
+    ),
+    AudiSensorEntityDescription(
+        key="vehicle_reported_active",
+        attr_key="vehicle_reported_active",
+        capability="readiness",
+        name="Vehicle reported activity",
+        icon="mdi:car-clock",
+    ),
+    AudiSensorEntityDescription(
         key="primary_engine_type",
         attr_key="primary_engine_type",
         name="Primary engine type",
@@ -553,9 +590,14 @@ async def async_setup_entry(
             AudiVehicleAgeSensor(runtime_data.coordinator, vehicle),
             AudiCloudLastPollSensor(runtime_data.coordinator, vehicle),
         ))
-        dealer = get_local_dealer(config_entry.options, vehicle.vin)
-        if dealer:
-            entities.append(AudiLocalDealerSensor(runtime_data.coordinator, vehicle, dealer))
+        # Add the local dealer sensor even before the user configures it.
+        # Hiding it until data exists made this feature effectively invisible.
+        entities.append(
+            AudiLocalDealerSensor(runtime_data.coordinator, vehicle, config_entry)
+        )
+        entities.append(
+            AudiServiceOverviewSensor(runtime_data.coordinator, vehicle, config_entry)
+        )
         for description in SENSOR_DESCRIPTIONS:
             if should_create_entity(
                 hass,
@@ -735,30 +777,93 @@ class AudiCloudLastPollSensor(AudiEntity, SensorEntity):
 
 
 class AudiLocalDealerSensor(AudiEntity, SensorEntity):
-    """Optional local dealership facts attached to the Audi device."""
+    """Visible, locally managed dealership details on the Audi device.
+
+    The source connector has inspection dates, but no verified dealer lookup.
+    Never claim that manual dealer metadata came from the Audi cloud.
+    """
 
     _attr_name = "Dealer (local)"
     _attr_icon = "mdi:store"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator: AudiDataUpdateCoordinator, vehicle: Any,
-                 dealer: dict[str, str]) -> None:
+    def __init__(
+        self, coordinator: AudiDataUpdateCoordinator, vehicle: Any, entry: ConfigEntry
+    ) -> None:
         super().__init__(coordinator, vehicle)
-        self._dealer = dealer.copy()
+        self._entry = entry
         self._attr_unique_id = entity_unique_id(vehicle, "sensor", "local_dealer")
 
     @property
     def available(self) -> bool:
-        return True  # Local metadata stays available during Audi cloud failures.
+        return True
+
+    @property
+    def _local_data(self) -> dict[str, str]:
+        return get_local_dealer(self._entry.options, self._vehicle.vin)
 
     @property
     def native_value(self) -> str:
-        return self._dealer.get("dealer_name", "Configured")
+        return self._local_data.get("dealer_name", "Not configured")
 
     @property
-    def extra_state_attributes(self) -> dict[str, str]:
-        return {key: value for key, value in self._dealer.items()
-                if key != "dealer_name"}
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self._local_data
+        return {
+            "source": "Home Assistant local configuration (not Audi)",
+            "configured": bool(data),
+            "configuration_path": "Audi Connect > Configure > Edit dealer and local service details",
+            **{key: value for key, value in data.items() if key != "dealer_name"},
+        }
+
+
+class AudiServiceOverviewSensor(AudiEntity, SensorEntity):
+    """Car-sourced maintenance combined with optional local appointment data."""
+
+    _attr_name = "Service overview"
+    _attr_icon = "mdi:car-wrench"
+
+    def __init__(
+        self, coordinator: AudiDataUpdateCoordinator, vehicle: Any, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator, vehicle)
+        self._entry = entry
+        self._attr_unique_id = entity_unique_id(vehicle, "sensor", "service_overview")
+
+    @property
+    def available(self) -> bool:
+        # A local appointment remains useful even if Audi cloud is down.
+        return True
+
+    @property
+    def native_value(self) -> str:
+        inspection = getattr(self._vehicle, "service_inspection_time", None)
+        oil = getattr(self._vehicle, "oil_change_time", None)
+        numbers = [
+            value for value in (inspection, oil)
+            if isinstance(value, (float, int)) and not isinstance(value, bool)
+        ]
+        if any(value <= 0 for value in numbers):
+            return "overdue"
+        if any(value <= 30 for value in numbers):
+            return "due_soon"
+        if numbers:
+            return "scheduled"
+        data = get_local_dealer(self._entry.options, self._vehicle.vin)
+        return "appointment_recorded" if data.get("next_service_date") else "unknown"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = get_local_dealer(self._entry.options, self._vehicle.vin)
+        return {
+            "inspection_due_days": getattr(self._vehicle, "service_inspection_time", None),
+            "inspection_due_km": getattr(self._vehicle, "service_inspection_distance", None),
+            "oil_service_due_days": getattr(self._vehicle, "oil_change_time", None),
+            "oil_service_due_km": getattr(self._vehicle, "oil_change_distance", None),
+            "next_appointment_local": data.get("next_service_date"),
+            "warranty_expiry_local": data.get("warranty_expiry"),
+            "maintenance_source": "Audi vehicleHealthInspection when reported",
+            "appointment_source": "Home Assistant local configuration, not Audi",
+        }
 
 
 class AudiApiRateLimitSensor(AudiEntity, RestoreSensor):

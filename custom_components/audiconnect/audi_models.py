@@ -362,6 +362,33 @@ class VehicleDataResponse:
                 "remainingClimatisationTime_min",
             ],
         )
+        # Additional modern CARIAD fields interpreted by CarConnectivity:
+        # keep numeric charging limits distinct from qualitative settings.
+        for name, key in (
+            ("chargingCurrentLimitA", "maxChargeCurrentAC_A"),
+            ("chargingCurrentLimitMode", "maxChargeCurrentAC"),
+            ("chargingPlugAutoUnlock", "autoUnlockPlugWhenChargedAC"),
+        ):
+            self._tryAppendStateWithTs(
+                data, name, -1, ["charging", "chargingSettings", "value", key]
+            )
+        # Audi reports online/active at the vehicle, not at the cloud gateway.
+        # This readiness block may have no capture time: never assign an
+        # invented timestamp or claim every other status is freshly measured.
+        connection = self._getFromJson(
+            data, ["readiness", "readinessStatus", "value", "connectionState"]
+        )
+        if isinstance(connection, dict):
+            for name, source in (
+                ("vehicleReportedOnline", "isOnline"),
+                ("vehicleReportedActive", "isActive"),
+            ):
+                if isinstance(connection.get(source), bool):
+                    self.states.append({
+                        "name": name, "value": connection[source],
+                        "measure_time": None,
+                    })
+
         self._parseChargingProfiles(data)
         self._parseChargingTimers(data)
         self._parseClimatisationTimers(data)

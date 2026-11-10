@@ -688,6 +688,21 @@ class AudiConnectAccount:
                     "Cloud refresh failed after charger action for %s: %s", vin, ex
                 )
 
+    async def trigger_vehicle_wakeup(self, vin: str) -> bool:
+        """User-initiated wake request, not background polling or confirmation."""
+        if not self._loggedin:
+            await self.login()
+        if not self._loggedin:
+            return False
+        try:
+            await self._audi_service.trigger_vehicle_wakeup(vin)
+            return True
+        except Exception:
+            _LOGGER.warning(
+                "Audi wake-up request failed (no VIN or authentication details logged)"
+            )
+            return False
+
     async def set_vehicle_window_heating(self, vin: str, activate: bool):
         if not self._loggedin:
             await self.login()
@@ -1977,6 +1992,43 @@ class AudiConnectVehicle:
         check = self._vehicle.state.get("chargeType")
         if check and check != "unsupported":
             return True
+
+    @property
+    def charging_current_limit_a(self):
+        """Modern numeric AC charging current limit reported by CARIAD."""
+        value = self._vehicle.state.get("chargingCurrentLimitA")
+        return parse_float(value) if value is not None else None
+
+    @property
+    def charging_current_limit_mode(self):
+        return self._vehicle.state.get("chargingCurrentLimitMode")
+
+    @property
+    def charging_plug_auto_unlock(self):
+        value = self._vehicle.state.get("chargingPlugAutoUnlock")
+        if value == "on":
+            return "enabled"
+        if value == "off":
+            return "disabled"
+        return None
+
+    @property
+    def vehicle_reported_online(self):
+        value = self._vehicle.state.get("vehicleReportedOnline")
+        if value is True:
+            return "online"
+        if value is False:
+            return "offline"
+        return None
+
+    @property
+    def vehicle_reported_active(self):
+        value = self._vehicle.state.get("vehicleReportedActive")
+        if value is True:
+            return "active"
+        if value is False:
+            return "inactive"
+        return None
 
     @property
     def max_charge_current(self):
