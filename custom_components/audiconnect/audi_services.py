@@ -717,6 +717,43 @@ class AudiService:
         return self.__build_url(base_url, path_and_query, **path_and_query_kwargs)
 
     async def set_vehicle_lock(self, vin: str, lock: bool):
+        """Use the CARIAD access API with Auth0, legacy RLU only with legacy auth.
+
+        Audi's 2026 Auth0 sessions no longer authorize the old
+        rolesrights/rlu_v1 PIN challenge used by the pre-2026 integration.
+        Do not retry a failed access command on another backend: unlocking is a
+        security-sensitive mutation and blind retries can have side effects.
+        """
+        if self._uses_auth0:
+            return await self._set_vehicle_lock_cariad(vin, lock)
+        return await self._set_vehicle_lock_legacy(vin, lock)
+
+    async def _set_vehicle_lock_cariad(self, vin: str, lock: bool) -> None:
+        """Modern /access/lock and /access/unlock route (Audi connector reference).
+
+        The Audi BFF expects the S-PIN as a JSON field, unlike legacy RLU
+        challenge/response. Never log the payload, VIN, or authorization data.
+        HTTP 200 means *accepted by gateway*, not proven physical door state.
+        """
+        if not self._spin:
+            raise ValueError("An Audi S-PIN is required for remote door control")
+        if not self._bearer_token_json or not self._bearer_token_json.get("access_token"):
+            raise AudiAuthError("Audi Auth0 access token is unavailable")
+        action = "lock" if lock else "unlock"
+        headers = {
+            "Authorization": "Bearer " + self._bearer_token_json["access_token"],
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        self._api.use_token(self._bearer_token_json)
+        await self._api.request(
+            "POST",
+            self.__get_cariad_url_for_vin(vin, f"access/{action}"),
+            headers=headers,
+            data=json.dumps({"spin": self._spin}),
+        )
+
+    async def _set_vehicle_lock_legacy(self, vin: str, lock: bool) -> None:
         security_token = await self._get_security_token(
             vin, "rlu_v1/operations/" + ("LOCK" if lock else "UNLOCK")
         )
