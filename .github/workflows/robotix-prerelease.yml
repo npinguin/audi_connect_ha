@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/restore-audi-data
     paths:
       - "custom_components/audiconnect/**"
       - "hacs.json"
@@ -22,7 +23,7 @@ permissions:
 
 jobs:
   validate_and_publish:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || (github.ref == 'refs/heads/feature/restore-audi-data' && github.event_name == 'push')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout release branch
