@@ -95,7 +95,8 @@
           "update_sleep": "Cloud Refresh Delay",
           "scan_interval": "Scan Interval",
           "filter_vins": "Excluded VINs",
-          "edit_local_dealer": "Edit dealer and local service details"
+          "edit_local_dealer": "Edit dealer and local service details",
+          "experimental_commands": "Enable experimental vehicle controls"
         },
         "title": "Audi Connect Options",
         "data_description": {
@@ -105,7 +106,8 @@
           "update_sleep": "Seconds to wait after a service action before refreshing cloud data. A longer delay gives the vehicle more time to report its updated state to the cloud.",
           "scan_interval": "Minutes between cloud polling updates.",
           "filter_vins": "Comma-separated VIN list to exclude from setup and updates.",
-          "edit_local_dealer": "Open the form to save dealership, service appointment and warranty details locally, without any Audi API requests."
+          "edit_local_dealer": "Open the form to save dealership, service appointment and warranty details locally, without any Audi API requests.",
+          "experimental_commands": "Show additional user-triggered CARIAD charging, window heating and wake-up actions. Off by default. Verify real operation; HTTP 200 is not proof the vehicle acted."
         }
       },
       "dealer_vehicle": {
