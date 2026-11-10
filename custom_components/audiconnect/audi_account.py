@@ -236,8 +236,10 @@ class AudiAccount(AudiConnectObserver):
             result = await self.connection.set_vehicle_lock(vin, False)
             self._raise_on_failed_command(result, action)
         elif action == "start_climatisation":
-            # Legacy start is deprecated; use start_climate_control instead.
-            result = await self.connection.set_vehicle_climatisation(vin, True)
+            # Existing HA scripts/automations still call this action; route
+            # them to the supported start with car-stored settings instead
+            # of the permanently disabled legacy start command.
+            result = await self.connection.start_climate_control(vin)
             self._raise_on_failed_command(result, action)
         elif action == "stop_climatisation":
             result = await self.connection.set_vehicle_climatisation(vin, False)
