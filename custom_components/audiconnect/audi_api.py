@@ -136,6 +136,11 @@ class AudiAPI:
                             _LOGGER.debug(
                                 "Raw JSON text (before parsing): %s", raw_body
                             )
+                        # Some CARIAD mutation endpoints acknowledge with
+                        # HTTP 200/202 and an empty body (not JSON). Accept the
+                        # transport response without inventing vehicle success.
+                        if not raw_body.strip():
+                            return None
                         json_data = json_loads(raw_body)
                         if DEBUG_VERBOSE:
                             _LOGGER.debug("Parsed JSON data (full): %s", json_data)
