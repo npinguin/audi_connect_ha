@@ -32,3 +32,26 @@ The inherited upstream scheduled `release.yml` workflow must not be used for Rob
 
 
 **Beta 2:** `2.5.3b2` adds manual local dealership/service metadata, an optional 12-read extended API probe and an anonymized capability catalogue. HAR cookies/tokens are never committed; verify the new local-dealer sensor and preservation across OptionsFlow edits in HA runtime before considering production use.
+
+## HACS installation ZIP — v2.5.3b4
+
+This is a packaging-only release of the v2.5.3b3 freshness functionality.
+The release ships `audiconnect-hacs.zip` with files directly at its root
+(`manifest.json`, `__init__.py`, etc). The versioned `hacs.json` config
+sets `zip_release: true`, `filename: audiconnect-hacs.zip`,
+and `hide_default_branch: true` so HACS selects a release rather than
+the old source branch. The release build validates metadata and ZIP layout.
+
+**GitHub repository settings still require human administrator action:**
+set **Settings → General → Default branch** to `main` (currently `master`),
+and enable **Settings → General → Features → Issues**. HACS validation
+currently reports exactly that disabled Issues setting as a failure;
+do not claim a fully green HACS validation until GitHub verifies it.
+
+**Home Assistant rollout:** back up before switching distribution channels.
+Add `npinguin/audi_connect_ha` as a custom HACS integration repository,
+select the explicit pre-release version `v2.5.3b4`, and retain the existing
+`audiconnect` config entry and vehicle/entity IDs. Do **not** uninstall an
+existing Marketplace integration merely to switch sources. If the manager
+refuses an in-place update or reports duplicate ownership, use a
+controlled file replacement instead and retain the configuration.
