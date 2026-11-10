@@ -27,8 +27,18 @@ READ_ONLY_PROBES: tuple[tuple[str, str, str | None], ...] = (
     ("parking_position", "parkingposition", None),
     ("pending_requests", "pendingrequests", None),
 )
+# New candidates are explicitly experimental: the HAR advertises the feature,
+# not a working CARIAD job. These are optional GETs only.
+EXTENDED_READ_ONLY_PROBES: tuple[tuple[str, str, str | None], ...] = (
+    ("climatisation_timers", "selectivestatus?jobs=climatisationTimers", "climatisationTimers"),
+    ("measurements", "selectivestatus?jobs=measurements", "measurements"),
+    ("vehicle_health_inspection", "selectivestatus?jobs=vehicleHealthInspection", "vehicleHealthInspection"),
+    ("trip_statistics_experimental", "selectivestatus?jobs=tripStatistics", "tripStatistics"),
+)
 MAX_PROBES = 8
+MAX_EXTENDED_PROBES = 12
 MIN_RATE_LIMIT_REMAINING = 12
+MIN_EXTENDED_RATE_LIMIT_REMAINING = 16
 
 
 def _has_error(value: Any, max_nodes: int = 64) -> bool:
@@ -81,19 +91,27 @@ def classify_http_status(status: int) -> str:
 
 
 async def run_read_only_probes(
-    api: Any, access_token: str, url_for_suffix: Callable[[str], str]
+    api: Any, access_token: str, url_for_suffix: Callable[[str], str],
+    *, extended: bool = False,
 ) -> dict[str, Any]:
     """Run a strictly fixed set of GETs on explicit user request only."""
     if not access_token:
         raise ValueError("Missing active Audi access token")
+    paths = READ_ONLY_PROBES[:MAX_PROBES]
+    if extended:
+        paths += EXTENDED_READ_ONLY_PROBES[:MAX_EXTENDED_PROBES - MAX_PROBES]
+    minimum_budget = (
+        MIN_EXTENDED_RATE_LIMIT_REMAINING if extended
+        else MIN_RATE_LIMIT_REMAINING
+    )
     outcomes: list[dict[str, Any]] = []
     stop_reason: str | None = None
-    for name, suffix, job in READ_ONLY_PROBES[:MAX_PROBES]:
+    for name, suffix, job in paths:
         if stop_reason:
             outcomes.append({"probe": name, "outcome": "skipped", "reason": stop_reason})
             continue
         remaining = getattr(api, "vcf_remaining_calls", None)
-        if remaining is not None and remaining < MIN_RATE_LIMIT_REMAINING:
+        if remaining is not None and remaining < minimum_budget:
             stop_reason = "low_rate_limit_budget"
             outcomes.append({"probe": name, "outcome": "skipped", "reason": stop_reason})
             continue
@@ -121,7 +139,8 @@ async def run_read_only_probes(
     return {
         "ran_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "attempted": sum(row["outcome"] != "skipped" for row in outcomes),
-        "max_allowed": MAX_PROBES,
+        "max_allowed": len(paths),
+        "mode": "extended" if extended else "core",
         "mutating_requests": 0,
         "results": outcomes,
     }
