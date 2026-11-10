@@ -23,8 +23,8 @@ class FakeApi:
         self.vcf_remaining_calls = rate_limit
         self.calls = []
 
-    async def request(self, method, url, headers=None, data=None):
-        self.calls.append((method, url, headers, data))
+    async def get(self, url, **kwargs):
+        self.calls.append(("GET", url, kwargs))
         if self.status is not None:
             raise ClientResponseError(None, (), status=self.status)
         if "selectivestatus?jobs=" in url:
@@ -41,8 +41,7 @@ def test_all_get_no_mutations_and_no_secrets():
     api = FakeApi()
     result = asyncio.run(run_read_only_probes(api, SECRET, _url_for))
     assert result["attempted"] == MAX_PROBES == len(READ_ONLY_PROBES)
-    assert all(method == "GET" and data is None for method, _url, _headers, data in api.calls)
-    assert all(headers == {"Authorization": "Bearer " + SECRET} for _, _, headers, _ in api.calls)
+    assert all(method == "GET" and kwargs == {} for method, _url, kwargs in api.calls)
     output = repr(result)
     assert VIN not in output
     assert SECRET not in output
