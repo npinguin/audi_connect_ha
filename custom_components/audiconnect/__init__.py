@@ -53,6 +53,8 @@ from .coordinator import AudiDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+SERVICE_PROBE_API_PATHS = "probe_api_paths"
+
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
@@ -223,6 +225,14 @@ def _async_register_services(hass: HomeAssistant) -> None:
         vin, account = result
         await account.refresh_vehicle_data(vin)
 
+    async def _handle_probe_api_paths(service: ServiceCall) -> None:
+        """Explicit user action. A diagnostics download never triggers probes."""
+        result = _resolve_service_call(hass, service)
+        if result is None:
+            return
+        vin, account = result
+        await account.connection.probe_read_only_api(vin)
+
     async def _handle_execute_vehicle_action(service: ServiceCall) -> None:
         result = _resolve_service_call(hass, service)
         if result is None:
@@ -288,6 +298,13 @@ def _async_register_services(hass: HomeAssistant) -> None:
             DOMAIN,
             SERVICE_REFRESH_VEHICLE_DATA,
             _handle_refresh_vehicle_data,
+            schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_PROBE_API_PATHS):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_PROBE_API_PATHS,
+            _handle_probe_api_paths,
             schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_EXECUTE_VEHICLE_ACTION):
@@ -436,6 +453,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
 
     if len(hass.config_entries.async_entries(DOMAIN)) <= 1:
         for service in (
+            SERVICE_PROBE_API_PATHS,
             SERVICE_REFRESH_CLOUD_DATA,
             SERVICE_REFRESH_VEHICLE_DATA,
             SERVICE_EXECUTE_VEHICLE_ACTION,
