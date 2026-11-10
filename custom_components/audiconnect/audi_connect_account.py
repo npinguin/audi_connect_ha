@@ -14,7 +14,7 @@ from aiohttp import ClientResponseError, ClientSession
 
 from .audi_api import AudiAPI
 from .audi_services import AudiAuthError, AudiService
-from .trip_restore import normalize_cariad_trip
+from .trip_restore import describe_cariad_trip_schema, normalize_cariad_trip
 from .util import get_attr, log_exception, parse_datetime, parse_float, parse_int
 import builtins
 
@@ -176,7 +176,7 @@ class AudiConnectAccount:
 
             # Mark before the first request to protect against repeated errors.
             self._readonly_probe_attempted[key] = now
-            outcomes: list[dict[str, str]] = []
+            outcomes: list[dict[str, Any]] = []
             normalized = 0
             for kind, state_key in (
                 ("shortterm", "shortterm_current"),
@@ -190,7 +190,11 @@ class AudiConnectAccount:
                 try:
                     payload = await self._audi_service.get_auth0_trip_payload(vin, kind)
                     trip, status = normalize_cariad_trip(payload)
-                    outcomes.append({"source": kind, "outcome": status})
+                    outcomes.append({
+                        "source": kind,
+                        "outcome": status,
+                        "schema": describe_cariad_trip_schema(payload),
+                    })
                     if trip is None:
                         continue
                     # Trip data returned from the endpoint is not necessarily
