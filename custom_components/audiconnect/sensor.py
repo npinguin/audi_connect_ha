@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -23,12 +24,14 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfTime,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AudiRuntimeData
 from .audi_entity import AudiEntity, entity_unique_id, should_create_entity
 from .coordinator import AudiDataUpdateCoordinator
+from .freshness import usable_vehicle_timestamp, vehicle_age_minutes, vehicle_freshness
 from .local_extensions import get_local_dealer
 from .util import parse_datetime
 
@@ -493,6 +496,13 @@ async def async_setup_entry(
 
     for config_vehicle in runtime_data.account.config_vehicles:
         vehicle = config_vehicle.vehicle
+        # Always expose freshness on the device, even if current Audi data is
+        # stale or unavailable. Existing Last Update keeps its unique ID.
+        entities.extend((
+            AudiVehicleFreshnessSensor(runtime_data.coordinator, vehicle),
+            AudiVehicleAgeSensor(runtime_data.coordinator, vehicle),
+            AudiCloudLastPollSensor(runtime_data.coordinator, vehicle),
+        ))
         dealer = get_local_dealer(config_entry.options, vehicle.vin)
         if dealer:
             entities.append(AudiLocalDealerSensor(runtime_data.coordinator, vehicle, dealer))
@@ -557,6 +567,121 @@ class AudiSensor(AudiEntity, SensorEntity):
         if self.entity_description.extra_attrs_fn is not None:
             return self.entity_description.extra_attrs_fn(self._vehicle)
         return None
+
+
+class _AudiClockAwareSensor(AudiEntity, SensorEntity):
+    """Refresh display age even when Audi cloud polling fails."""
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass, self._async_clock_tick, timedelta(minutes=5)
+            )
+        )
+
+    @callback
+    def _async_clock_tick(self, _now: datetime) -> None:
+        self.async_write_ha_state()
+
+
+class AudiVehicleFreshnessSensor(_AudiClockAwareSensor):
+    """Readable freshness status of the newest car telemetry timestamp."""
+
+    _attr_name = "Vehicle data freshness"
+    _attr_icon = "mdi:clock-check-outline"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["fresh", "delayed", "stale", "unknown"]
+
+    def __init__(self, coordinator: AudiDataUpdateCoordinator, vehicle: Any) -> None:
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = entity_unique_id(vehicle, "sensor", "vehicle_data_freshness")
+
+    @property
+    def available(self) -> bool:
+        # Stale/offline car data must remain visible instead of going unavailable.
+        return True
+
+    @property
+    def native_value(self) -> str:
+        return vehicle_freshness(getattr(self._vehicle, "last_update_time", None))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        timestamp = usable_vehicle_timestamp(
+            getattr(self._vehicle, "last_update_time", None)
+        )
+        last_success = getattr(self.coordinator, "last_cloud_poll_success", None)
+        last_attempt = getattr(self.coordinator, "last_cloud_poll_attempt", None)
+        return {
+            "vehicle_last_update": timestamp.isoformat() if timestamp else None,
+            "vehicle_age_minutes": vehicle_age_minutes(
+                getattr(self._vehicle, "last_update_time", None)
+            ),
+            "cloud_last_successful_poll": (
+                last_success.isoformat() if isinstance(last_success, datetime) else None
+            ),
+            "cloud_last_attempt": (
+                last_attempt.isoformat() if isinstance(last_attempt, datetime) else None
+            ),
+            "last_cloud_poll_succeeded": bool(
+                getattr(self.coordinator, "last_update_success", False)
+            ),
+            "freshness_basis": "newest_vehicle_timestamp_not_all_fields",
+        }
+
+
+class AudiVehicleAgeSensor(_AudiClockAwareSensor):
+    """Age of the newest vehicle data timestamp, independent of cloud login."""
+
+    _attr_name = "Vehicle data age"
+    _attr_icon = "mdi:timer-sand"
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: AudiDataUpdateCoordinator, vehicle: Any) -> None:
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = entity_unique_id(vehicle, "sensor", "vehicle_data_age")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> int | None:
+        return vehicle_age_minutes(getattr(self._vehicle, "last_update_time", None))
+
+
+class AudiCloudLastPollSensor(AudiEntity, SensorEntity):
+    """Last actual successful cloud poll, never mistaken for vehicle telemetry."""
+
+    _attr_name = "Cloud last successful poll"
+    _attr_icon = "mdi:cloud-check-outline"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: AudiDataUpdateCoordinator, vehicle: Any) -> None:
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = entity_unique_id(
+            vehicle, "sensor", "cloud_last_successful_poll"
+        )
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def native_value(self) -> datetime | None:
+        return getattr(self.coordinator, "last_cloud_poll_success", None)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attempt = getattr(self.coordinator, "last_cloud_poll_attempt", None)
+        return {
+            "last_attempt": attempt.isoformat() if isinstance(attempt, datetime) else None,
+            "last_poll_succeeded": bool(
+                getattr(self.coordinator, "last_update_success", False)
+            ),
+        }
 
 
 class AudiLocalDealerSensor(AudiEntity, SensorEntity):
@@ -658,4 +783,12 @@ class AudiApiRateLimitSensor(AudiEntity, RestoreSensor):
         return attrs
 
 
-__all__ = ["AudiApiRateLimitSensor", "AudiLocalDealerSensor", "AudiSensor", "async_setup_entry"]
+__all__ = [
+    "AudiApiRateLimitSensor",
+    "AudiCloudLastPollSensor",
+    "AudiLocalDealerSensor",
+    "AudiSensor",
+    "AudiVehicleAgeSensor",
+    "AudiVehicleFreshnessSensor",
+    "async_setup_entry",
+]

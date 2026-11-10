@@ -49,7 +49,11 @@ class TestSnapshot(TestCase):
             "source": "vehicle_poll_not_browser_session",
             "groups": {}, "command_authorization_confirmed": False,
         }
+        freshness = _module("test_audi_package.freshness")
+        freshness.vehicle_age_minutes = lambda value: None
+        freshness.vehicle_freshness = lambda value: "unknown"
         stubs = {
+            "test_audi_package.freshness": freshness,
             "test_audi_package.capability_catalog": catalog,
             "homeassistant": ha,
             "homeassistant.config_entries": cfg,
