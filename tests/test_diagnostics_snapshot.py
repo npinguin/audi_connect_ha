@@ -120,5 +120,6 @@ class TestSnapshot(TestCase):
             result["runtime"]["vehicles"][0]["feature_flags"]["support_trip_data"],
             "legacy_poll_disabled_for_auth0_session",
         )
+        self.assertLessEqual(len(result["runtime"]["recent_http_observations"]), 20)
         self.assertEqual(result["entities"]["total"], 2)
         self.assertEqual(result["entities"]["disabled_per_platform"]["switch"], 1)

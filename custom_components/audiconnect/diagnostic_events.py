@@ -47,6 +47,10 @@ def classify_route(url: str) -> str:
         return "remote_engine"
     if "/charging/" in path or "/charger/" in path:
         return "charging"
+    if path.endswith("/vehiclewakeuptrigger"):
+        return "vehicle_wakeup_trigger"
+    if path.endswith("/vehiclewakeup"):
+        return "vehicle_data_refresh_request"
     if "/pendingrequests" in path:
         return "command_confirmation"
     if "selectivestatus" in path:
@@ -64,6 +68,10 @@ def build_http_event(method: str, url: str, status: int) -> dict[str, object] | 
     if method not in _MUTATION_METHODS and status < 400:
         return None
     route = classify_route(url)
+    # Successful token rotations are frequent housekeeping, not an
+    # actionable vehicle event. Authentication failures remain visible.
+    if route == "authentication" and status < 400:
+        return None
     return {
         "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "method": method if method in _MUTATION_METHODS or method == "GET" else "OTHER",
