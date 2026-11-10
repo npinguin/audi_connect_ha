@@ -22,6 +22,30 @@ class TestDiagnostics(unittest.TestCase):
         event = module.build_http_event("POST", "https://emea.bff.cariad.digital/vehicle/v1/vehicles/SECRET/climatisation/start", 200)
         self.assertEqual(event["outcome"], "http_accepted_not_vehicle_confirmed")
 
+    def test_auth0_token_exchange_is_not_vehicle_command(self):
+        event = module.build_http_event(
+            "POST",
+            "https://group.identity.vwgroup.io/oauth/token?secret=PRIVATE",
+            200,
+        )
+        self.assertEqual(event["route"], "authentication")
+        self.assertEqual(event["outcome"], "authentication_http_success")
+        self.assertNotIn("PRIVATE", str(event))
+
+    def test_other_post_is_not_assumed_authentication(self):
+        event = module.build_http_event(
+            "POST", "https://example.org/oauth/token", 200
+        )
+        self.assertEqual(event["route"], "other")
+        self.assertEqual(event["outcome"], "http_accepted_not_vehicle_confirmed")
+
+    def test_auth0_failed_token_exchange(self):
+        event = module.build_http_event(
+            "POST", "https://group.identity.vwgroup.io/oauth/token", 401
+        )
+        self.assertEqual(event["route"], "authentication")
+        self.assertEqual(event["outcome"], "http_rejected")
+
     def test_successful_read_ignored(self):
         self.assertIsNone(module.build_http_event("GET", "https://example.test/vehicle/v1/status", 200))
 
