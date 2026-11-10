@@ -162,7 +162,13 @@ async def async_get_config_entry_diagnostics(
         ),
         "vehicle_count": len(vehicles),
         "vehicles": [
-            _vehicle_snapshot(vehicle, idx, uses_auth0)
+            {
+                **_vehicle_snapshot(vehicle, idx, uses_auth0),
+                "local_dealer_configured": bool(
+                    isinstance(entry.options.get("local_dealers", {}), dict)
+                    and entry.options.get("local_dealers", {}).get(vehicle.vin.lower())
+                ),
+            }
             for idx, vehicle in enumerate(vehicles[:10], 1)
         ],
         "recent_http_observations": list(
