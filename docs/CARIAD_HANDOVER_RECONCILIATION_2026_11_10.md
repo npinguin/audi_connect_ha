@@ -35,6 +35,64 @@ The VW Transporter example from [issue #1060](https://github.com/robinostlund/ho
 - Existing `shortterm_current` and `longterm_current` unique IDs are preserved. A new `last_trip` timestamp entity is created. The two **User Reset** entities retain existing IDs but remain unavailable until a real reset/aggregate contract is proven. Do not manufacture reset values from last-trip records.
 - Trip reads are explicit, at most three GETs per invocation, guarded by a 15-minute shared cooldown and API quota awareness. No new background requests or control actions.
 
+## V3 research and PR #915 follow-up (11 November 2026)
+
+The engineering-review V3 summary adds sources that are **not** verified
+Q8 API data contracts. The user supplied a research summary, not the complete
+606-line file; this document tracks only the claims substantiated below.
+
+### Verified regression and implementation
+
+A code-level regression in the base `capability_jobs.py` planner matched
+capability IDs to selected jobs only by literal names. The reported
+`oilLevelStatus` can provide the `oilLevel` job, so the second poll could
+silently omit usable oil data. In addition, a reduced job list or incomplete
+non-error response could replace the entire cached field dictionary.
+
+- Targeted review: [fork draft PR #17](https://github.com/npinguin/audi_connect_ha/pull/17),
+  branched from our upstream PR #915, **not merged into #915**.
+- Explicit one-way `oilLevelStatus -> oilLevel` alias; no unsupported
+  assumptions that `tripStatistics` is a selectivestatus job or that
+  `parkingPosition` is anything other than its separate resource.
+- Keep previously validated jobs only if a known, fixed GET job actually
+  returned nonempty and non-error data. Ignore unsupported arbitrary job
+  identifiers, empty objects and error-only responses.
+- Keep cached fields/states when the job selection or returned data is
+  incomplete. A 200/207 success is **not** necessarily a complete measurement
+  snapshot; nested per-job errors must be evaluated separately.
+- AudiAPI already accepts HTTP 207 JSON. No duplicate transport handling, no
+  extra API requests, no modified remote actions.
+- Regression tests cover matching, failing and partly successful jobs,
+  data-preservation on partial reports, and zero accidental extra polls.
+
+### Third-party comparisons: requirements only
+
+- [Homey myAudi 1.1.1](https://homey.app/en-tz/app/com.audi.etron/myAudi/):
+  dashboard warning lights + per-new-light triggers, charging plug locked
+  status, auxiliary heating status, inspection due and independent S-PIN
+  validation without re-login. This is **not proof** of Q8 API access. Prioritize
+  status readback and supported units before adding HA entities or automations.
+- [Symcon A3 8Y PHEV client](https://community.symcon.de/t/myaudi-klasse-fuer-fahrzeugdaten/134904?page=2):
+  restored login and general vehicle reads after June 2026 changes, separate
+  routes for digital trip history. Park time inferred from trip end is an
+  **estimate** only and must never replace a genuine vehicle parking clock.
+- Historical openHAB ConnectedCar Java and mixed 207 responses are schema
+  research, not current Auth0 implementation or authorization evidence.
+  This branch **does not** copy legacy Java sources or incompatible license
+  code into the Audi integration.
+
+### Next gates
+
+1. Resolve PR #17 review and merge into upstream-contribution PR #915 only
+   after engineering acceptance; protect the same job planning in the fork.
+2. Test live sequential Q8 polls to demonstrate oil-level retention and safe
+   freshness under incomplete jobs; unit tests alone do not prove car behavior.
+3. Implement warning-light triggers, plug lock, auxiliary heater and S-PIN
+   verification **only** after readback schema and authorization are confirmed.
+4. Continue the already-planned explicit trip refresh and Q8 normalization.
+5. Keep native, redacted diagnostics and bounded probe history; no new probes
+   simply to duplicate the other integrations' feature lists.
+
 ## Additional backlog
 
 1. **P0:** verify actual Q8 schema and unit provenance with `trip_restore_attempts` and existing HA sensor states; protect unit metadata and timestamps.
