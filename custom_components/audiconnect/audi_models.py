@@ -856,34 +856,50 @@ class Vehicle:
         self.vin: str = ""
         self.csid: str = ""
         self.model: str = ""
+        self.model_source: str = "unavailable"
         self.model_year: str = ""
         self.model_family: str = ""
         self.title: str = ""
 
+    @staticmethod
+    def _clean_label(value: Any) -> str:
+        """Accept a non-blank Audi string, never the literal None or object."""
+        return value.strip() if isinstance(value, str) else ""
+
     def parse(self, data: dict[str, Any]) -> None:
-        self.vin = data.get("vin")
-        self.csid = data.get("csid")
-        if (
-            data.get("vehicle") is not None
-            and data.get("vehicle").get("media") is not None
-        ):
-            self.model = data.get("vehicle").get("media").get("longName")
-        if (
-            data.get("vehicle") is not None
-            and data.get("vehicle").get("core") is not None
-        ):
-            self.model_year = data.get("vehicle").get("core").get("modelYear")
-        if data.get("nickname") is not None and len(data.get("nickname")) > 0:
-            self.title = data.get("nickname")
-        elif (
-            data.get("vehicle") is not None
-            and data.get("vehicle").get("media") is not None
-        ):
-            self.title = data.get("vehicle").get("media").get("shortName")
+        self.vin = data.get("vin") or ""
+        self.csid = data.get("csid") or ""
+        vehicle = data.get("vehicle") or {}
+        if not isinstance(vehicle, dict):
+            vehicle = {}
+        media = vehicle.get("media") or {}
+        if not isinstance(media, dict):
+            media = {}
+        core = vehicle.get("core") or {}
+        if not isinstance(core, dict):
+            core = {}
+
+        # Auth0 GraphQL returns a nonfatal enrichment error on some cars;
+        # media.longName is then absent. shortName is still manufacturer data.
+        long_name = self._clean_label(media.get("longName"))
+        short_name = self._clean_label(media.get("shortName"))
+        nickname = self._clean_label(data.get("nickname"))
+        if long_name:
+            self.model, self.model_source = long_name, "audi_long_name"
+        elif short_name:
+            self.model, self.model_source = short_name, "audi_short_name"
+        elif nickname:
+            # Last resort: a user-defined vehicle label, NOT a verified model.
+            self.model, self.model_source = nickname, "nickname_fallback"
+        else:
+            self.model, self.model_source = "", "unavailable"
+
+        year = core.get("modelYear")
+        self.model_year = str(year) if year is not None and str(year).strip() else ""
+        self.title = nickname or short_name or long_name or "Audi vehicle"
 
     def __str__(self) -> str:
         return str(self.__dict__)
-
 
 class VehiclesResponse:
     def __init__(self) -> None:

@@ -872,6 +872,10 @@ class AudiConnectVehicle:
         return self._vehicle.model
 
     @property
+    def model_source(self):
+        return getattr(self._vehicle, "model_source", "unavailable")
+
+    @property
     def model_year(self):
         return self._vehicle.model_year
 
@@ -2470,12 +2474,31 @@ class AudiConnectVehicle:
 
     @property
     def park_time(self):
-        if self.park_time_supported:
-            return self._vehicle.state.get("vehicleParkingClock")
+        """Legacy true parking clock or a labeled last parked-position capture.
+
+        CARIAD parkingposition supplies carCapturedTimestamp. It is the time
+        Audi captured the *parked GPS position*, not a verified parking-start
+        or engine-off event. Never claim a more precise meaning.
+        """
+        legacy = self._vehicle.state.get("vehicleParkingClock")
+        if legacy is not None:
+            return legacy
+        position = self._vehicle.state.get("position") or {}
+        if isinstance(position, dict):
+            return position.get("parktime") or position.get("timestamp")
+        return None
+
+    @property
+    def park_time_source(self):
+        if self._vehicle.state.get("vehicleParkingClock") is not None:
+            return "vehicle_parking_clock"
+        if self.park_time is not None:
+            return "last_parked_position_capture_estimate"
+        return "unavailable"
 
     @property
     def park_time_supported(self):
-        return self._vehicle.state.get("vehicleParkingClock") is not None
+        return self.park_time is not None
 
     @property
     def remaining_climatisation_time(self):
