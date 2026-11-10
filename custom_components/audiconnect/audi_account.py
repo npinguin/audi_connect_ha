@@ -17,6 +17,7 @@ from .audi_connect_account import (
     AudiConnectObserver,
 )
 from .audi_models import VehicleData
+from .vehicle_controls import engine_start_stop_supported
 from .const import (
     CONF_ACTION,
     CONF_API_LEVEL,
@@ -326,13 +327,33 @@ class AudiAccount(AudiConnectObserver):
             service.data.get(CONF_TARGET_SOC),
         )
 
+    def _require_remote_engine_support(self, vin: str) -> None:
+        """Check direct-service calls as well as buttons; never infer capability."""
+        for config_vehicle in self.config_vehicles:
+            vehicle = config_vehicle.vehicle
+            if (
+                vehicle is not None
+                and vehicle.vin.lower() == vin.lower()
+                and engine_start_stop_supported(vehicle)
+            ):
+                return
+        raise HomeAssistantError(
+            "Remote engine start/stop is not verified for this vehicle. "
+            "Only a vehicle-reported remote-start capability can enable it; "
+            "do not substitute this for electric cabin preconditioning."
+        )
+
     async def start_engine(self, vin: str) -> None:
-        """Start engine for a vehicle by VIN."""
-        await self.connection.start_engine(vin.lower())
+        """Start only when the vehicle explicitly reports remote-start support."""
+        self._require_remote_engine_support(vin)
+        if not await self.connection.start_engine(vin.lower()):
+            raise HomeAssistantError("Audi Connect could not start the engine.")
 
     async def stop_engine(self, vin: str) -> None:
-        """Stop engine for a vehicle by VIN."""
-        await self.connection.stop_engine(vin.lower())
+        """Stop only when the vehicle explicitly reports remote-start support."""
+        self._require_remote_engine_support(vin)
+        if not await self.connection.stop_engine(vin.lower()):
+            raise HomeAssistantError("Audi Connect could not stop the engine.")
 
     async def handle_notification(self, vin: str, action: str) -> None:
         if self.config_entry.options.get(CONF_REFRESH_AFTER_ACTION, False):
