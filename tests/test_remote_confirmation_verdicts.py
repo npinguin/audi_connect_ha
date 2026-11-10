@@ -6,7 +6,6 @@ return values while making the internal confirmation verdict explicit.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import pytest
@@ -129,4 +128,5 @@ async def test_account_does_not_claim_unconfirmed_vehicle_success(
         assert "Successfully started" in messages
     else:
         assert "Successfully started" not in messages
-        assert ("not confirmed" if verdict is False else "confirmation unavailable") in messages
+        expected = "not confirmed" if verdict is False else "confirmation unavailable"
+        assert expected in messages

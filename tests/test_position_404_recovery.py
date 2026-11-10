@@ -8,7 +8,6 @@ from __future__ import annotations
 import asyncio
 import time
 
-import pytest
 from aiohttp import ClientResponseError, RequestInfo
 from multidict import CIMultiDict, CIMultiDictProxy
 from yarl import URL
