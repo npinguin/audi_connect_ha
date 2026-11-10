@@ -10,6 +10,9 @@ from aiohttp import ClientResponseError
 from custom_components.audiconnect.api_probe import (
     FEATURE_RESTORE_PROBES,
     MAX_FEATURE_RESTORE_PROBES,
+    RESTORE_PROBE_GROUPS,
+    TRIP_DATA_PROBES,
+    VEHICLE_HEALTH_PROBES,
     resolve_restore_probe_url,
     run_read_only_probes,
 )
@@ -64,16 +67,17 @@ def run(api, **kwargs):
     )
 
 
-def test_fixed_eight_get_only_probes_with_correct_url_families():
+def test_trip_group_only_uses_three_proven_get_routes():
     api = FakeAPI()
     report = run(api)
     assert report["mode"] == "restore"
-    assert report["attempted"] == MAX_FEATURE_RESTORE_PROBES == 8
-    assert len(api.calls) == len(FEATURE_RESTORE_PROBES) == 8
+    assert report["restore_group"] == "trips"
+    assert report["attempted"] == MAX_FEATURE_RESTORE_PROBES == 3
+    assert len(api.calls) == len(TRIP_DATA_PROBES) == 3
+    assert len(FEATURE_RESTORE_PROBES) == 6
     assert api.calls[0].endswith(f"/vehicle/v1/trips/{VIN}/shortterm")
     assert api.calls[1].endswith(f"/vehicle/v1/trips/{VIN}/longterm")
     assert api.calls[2].endswith(f"/vehicle/v1/trips/{VIN}/shortterm/last")
-    assert f"/vehicles/{VIN}/tripstatistics?type=shortTerm" in api.calls[3]
     assert all(url.startswith("https://emea.bff.cariad.digital/") for url in api.calls)
     assert report["mutating_requests"] == 0
 
@@ -87,7 +91,7 @@ def test_service_uses_current_bearer_without_login_or_mutation():
     )
     assert result["mode"] == "restore"
     assert api.token == {"access_token": TOKEN}
-    assert len(api.calls) == 8
+    assert len(api.calls) == 3
 
 
 def test_only_status_classification_survives_export():
@@ -112,27 +116,23 @@ def test_low_known_budget_prevents_all_network_requests(remaining):
     assert all(row["outcome"] == "skipped" for row in report["results"])
 
 
-def test_unknown_budget_only_runs_first_five_trips_probes():
+def test_unknown_budget_allows_three_trip_requests_only():
     api = FakeAPI(remaining=None)
     report = run(api)
-    assert report["attempted"] == 5
-    assert len(api.calls) == 5
-    assert [row["probe"] for row in report["results"][:5]] == [
+    assert report["attempted"] == 3
+    assert len(api.calls) == 3
+    assert [row["probe"] for row in report["results"]] == [
         "trip_shortterm",
         "trip_longterm",
         "trip_last",
-        "tripstatistics_shortterm",
-        "tripstatistics_longterm",
     ]
-    assert all(row["reason"] == "unknown_budget_probe_cap_reached"
-               for row in report["results"][5:])
 
 
 def test_known_budget_reserves_twelve_calls():
     api = FakeAPI(remaining=20)
     report = run(api)
-    assert report["attempted"] == 8
-    assert api.vcf_remaining_calls == 12
+    assert report["attempted"] == 3
+    assert api.vcf_remaining_calls == 17
 
 
 @pytest.mark.parametrize(
@@ -154,7 +154,7 @@ def test_critical_error_stops_remaining_calls(status, classification):
 def test_404_is_unknown_route_not_negative_vehicle_capability():
     api = FakeAPI(statuses=[404])
     report = run(api)
-    assert report["attempted"] == 8
+    assert report["attempted"] == 3
     assert report["results"][0]["outcome"] == "route_not_found_or_not_provisioned"
 
 
@@ -197,3 +197,46 @@ def test_unknown_budget_still_stops_on_first_error():
     assert report["attempted"] == 1
     assert report["results"][0]["outcome"] == "authentication_rejected"
     assert len(api.calls) == 1
+
+
+def test_vehicle_health_group_uses_all_three_read_only_jobs():
+    api = FakeAPI(remaining=None)
+    report = run(api, restore_group="vehicle_health")
+    assert report["mode"] == "restore"
+    assert report["restore_group"] == "vehicle_health"
+    assert report["attempted"] == 3
+    assert len(VEHICLE_HEALTH_PROBES) == 3
+    assert [x["probe"] for x in report["results"]] == [
+        "battery_support", "tyre_pressure", "vehicle_health_warnings"
+    ]
+    assert all("selectivestatus?jobs=" in url for url in api.calls)
+    assert report["mutating_requests"] == 0
+
+
+def test_restore_probe_group_validation_precedes_network():
+    api = FakeAPI()
+    with pytest.raises(ValueError, match="Unknown Audi restore probe group"):
+        run(api, restore_group="nonexistent")
+    with pytest.raises(ValueError, match="requires restore=true"):
+        asyncio.run(
+            run_read_only_probes(
+                api, TOKEN, vehicle_url, restore_group="vehicle_health",
+            )
+        )
+    assert not api.calls
+
+
+def test_health_probe_unknown_budget_stops_after_first_401():
+    api = FakeAPI(remaining=None, statuses=[401])
+    result = run(api, restore_group="vehicle_health")
+    assert len(api.calls) == 1
+    assert result["results"][0]["outcome"] == "authentication_rejected"
+    assert all(x["outcome"] == "skipped" for x in result["results"][1:])
+
+
+def test_group_selection_matches_explicit_allowlist():
+    assert RESTORE_PROBE_GROUPS == {
+        "trips": TRIP_DATA_PROBES,
+        "vehicle_health": VEHICLE_HEALTH_PROBES,
+    }
+    assert all("tripstatistics?type=" not in item[1] for item in FEATURE_RESTORE_PROBES)
