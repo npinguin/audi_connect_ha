@@ -29,6 +29,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import AudiRuntimeData
 from .audi_entity import AudiEntity, entity_unique_id, should_create_entity
 from .coordinator import AudiDataUpdateCoordinator
+from .local_extensions import get_local_dealer
 from .util import parse_datetime
 
 
@@ -492,6 +493,9 @@ async def async_setup_entry(
 
     for config_vehicle in runtime_data.account.config_vehicles:
         vehicle = config_vehicle.vehicle
+        dealer = get_local_dealer(config_entry.options, vehicle.vin)
+        if dealer:
+            entities.append(AudiLocalDealerSensor(runtime_data.coordinator, vehicle, dealer))
         for description in SENSOR_DESCRIPTIONS:
             if should_create_entity(
                 hass,
@@ -553,6 +557,33 @@ class AudiSensor(AudiEntity, SensorEntity):
         if self.entity_description.extra_attrs_fn is not None:
             return self.entity_description.extra_attrs_fn(self._vehicle)
         return None
+
+
+class AudiLocalDealerSensor(AudiEntity, SensorEntity):
+    """Optional local dealership facts attached to the Audi device."""
+
+    _attr_name = "Dealer (local)"
+    _attr_icon = "mdi:store"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: AudiDataUpdateCoordinator, vehicle: Any,
+                 dealer: dict[str, str]) -> None:
+        super().__init__(coordinator, vehicle)
+        self._dealer = dealer.copy()
+        self._attr_unique_id = entity_unique_id(vehicle, "sensor", "local_dealer")
+
+    @property
+    def available(self) -> bool:
+        return True  # Local metadata stays available during Audi cloud failures.
+
+    @property
+    def native_value(self) -> str:
+        return self._dealer.get("dealer_name", "Configured")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        return {key: value for key, value in self._dealer.items()
+                if key != "dealer_name"}
 
 
 class AudiApiRateLimitSensor(AudiEntity, RestoreSensor):
@@ -627,4 +658,4 @@ class AudiApiRateLimitSensor(AudiEntity, RestoreSensor):
         return attrs
 
 
-__all__ = ["AudiApiRateLimitSensor", "AudiSensor", "async_setup_entry"]
+__all__ = ["AudiApiRateLimitSensor", "AudiLocalDealerSensor", "AudiSensor", "async_setup_entry"]

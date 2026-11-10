@@ -488,6 +488,9 @@ class OptionsFlowHandler(OptionsFlow):
             user_input[CONF_SCAN_INTERVAL] = max(
                 int(user_input[CONF_SCAN_INTERVAL]), MIN_UPDATE_INTERVAL
             )
+            # OptionsFlow replaces all options; preserve per-vehicle metadata.
+            if "local_dealers" in self.config_entry.options:
+                user_input["local_dealers"] = self.config_entry.options["local_dealers"]
             return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
@@ -497,6 +500,10 @@ class OptionsFlowHandler(OptionsFlow):
                     vol.Required(
                         CONF_SCAN_INITIAL,
                         default=self.config_entry.options.get(CONF_SCAN_INITIAL, True),
+                    ): bool,
+                    vol.Required(
+                        "climate_quick_start",
+                        default=self.config_entry.options.get("climate_quick_start", False),
                     ): bool,
                     vol.Required(
                         CONF_REFRESH_AFTER_ACTION,

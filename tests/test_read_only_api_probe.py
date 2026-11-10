@@ -8,6 +8,8 @@ from aiohttp import ClientResponseError
 
 from custom_components.audiconnect.api_probe import (
     MAX_PROBES,
+    MAX_EXTENDED_PROBES,
+    EXTENDED_READ_ONLY_PROBES,
     READ_ONLY_PROBES,
     classify_payload,
     run_read_only_probes,
@@ -48,6 +50,20 @@ def test_all_get_no_mutations_and_no_secrets():
     assert "someSensitiveValue" not in output
     assert "50.5" not in output
     assert result["mutating_requests"] == 0
+
+
+def test_extended_mode_adds_five_get_only_experimental_probes():
+    api = FakeApi()
+    result = asyncio.run(
+        run_read_only_probes(api, SECRET, _url_for, extended=True)
+    )
+    assert result["attempted"] == MAX_EXTENDED_PROBES == 13
+    assert len(EXTENDED_READ_ONLY_PROBES) == 5
+    assert result["mode"] == "extended"
+    assert len(api.calls) == 13
+    assert all(method == "GET" for method, _url, _kwargs in api.calls)
+    assert "PRIVATE_TOKEN" not in repr(result)
+    assert VIN not in repr(result)
 
 
 def test_auth_rejection_stops_probe_burst():

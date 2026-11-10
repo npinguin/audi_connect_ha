@@ -360,7 +360,7 @@ class AudiService:
             f"{await self._get_home_region(vin.upper())}/fs-car/bs/rs/v1/{self._type}/{self._country}/vehicles/{vin.upper()}/status"
         )
 
-    async def probe_known_read_only_paths(self, vin: str) -> dict[str, Any]:
+    async def probe_known_read_only_paths(self, vin: str, *, extended: bool = False) -> dict[str, Any]:
         """Use current CARIAD credentials for opt-in diagnostic GET probes.
 
         Does not create/refresh an auth session or send an action.
@@ -374,6 +374,7 @@ class AudiService:
             self._api,
             access_token,
             lambda suffix: self.__get_cariad_url_for_vin(vin, suffix),
+            extended=extended,
         )
 
     async def get_stored_vehicle_data(self, vin: str):

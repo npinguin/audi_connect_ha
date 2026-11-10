@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
+from .capability_catalog import snapshot_capabilities
 from .const import (
     CONF_API_LEVEL,
     CONF_REFRESH_AFTER_ACTION,
@@ -86,6 +87,7 @@ def _vehicle_snapshot(vehicle: Any, index: int, uses_auth0: bool) -> dict[str, A
         },
         "state_field_count": len(state),
         "vehicle_field_count": len(fields),
+        "capability_inventory": snapshot_capabilities(vehicle),
     }
 
 
@@ -162,7 +164,13 @@ async def async_get_config_entry_diagnostics(
         ),
         "vehicle_count": len(vehicles),
         "vehicles": [
-            _vehicle_snapshot(vehicle, idx, uses_auth0)
+            {
+                **_vehicle_snapshot(vehicle, idx, uses_auth0),
+                "local_dealer_configured": bool(
+                    isinstance(entry.options.get("local_dealers", {}), dict)
+                    and entry.options.get("local_dealers", {}).get(vehicle.vin.lower())
+                ),
+            }
             for idx, vehicle in enumerate(vehicles[:10], 1)
         ],
         "recent_http_observations": list(
