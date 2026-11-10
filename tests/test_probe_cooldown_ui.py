@@ -17,11 +17,12 @@ class FakeService:
     def __init__(self):
         self.calls = 0
 
-    async def probe_known_read_only_paths(self, vin, *, extended, restore):
+    async def probe_known_read_only_paths(self, vin, *, extended, restore, restore_group="trips"):
         self.calls += 1
         return {
             "mode": "restore" if restore else "extended" if extended else "core",
             "attempted": 0,
+            "restore_group": restore_group,
             "results": [],
         }
 
@@ -59,4 +60,34 @@ def test_different_mode_after_fifteen_minutes_is_allowed():
     account = account_with_previous_core_probe(seconds_ago=901)
     result = asyncio.run(account.probe_read_only_api(VIN, restore=True))
     assert result["mode"] == "restore"
+    assert account._audi_service.calls == 1
+
+
+def test_restore_group_change_uses_shared_cooldown():
+    account = account_with_previous_core_probe(seconds_ago=901)
+    asyncio.run(
+        account.probe_read_only_api(VIN, restore=True, restore_group="trips")
+    )
+    with pytest.raises(RuntimeError, match="cooldown active"):
+        asyncio.run(
+            account.probe_read_only_api(
+                VIN, restore=True, restore_group="vehicle_health"
+            )
+        )
+    assert account._audi_service.calls == 1
+
+
+def test_repeat_same_restore_group_uses_cached_results():
+    account = account_with_previous_core_probe(seconds_ago=901)
+    first = asyncio.run(
+        account.probe_read_only_api(
+            VIN, restore=True, restore_group="vehicle_health"
+        )
+    )
+    second = asyncio.run(
+        account.probe_read_only_api(
+            VIN, restore=True, restore_group="vehicle_health"
+        )
+    )
+    assert first == second
     assert account._audi_service.calls == 1
