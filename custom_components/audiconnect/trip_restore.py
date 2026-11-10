@@ -115,7 +115,7 @@ def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
         return None, "no_unambiguous_numeric_trip_fields"
     return {
         "tripID": None,  # Never persist trip identifiers without a need.
-        "timestamp": stamp.isoformat(),
+        "timestamp": stamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "averageElectricEngineConsumption": electric,
         "averageFuelConsumption": fuel,
         "averageSpeed": speed,
