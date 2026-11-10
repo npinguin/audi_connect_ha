@@ -36,7 +36,7 @@ def _timestamp(value: Any) -> datetime | None:
     if dt.tzinfo is None:
         return None  # Audi must supply a timezone; do not guess.
     result = dt.astimezone(UTC)
-    if result.year < 2000 or result > datetime.now(UTC).replace(year=datetime.now(UTC).year + 2):
+    if result.year < 2000 or result.year > datetime.now(UTC).year + 2:
         return None
     return result
 
@@ -70,7 +70,9 @@ def _records(payload: Any) -> list[dict[str, Any]]:
             continue
         if not isinstance(item, dict):
             continue
-        if any(field in item for field in _TRIP_FIELDS):
+        # A wrapper may contain unrelated numeric metadata. Require a
+        # timestamp to treat it as a trip, otherwise descend into known keys.
+        if "tripEndTimestamp" in item or "timestamp" in item:
             return [item]
         for key in ("data", "trips", "tripData", "tripDataList", "records", "items"):
             child = item.get(key)
