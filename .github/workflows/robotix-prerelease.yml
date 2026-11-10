@@ -7,6 +7,8 @@ on:
     paths:
       - "custom_components/audiconnect/**"
       - "hacs.json"
+      - "tests/**"
+      - "docs/COMMUNITY_TEST_RELEASE_*.md"
       - ".github/workflows/robotix-prerelease.yml"
   workflow_dispatch:
     inputs:
@@ -98,10 +100,44 @@ jobs:
         run: |
           if gh release view "v${VERSION}" >/dev/null 2>&1; then
             echo "::notice::Beta v${VERSION} already exists; publishing skipped."
-            exit 0
+          else
+            gh release create "v${VERSION}" dist/*.zip dist/SHA256SUMS.txt \
+              --target "${COMMIT}" \
+              --prerelease \
+              --title "Audi Connect v${VERSION} (test)" \
+              --notes "Community test candidate. Back up Home Assistant before installing. Validate vehicle controls and compatibility before upstream submission."
           fi
-          gh release create "v${VERSION}" dist/*.zip dist/SHA256SUMS.txt \
-            --target "${COMMIT}" \
-            --prerelease \
-            --title "Audi Connect v${VERSION} (test)" \
-            --notes "Community test candidate. Back up Home Assistant before installing. Validate vehicle controls and compatibility before upstream submission."
+
+      - name: Remove obsolete branches after successful b10 release
+        if: env.VERSION == '2.5.3b10'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # This one-time list is pinned to reviewed branch tips. Any branch
+          # that moved is left untouched. Preserve main, master, and work
+          # with unmerged commits until separately reviewed.
+          while read -r branch expected; do
+            [ -n "$branch" ] || continue
+            current="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${branch}" --jq '.object.sha' 2>/dev/null)" || {
+              echo "::warning::Cannot read branch ${branch}; skipping"
+              continue
+            }
+            if [ "$current" != "$expected" ]; then
+              echo "::warning::Branch ${branch} has moved; preserving"
+              continue
+            fi
+            if gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${branch}"; then
+              echo "Removed merged or superseded branch ${branch}"
+            else
+              echo "::warning::Deletion refused for ${branch}; check branch protection"
+            fi
+          done <<'BRANCHES'
+          feat/q8-comprehensive-b7 85243d1893a71f82511b9f506ce0f93e8b6ccbdd
+          feat/q8-product-maturity-b8 c9c4348f98098a9281add20d6778f86979f58361
+          fix/q8-lock-model-parktime 40681e05538e61ab07a34324ad46991eb9ac9eb9
+          fix/q8-modern-remote-commands 14090a403c40432ca79d50dac982ee14c91ef013
+          fix/remove-duplicate-climate-buttons cfce618505b46e30bcf0279d365c0667a51c5f39
+          fix/upstream-clean-release a1078f2c5cc991bc031b03af491dd1444d19a95a
+          test/community-fix-2.5.3b9 955cd6eb6b8d3bad428521be31a5044254f3a6ae
+          upstream/community-contribution-prep 45c6a343f6d80be7827cd2f69a8686fb386bfb8f
+          BRANCHES

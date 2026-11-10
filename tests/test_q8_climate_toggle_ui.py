@@ -98,9 +98,6 @@ def test_failure_is_explicit_and_never_optimistic(method, state):
 
 def test_existing_buttons_and_native_lock_not_removed():
     buttons = {description.key for description in BUTTON_DESCRIPTIONS}
-    assert {"start_climate_car_settings", "stop_climate", "flash_lights"} <= buttons
-    from homeassistant.const import EntityCategory
-    descriptions = {item.key: item for item in BUTTON_DESCRIPTIONS}
-    assert descriptions["start_climate_car_settings"].entity_category == EntityCategory.DIAGNOSTIC
-    assert descriptions["stop_climate"].entity_category == EntityCategory.DIAGNOSTIC
+    assert {"flash_lights", "refresh_vehicle_data"} <= buttons
+    assert {"start_climate_car_settings", "stop_climate"}.isdisjoint(buttons)
     assert hasattr(AudiLock, "async_lock") and hasattr(AudiLock, "async_unlock")
