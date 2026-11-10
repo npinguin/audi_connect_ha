@@ -688,6 +688,21 @@ class AudiConnectAccount:
                     "Cloud refresh failed after charger action for %s: %s", vin, ex
                 )
 
+    async def trigger_vehicle_wakeup(self, vin: str) -> bool:
+        """User-initiated wake request, not background polling or confirmation."""
+        if not self._loggedin:
+            await self.login()
+        if not self._loggedin:
+            return False
+        try:
+            await self._audi_service.trigger_vehicle_wakeup(vin)
+            return True
+        except Exception:
+            _LOGGER.warning(
+                "Audi wake-up request failed (no VIN or authentication details logged)"
+            )
+            return False
+
     async def set_vehicle_window_heating(self, vin: str, activate: bool):
         if not self._loggedin:
             await self.login()
