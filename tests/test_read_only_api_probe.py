@@ -52,15 +52,15 @@ def test_all_get_no_mutations_and_no_secrets():
     assert result["mutating_requests"] == 0
 
 
-def test_extended_mode_adds_four_get_only_experimental_probes():
+def test_extended_mode_adds_five_get_only_experimental_probes():
     api = FakeApi()
     result = asyncio.run(
         run_read_only_probes(api, SECRET, _url_for, extended=True)
     )
-    assert result["attempted"] == MAX_EXTENDED_PROBES == 12
-    assert len(EXTENDED_READ_ONLY_PROBES) == 4
+    assert result["attempted"] == MAX_EXTENDED_PROBES == 13
+    assert len(EXTENDED_READ_ONLY_PROBES) == 5
     assert result["mode"] == "extended"
-    assert len(api.calls) == 12
+    assert len(api.calls) == 13
     assert all(method == "GET" for method, _url, _kwargs in api.calls)
     assert "PRIVATE_TOKEN" not in repr(result)
     assert VIN not in repr(result)
