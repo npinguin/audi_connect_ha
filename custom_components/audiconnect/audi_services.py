@@ -937,14 +937,24 @@ class AudiService:
 
         for _ in range(attempts):
             await asyncio.sleep(sleep)
-            res = await self._api.request(
-                "GET",
-                self.__get_cariad_url_for_vin(vin, "pendingrequests"),
-                headers=headers,
-                data=None,
-            )
+            try:
+                res = await self._api.request(
+                    "GET",
+                    self.__get_cariad_url_for_vin(vin, "pendingrequests"),
+                    headers=headers,
+                    data=None,
+                )
+            except ClientResponseError as err:
+                if err.status != 204:
+                    raise
+                res = None
 
-            for pending_request in get_attr(res, "data") or []:
+            entries = get_attr(res, "data") or []
+            if not isinstance(entries, list):
+                entries = []
+            for pending_request in entries:
+                if not isinstance(pending_request, dict):
+                    continue
                 if pending_request.get("id") != request_id:
                     continue
                 status = pending_request.get("status")
@@ -1210,12 +1220,24 @@ class AudiService:
                 headers = {
                     "Authorization": "Bearer " + self._bearer_token_json["access_token"]
                 }
-                res = await self._api.request(
-                    "POST",
-                    self.__get_cariad_url_for_vin(vin, "climatisation/stop"),
-                    headers=headers,
-                    data=data,
-                )
+                try:
+                    res = await self._api.request(
+                        "POST",
+                        self.__get_cariad_url_for_vin(vin, "climatisation/stop"),
+                        headers=headers,
+                        data=data,
+                    )
+                except ClientResponseError as err:
+                    if err.status != 204:
+                        raise
+                    res = None
+                request_id = get_attr(res, "data.requestID")
+                if request_id:
+                    await self._confirm_vehicle_request(
+                        vin, "stop", request_id, noun="Climatisation",
+                        attempts=CLIMATISATION_CONFIRM_ATTEMPTS,
+                        sleep=CLIMATISATION_CONFIRM_SLEEP,
+                    )
 
                 # checkUrl = "https://emea.bff.cariad.digital/vehicle/v1/vehicles/{vin}/pendingrequests".format(
                 #     vin=vin.upper(),
@@ -1391,12 +1413,19 @@ class AudiService:
             headers = {
                 "Authorization": "Bearer " + self._bearer_token_json["access_token"]
             }
-            res = await self._api.request(
-                "POST",
-                self.__get_cariad_url_for_vin(vin, "climatisation/start"),
-                headers=headers,
-                data=data,
-            )
+            try:
+                res = await self._api.request(
+                    "POST",
+                    self.__get_cariad_url_for_vin(vin, "climatisation/start"),
+                    headers=headers,
+                    data=data,
+                )
+            except ClientResponseError as err:
+                # No-content is a valid acknowledgement for certain BFF
+                # actions. Never mistake it for a verified vehicle transition.
+                if err.status != 204:
+                    raise
+                res = None
 
             # The 200 is the gateway accepting the request, not the car acting on
             # it. Measured on a live vehicle 2026-09-13: a start the car ignored
