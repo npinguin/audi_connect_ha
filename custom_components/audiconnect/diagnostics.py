@@ -36,8 +36,6 @@ _OBSERVED_KEYS = (
     "position",
     "last_update_time",
     "userCapabilities",
-    "shortterm_current",
-    "longterm_current",
 )
 _FEATURE_FLAGS = (
     "support_status_report",
@@ -204,7 +202,7 @@ async def async_get_config_entry_diagnostics(
         ],
         "recent_http_observations": list(
             getattr(api, "diagnostic_events", [])
-        )[-40:],
+        )[-20:],
         "trip_restore_attempts": [
             {"vehicle_slot": index, "report": report}
             for index, vehicle in enumerate(vehicles[:10], 1)

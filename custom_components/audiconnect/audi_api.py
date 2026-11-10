@@ -38,7 +38,7 @@ class AudiAPI:
         )
         self.vcf_remaining_calls: int | None = None
         self.vcf_remaining_calls_last_observed: datetime | None = None
-        self.diagnostic_events = deque(maxlen=40)
+        self.diagnostic_events = deque(maxlen=20)
 
     def use_token(self, token: dict[str, Any] | None) -> None:
         self.__token = token

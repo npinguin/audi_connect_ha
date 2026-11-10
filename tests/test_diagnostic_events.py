@@ -28,8 +28,7 @@ class TestDiagnostics(unittest.TestCase):
             "https://group.identity.vwgroup.io/oauth/token?secret=PRIVATE",
             200,
         )
-        self.assertEqual(event["route"], "authentication")
-        self.assertEqual(event["outcome"], "authentication_http_success")
+        self.assertIsNone(event)
         self.assertNotIn("PRIVATE", str(event))
 
     def test_other_post_is_not_assumed_authentication(self):
@@ -38,6 +37,36 @@ class TestDiagnostics(unittest.TestCase):
         )
         self.assertEqual(event["route"], "other")
         self.assertEqual(event["outcome"], "http_accepted_not_vehicle_confirmed")
+
+    def test_vehicle_wake_acknowledgement_is_not_physical_wake_proof(self):
+        for path, expected in (
+            ("vehiclewakeuptrigger", "vehicle_wakeup_trigger"),
+            ("vehiclewakeup", "vehicle_data_refresh_request"),
+        ):
+            event = module.build_http_event(
+                "POST",
+                "https://emea.bff.cariad.digital/vehicle/v1/vehicles/PRIVATEVIN/"
+                + path + "?token=SECRET",
+                204,
+            )
+            self.assertEqual(event["route"], expected)
+            self.assertEqual(event["http_status"], 204)
+            self.assertEqual(event["outcome"], "http_accepted_not_vehicle_confirmed")
+            self.assertNotIn("PRIVATEVIN", repr(event))
+            self.assertNotIn("SECRET", repr(event))
+
+    def test_successful_auth_rotation_is_suppressed_but_failed_auth_is_recorded(self):
+        for status in (200, 204):
+            self.assertIsNone(
+                module.build_http_event(
+                    "POST", "https://group.identity.vwgroup.io/oauth/token", status
+                )
+            )
+        failed = module.build_http_event(
+            "POST", "https://group.identity.vwgroup.io/oauth/token", 429
+        )
+        self.assertEqual(failed["route"], "authentication")
+        self.assertEqual(failed["outcome"], "http_rejected")
 
     def test_auth0_failed_token_exchange(self):
         event = module.build_http_event(

@@ -41,6 +41,26 @@ ACTION_ENGINE = "engine"
 _INACTIVE_PREHEATER_STATES = frozenset({"off", "invalid", "unsupported", "error", ""})
 
 
+# Diagnostic reports are in-memory and transient: expire old snapshots
+# without affecting the actual vehicle state, entities or the rate-limit guard.
+_DIAGNOSTIC_REPORT_TTL = timedelta(hours=24)
+
+
+def _active_diagnostic_report(report: dict[str, Any] | None) -> bool:
+    if not isinstance(report, dict):
+        return False
+    timestamp = report.get("ran_at")
+    if not isinstance(timestamp, str):
+        # Legacy in-memory reports without timestamps remain readable until a
+        # restart, but all new reports carry a bounded timestamp.
+        return True
+    try:
+        moment = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return moment.tzinfo is not None and datetime.now(UTC) - moment < _DIAGNOSTIC_REPORT_TTL
+
+
 class AudiConnectObserver(ABC):
     @abstractmethod
     async def handle_notification(self, vin: str, action: str) -> None:
@@ -166,6 +186,7 @@ class AudiConnectAccount:
             remaining = getattr(api, "vcf_remaining_calls", None)
             if isinstance(remaining, int) and remaining < 20:
                 report = {
+                    "ran_at": datetime.now(UTC).isoformat(timespec="seconds"),
                     "attempted": 0,
                     "outcome": "low_rate_limit_budget",
                     "normalized": 0,
@@ -236,6 +257,7 @@ class AudiConnectAccount:
                     break
 
             report = {
+                "ran_at": datetime.now(UTC).isoformat(timespec="seconds"),
                 "attempted": len(outcomes),
                 "outcome": "completed",
                 "normalized": normalized,
@@ -245,12 +267,22 @@ class AudiConnectAccount:
             return report
 
     def get_auth0_trip_report(self, vin: str) -> dict[str, Any] | None:
-        """Return only fixed route/result labels for privacy-safe diagnostics."""
-        return self._modern_trip_reports.get(vin.lower())
+        """Retain one sanitized trip result per vehicle, up to 24 hours."""
+        key = vin.lower()
+        report = self._modern_trip_reports.get(key)
+        if not _active_diagnostic_report(report):
+            self._modern_trip_reports.pop(key, None)
+            return None
+        return report
 
     def get_read_only_probe_report(self, vin: str) -> dict[str, Any] | None:
-        """Return only the sanitized previous report, never start new traffic."""
-        return self._readonly_probe_reports.get(vin.lower())
+        """Retain one sanitized on-demand probe result up to 24 hours."""
+        key = vin.lower()
+        report = self._readonly_probe_reports.get(key)
+        if not _active_diagnostic_report(report):
+            self._readonly_probe_reports.pop(key, None)
+            return None
+        return report
 
     @property
     def refresh_token(self) -> str | None:
