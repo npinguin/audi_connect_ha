@@ -14,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
+from .capability_catalog import snapshot_capabilities
 from .const import (
     CONF_API_LEVEL,
     CONF_REFRESH_AFTER_ACTION,
@@ -86,6 +87,7 @@ def _vehicle_snapshot(vehicle: Any, index: int, uses_auth0: bool) -> dict[str, A
         },
         "state_field_count": len(state),
         "vehicle_field_count": len(fields),
+        "capability_inventory": snapshot_capabilities(vehicle),
     }
 
 
