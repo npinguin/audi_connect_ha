@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 _TRIP_FIELDS = frozenset((
-    "tripEndTimestamp", "timestamp", "tripID", "id", "mileage_km",
+    "tripEndTimestamp", "timestamp", "mileage_km",
     "startMileage_km", "overallMileage_km", "averageSpeed_kmph",
     "travelTime", "travelTime_min", "traveltime", "averageFuelConsumption",
     "averageFuelConsumption_L_per_100km",
