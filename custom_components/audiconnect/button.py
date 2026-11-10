@@ -59,32 +59,6 @@ BUTTON_DESCRIPTIONS: tuple[AudiButtonEntityDescription, ...] = (
         press_fn=lambda account, vin: account.refresh_vehicle_data(vin),
     ),
     AudiButtonEntityDescription(
-        key="start_climate_car_settings",
-        name="Start climate (car settings)",
-        icon="mdi:air-conditioner",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        # Explicit bodyless CARIAD start; does not send the HA temperature.
-        # Useful when a model rejects incomplete settings payloads.
-        supported_fn=lambda vehicle: bool(
-            getattr(getattr(vehicle, "_audi_service", None), "uses_auth0", False)
-        )
-        and is_entity_supported(vehicle, "climatisation_state", "climatisation"),
-        press_fn=lambda account, vin: account.connection.start_climate_control(vin),
-    ),
-    AudiButtonEntityDescription(
-        key="stop_climate",
-        name="Stop climate",
-        icon="mdi:air-conditioner-off",
-        entity_category=EntityCategory.DIAGNOSTIC,
-        supported_fn=lambda vehicle: bool(
-            getattr(getattr(vehicle, "_audi_service", None), "uses_auth0", False)
-        )
-        and is_entity_supported(vehicle, "climatisation_state", "climatisation"),
-        press_fn=lambda account, vin: account.connection.set_vehicle_climatisation(
-            vin, False
-        ),
-    ),
-    AudiButtonEntityDescription(
         key="flash_lights",
         name="Flash lights",
         icon="mdi:car-light-high",
@@ -196,10 +170,6 @@ class AudiButton(AudiEntity, ButtonEntity):
                 f"Audi {self.entity_description.name} request failed; "
                 "check the Audi Connect integration logs"
             )
-        if self.entity_description.key in {
-            "start_climate_car_settings", "stop_climate"
-        }:
-            await self.coordinator.async_request_refresh()
 
 
 __all__ = ["AudiButton", "async_setup_entry"]
