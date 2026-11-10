@@ -103,13 +103,29 @@ def test_only_status_classification_survives_export():
     )
 
 
-@pytest.mark.parametrize("remaining", [None, 0, 11, 19])
-def test_unknown_or_low_budget_prevents_all_network_requests(remaining):
+@pytest.mark.parametrize("remaining", [0, 11, 12, 19])
+def test_low_known_budget_prevents_all_network_requests(remaining):
     api = FakeAPI(remaining=remaining)
     report = run(api)
     assert api.calls == []
     assert report["attempted"] == 0
     assert all(row["outcome"] == "skipped" for row in report["results"])
+
+
+def test_unknown_budget_only_runs_first_five_trips_probes():
+    api = FakeAPI(remaining=None)
+    report = run(api)
+    assert report["attempted"] == 5
+    assert len(api.calls) == 5
+    assert [row["probe"] for row in report["results"][:5]] == [
+        "trip_shortterm",
+        "trip_longterm",
+        "trip_last",
+        "tripstatistics_shortterm",
+        "tripstatistics_longterm",
+    ]
+    assert all(row["reason"] == "unknown_budget_probe_cap_reached"
+               for row in report["results"][5:])
 
 
 def test_known_budget_reserves_twelve_calls():
@@ -172,3 +188,12 @@ def test_missing_restore_resolver_prevents_network_request():
             )
         )
     assert api.calls == []
+
+
+
+def test_unknown_budget_still_stops_on_first_error():
+    api = FakeAPI(remaining=None, statuses=[401])
+    report = run(api)
+    assert report["attempted"] == 1
+    assert report["results"][0]["outcome"] == "authentication_rejected"
+    assert len(api.calls) == 1

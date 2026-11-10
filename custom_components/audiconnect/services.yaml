@@ -13,8 +13,11 @@ probe_api_paths:
     The separate experimental restore mode probes fixed candidate trip, 12V
     battery, tyre-pressure and vehicle-warning GET endpoints. No sensors are
     restored automatically. Extended and restore must not both be enabled.
-    Restore requires a known Audi rate-limit budget (20 or more remaining)
-    and stops before consuming the final 12 available calls.
+    If Audi reports its API budget, Restore requires 20 or more remaining
+    and reserves at least 12. If Audi omits the budget, only the first five
+    restore GETs are attempted per explicit invocation. All eight routes
+    remain available when a sufficient, known budget is observed.
+    No background retries are scheduled.
   fields:
     device_id:
       required: true

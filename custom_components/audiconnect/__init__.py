@@ -11,7 +11,7 @@ from typing import Any
 import homeassistant.helpers.config_validation as cv
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntry
@@ -245,11 +245,16 @@ def _async_register_services(hass: HomeAssistant) -> None:
         if result is None:
             return
         vin, account = result
-        await account.connection.probe_read_only_api(
-            vin,
-            extended=service.data.get("extended", False),
-            restore=service.data.get("restore", False),
-        )
+        try:
+            await account.connection.probe_read_only_api(
+                vin,
+                extended=service.data.get("extended", False),
+                restore=service.data.get("restore", False),
+            )
+        except RuntimeError as exc:
+            # The API layer enforces the cooldown. Do not surface an
+            # unexplained "Unknown error" for a normal safety limit.
+            raise HomeAssistantError(str(exc)) from exc
 
     async def _handle_set_local_dealer(service: ServiceCall) -> None:
         """Opt-in local metadata only; no Audi network calls."""

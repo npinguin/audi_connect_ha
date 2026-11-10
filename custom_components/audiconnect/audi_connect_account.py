@@ -4,6 +4,7 @@ import asyncio
 import logging
 import re
 import time
+from math import ceil
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from datetime import datetime, timedelta, UTC
@@ -110,7 +111,11 @@ class AudiConnectAccount:
                 )
                 if report is not None and report.get("mode") == expected_mode:
                     return report
-                raise RuntimeError("API diagnostic probe cooldown is active; retry later")
+                retry_after = ceil((900 - (now - last_attempt)) / 60)
+                raise RuntimeError(
+                    f"Audi Connect API probe cooldown active. "
+                    f"Try again in {retry_after} minute(s)."
+                )
             # Record before dispatch so repeated failed scans cannot hammer Audi.
             self._readonly_probe_attempted[vin_key] = now
             report = await self._audi_service.probe_known_read_only_paths(

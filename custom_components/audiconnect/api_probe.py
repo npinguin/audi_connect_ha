@@ -56,6 +56,9 @@ KNOWN_TRIP_ROUTES = frozenset({"shortterm", "longterm", "shortterm/last"})
 MAX_FEATURE_RESTORE_PROBES = 8
 MIN_FEATURE_RESTORE_START_BUDGET = 20
 MIN_FEATURE_RESTORE_RESERVE = 12
+# Audi may omit Vcf-Remaining-Calls entirely. One explicit probe invocation
+# can still inspect five fixed GET routes, but never more while unmetered.
+UNKNOWN_BUDGET_RESTORE_MAX_REQUESTS = 5
 
 MAX_PROBES = 8
 MAX_EXTENDED_PROBES = 13
@@ -160,20 +163,24 @@ async def run_read_only_probes(
         mode = "extended" if extended else "core"
     outcomes: list[dict[str, Any]] = []
     stop_reason: str | None = None
+    unknown_budget_at_start = (
+        restore and not isinstance(getattr(api, "vcf_remaining_calls", None), int)
+    )
     for name, suffix, job in paths:
         if stop_reason:
             outcomes.append({"probe": name, "outcome": "skipped", "reason": stop_reason})
             continue
         remaining = getattr(api, "vcf_remaining_calls", None)
-        if restore and not isinstance(remaining, int):
-            stop_reason = "rate_limit_budget_unknown"
-        elif (
-            restore
-            and not outcomes
-            and remaining < MIN_FEATURE_RESTORE_START_BUDGET
+        if (
+            unknown_budget_at_start
+            and len(outcomes) >= UNKNOWN_BUDGET_RESTORE_MAX_REQUESTS
+        ):
+            stop_reason = "unknown_budget_probe_cap_reached"
+        elif restore and isinstance(remaining, int) and not outcomes and (
+            remaining < MIN_FEATURE_RESTORE_START_BUDGET
         ):
             stop_reason = "low_rate_limit_budget"
-        elif remaining is not None and remaining < minimum_budget:
+        elif remaining is not None and remaining <= minimum_budget:
             stop_reason = "low_rate_limit_budget"
         if stop_reason:
             outcomes.append({"probe": name, "outcome": "skipped", "reason": stop_reason})
