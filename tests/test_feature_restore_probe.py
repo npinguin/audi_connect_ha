@@ -240,3 +240,29 @@ def test_group_selection_matches_explicit_allowlist():
         "vehicle_health": VEHICLE_HEALTH_PROBES,
     }
     assert all("tripstatistics?type=" not in item[1] for item in FEATURE_RESTORE_PROBES)
+
+
+def test_health_group_is_routed_through_real_audi_service():
+    api = FakeAPI(remaining=None)
+    service = AudiService(api, "DE", None, 1)
+    service._bearer_token_json = {"access_token": TOKEN}
+    report = asyncio.run(
+        service.probe_known_read_only_paths(
+            VIN, restore=True, restore_group="vehicle_health"
+        )
+    )
+    assert report["restore_group"] == "vehicle_health"
+    assert report["attempted"] == 3
+    assert len(api.calls) == 3
+    assert api.calls[0].endswith("selectivestatus?jobs=batterySupport")
+    assert api.calls[1].endswith("selectivestatus?jobs=tyrePressure")
+    assert api.calls[2].endswith("selectivestatus?jobs=vehicleHealthWarnings")
+    assert all(url.startswith("https://emea.bff.cariad.digital/") for url in api.calls)
+    assert api.token == {"access_token": TOKEN}
+
+
+def test_health_job_http_200_without_matching_job_does_not_claim_data():
+    api = FakeAPI(remaining=None)
+    report = run(api, restore_group="vehicle_health")
+    assert all(x["outcome"] == "job_missing_from_response" for x in report["results"])
+    assert report["mutating_requests"] == 0
