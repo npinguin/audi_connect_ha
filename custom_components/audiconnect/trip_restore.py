@@ -22,6 +22,16 @@ _TRIP_FIELDS = frozenset((
 _MAX_CANDIDATE_RECORDS = 100
 _MAX_CONTAINER_NODES = 30
 
+# Explicitly permitted key names, never raw JSON values or unknown keys.
+_SAFE_SCHEMA_KEYS = frozenset((
+    "tripEndTimestamp", "timestamp", "tripType", "mileage_km",
+    "startMileage_km", "overallMileage_km", "averageSpeed_kmph",
+    "travelTime", "travelTime_min", "averageFuelConsumption",
+    "averageFuelConsumption_L_per_100km",
+    "averageElectricEngineConsumption_kWh_per_100km",
+    "zeroEmissionDistance_km",
+))
+
 
 def _timestamp(value: Any) -> datetime | None:
     if isinstance(value, datetime):
@@ -81,6 +91,34 @@ def _records(payload: Any) -> list[dict[str, Any]]:
     return []
 
 
+def describe_cariad_trip_schema(payload: Any) -> dict[str, Any]:
+    """Return a bounded field-name fingerprint; no VIN, location or trip values.
+
+    This helps us validate the real Audi JSON contract without saving or
+    exporting personal trip history. Only allowlisted, fixed keys can appear.
+    """
+    envelope = (
+        "object" if isinstance(payload, dict)
+        else "array" if isinstance(payload, list)
+        else "other"
+    )
+    records = _records(payload)
+    candidate = next(
+        (row for row in records if _SAFE_SCHEMA_KEYS.intersection(row)), None
+    )
+    known_fields = sorted(_SAFE_SCHEMA_KEYS.intersection(candidate or {}))
+    timestamp = (
+        _timestamp(candidate.get("tripEndTimestamp") or candidate.get("timestamp"))
+        if candidate else None
+    )
+    return {
+        "envelope": envelope,
+        "recognized_record": candidate is not None,
+        "known_fields": known_fields,
+        "timestamp_with_timezone": timestamp is not None,
+    }
+
+
 def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
     """Return legacy-compatible values only when timestamp and units are valid.
 
@@ -104,10 +142,12 @@ def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
     starting = _number(item, ("startMileage_km",), 0, 2000000)
     speed = _number(item, ("averageSpeed_kmph",), 0, 350)
     duration = _number(item, ("travelTime_min", "travelTime"), 0, 100000)
-    fuel = _number(
-        item, ("averageFuelConsumption_L_per_100km", "averageFuelConsumption"),
-        0, 100,
-    )
+    fuel = _number(item, ("averageFuelConsumption_L_per_100km",), 0, 100)
+    if fuel is None:
+        # The unsuffixed modern field is already L/100 km (not legacy tenths).
+        # Values >40 are ambiguous: could be a legacy x10 number such as 81.
+        # Refuse to publish 81 L/100 km or silently invent 8.1 L/100 km.
+        fuel = _number(item, ("averageFuelConsumption",), 0, 40)
     electric = _number(
         item, ("averageElectricEngineConsumption_kWh_per_100km",), 0, 150
     )
