@@ -88,13 +88,22 @@ in Home Assistant. No HAR content, VIN or personal data is committed.
 
 **Extended opt-in API probes:** In Developer tools → Actions run
 `audiconnect.probe_api_paths` for the car and set `extended: true`.
-This runs at most 12 GETs total (the existing 8 and four additional
+This runs at most 13 GETs total (the existing 8 and five additional
 experimental paths: climatisationTimers, measurements,
-vehicleHealthInspection, tripStatistics). Core mode stays at 8. A 15-minute
+vehicleHealthInspection, tripStatistics and auxiliaryHeating). Core mode stays at 8. A 15-minute
 per-car cooldown applies across both modes; switching modes during
-cooldown is rejected. Known rate-limit budget must be at least 16 before
+cooldown is rejected. Known rate-limit budget must be at least 17 before
 running the extended set; stop on 401/429, timeout or unexpected error.
 Only the latest bounded sanitized classifications are in Download diagnostics.
+
+**Climate quick start (opt-in):** Audi Connect Options offers
+"Quick start climate using car-stored settings". When enabled, the Home
+Assistant climate card Turn on uses a bodyless CARIAD request and the
+settings stored in the car, rather than sending the temperature displayed
+in Home Assistant. This is only for Auth0/API-level-1 sessions. Turn off
+works normally, and explicitly calling start_climate_control with temperature
+still sends requested settings. This is a workaround based on another Audi
+model: test on Q8 before relying on it.
 
 **Local dealer & service details (optional, offline):** Run
 `audiconnect.set_local_dealer` and pick one Audi device. Set any of:
