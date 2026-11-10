@@ -364,6 +364,7 @@ class VehicleDataResponse:
         )
         self._parseChargingProfiles(data)
         self._parseChargingTimers(data)
+        self._parseClimatisationTimers(data)
         self._parseUserCapabilities(data)
 
     def _appendState(self, name: str, value: Any, ts: Any) -> None:
@@ -542,6 +543,64 @@ class VehicleDataResponse:
             self._appendState(
                 "nextChargingTimerDeparture", active[0].get("departureTimeLocal"), ts
             )
+
+    def _parseClimatisationTimers(self, data: dict[str, Any]) -> None:
+        """Expose the Q8's real climate timers without pretending local time is UTC.
+
+        Audi returns each timer's startDateTimeLocal in the car's local clock.
+        Until an explicit timezone is supplied, it must remain a string, not
+        a HA timestamp sensor with a guessed offset. Keep the state bounded and
+        strip every field except the small, documented timer subset.
+        """
+        block = self._getFromJson(
+            data, ["climatisationTimers", "climatisationTimersStatus", "value"]
+        )
+        if not isinstance(block, dict):
+            return
+        ts = block.get("carCapturedTimestamp")
+        timers = block.get("timers")
+        if not isinstance(timers, list):
+            return
+        entries: list[dict[str, Any]] = []
+        for timer in timers[:12]:
+            if not isinstance(timer, dict):
+                continue
+            record: dict[str, Any] = {}
+            if isinstance(timer.get("id"), (int, str)):
+                record["id"] = timer["id"]
+            if isinstance(timer.get("enabled"), bool):
+                record["enabled"] = timer["enabled"]
+            single = timer.get("singleTimer")
+            if isinstance(single, dict):
+                local_start = single.get("startDateTimeLocal")
+                if isinstance(local_start, str) and len(local_start) <= 40:
+                    record["startDateTimeLocal"] = local_start
+            recurring = timer.get("recurringTimer")
+            if isinstance(recurring, dict):
+                local_time = recurring.get("departureTimeLocal")
+                if isinstance(local_time, str) and len(local_time) <= 40:
+                    record["departureTimeLocal"] = local_time
+                days = recurring.get("repetitionDays")
+                if isinstance(days, list):
+                    record["repetitionDays"] = [
+                        day for day in days[:7]
+                        if isinstance(day, (str, int))
+                    ]
+            entries.append(record)
+
+        self._appendState("climatisationTimers", entries, ts)
+        self._appendState("climatisationTimerCount", len(entries), ts)
+        self._appendState(
+            "climatisationTimerEnabledCount",
+            sum(item.get("enabled") is True for item in entries),
+            ts,
+        )
+        enabled_starts = sorted(
+            item["startDateTimeLocal"] for item in entries
+            if item.get("enabled") is True and "startDateTimeLocal" in item
+        )
+        if enabled_starts:
+            self._appendState("nextClimatisationTimerLocal", enabled_starts[0], ts)
 
     def _tryAppendStateWithTs(
         self, json: dict[str, Any], name: str, tsoff: int, loc: list[str]
