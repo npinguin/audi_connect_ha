@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+
+import voluptuous as vol
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -50,10 +52,17 @@ from .const import (
     uses_auth0,
 )
 from .coordinator import AudiDataUpdateCoordinator
+from .local_extensions import DEALER_FIELDS, update_local_dealer_options
 
 _LOGGER = logging.getLogger(__name__)
 
 SERVICE_PROBE_API_PATHS = "probe_api_paths"
+SERVICE_SET_LOCAL_DEALER = "set_local_dealer"
+LOCAL_DEALER_SCHEMA = vol.Schema({
+    vol.Required(CONF_DEVICE_ID): cv.string,
+    vol.Optional("clear", default=False): bool,
+    **{vol.Optional(field): cv.string for field in DEALER_FIELDS},
+})
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -233,6 +242,20 @@ def _async_register_services(hass: HomeAssistant) -> None:
         vin, account = result
         await account.connection.probe_read_only_api(vin)
 
+    async def _handle_set_local_dealer(service: ServiceCall) -> None:
+        """Opt-in local metadata only; no Audi network calls."""
+        result = _resolve_service_call(hass, service)
+        if result is None:
+            return
+        vin, account = result
+        fields = {key: service.data[key] for key in DEALER_FIELDS if key in service.data}
+        current = dict(account.config_entry.options)
+        options = update_local_dealer_options(
+            current, vin, fields, clear=service.data.get("clear", False)
+        )
+        if options != current:
+            hass.config_entries.async_update_entry(account.config_entry, options=options)
+
     async def _handle_execute_vehicle_action(service: ServiceCall) -> None:
         result = _resolve_service_call(hass, service)
         if result is None:
@@ -306,6 +329,11 @@ def _async_register_services(hass: HomeAssistant) -> None:
             SERVICE_PROBE_API_PATHS,
             _handle_probe_api_paths,
             schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_LOCAL_DEALER):
+        hass.services.async_register(
+            DOMAIN, SERVICE_SET_LOCAL_DEALER, _handle_set_local_dealer,
+            schema=LOCAL_DEALER_SCHEMA,
         )
     if not hass.services.has_service(DOMAIN, SERVICE_EXECUTE_VEHICLE_ACTION):
         hass.services.async_register(
@@ -454,6 +482,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     if len(hass.config_entries.async_entries(DOMAIN)) <= 1:
         for service in (
             SERVICE_PROBE_API_PATHS,
+            SERVICE_SET_LOCAL_DEALER,
             SERVICE_REFRESH_CLOUD_DATA,
             SERVICE_REFRESH_VEHICLE_DATA,
             SERVICE_EXECUTE_VEHICLE_ACTION,
