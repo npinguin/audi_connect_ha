@@ -44,7 +44,13 @@ class TestSnapshot(TestCase):
         }
         for key, value in values.items():
             setattr(const, key, value)
+        catalog = _module("test_audi_package.capability_catalog")
+        catalog.snapshot_capabilities = lambda vehicle: {
+            "source": "vehicle_poll_not_browser_session",
+            "groups": {}, "command_authorization_confirmed": False,
+        }
         stubs = {
+            "test_audi_package.capability_catalog": catalog,
             "homeassistant": ha,
             "homeassistant.config_entries": cfg,
             "homeassistant.core": core,
