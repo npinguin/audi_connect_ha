@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -24,7 +24,8 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfTime,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AudiRuntimeData
@@ -568,8 +569,24 @@ class AudiSensor(AudiEntity, SensorEntity):
         return None
 
 
-class AudiVehicleFreshnessSensor(AudiEntity, SensorEntity):
-    """Readable cloud-versus-car freshness status on the Audi device."""
+class _AudiClockAwareSensor(AudiEntity, SensorEntity):
+    """Refresh display age even when Audi cloud polling fails."""
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_track_time_interval(
+                self.hass, self._async_clock_tick, timedelta(minutes=5)
+            )
+        )
+
+    @callback
+    def _async_clock_tick(self, _now: datetime) -> None:
+        self.async_write_ha_state()
+
+
+class AudiVehicleFreshnessSensor(_AudiClockAwareSensor):
+    """Readable freshness status of the newest car telemetry timestamp."""
 
     _attr_name = "Vehicle data freshness"
     _attr_icon = "mdi:clock-check-outline"
@@ -614,7 +631,7 @@ class AudiVehicleFreshnessSensor(AudiEntity, SensorEntity):
         }
 
 
-class AudiVehicleAgeSensor(AudiEntity, SensorEntity):
+class AudiVehicleAgeSensor(_AudiClockAwareSensor):
     """Age of the newest vehicle data timestamp, independent of cloud login."""
 
     _attr_name = "Vehicle data age"
