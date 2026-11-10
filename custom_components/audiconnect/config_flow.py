@@ -594,6 +594,10 @@ class OptionsFlowHandler(OptionsFlow):
                         default=self.config_entry.options.get("climate_quick_start", False),
                     ): bool,
                     vol.Required(
+                        "experimental_commands",
+                        default=self.config_entry.options.get("experimental_commands", False),
+                    ): bool,
+                    vol.Required(
                         CONF_REFRESH_AFTER_ACTION,
                         default=self.config_entry.options.get(
                             CONF_REFRESH_AFTER_ACTION, False
