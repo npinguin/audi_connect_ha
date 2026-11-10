@@ -957,20 +957,18 @@ class AudiService:
                 if status == "in_progress":
                     break
                 if status == "successful":
-                    _LOGGER.debug("%s %s confirmed for %s", noun, action, vin)
+                    _LOGGER.debug("%s %s confirmed by CARIAD", noun, action)
                     return
-                raise Exception(
-                    f"{noun} {action} for {vin} was rejected by the vehicle "
-                    f"(request {request_id} reached status {status})"
+                raise RuntimeError(
+                    f"{noun} {action} rejected by vehicle "
+                    f"(confirmation state {str(status)[:32]})"
                 )
 
         _LOGGER.warning(
-            "%s %s was accepted for %s but not confirmed within %ds. The command "
-            "may still be carried out; check the vehicle state after the next "
-            "refresh.",
+            "%s %s was accepted but not confirmed within %ds. "
+            "The command may still be carried out; verify vehicle state.",
             noun,
             action,
-            vin,
             attempts * sleep,
         )
 
