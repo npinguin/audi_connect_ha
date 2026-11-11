@@ -3,75 +3,75 @@
   "source": "upstream_v2_sensor_descriptions",
   "attributes": {
     "range": {
-      "name": "range",
-      "unit": null,
-      "device_class": null,
+      "name": "Range",
+      "unit": "km",
+      "device_class": "distance",
       "state_class": null,
-      "precision": null,
+      "precision": 0,
       "category": null
     },
     "tank_level": {
-      "name": "tank level",
-      "unit": null,
+      "name": "Tank level",
+      "unit": "%",
       "device_class": null,
       "state_class": null,
       "precision": null,
       "category": null
     },
     "mileage": {
-      "name": "mileage",
-      "unit": null,
-      "device_class": null,
-      "state_class": null,
-      "precision": null,
-      "category": null
+      "name": "Mileage",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "total_increasing",
+      "precision": 0,
+      "category": "diagnostic"
     },
     "service_inspection_time": {
-      "name": "service inspection time",
-      "unit": null,
+      "name": "Service inspection time",
+      "unit": "d",
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "service_inspection_distance": {
-      "name": "service inspection distance",
-      "unit": null,
-      "device_class": null,
+      "name": "Service inspection distance",
+      "unit": "km",
+      "device_class": "distance",
       "state_class": null,
-      "precision": null,
-      "category": null
+      "precision": 0,
+      "category": "diagnostic"
     },
     "oil_change_time": {
-      "name": "oil change time",
-      "unit": null,
+      "name": "Oil change time",
+      "unit": "d",
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "oil_change_distance": {
-      "name": "oil change distance",
-      "unit": null,
-      "device_class": null,
+      "name": "Oil change distance",
+      "unit": "km",
+      "device_class": "distance",
       "state_class": null,
-      "precision": null,
-      "category": null
+      "precision": 0,
+      "category": "diagnostic"
     },
     "oil_level": {
-      "name": "oil level",
-      "unit": null,
+      "name": "Oil level",
+      "unit": "%",
       "device_class": null,
       "state_class": null,
       "precision": null,
       "category": null
     },
     "service_adblue_distance": {
-      "name": "service adblue distance",
-      "unit": null,
-      "device_class": null,
+      "name": "AdBlue range",
+      "unit": "km",
+      "device_class": "distance",
       "state_class": null,
-      "precision": null,
+      "precision": 0,
       "category": null
     },
     "vehicle_lights": {
@@ -91,12 +91,12 @@
       "category": null
     },
     "car_type": {
-      "name": "car type",
+      "name": "Car Type",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "engine_type_first_engine": {
       "name": "engine type first engine",
@@ -107,16 +107,16 @@
       "category": null
     },
     "primary_engine_range": {
-      "name": "primary engine range",
-      "unit": null,
-      "device_class": null,
+      "name": "Primary engine range",
+      "unit": "km",
+      "device_class": "distance",
       "state_class": null,
-      "precision": null,
+      "precision": 0,
       "category": null
     },
     "primary_engine_range_percent": {
-      "name": "primary engine range percent",
-      "unit": null,
+      "name": "Primary engine Percent",
+      "unit": "%",
       "device_class": null,
       "state_class": null,
       "precision": null,
@@ -131,39 +131,39 @@
       "category": null
     },
     "secondary_engine_range": {
-      "name": "secondary engine range",
-      "unit": null,
-      "device_class": null,
+      "name": "Secondary engine range",
+      "unit": "km",
+      "device_class": "distance",
       "state_class": null,
-      "precision": null,
+      "precision": 0,
       "category": null
     },
     "secondary_engine_range_percent": {
-      "name": "secondary engine range percent",
-      "unit": null,
+      "name": "Secondary engine Percent",
+      "unit": "%",
       "device_class": null,
       "state_class": null,
       "precision": null,
       "category": null
     },
     "hybrid_range": {
-      "name": "hybrid range",
-      "unit": null,
-      "device_class": null,
+      "name": "hybrid Range",
+      "unit": "km",
+      "device_class": "distance",
       "state_class": null,
-      "precision": null,
+      "precision": 0,
       "category": null
     },
     "state_of_charge": {
-      "name": "state of charge",
-      "unit": null,
-      "device_class": null,
+      "name": "State of charge",
+      "unit": "%",
+      "device_class": "battery",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "charging_state": {
-      "name": "charging state",
+      "name": "Charging state",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -171,7 +171,7 @@
       "category": null
     },
     "charging_mode": {
-      "name": "charging mode",
+      "name": "Charging mode",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -179,20 +179,21 @@
       "category": null
     },
     "charging_power": {
-      "name": "charging power",
-      "unit": null,
-      "device_class": null,
+      "name": "Charging power",
+      "unit": "kW",
+      "device_class": "power",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "actual_charge_rate": {
-      "name": "actual charge rate",
+      "name": "Charging rate",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": null,
+      "unit_resolution": "api_route"
     },
     "charge_type": {
       "name": "charge type",
@@ -203,23 +204,24 @@
       "category": null
     },
     "target_state_of_charge": {
-      "name": "target state of charge",
-      "unit": null,
+      "name": "Target State of charge",
+      "unit": "%",
       "device_class": null,
       "state_class": null,
       "precision": null,
       "category": null
     },
     "remaining_charging_time": {
-      "name": "remaining charging time",
+      "name": "Remaining charge time",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": null,
+      "unit_resolution": "api_route"
     },
     "external_power": {
-      "name": "external power",
+      "name": "External Power",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -235,7 +237,7 @@
       "category": null
     },
     "climatisation_state": {
-      "name": "climatisation state",
+      "name": "Climatisation state",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -243,8 +245,8 @@
       "category": null
     },
     "remaining_climatisation_time": {
-      "name": "remaining climatisation time",
-      "unit": null,
+      "name": "Remaining Climatisation Time",
+      "unit": "min",
       "device_class": null,
       "state_class": null,
       "precision": null,
@@ -323,15 +325,15 @@
       "category": null
     },
     "charging_current_limit_a": {
-      "name": "charging current limit a",
-      "unit": null,
-      "device_class": null,
+      "name": "Charging AC current limit",
+      "unit": "A",
+      "device_class": "current",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "charging_current_limit_mode": {
-      "name": "charging current limit mode",
+      "name": "Charging current mode",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -339,7 +341,7 @@
       "category": null
     },
     "charging_plug_auto_unlock": {
-      "name": "charging plug auto unlock",
+      "name": "Unlock charging plug after charge",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -347,7 +349,7 @@
       "category": null
     },
     "vehicle_reported_online": {
-      "name": "vehicle reported online",
+      "name": "Vehicle reported connectivity",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -355,7 +357,7 @@
       "category": null
     },
     "vehicle_reported_active": {
-      "name": "vehicle reported active",
+      "name": "Vehicle reported activity",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -363,47 +365,47 @@
       "category": null
     },
     "last_update_time": {
-      "name": "last update time",
+      "name": "Last Update",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "shortterm_current": {
-      "name": "shortterm current",
+      "name": "ShortTerm Trip Data",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "shortterm_reset": {
-      "name": "shortterm reset",
+      "name": "ShortTerm Trip User Reset",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "longterm_current": {
-      "name": "longterm current",
+      "name": "LongTerm Trip Data",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "longterm_reset": {
-      "name": "longterm reset",
+      "name": "LongTerm Trip User Reset",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "model": {
-      "name": "model",
+      "name": "Model",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -411,7 +413,7 @@
       "category": null
     },
     "charging_type": {
-      "name": "charging type",
+      "name": "Charging type",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -419,7 +421,7 @@
       "category": null
     },
     "energy_flow": {
-      "name": "energy flow",
+      "name": "Energy flow",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -427,47 +429,47 @@
       "category": null
     },
     "max_charge_current": {
-      "name": "max charge current",
-      "unit": null,
-      "device_class": null,
+      "name": "Max charge current",
+      "unit": "A",
+      "device_class": "current",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "primary_engine_type": {
-      "name": "primary engine type",
+      "name": "Primary engine type",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "secondary_engine_type": {
-      "name": "secondary engine type",
+      "name": "Secondary engine type",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "charging_complete_time": {
-      "name": "charging complete time",
+      "name": "Charging Complete Time",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "plug_led_color": {
-      "name": "plug led color",
+      "name": "Plug LED Color",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "doors_trunk_status": {
-      "name": "doors trunk status",
+      "name": "Doors/trunk state",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -475,87 +477,87 @@
       "category": null
     },
     "outdoor_temperature": {
-      "name": "outdoor temperature",
-      "unit": null,
-      "device_class": null,
+      "name": "Outdoor Temperature",
+      "unit": "°C",
+      "device_class": "temperature",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "park_time": {
-      "name": "park time",
+      "name": "Park Time",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
       "category": null
     },
     "position_last_updated": {
-      "name": "position last updated",
+      "name": "Position Last Updated",
       "unit": null,
-      "device_class": null,
+      "device_class": "timestamp",
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "preheater_duration": {
-      "name": "preheater duration",
-      "unit": null,
+      "name": "Preheater runtime",
+      "unit": "min",
       "device_class": null,
       "state_class": null,
       "precision": null,
       "category": null
     },
     "preheater_remaining": {
-      "name": "preheater remaining",
-      "unit": null,
+      "name": "Preheater remaining",
+      "unit": "min",
       "device_class": null,
       "state_class": null,
       "precision": null,
       "category": null
     },
     "active_charging_profile_target_soc": {
-      "name": "active charging profile target soc",
-      "unit": null,
+      "name": "Active Charging Profile Target SoC",
+      "unit": "%",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null
     },
     "active_charging_profile_name": {
-      "name": "active charging profile name",
+      "name": "Active Charging Profile",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "active_charging_profile_min_soc": {
-      "name": "active charging profile min soc",
-      "unit": null,
+      "name": "Active Charging Profile Min SoC",
+      "unit": "%",
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "preferred_charging_time_start": {
-      "name": "preferred charging time start",
+      "name": "Preferred Charging Window Start",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "preferred_charging_time_end": {
-      "name": "preferred charging time end",
+      "name": "Preferred Charging Window End",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     },
     "climatisation_timer_enabled_count": {
-      "name": "climatisation timer enabled count",
+      "name": "Climate Timers Enabled",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -563,7 +565,7 @@
       "category": null
     },
     "next_climatisation_timer_local": {
-      "name": "next climatisation timer local",
+      "name": "Next Climate Timer (Car Local Time)",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -571,12 +573,12 @@
       "category": null
     },
     "charging_timer_enabled_count": {
-      "name": "charging timer enabled count",
+      "name": "Charging Timers Enabled",
       "unit": null,
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": null
+      "category": "diagnostic"
     }
   }
 }
