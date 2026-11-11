@@ -4062,5 +4062,24 @@
       "source": "switch.py",
       "description": "V3-exclusive quick switch. Not a source V2-declared switch and not counted as a V2 parity row."
     }
-  ]
+  ],
+  "ha_identity_and_presentation": {
+    "canonical_unique_id_pattern": "{vin_lower}_{platform}_{historical_v2_key}",
+    "same_config_entry_required": true,
+    "same_ha_device_registry_identifiers_required": true,
+    "same_entity_id_unique_id_and_platform_required": true,
+    "same_service_ids_schemas_required": true,
+    "runtime_option_switch_requires_config_entry_reload": true,
+    "enable_disable_historical_registry_entries_during_switch": false,
+    "restore_own_previous_integration_disable_records": true,
+    "user_disabled_entities_unchanged": true,
+    "vehicle_sensor_diagnostic_categories_removed_in_patch": 15,
+    "vehicle_binary_diagnostic_categories_removed_in_patch": 11,
+    "technical_cloud_diagnostics_still_category_diagnostic": true,
+    "v2_account_auth_owner_shared_with_v3_implemented": false,
+    "all_nine_ha_platforms_implemented_in_v3": false,
+    "all_historical_ha_entities_available_in_v3": false,
+    "full_ha_identity_runtime_acceptance_proven": false,
+    "architecture_doc": "docs/V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md"
+  }
 }
