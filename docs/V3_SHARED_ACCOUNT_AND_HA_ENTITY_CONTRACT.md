@@ -1,6 +1,6 @@
 # ADR — Shared Audi account, switchable V2/V3 runtime and stable HA entities
 
-**Status:** accepted engineering direction; migration NOT yet implemented.
+**Status:** architecture boundaries and all-nine-platform forwarding implemented in draft PR #21; functional V2 parity and Q8 live acceptance remain open.
 **Priority:** V2 parity first. Media, new Trips and other roadmap features remain out of scope until validated.
 
 ## Objective
@@ -15,11 +15,11 @@ The switch currently triggers a Home Assistant config-entry unload/reload, **not
 |---|---|---|
 | Config entry | Same V2 entry, options switch | Keep |
 | Account | b7 had `AudiRuntimeData(account=None)`; patch now shares the account | Retain one account/session owner |
-| Authentication | `V3Auth` creates its own `AudiService/AudiAPI` instance and manages refresh tokens | One token owner, one refresh lifecycle |
+| Authentication | V3Auth now shares the existing AudiAccount session/service and token lifecycle | Keep bootstrap seam narrow; never invoke V2 business polling |
 | Polling | Independent V3 coordinator, separate from V2 | Keep exactly one active coordinator |
 | Data model | Independent V3 Vehicle/attribute schema | Keep V3 clean; normalized fields feed the old HA contracts |
 | HA service routing | V2-only service registration, handlers resolve V2 `config_vehicles` | One service facade, dispatch to active engine by VIN |
-| HA platforms | V3 forwards six versus V2 nine | All nine platforms with stable native entities |
+| HA platforms | All nine are forwarded to V3-owned setup; number/select/tracker are structurally added | Complete real read/write parity and vehicle-specific derived entities |
 | Registry handling | Legacy V3 migration disabled historical entries (59 in Q8 diagnostic) | Never disable/remove V2 IDs on runtime change; restore recorded disablements |
 | HA metadata | 15 car sensors and 11 car binary sensors tagged diagnostic in V2 | Vehicle data in ordinary Sensors/Binary sensors, technical health in Diagnostics |
 
@@ -69,9 +69,9 @@ Every physical command: explicit user action → VIN capability and credentials 
 
 1. **Implemented in patch branch:** stop V3 registry auto-disable; restore old integration-disabled registry entries owned by the config entry. Reclassify ordinary vehicle data **only in V3**. Keep V2 source metadata untouched. Add drift and identity tests.
 2. **Implemented in patch:** V3 bootstraps the existing `AudiAccount` authentication and token owner without executing the V2 vehicle poll. V3 retains its independent API and data engine.
-3. **Not yet implemented:** service dispatch facade for all existing `audiconnect.*` actions with per-VIN independent V3 command implementation.
-4. **Not yet implemented:** implement V3-compatible number/select/device_tracker and complete the other six platforms; reuse all historic V2 unique IDs.
-5. **Not yet implemented:** prove all V2 read-only fields, derived statuses, UI settings, command requestID lifecycle and 13 Recorder migrations.
+3. **Partially implemented:** existing `audiconnect.*` names dispatch into `v3/service_commands.py`; known candidate controls use V3Engine. Other actions explicitly fail closed; full functionality is still required.
+4. **Partially implemented:** all nine HA domains have independent V3 setup and historical IDs. Number/select have native read surfaces but require verified V3 setting routes; parked tracker has a bounded CARIAD GET and still needs Q8 verification. Dynamic profile numbers and derived V2 sensor parity remain open.
+5. **Partially implemented:** bounded CARIAD `pendingrequests` follow-up now distinguishes backend completion from physical readback. Missing: all V2 read-only fields, derived statuses, settings, physical readback, legacy MBB controls and 13 Recorder migrations.
 6. **Required accept:** V2→V3→V2→V3 on the Q8, no renames or HA code changes, active polling and service calls work, physical actions validated on authorized vehicle.
 
 The [full parity matrix](V2_V3_PARITY_MATRIX.md) and [JSON baseline](V2_V3_PARITY_BASELINE.json) are the per-feature checklist; this ADR is the architecture/identity/presentation contract. Keep V2 the production fallback until all gates pass.
