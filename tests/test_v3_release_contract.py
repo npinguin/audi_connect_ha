@@ -40,14 +40,11 @@ def test_runtime_selection_is_in_options_and_single_setup_owner():
     flow = (AUDI / "config_flow.py").read_text()
     init = (AUDI / "__init__.py").read_text()
     translations = json.loads((AUDI / "strings.json").read_text())
-    for option in (
-        "runtime_version",
-        "v3_climate_start_route",
-        "v3_climate_status_route",
-        "v3_climate_experimental_unknown",
-    ):
+    for option in ("runtime_version", "v3_development_workbench"):
         assert option in flow
         assert option in translations["options"]["step"]["init"]["data"]
+    assert "climate_quick_start" not in translations["options"]["step"]["init"]["data"]
+    assert "experimental_commands" not in translations["options"]["step"]["init"]["data"]
     assert "coordinator = V3CleanCoordinator(hass, engine, config_entry)" in init
     assert "account=None, coordinator=coordinator, v3=engine" in init
     assert "config_entry.runtime_data = AudiRuntimeData(" in init

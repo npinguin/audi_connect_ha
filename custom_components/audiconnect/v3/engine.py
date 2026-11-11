@@ -489,7 +489,7 @@ class V3Engine:
         profile.attribute_route_evidence.setdefault(attribute, {})[operation] = {
             "outcome": outcome, "path": field, "http_status": response.status,
         }
-        if value is not None and len(str(value)) <= 10000:
+        if 200 <= response.status < 300 and value is not None and len(str(value)) <= 10000:
             last = car.readings.get(attribute)
             if not last or fresh or not last.get("fresh"):
                 car.readings[attribute] = {

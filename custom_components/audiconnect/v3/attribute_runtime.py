@@ -14,6 +14,12 @@ def planned_jobs(vehicle: Any, profile: Any) -> tuple[str, ...]:
         return V2_JOBS
     active = {ATTRIBUTES[name]["job"] for name, route in profile.attribute_routes.items()
               if name in ATTRIBUTES and ATTRIBUTES[name]["job"] and route == "cariad.selectivestatus.batch"}
+    # A mapped but stale field is not active, yet it must keep being refreshed.
+    # Dropping it from the next batch would prevent later vehicle updates from
+    # ever recovering without a manual restart or discovery.
+    active.update(ATTRIBUTES[name]["job"] for name, evidence in profile.attribute_evidence.items()
+                  if name in ATTRIBUTES and ATTRIBUTES[name]["job"] and
+                  evidence.get("status") == "readable_but_stale")
     active.update(("climatisation", "userCapabilities"))
     return tuple(job for job in V2_JOBS if job in active)
 

@@ -29,7 +29,7 @@ def test_unknown_and_stale_values_are_not_promoted():
     observe_read_only(car1,p,{"charging":{"batteryStatus":{"value":{"currentSOC_pct":0,"carCapturedTimestamp":old}}}},now)
     assert car1.readings["stateOfCharge"]["status"] == "readable_but_stale"
     assert "stateOfCharge" not in p.attribute_routes
-    assert "charging" not in planned_jobs(car1,p)
+    assert "charging" in planned_jobs(car1,p)  # mapped stale field still refreshes
     assert "plugState" not in car1.readings
 
 def test_capability_advertisement_is_not_fresh_attribute_evidence():
