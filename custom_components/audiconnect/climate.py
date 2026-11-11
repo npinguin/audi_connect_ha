@@ -53,18 +53,22 @@ async def async_setup_entry(
             runtime_data.v3 is not None
             and context_for(vehicle, config_entry).auth == "auth0"
         )
-        if not should_create_entity(
-            hass,
-            "climate",
-            "climatisation",
-            vehicle,
-            _ATTR_KEY,
-            "climatisation" if modern_v3 else None,
-        ):
+        # A known positive capability can create control-only climate even
+        # without a current status value. But an *omitted* capability in a
+        # partial Audi list is not proof that an existing status entity must
+        # disappear: preserve its registry ID/state, gate commands separately.
+        create = should_create_entity(
+            hass, "climate", "climatisation", vehicle, _ATTR_KEY
+        )
+        if modern_v3:
+            check = getattr(vehicle, "has_capability", None)
+            create = create or (
+                callable(check) and check("climatisation") is True
+            )
+        if not create:
             continue
-        # V3 uses the existing unique ID. A positive car capability is enough
-        # to create control-only climate even if this poll omitted its state.
-        # Explicit "unsupported" blocks new V3 entities; legacy keeps V2.
+        # V3 reuses the existing unique ID; unsupported commands are disabled
+        # without destroying the status entity or its automation history.
         if modern_v3:
             entities.append(
                 AudiV3Climate(runtime_data.coordinator, vehicle, runtime_data.v3)
