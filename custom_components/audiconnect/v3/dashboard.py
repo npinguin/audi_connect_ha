@@ -351,6 +351,60 @@ async def ws_attribute_disable(hass, connection, msg):
         connection.send_error(msg["id"], "v3_attribute_disable_failed", str(exc))
 
 
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/control_routes",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("capability"): str, vol.Required("action"): str,
+})
+@websocket_api.async_response
+async def ws_control_routes(hass, connection, msg):
+    try:
+        value = _engine(hass, msg["entry_id"]).control_routes_for(
+            msg["vin"], msg["capability"], msg["action"]
+        )
+        connection.send_result(msg["id"], value)
+    except (ValueError, KeyError, RuntimeError) as exc:
+        connection.send_error(msg["id"], "v3_control_routes_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/control_test",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("capability"): str, vol.Required("action"): str,
+    vol.Required("operation"): str,
+})
+@websocket_api.async_response
+async def ws_control_test(hass, connection, msg):
+    try:
+        value = await _engine(hass, msg["entry_id"]).test_action(
+            msg["vin"], msg["action"], msg["operation"],
+            capability=msg["capability"],
+        )
+        connection.send_result(msg["id"], value)
+    except (ValueError, KeyError, RuntimeError, TypeError) as exc:
+        connection.send_error(msg["id"], "v3_control_test_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/control_disable",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("capability"): str, vol.Required("action"): str,
+})
+@websocket_api.async_response
+async def ws_control_disable(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).disable_control(
+            msg["vin"], msg["capability"], msg["action"]
+        )
+        connection.send_result(msg["id"], {"disabled": True})
+    except (ValueError, KeyError, RuntimeError) as exc:
+        connection.send_error(msg["id"], "v3_control_disable_failed", str(exc)
+
+
 async def async_setup_dashboard(hass) -> None:
     if hass.data.get(_READY_KEY):
         return
@@ -366,6 +420,7 @@ async def async_setup_dashboard(hass) -> None:
             ws_review, ws_select, ws_save_candidate, ws_disable,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
+            ws_control_routes, ws_control_test, ws_control_disable,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True

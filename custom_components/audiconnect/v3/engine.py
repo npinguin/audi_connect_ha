@@ -307,6 +307,35 @@ class V3Engine:
             raise ValueError("Vehicle is not part of this account")
         return vehicle
 
+    def control_routes_for(self, vin: str, capability: str, action: str) -> dict[str, Any]:
+        vehicle = self.require_vehicle(vin)
+        profile = self.profiles[vehicle.vin.lower()]
+        applicable = profile.registry.resolve(capability, action, vehicle.context)["available_operations"]
+        routes = [
+            {
+                "id": op, "family": profile.registry.operations[op]["family"],
+                "method": "POST", "path": profile.registry.operations[op]["path"],
+                "status": profile.control_results.get(op, "not_tested"),
+                "active": profile.active.get(f"{capability}.{action}") == op,
+            }
+            for op in applicable if profile.registry.operations[op]["method"] == "POST"
+        ]
+        in_progress = profile.discovery._active
+        return {
+            "capability": capability, "action": action,
+            "routes": routes, "active": profile.active.get(f"{capability}.{action}"),
+            "pending": in_progress.public() if in_progress else None,
+            "requires": "S-PIN and physical verification" if capability == "access"
+                        else "Physical verification of the car",
+        }
+
+    async def disable_control(self, vin: str, capability: str, action: str) -> None:
+        vehicle = self.require_vehicle(vin)
+        profile = self.profiles[vehicle.vin.lower()]
+        profile.disable(capability, action)
+        await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
+
     def control_enabled(self, vin: str, aspect: str, capability: str = "climate") -> bool:
         self.require_vehicle(vin)
         p = self.profiles[vin.lower()]
@@ -381,6 +410,7 @@ class V3Engine:
                     attempt.capability, attempt.action, attempt.operation
                 )
         await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
         return {"confirmed": outcome, "active": dict(profile.active)}
 
     async def add_route(self, vin: str, route: dict[str, Any]) -> str:
@@ -465,7 +495,7 @@ class V3Engine:
         p.disable("climate", aspect)
         await self.storage.async_save(self.profiles)
 
-    async def send_control(self, vin: str, aspect: str) -> None:
+    async def send_control(self, vin: str, aspect: str, capability: str = "climate") -> None:
         """Normal climate UI sends ONE verified request, never retries.
 
         A per-vehicle cooldown limits duplicate climate requests while the car
@@ -476,18 +506,18 @@ class V3Engine:
         async with self._actions:
             if p.discovery._active is not None:
                 raise RuntimeError(
-                    "A climate experiment is awaiting physical confirmation"
+                    "A vehicle control experiment is awaiting physical confirmation"
                 )
-            if not self.control_enabled(vin, aspect):
+            if not self.control_enabled(vin, aspect, capability):
                 raise RuntimeError(
-                    "Climate command has not been tested and activated"
+                    "Vehicle command has not been tested and activated"
                 )
             now = time.monotonic()
             if now - self._normal_action_at.get(vin.lower(), -1e12) < 90:
                 raise RuntimeError(
-                    "Climate command cooldown active; verify vehicle state"
+                    "Vehicle command cooldown active; verify vehicle state"
                 )
-            ident = p.active[f"climate.{aspect}"]
+            ident = p.active[f"{capability}.{aspect}"]
             family, method, path, body = self._operation_request(car, ident)
             self._normal_action_at[vin.lower()] = now
             try:
@@ -497,7 +527,7 @@ class V3Engine:
             except (TimeoutError, OSError, RuntimeError) as err:
                 car.last_command_result = "transport_uncertain"
                 raise RuntimeError(
-                    "Audi climate command outcome uncertain; check the car"
+                    "Audi command outcome uncertain; check the car"
                 ) from err
             car.last_command_result = (
                 "accepted_unconfirmed" if 200 <= response.status < 300
@@ -505,7 +535,7 @@ class V3Engine:
             )
             if not 200 <= response.status < 300:
                 raise RuntimeError(
-                    "Audi rejected the selected climate command"
+                    "Audi rejected the selected vehicle command"
                 )
 
 

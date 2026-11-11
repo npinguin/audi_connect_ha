@@ -21,8 +21,7 @@ def test_historical_controls_are_not_auto_executable_by_catalog_entry():
     raw = json.loads(FULL.read_text())
     model = CapabilityRegistry(raw)
     assert any(x["id"] == "lock" for x in raw["controls_reference"])
-    with pytest.raises(RegistryError):
-        model.operations_for("access", "lock")
+    assert model.operations_for("access", "lock") == ["cariad.access.lock"]
     assert all(not op.get("delivery") == "existing_poll" for op in model.operations.values() if op["method"] == "POST")
 
 def test_legacy_host_routes_never_selected_for_auth0():

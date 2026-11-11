@@ -199,6 +199,22 @@ def build_status_report(
         })
     # The catalog is global; these are real scan results for the selected car.
     scan = discovery_summary(profile)
+    controls_for_vehicle = []
+    for capability, definition in profile.registry.capabilities.items():
+        for action in (definition.get("control") or {}):
+            available = profile.registry.resolve(
+                capability, action, vehicle.context
+            )["available_operations"]
+            current = profile.active.get(f"{capability}.{action}")
+            controls_for_vehicle.append({
+                "capability": capability, "action": action,
+                "api_family": "mbb" if vehicle.context.auth == "legacy" else "cariad",
+                "candidate_count": len(available),
+                "verified": current is not None and profile.control_results.get(current) == "worked",
+                "status": "verified" if current and profile.control_results.get(current) == "worked"
+                          else "not_tested" if available else "not_applicable_to_vehicle",
+                "requires_manual_test": True,
+            })
     counts = {
         **scan,
         "observed_attributes": sum(
@@ -234,6 +250,7 @@ def build_status_report(
             "authentication": vehicle.context.auth,
         },
         "counts": counts,
+        "control_actions": controls_for_vehicle,
         "rows": rows,
         "notes": (
             "V2 reference paths are only migration candidates: not discovered "
