@@ -98,3 +98,15 @@ resolves to its context-appropriate reviewed default and records the reason.
 This is **selection**, never a second command or a retry. Unavailable
 vehicle-stored temperature makes settings-based control unavailable rather
 than advertising a button that can only fail.
+
+
+## Device-registry safety at V2→V3 configuration changes
+
+The existing V2 helper `_async_cleanup_orphaned_devices` used to compare
+registered devices with the current **in-memory** inventory. During a
+disabled/failed first scan this can be empty and is not authoritative evidence
+that the user removed every car. V3 therefore **never executes destructive
+startup device cleanup**: registry removal is deferred until a separately
+reviewed authoritative-inventory workflow is built. The V2 helper also
+returns early when no active vehicles are known. Switching runtime modes
+must not delete devices, history or automations.

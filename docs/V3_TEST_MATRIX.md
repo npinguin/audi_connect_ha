@@ -35,3 +35,8 @@
 **First:** prove climate end-to-end and close owner boundaries. **Then:** implement a safe in-HA Development GET Workbench to edit validated relative API path templates and extract response fields; separately capture HTTP success, schema correctness, freshness and capability observations. **Next:** introduce automatic GET path selection based on context-local and per-route evidence and documented cooldown. **Then:** controlled optional community compatibility reporting (explicit opt-in, aggregated, privacy reviewed). **Later:** migrate charging, trips, health and wake one capability at a time. Control POST/PUT experiments require a separate explicit risk boundary; they must never inherit GET auto-fallback behavior.
 
 The beta does **not** claim those later capabilities or a generalized live templating UI exists. Every new capability requires an exact owner, contract tests, backward-compatibility check and rollback path before activation.
+
+
+**Migration guard:** verify a V3-mode reload skips the legacy orphan-device
+cleanup entirely, and an empty initial V2 inventory never removes registered
+HA devices. A missing initial vehicle scan is **not** a delete signal.

@@ -426,11 +426,21 @@ def _async_cleanup_orphaned_devices(
     runtime_data: AudiRuntimeData | None = getattr(config_entry, "runtime_data", None)
     if runtime_data is None:
         return
+    if runtime_data.v3 is not None:
+        # V3 must not destructively prune HA device registry entries as a side
+        # effect of a mode switch or an incomplete account inventory. Device
+        # removal needs a separate authoritative-inventory workflow.
+        return
 
     active_vins: set[str] = set()
     for vehicle_data in runtime_data.account.config_vehicles:
         if vehicle_data.vehicle and vehicle_data.vehicle.vin:
             active_vins.add(vehicle_data.vehicle.vin.lower())
+
+    if not active_vins:
+        # A skipped/failed startup scan is not evidence that every Audi was
+        # removed. Never delete registered devices from an empty snapshot.
+        return
 
     device_registry = dr.async_get(hass)
     devices = dr.async_entries_for_config_entry(device_registry, config_entry.entry_id)

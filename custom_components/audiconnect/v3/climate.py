@@ -89,9 +89,8 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
         mode = self._reported_mode
         if mode is None:
             return None
-        return HVACAction.OFF if mode in _OFF else _ACTIONS.get(
-            mode, HVACAction.HEATING
-        )
+        # An unknown running state must not be fabricated as heating.
+        return HVACAction.OFF if mode in _OFF else _ACTIONS.get(mode)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
