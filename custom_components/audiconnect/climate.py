@@ -46,13 +46,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
-    from .v3.engine import V3Engine
-    if isinstance(runtime_data.v3, V3Engine):
-        from .v3.entities import V3ClimateEntity
-        async_add_entities([
-            V3ClimateEntity(runtime_data.coordinator, vehicle)
-            for vehicle in runtime_data.v3.vehicles.values()
-        ])
+    if runtime_data.v3 is not None:
+        from .v3.ha_platforms import setup as v3_setup
+        v3_setup("climate", config_entry, async_add_entities)
         return
 
     entities = []
