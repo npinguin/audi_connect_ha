@@ -13,10 +13,10 @@ V3 = AUDI / "v3"
 def test_beta_manifest_version_and_hacs_metadata_are_consistent():
     manifest = json.loads((AUDI / "manifest.json").read_text())
     hacs = json.loads((ROOT / "hacs.json").read_text())
-    notes = (ROOT / "docs/V3_RELEASE_NOTES_3.0.0b7.md").read_text()
+    notes = (ROOT / "docs/V3_RELEASE_NOTES_3.0.0b8.md").read_text()
     assert manifest["domain"] == "audiconnect"  # no second config entry
-    assert manifest["version"] == "3.0.0b7"
-    assert "3.0.0b7" in notes
+    assert manifest["version"] == "3.0.0b8"
+    assert "3.0.0b8" in notes
     assert hacs["homeassistant"] == "2026.7.0"
     assert "npinguin/audi_connect_ha" in manifest["documentation"]
     assert manifest["issue_tracker"].endswith("npinguin/audi_connect_ha/issues")
