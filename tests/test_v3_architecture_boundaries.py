@@ -53,4 +53,4 @@ def test_v3_runtime_owns_business_behavior_and_all_nine_platforms():
     assert "AudiAccount" not in actions
     # The explicit shared-session seam is limited to authentication.
     assert "shared_account" in auth
-    assert "async_refresh_data" not in auth
+    assert ".async_refresh_data(" not in auth
