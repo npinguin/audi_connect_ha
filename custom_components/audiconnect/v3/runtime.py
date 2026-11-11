@@ -70,7 +70,8 @@ class V3Runtime:
             else V3_CLIMATE_START_OPTION
         )
         preferred = self.config_entry.options.get(setting, "auto")
-        if aspect == "stop":
+        if aspect == "stop" or context.auth != "auth0":
+            # Mixed-generation account: Auth0 preferences cannot break legacy.
             preferred = "auto"
         if preferred == "auto":
             preferred = None
@@ -101,7 +102,9 @@ class V3Runtime:
                 evidence = self._evidence_for(vehicle).setdefault(
                     ident, RouteEvidence()
                 )
-                evidence.record(200, usable=True, now=now)
+                # Existing cached state is not evidence of a fresh car poll.
+                evidence.cached_present += 1
+                evidence.last_result = "cached_value_present_freshness_unverified"
 
     def diagnostics(self, vehicles: list[Any]) -> list[dict[str, Any]]:
         """Bounded redacted results; no VIN/model string/API response payload."""
@@ -120,6 +123,7 @@ class V3Runtime:
                 "read_evidence": {
                     ident: {
                         "readable_observations": item.readable,
+                        "cached_present": item.cached_present,
                         "last_result": item.last_result,
                         "quarantined": item.suspended(time.monotonic()),
                     }

@@ -126,13 +126,16 @@ async def async_setup_entry(
             description.attr_key,
         )
     ]
+    # In V3 the single climate entity owns ON/OFF. The historical switch ID
+    # is not deleted: switching to V2 restores its existing registry identity.
     # One stateful ON/OFF control for the two physically verified Q8 climate
     # commands. Existing climate and button unique IDs are left untouched.
     for config_vehicle in runtime_data.account.config_vehicles:
         vehicle = config_vehicle.vehicle
         service = getattr(vehicle, "_audi_service", None)
         if (
-            getattr(service, "uses_auth0", False)
+            runtime_data.v3 is None
+            and getattr(service, "uses_auth0", False)
             and is_entity_supported(vehicle, "climatisation_state", "climatisation")
             and should_create_entity(
                 hass,

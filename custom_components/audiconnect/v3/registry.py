@@ -34,6 +34,7 @@ class RouteEvidence:
     """Evidence for a route, scoped per vehicle by the caller."""
 
     readable: int = 0
+    cached_present: int = 0
     consecutive_not_found: int = 0
     suspended_until: float = 0
     last_result: str = "not_tested"

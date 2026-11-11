@@ -53,6 +53,11 @@ from .const import (
 )
 from .coordinator import AudiDataUpdateCoordinator
 from .local_extensions import DEALER_FIELDS, update_local_dealer_options
+from .v3.coordinator import AudiV3Coordinator
+from .v3.registry import CapabilityRegistry
+from .v3.runtime import (
+    V3_DEFAULT, V3_ENABLED, V3_RUNTIME_OPTION, V3Runtime, catalog_path,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -139,6 +144,7 @@ class AudiRuntimeData:
 
     account: AudiAccount
     coordinator: AudiDataUpdateCoordinator
+    v3: V3Runtime | None = None
     options_snapshot: dict[str, Any] = field(default_factory=dict)
     data_snapshot: dict[str, Any] = field(default_factory=dict)
 
@@ -461,7 +467,17 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         )
 
     account = AudiAccount(hass, config_entry)
-    coordinator = AudiDataUpdateCoordinator.from_entry(hass, account, config_entry)
+    v3: V3Runtime | None = None
+    if config_entry.options.get(V3_RUNTIME_OPTION, V3_DEFAULT) == V3_ENABLED:
+        # One shared Audi account. Catalog file is read off HA's event loop.
+        registry = await hass.async_add_executor_job(
+            CapabilityRegistry.from_json_file, catalog_path()
+        )
+        v3 = V3Runtime(registry, config_entry)
+    coordinator_class = AudiV3Coordinator if v3 is not None else AudiDataUpdateCoordinator
+    coordinator = coordinator_class.from_entry(hass, account, config_entry)
+    if isinstance(coordinator, AudiV3Coordinator):
+        coordinator.v3 = v3
 
     async def _request_refresh(*_: Any) -> None:
         await coordinator.async_request_refresh()
@@ -470,6 +486,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     config_entry.runtime_data = AudiRuntimeData(
         account=account,
         coordinator=coordinator,
+        v3=v3,
         options_snapshot=dict(config_entry.options),
         data_snapshot=_reloadable_data(config_entry),
     )

@@ -21,6 +21,8 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import AudiRuntimeData
 from .audi_entity import AudiEntity, entity_unique_id, should_create_entity
 from .coordinator import AudiDataUpdateCoordinator
+from .v3.climate import AudiV3Climate
+from .v3.runtime import context_for
 
 _ATTR_KEY = "climatisation_state"
 # services.yaml bounds the temp_c field the same way.
@@ -44,13 +46,25 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
-    async_add_entities(
-        AudiClimate(runtime_data.coordinator, config_vehicle.vehicle)
-        for config_vehicle in runtime_data.account.config_vehicles
-        if should_create_entity(
-            hass, "climate", "climatisation", config_vehicle.vehicle, _ATTR_KEY
-        )
-    )
+    entities = []
+    for config_vehicle in runtime_data.account.config_vehicles:
+        vehicle = config_vehicle.vehicle
+        if not should_create_entity(
+            hass, "climate", "climatisation", vehicle, _ATTR_KEY
+        ):
+            continue
+        # Same account, coordinator and existing climate unique ID. Legacy
+        # cars stay on V2 until their V3 paths have been tested.
+        if (
+            runtime_data.v3 is not None
+            and context_for(vehicle, config_entry).auth == "auth0"
+        ):
+            entities.append(
+                AudiV3Climate(runtime_data.coordinator, vehicle, runtime_data.v3)
+            )
+        else:
+            entities.append(AudiClimate(runtime_data.coordinator, vehicle))
+    async_add_entities(entities)
 
 
 class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
