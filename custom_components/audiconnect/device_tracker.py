@@ -24,6 +24,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
+    if runtime_data.v3 is not None:
+        from .v3.ha_platforms import setup as v3_setup
+        v3_setup("device_tracker", config_entry, async_add_entities)
+        return
     entities = [
         AudiDeviceTracker(runtime_data.coordinator, config_vehicle.vehicle)
         for config_vehicle in runtime_data.account.config_vehicles
