@@ -14,7 +14,7 @@ The switch currently triggers a Home Assistant config-entry unload/reload, **not
 | Layer | Existing V3 implementation | Required target |
 |---|---|---|
 | Config entry | Same V2 entry, options switch | Keep |
-| Account | `AudiRuntimeData(account=None)` | Reuse one Audi account/session owner |
+| Account | b7 had `AudiRuntimeData(account=None)`; patch now shares the account | Retain one account/session owner |
 | Authentication | `V3Auth` creates its own `AudiService/AudiAPI` instance and manages refresh tokens | One token owner, one refresh lifecycle |
 | Polling | Independent V3 coordinator, separate from V2 | Keep exactly one active coordinator |
 | Data model | Independent V3 Vehicle/attribute schema | Keep V3 clean; normalized fields feed the old HA contracts |
@@ -57,7 +57,7 @@ Home Assistant entity category is NOT the data's API capability and NOT `device_
 - **Diagnostics:** integration/cloud health only (last poll, cloud quota, API errors, data freshness and age, discovery, retry/quota). Maintenance warnings belong to vehicle state, not cloud diagnostics.
 - Source conversion in API definitions; semantic unit/device class/state class/precision in attribute contracts. HA entities only present normalized values.
 - Do not fabricate Recorder `state_class` just to silence existing repair warnings. Check statistics against V2 separately.
-- Reclassifying entities changes only the entity category. Never modify unique IDs or delete Recorder history.
+- Reclassify **V3 only**; V2 keeps historical upstream presentation. Changes to V3 category never modify unique IDs or delete Recorder history.
 
 ### Service contract
 
@@ -67,8 +67,8 @@ Every physical command: explicit user action → VIN capability and credentials 
 
 ### Implementation stages
 
-1. **Implemented in patch branch:** stop V3 registry auto-disable; restore old integration-disabled registry entries owned by the config entry. Reclassify V2/V3 ordinary vehicle data away from Diagnostics. Add drift and identity tests.
-2. **Not yet implemented:** share one Audi account/auth/token owner with V3 instead of constructing a second `AudiService`.
+1. **Implemented in patch branch:** stop V3 registry auto-disable; restore old integration-disabled registry entries owned by the config entry. Reclassify ordinary vehicle data **only in V3**. Keep V2 source metadata untouched. Add drift and identity tests.
+2. **Implemented in patch:** V3 bootstraps the existing `AudiAccount` authentication and token owner without executing the V2 vehicle poll. V3 retains its independent API and data engine.
 3. **Not yet implemented:** service dispatch facade for all existing `audiconnect.*` actions with per-VIN independent V3 command implementation.
 4. **Not yet implemented:** implement V3-compatible number/select/device_tracker and complete the other six platforms; reuse all historic V2 unique IDs.
 5. **Not yet implemented:** prove all V2 read-only fields, derived statuses, UI settings, command requestID lifecycle and 13 Recorder migrations.
