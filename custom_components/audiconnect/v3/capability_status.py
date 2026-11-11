@@ -14,6 +14,7 @@ from typing import Any
 from .development_profiles import DevelopmentProfile
 from .vehicle import V3Vehicle
 from .historical_catalog import INVENTORY
+from .legacy_read_mappings import variant_for as legacy_variant_for
 
 # Source: V2 capability_jobs.BASE_SELECTIVE_JOBS and api_probe.py.
 # This is a migration backlog, not 24 proven V3 capabilities.
@@ -154,18 +155,30 @@ def build_status_report(
     for attr in INVENTORY["attributes"]:
         evidence = profile.attribute_evidence.get(attr["id"], {})
         selected = profile.attribute_routes.get(attr["id"])
+        legacy = legacy_variant_for(attr["id"])
+        candidate = (legacy if vehicle.context.auth == "legacy" else None)
+        known = bool(attr["paths"] or candidate)
+        family = ("mbb" if evidence.get("source") == "mbb.legacy"
+                  else "cariad" if evidence.get("source") == "cariad.selectivestatus"
+                  else "mbb" if candidate
+                  else "cariad" if vehicle.context.auth == "auth0" and attr["paths"]
+                  else "unknown")
+        mapped_path = (evidence.get("path")
+                       or (candidate["response_paths"][0] if candidate else None)
+                       or (attr["paths"][0] if attr["paths"] else "-"))
         rows.append({
             "capability": attr["capability"], "aspect": "status",
             "attribute": attr["id"], "entity_key": attr["entity_key"],
-            "api_family": "cariad" if attr["paths"] else "unknown",
+            "api_family": family,
             "operation": selected or ("v2.attribute." + attr["id"]),
-            "method": "GET" if attr["paths"] else "-",
-            "path": evidence.get("path") or (attr["paths"][0] if attr["paths"] else "-"),
-            "status": evidence.get("status", "not_tested" if attr["paths"] else "mapping_pending"),
+            "method": "GET" if known else "-",
+            "path": mapped_path,
+            "status": evidence.get("status", "not_tested" if known else "mapping_pending"),
             "route_result": evidence.get("status", "not_tested"),
             "source": "v3_live_evidence" if evidence else "v2_attribute_reference",
             "selected": selected is not None, "saved_candidate": False,
-            "custom": False, "context_applicable": None, "job": attr["job"],
+            "custom": False, "context_applicable": bool(candidate) if vehicle.context.auth == "legacy" else bool(attr["paths"]),
+            "job": attr["job"],
         })
     for control in INVENTORY["controls"]:
         rows.append({
