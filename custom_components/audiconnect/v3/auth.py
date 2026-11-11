@@ -21,17 +21,47 @@ from ..const import (
 class V3Auth:
     """Per-config-entry token owner; never poll via AudiConnectAccount."""
 
-    def __init__(self, hass: Any, entry: Any):
+    def __init__(self, hass: Any, entry: Any, *, shared_account: Any = None):
         self.hass = hass
         self.entry = entry
         self.country = (entry.data.get(CONF_REGION) or "DE").upper()
-        self.service = AudiService(
-            AudiAPI(async_get_clientsession(hass)), self.country,
-            entry.data.get(CONF_SPIN), entry.data.get(CONF_API_LEVEL, DEFAULT_API_LEVEL),
+        # The HA runtime passes the SAME AudiAccount as V2. Reuse the already
+        # configured transport/auth service and its single refresh token owner.
+        # The fallback exists for isolated V3 unit tests and CLI discovery.
+        self._shared_connection = (
+            shared_account.connection if shared_account is not None else None
+        )
+        self.service = (
+            self._shared_connection._audi_service
+            if self._shared_connection is not None
+            else AudiService(
+                AudiAPI(async_get_clientsession(hass)), self.country,
+                entry.data.get(CONF_SPIN),
+                entry.data.get(CONF_API_LEVEL, DEFAULT_API_LEVEL),
+            )
         )
         self._last_login: float | None = None
 
     async def ensure_ready(self) -> None:
+        if self._shared_connection is not None:
+            # Never invoke AudiAccount.async_refresh_data or connection.update:
+            # those own the V2 vehicle poll. Only authentication is shared.
+            if not self._shared_connection._loggedin:
+                try:
+                    await self._shared_connection.login()
+                except AudiAuthError as err:
+                    raise ConfigEntryAuthFailed(str(err)) from err
+                if not self._shared_connection._loggedin:
+                    raise RuntimeError("Audi account login temporarily unavailable")
+            elapsed = int(time.time() - self._shared_connection._logintime)
+            try:
+                refreshed = await self.service.refresh_token_if_necessary(elapsed)
+            except AudiAuthError as err:
+                raise ConfigEntryAuthFailed(str(err)) from err
+            if refreshed:
+                self._shared_connection._logintime = time.time()
+                self._shared_connection._sync_refresh_token()
+            return
         if self._last_login is None:
             try:
                 refresh = self.entry.data.get(CONF_REFRESH_TOKEN)
