@@ -100,6 +100,13 @@ def restore_profile(
         pending = unresolved[-1]
         pending.result = "uncertain_pending_review"
         profile.discovery._active = pending
+    drafts = saved.get("draft_selected", {})
+    if not isinstance(drafts, dict):
+        raise DevelopmentProfileError("Invalid draft route selections")
+    for key, operation in drafts.items():
+        if key not in ("climate.status", "climate.start", "climate.stop"):
+            raise DevelopmentProfileError("Unknown draft capability")
+        profile.save_candidate("climate", key.split(".")[1], operation)
     for key, operation in active.items():
         if key not in ("climate.status", "climate.start", "climate.stop"):
             raise DevelopmentProfileError("Unexpected active capability")

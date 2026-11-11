@@ -99,7 +99,9 @@ async def ws_routes(hass, connection, msg):
                 "custom": ident in profile.custom,
             })
         connection.send_result(msg["id"], {
-            "routes": rows, "disabled": f"climate.{aspect}"
+            "routes": rows,
+            "draft_candidate": profile.draft_selected.get(f"climate.{aspect}"),
+            "disabled": f"climate.{aspect}"
             in profile.discovery.disabled,
             "history": [
                 item.public() for item in profile.discovery.history
@@ -191,6 +193,26 @@ async def ws_select(hass, connection, msg):
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/save_candidate",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("aspect"): vol.In(("status", "start", "stop")),
+    vol.Required("operation"): str,
+})
+@websocket_api.async_response
+async def ws_save_candidate(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).save_candidate(
+            msg["vin"], msg["aspect"], msg["operation"]
+        )
+        connection.send_result(msg["id"], {
+            "saved": msg["operation"], "activated": False,
+        })
+    except (ValueError, RuntimeError, KeyError) as exc:
+        connection.send_error(msg["id"], "v3_save_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/disable",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("aspect"): vol.In(("start", "stop")),
@@ -215,7 +237,7 @@ async def async_setup_dashboard(hass) -> None:
     ])
     for handler in (
         ws_list, ws_routes, ws_add_route, ws_test,
-        ws_review, ws_select, ws_disable,
+        ws_review, ws_select, ws_save_candidate, ws_disable,
     ):
         websocket_api.async_register_command(hass, handler)
     await panel_custom.async_register_panel(

@@ -304,6 +304,15 @@ class V3Engine:
             ),
         }
 
+    async def save_candidate(
+        self, vin: str, aspect: str, operation: str,
+    ) -> None:
+        """Save a planned test route without exposing unproven vehicle controls."""
+        vehicle = self.require_vehicle(vin)
+        profile = self.profiles[vehicle.vin.lower()]
+        profile.save_candidate("climate", aspect, operation)
+        await self.storage.async_save(self.profiles)
+
     async def select_working(self, vin: str, aspect: str, operation: str) -> None:
         """Admin selects another previously verified route; no request."""
         car = self.require_vehicle(vin)

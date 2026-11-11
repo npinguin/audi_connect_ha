@@ -200,6 +200,8 @@ class DevelopmentProfile:
         }
         self.custom: dict[str, dict[str, Any]] = {}
         self.active: dict[str, str] = {}
+        # A candidate is an editable preference, NOT an enabled command.
+        self.draft_selected: dict[str, str] = {}
         # Last classified status-GET outcome per operation. This is transport
         # evidence, never physical action evidence.
         self.read_results: dict[str, dict[str, Any]] = {}
@@ -310,6 +312,16 @@ class DevelopmentProfile:
             self.active.pop("climate.status")
         return result
 
+    def save_candidate(self, capability: str, action: str, operation: str) -> None:
+        """Remember an untested route without claiming or enabling success."""
+        if action not in ("status", "start", "stop"):
+            raise DevelopmentProfileError("Unknown capability aspect")
+        if operation not in self.registry.resolve(
+            capability, action, self.discovery.context
+        )["available_operations"]:
+            raise DevelopmentProfileError("Route is not applicable to this vehicle")
+        self.draft_selected[f"{capability}.{action}"] = operation
+
     def choose_working(self, capability: str, action: str, operation: str) -> None:
         """Configuration can activate ONLY a confirmed working variant."""
         key = f"{capability}.{action}"
@@ -330,6 +342,7 @@ class DevelopmentProfile:
                     "Latest real vehicle test must confirm this route"
                 )
         self.active[key] = operation
+        self.draft_selected[key] = operation
 
     def disable(self, capability: str, action: str) -> None:
         self.discovery.disable(capability, action)
@@ -341,6 +354,7 @@ class DevelopmentProfile:
             "schema_version": 1,
             "custom_routes": deepcopy(list(self.custom.values())),
             "active": dict(self.active),
+            "draft_selected": dict(self.draft_selected),
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),
             "discovery": self.discovery.snapshot(),
