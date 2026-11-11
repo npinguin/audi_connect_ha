@@ -114,25 +114,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
-    from .v3.engine import V3Engine
-    if isinstance(runtime_data.v3, V3Engine):
-        from .v3.entities import V3ClimateQuickSwitch
-        engine = runtime_data.v3
-        seen: set[str] = set()
-        def add_discovered() -> None:
-            entities = []
-            for vehicle in engine.vehicles.values():
-                key = vehicle.vin.lower()
-                if (key not in seen and
-                    engine.control_enabled(vehicle.vin, "start") and
-                    engine.control_enabled(vehicle.vin, "stop")):
-                    seen.add(key)
-                    entities.append(V3ClimateQuickSwitch(runtime_data.coordinator, vehicle))
-            if entities:
-                async_add_entities(entities)
-        add_discovered()
-        config_entry.async_on_unload(runtime_data.coordinator.async_add_listener(add_discovered))
+    if runtime_data.v3 is not None:
+        from .v3.ha_platforms import setup as v3_setup
+        v3_setup("switch", config_entry, async_add_entities)
         return
+
     entities = [
         AudiSwitch(runtime_data.coordinator, description, vehicle)
         for config_vehicle in runtime_data.account.config_vehicles
