@@ -13,7 +13,7 @@ def test_all_clean_v3_modules_import_under_pinned_homeassistant():
     for module in (
         "auth", "transport", "vehicle", "engine", "entities",
         "coordinator_clean", "profile_store", "response_preview",
-        "registry_lifecycle", "dashboard",
+        "registry_lifecycle", "dashboard", "ha_platforms", "parking", "service_commands",
     ):
         loaded = importlib.import_module(
             f"custom_components.audiconnect.v3.{module}"
@@ -37,7 +37,12 @@ def test_required_v3_platforms_forwarded_in_v3():
         Path(__file__).resolve().parents[1]
         / "custom_components/audiconnect/__init__.py"
     ).read_text()
-    assert "Platform.CLIMATE, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SWITCH, Platform.LOCK" in init
+    assert "loaded_platforms=list(PLATFORMS)" in init
+    platforms = (Path(__file__).resolve().parents[1] /
+                 "custom_components/audiconnect/v3/ha_platforms.py").read_text()
+    for domain in ("climate","sensor","binary_sensor","button","switch",
+                   "lock","number","select","device_tracker"):
+        assert f'platform == "{domain}"' in platforms or f'"{domain}"' in platforms
     assert "AudiDataUpdateCoordinator.from_entry" in init
     assert "coordinator = V3CleanCoordinator(hass, engine, config_entry)" in init
     assert "account=account, coordinator=coordinator, v3=engine" in init
