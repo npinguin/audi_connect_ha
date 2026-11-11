@@ -97,3 +97,30 @@ def test_disabled_start_is_restored_without_disabling_climate_status():
     assert restored.registry.resolve(
         "climate", "status", context
     )["operation"] == "cariad.climate.status.batch"
+
+
+@pytest.mark.asyncio
+async def test_partial_vehicle_save_never_erases_another_car_profile():
+    from custom_components.audiconnect.v3.profile_store import V3ProfileStorage
+
+    class FakeStore:
+        def __init__(self):
+            self.data = {"profiles": {"other_vehicle": {"schema_version": 1}}}
+
+        async def async_load(self):
+            return self.data
+
+        async def async_save(self, data):
+            self.data = data
+
+    catalog, ctx, profile = fresh()
+    storage = V3ProfileStorage.__new__(V3ProfileStorage)
+    storage._store = FakeStore()
+    await storage.async_save({"current_vehicle": profile})
+    assert set(storage._store.data["profiles"]) == {
+        "current_vehicle", "other_vehicle"
+    }
+    loaded = await storage.async_load(
+        catalog, {"current_vehicle": ctx}
+    )
+    assert isinstance(loaded["current_vehicle"], DevelopmentProfile)
