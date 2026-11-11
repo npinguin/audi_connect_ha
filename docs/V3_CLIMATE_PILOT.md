@@ -33,8 +33,7 @@ implementation and API adapter until their own capability migration.
   V3**, since HA may mark that entity unavailable until V2 is restored.
 - V3 exposes ON/OFF, not a target-temperature slider on the Q8. The car's
   real reported state drives the mode; unavailable source data is not OFF.
-- Default Auth0 start uses the existing **bodyless** CARIAD start with the
-  vehicle's stored settings. Users may explicitly select the existing
+- For trusted Audi Q8 models, default Auth0 start uses the existing **bodyless** CARIAD start with vehicle-stored settings; other Auth0 models default to the settings adapter. Users may explicitly select the existing
   **vehicle-settings** variant (it requires a valid reported vehicle target);
   this is never an automatic fallback.
 - Stop uses the existing CARIAD stop adapter. Commands are not retried.
@@ -120,3 +119,17 @@ OFF. An explicit negative verdict suppresses a newly created V3 climate
 control. The existing V2 engine's previously readable allowlisted
 `climatisation` job flag is represented as historical evidence only,
 not as a new fresh telemetry timestamp or proof of actuation.
+
+
+## Documentation index
+
+- [Why / What / How, ownership, clean architecture and extension](V3_ARCHITECTURE.md)
+- [Reconfigure and test on existing Audi entry; rollback; HACS](V3_CONFIGURATION.md)
+- [Acceptance test matrix and next capabilities](V3_TEST_MATRIX.md)
+- [3.0.0b1 prerelease notes](V3_RELEASE_NOTES_3.0.0b1.md)
+
+The experimental `v3_climate_experimental_unknown` option is OFF by
+default. Explicit negative or impaired advertised support still blocks
+control. Current model parser does not populate the `model_family` field:
+the registry derives the Q8 hint only from verified Audi long/short model
+metadata. User-defined nicknames are never authorizing evidence.
