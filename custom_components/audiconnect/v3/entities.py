@@ -311,11 +311,23 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
         if not reading:
             return None
         value = reading.get("value")
-        if isinstance(value, (bool, list)):
-            return bool(value)
+        if isinstance(value, bool):
+            return value
         if isinstance(value, str):
-            return value != "Normal"
-        return value if isinstance(value, (int, float)) else None
+            normalized = value.strip().lower()
+            key = self.attribute["entity_key"]
+            # V2 accessors normalize these raw Audi status enums before the
+            # legacy binary platform sees them. V3 must do the same.
+            if key == "plug_state":
+                return None if normalized in ("", "invalid", "unsupported", "unknown") else normalized != "disconnected"
+            if key == "plug_lock_state":
+                return None if normalized in ("", "invalid", "unsupported", "unknown") else normalized != "locked"
+            if normalized in ("normal", "false", "off", "inactive", "closed", "locked"):
+                return False
+            if normalized in ("true", "on", "active", "open", "unlocked"):
+                return True
+            return None
+        return bool(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

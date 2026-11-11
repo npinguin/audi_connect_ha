@@ -511,6 +511,18 @@ class V3Engine:
              if read_path(response.data, path) is not None), None
         )
         field, value = matched if matched is not None else (mappings[0], None)
+        # Some Audi APIs return HTTP 200/207 with an invalid or error-coded
+        # value. Never promote "unknown" to a configured or usable entity.
+        if isinstance(value, str) and value.strip().lower() in (
+            "", "unknown", "unsupported", "invalid", "unavailable", "error", "notavailable"
+        ):
+            value = None
+        if isinstance(value, dict) and (
+            "error" in value or not value
+        ):
+            value = None
+        if isinstance(value, list) and not value:
+            value = None
         family = get_read_variant(attribute, operation, profile.attribute_custom)["family"]
         captured = capture_time(response.data, field) if value is not None else None
         fresh = timestamp_is_fresh(captured, response.observed_at)

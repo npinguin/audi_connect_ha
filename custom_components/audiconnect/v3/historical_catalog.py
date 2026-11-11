@@ -1411,6 +1411,17 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "paths": [],
       "source": "v2_entity_reference",
       "sensitivity": "vehicle_state"
+    },
+    {
+      "id": "any_door_unlocked",
+      "capability": "access",
+      "v2_state": "any_door_unlocked",
+      "job": null,
+      "entity_key": "any_door_unlocked",
+      "platform": "binary_sensor",
+      "paths": [],
+      "source": "v2_entity_derived_reference",
+      "sensitivity": "vehicle_state"
     }
   ],
   "controls": [
@@ -1601,6 +1612,15 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "verification": "required",
       "activation": "not_migrated",
       "api_family": null,
+      "path": null
+    },
+    {
+      "id": "preheater_active",
+      "capability": "climate",
+      "source": "v2_switch_reference",
+      "verification": "required",
+      "activation": "not_migrated",
+      "api_family": "mbb",
       "path": null
     }
   ],
