@@ -96,3 +96,19 @@ test("Workbench has three steps and keeps V2 backlog separate from verified attr
   assert.match(panel.shadowRoot.innerHTML,/Activate for polling/);
   assert.match(panel.shadowRoot.innerHTML,/Advanced · define another API path/);
 });
+
+test("HA-native Workbench groups by the vehicle's API family", () => {
+  const panel=new Panel();panel.selected="sample";panel.vin="VIN1";
+  panel.entries=[{entry_id:"sample",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  panel.capabilityStatus={counts:{catalog_jobs:23,not_scanned_jobs:0,observed_jobs:2,not_observed_jobs:21},rows:[
+    {api_family:"cariad",capability:"charging",attribute:"stateOfCharge",entity_key:"state_of_charge",status:"verified",source:"v3_live_evidence"},
+    {api_family:"mbb",capability:"charging",attribute:"stateOfCharge",entity_key:"state_of_charge",status:"not_tested",source:"v2_attribute_reference"},
+  ]};
+  panel.render();
+  assert.match(panel.shadowRoot.innerHTML,/ha-font-family-body/);
+  assert.match(panel.shadowRoot.innerHTML,/Step 1 \/ Automatic discovery/);
+  assert.match(panel.shadowRoot.innerHTML,/1 readable attributes/);
+  assert.match(panel.shadowRoot.innerHTML,/1 read-only attributes/);
+  panel.apiFamily="all";panel.render();
+  assert.match(panel.shadowRoot.innerHTML,/2 read-only attributes/);
+});

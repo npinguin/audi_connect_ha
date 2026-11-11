@@ -19,6 +19,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.attribute = "";
     this.controlTarget = "climate";
     this.inventoryFilter = "available";
+    this.apiFamily = "vehicle";
     this.readRoutes = [];
     this.readChoice = "";
     this.readDraft = "";
@@ -154,6 +155,9 @@ class AudiConnectV3Panel extends HTMLElement {
       this.render();
     } else if (e.target.id === "inventory-filter") {
       this.inventoryFilter = e.target.value;
+      this.render();
+    } else if (e.target.id === "api-family") {
+      this.apiFamily = e.target.value;
       this.render();
     }
   }
@@ -299,10 +303,14 @@ class AudiConnectV3Panel extends HTMLElement {
     const coverage = this.capabilityStatus || {counts: {}, rows: []};
     const counts = coverage.counts || {};
     const rows = coverage.rows || [];
-    const attributes = rows.filter(r => r.entity_key &&
+    const vehicleFamily = car?.api_family || "cariad";
+    const family = this.apiFamily === "vehicle" ? vehicleFamily : this.apiFamily;
+    const filteredRows = rows.filter(r => family === "all" || r.api_family === family);
+    const attributes = filteredRows.filter(r => r.entity_key &&
       ["v3_live_evidence","v2_attribute_reference"].includes(r.source));
-    const controls = rows.filter(r => r.source === "v2_control_reference");
+    const controls = filteredRows.filter(r => r.source === "v2_control_reference");
     const capabilityNames = [...new Set([...attributes,...controls].map(r => r.capability))].sort();
+    const readable = attributes.filter(r => ["verified","readable_but_stale"].includes(r.status));
     const visibleAttributes = attributes.filter(r => r.capability === this.category &&
       (this.inventoryFilter !== "available" || ["verified","readable_but_stale"].includes(r.status)));
     const chosen = this.readRoutes.find(r => r.id === this.readChoice);
@@ -313,13 +321,13 @@ class AudiConnectV3Panel extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {display:block; min-height:100%; background:${bg}; color:${body};
-          font-family:var(--paper-font-body1_-_font-family,Arial,sans-serif);}
+          font-family:var(--ha-font-family-body,Roboto,Noto,sans-serif);font-size:var(--ha-font-size-m,14px);line-height:var(--ha-line-height-normal,1.6);}
         *{box-sizing:border-box}
         main{max-width:1240px;margin:auto;padding:28px 24px 48px}
         .eyebrow{letter-spacing:.12em;text-transform:uppercase;font-weight:700;
-          font-size:11px;color:var(--secondary-text-color,#64748b)}
-        h1{font-size:26px;margin:8px 0 4px;font-weight:750}
-        h2{font-size:17px;margin:0 0 18px}
+          font-size:var(--ha-font-size-s,12px);color:var(--secondary-text-color,#64748b)}
+        h1{font-size:var(--ha-font-size-2xl,24px);margin:8px 0 4px;font-weight:750}
+        h2{font-size:var(--ha-font-size-xl,20px);margin:0 0 18px}
         p{line-height:1.5;color:var(--secondary-text-color,#64748b)}
         .top,.toolbar,.line{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
         .toolbar{justify-content:flex-start;padding:22px 0}
@@ -328,50 +336,55 @@ class AudiConnectV3Panel extends HTMLElement {
           border:1px solid var(--divider-color,#e2e8f0);padding:22px;min-width:0}
         .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
         .stat{font-size:20px;font-weight:700;margin-top:8px;overflow-wrap:anywhere}
-        label{font-size:12px;color:var(--secondary-text-color,#64748b);display:block;font-weight:700;margin-bottom:6px}
+        label{font-size:var(--ha-font-size-m,14px);color:var(--secondary-text-color,#64748b);display:block;font-weight:700;margin-bottom:6px}
         select,textarea,input{width:100%;font:inherit;padding:10px 12px;border:1px solid
           var(--divider-color,#d1d5db);border-radius:8px;background:var(--card-background-color,white);
           color:inherit}
-        textarea{font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;resize:vertical}
+        textarea{font-family:var(--ha-font-family-code,monospace);font-size:var(--ha-font-size-m,14px);line-height:1.5;resize:vertical}
         .tool{min-width:180px;flex:1;max-width:360px}
         button{font:inherit;border:1px solid var(--divider-color,#cbd5e1);
           border-radius:8px;background:var(--card-background-color,white);
           color:inherit;padding:10px 15px;cursor:pointer;font-weight:650}
         button.primary{background:var(--primary-color,#2366a6);border-color:var(--primary-color,#2366a6);color:white}
         button:disabled{opacity:.42;cursor:not-allowed}
-        .badge{display:inline-block;font-size:11px;border:1px solid var(--divider-color,#cbd5e1);
+        .badge{display:inline-block;font-size:var(--ha-font-size-s,12px);border:1px solid var(--divider-color,#cbd5e1);
           border-radius:20px;padding:4px 9px;font-weight:700}
         .route{display:flex;justify-content:space-between;gap:12px;padding:11px 0;
-          border-bottom:1px solid var(--divider-color,#e2e8f0);font-size:12px}
-        code{overflow-wrap:anywhere;font-family:ui-monospace,monospace}
-        .summary{font-size:12px;margin-top:12px}
+          border-bottom:1px solid var(--divider-color,#e2e8f0);font-size:var(--ha-font-size-m,14px)}
+        code{overflow-wrap:anywhere;font-family:var(--ha-font-family-code,monospace)}
+        .summary{font-size:var(--ha-font-size-m,14px);margin-top:12px}
         .error{padding:12px;border:1px solid #d97706;border-radius:9px;margin:14px 0}
         .warn{border-left:3px solid #d97706;padding:12px;background:var(--secondary-background-color,#f8fafc)}
         .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
         pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--secondary-background-color,#f8fafc);
-          padding:14px;border-radius:9px;font-size:12px;max-height:340px;overflow:auto}
-        .foot{font-size:12px;margin-top:25px}
+          padding:14px;border-radius:9px;font-size:var(--ha-font-size-m,14px);max-height:340px;overflow:auto}
+        .foot{font-size:var(--ha-font-size-m,14px);margin-top:25px}
         .steps{display:flex;gap:8px;margin:12px 0 22px;flex-wrap:wrap}
         .steps button{flex:1;min-width:145px;text-align:left}
         .steps button.current{border-color:var(--primary-color,#2366a6);box-shadow:inset 0 -3px var(--primary-color,#2366a6)}
         .cap-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
         .cap-card{width:100%;padding:16px;text-align:left}
-        .cap-card b{font-size:15px}
+        .cap-card b{font-size:var(--ha-font-size-l,16px)}
         .cap-card .subline{line-height:1.6;margin-top:8px}
         .eyeline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
         .callout{background:var(--secondary-background-color,#f8fafc);padding:15px;border-radius:9px}
         .attribute-row{display:flex;justify-content:space-between;align-items:center;gap:16px;
           border-top:1px solid var(--divider-color,#e2e8f0);padding:11px 0}
         .attribute-row button{text-align:left;flex:1;overflow-wrap:anywhere}
-        .helper{font-size:12px;margin:9px 0;color:var(--secondary-text-color,#64748b)}
+        .helper{font-size:var(--ha-font-size-m,14px);margin:9px 0;color:var(--secondary-text-color,#64748b)}
         .coverage-table{max-height:400px;overflow:auto}
-        table{width:100%;border-collapse:collapse;font-size:12px}
+        table{width:100%;border-collapse:collapse;font-size:var(--ha-font-size-m,14px)}
         th{text-align:left;font-weight:700;color:var(--secondary-text-color,#64748b);
           padding:11px 10px;position:sticky;top:0;background:var(--card-background-color,white);
           border-bottom:1px solid var(--divider-color,#d1d5db)}
         td{padding:11px 10px;vertical-align:top;border-bottom:1px solid var(--divider-color,#e2e8f0)}
-        .subline{font-size:11px;opacity:.8;margin-top:4px}
-        .coverage-note{font-size:12px;margin:10px 0 0}
+        .subline{font-size:var(--ha-font-size-s,12px);opacity:.8;margin-top:4px}
+        .coverage-note{font-size:var(--ha-font-size-m,14px);margin:10px 0 0}
+        .family-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}
+        .family-toolbar select{width:auto;min-width:240px}
+        .discovery-summary{padding:16px;border-radius:12px;background:var(--secondary-background-color,#f3f6f9);margin:14px 0 18px}
+        .family-hint{color:var(--secondary-text-color);font-size:var(--ha-font-size-m,14px)}
+        button:focus-visible,select:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
         @media(max-width:780px){main{padding:18px 12px}.grid,.cards,.cap-grid{grid-template-columns:1fr}h1{font-size:21px}}
       </style>
       <main>
@@ -399,20 +412,35 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="card"><div class="eyebrow">Cloud polling</div>
               <div class="stat">${item.poll_success?"Connected":"Not confirmed"}</div>
               <div class="summary">${escapeHTML(item.poll_success||"No successful cloud poll")}</div></div>
-            <div class="card"><div class="eyebrow">Climate state</div>
+            <div class="card"><div class="eyebrow">Automatic read discovery</div>
+              <div class="stat">${readable.length} readable</div>
+              <div class="summary">${escapeHTML(counts.observed_jobs??0)} CARIAD jobs observed · ${escapeHTML(counts.not_observed_jobs??0)} not observed</div></div>
+            <div class="card"><div class="eyebrow">Climate & controls</div>
               <div class="stat">${escapeHTML(status)}</div>
-              <div class="summary">Vehicle age: ${escapeHTML(car.age_minutes??"unknown")} minutes</div></div>
-            <div class="card"><div class="eyebrow">Climate pilot / controls</div>
-              <div class="stat">${car.start_enabled?"Start ready":"Start unverified"}</div>
-              <div class="summary">${car.stop_enabled?"Stop ready":"Stop unverified"} · API quota: ${escapeHTML(item.quota??"unknown")}</div></div>
+              <div class="summary">Climate start: ${car.start_enabled?"verified":"not tested"} · Stop: ${car.stop_enabled?"verified":"not tested"}</div></div>
           </div>
           <section class="card" style="margin-bottom:18px;display:${this.step===1?"block":"none"}">
-            <div class="eyebrow">Capability discovery / evidence</div>
-            <h2>Historical coverage vs verified V3 data</h2>
-            <p>Known from V2 does not mean discovered by V3.
-              Read-only attributes and controls have independent evidence;
-              stale vehicle readings are not current.</p>
-            <div class="line" style="justify-content:flex-start;gap:16px;font-size:12px;margin-bottom:14px">
+            <div class="eyebrow">Step 1 / Automatic discovery</div>
+            <h2>What works on this Audi?</h2>
+            <p>Startup uses safe read-only GET requests. Other API routes stay available for fine tuning. No vehicle action is automatically tested.</p>
+            <div class="family-toolbar">
+              <label for="api-family">API family</label>
+              <select id="api-family">
+                <option value="vehicle" ${this.apiFamily==="vehicle"?"selected":""}>This vehicle · ${escapeHTML(vehicleFamily.toUpperCase())}</option>
+                <option value="cariad" ${this.apiFamily==="cariad"?"selected":""}>CARIAD · modern</option>
+                <option value="mbb" ${this.apiFamily==="mbb"?"selected":""}>MBB · legacy</option>
+                <option value="all" ${this.apiFamily==="all"?"selected":""}>All historical API families</option>
+              </select>
+            </div>
+            <div class="discovery-summary"><b>${readable.length} readable attributes</b>
+              · ${readable.filter(r=>r.status==="verified").length} fresh
+              · ${readable.filter(r=>r.status==="readable_but_stale").length} stale
+              <div>${escapeHTML(counts.observed_jobs??0)} of ${escapeHTML((counts.catalog_jobs??0)-(counts.not_scanned_jobs??0))} scanned jobs observed.
+              ${escapeHTML(counts.not_scanned_jobs??0)} jobs pending.</div>
+              <div class="family-hint">Not observed does not mean unsupported. V2 history does not equal V3 validation.</div>
+            </div>
+            <details><summary>Historical V2 inventory totals</summary>
+            <div class="line" style="justify-content:flex-start;gap:16px;font-size:var(--ha-font-size-m,14px);margin-bottom:14px">
               <span><b>${escapeHTML(counts.v2_attribute_inventory??0)}</b> V2 attribute references</span>
               <span><b>${escapeHTML(counts.v2_unique_attributes??counts.v2_attribute_inventory??0)}</b> unique attributes</span>
               <span><b>${escapeHTML(counts.v2_alias_references??0)}</b> aliases (not duplicate functions)</span>
@@ -423,7 +451,8 @@ class AudiConnectV3Panel extends HTMLElement {
               <span><b>${escapeHTML(counts.stale??0)}</b> stale</span>
               <span><b>${escapeHTML(counts.reported_failed??0)}</b> failed</span>
               <span><b>${escapeHTML(counts.v2_reference_only??0)}</b> known V2 / not migrated</span>
-            </div>
+            </div></details>
+            <h2>Capabilities · ${escapeHTML(family==="all"?"all API families":family.toUpperCase())}</h2>
             <div class="cap-grid">${capabilityNames.map(cap=>{
                 const a=attributes.filter(r=>r.capability===cap);
                 const ct=controls.filter(r=>r.capability===cap);
@@ -437,12 +466,12 @@ class AudiConnectV3Panel extends HTMLElement {
               }).join("")}</div>
             <details>
               <summary style="cursor:pointer;font-weight:700;padding:8px 0">
-                Technical evidence — ${escapeHTML(rows.length)} route and attribute records
+                Technical evidence — ${escapeHTML(filteredRows.length)} selected-family records
               </summary>
               <div class="coverage-table"><table>
                 <thead><tr><th>Capability</th><th>Attribute / Control</th>
                   <th>API family / Path</th><th>Discovery result</th></tr></thead>
-                <tbody>${rows.map((r)=>`<tr>
+                <tbody>${filteredRows.map((r)=>`<tr>
                   <td><b>${escapeHTML(r.capability)}</b>
                     <div class="subline">${escapeHTML(r.aspect)}</div></td>
                   <td><code>${escapeHTML(r.attribute)}</code></td>
@@ -461,7 +490,7 @@ class AudiConnectV3Panel extends HTMLElement {
           <section class="card" style="margin-bottom:18px;display:${this.step===2?"block":"none"}">
             <div class="eyebrow">Step 2 / Select</div>
             <h2>Choose what to configure</h2>
-            <p>Select a domain and one attribute or control. This catalog includes historical support for other Audi vehicles, not just the current Q8.</p>
+            <p>Select a capability and attribute. Use Step 1 to switch API family or inspect historical alternatives.</p>
             <label>Capability domain</label>
             <select id="category">${capabilityNames.map(c=>`<option value="${escapeHTML(c)}" ${this.category===c?"selected":""}>${escapeHTML(c.replaceAll("_"," "))}</option>`).join("")}</select>
             <div class="toolbar">
@@ -532,7 +561,7 @@ class AudiConnectV3Panel extends HTMLElement {
               </div>
               <label style="margin-top:22px">Request parameters (JSON)</label>
               <textarea id="parameters" rows="3">{}</textarea>
-              <p style="font-size:12px">Save candidate remembers your choice without enabling an untested API.
+              <p style="font-size:var(--ha-font-size-m,14px)">Save candidate remembers your choice without enabling an untested API.
                 Activation requires a confirmed working result.</p>
               <div class="actions">
                 <button class="primary" data-action="test" ${!selectedRoute||this.loading||this.pending?"disabled":""}>

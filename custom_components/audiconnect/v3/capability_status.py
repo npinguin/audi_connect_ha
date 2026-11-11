@@ -207,7 +207,7 @@ def build_status_report(
             for r in rows if r.get("entity_key")
         ),
         "pending_mappings": sum(
-            r.get("entity_key") and r["status"] == "mapping_pending"
+            bool(r.get("entity_key")) and r["status"] == "mapping_pending"
             for r in rows
         ),
         "total": len(rows),

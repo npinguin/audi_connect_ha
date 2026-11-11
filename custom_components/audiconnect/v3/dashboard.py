@@ -55,6 +55,7 @@ async def ws_list(hass, connection, msg):
                 "vin": car.vin,
                 "name": car.name,
                 "model": car.model,
+                "api_family": "mbb" if car.context.auth == "legacy" else "cariad",
                 "climate_state": car.climate_state,
                 "status_route": car.climate_source,
                 "age_minutes": car.capture_age_minutes,
