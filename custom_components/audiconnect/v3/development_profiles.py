@@ -211,6 +211,9 @@ class DevelopmentProfile:
         self.attribute_drafts: dict[str, str] = {}
         self.attribute_custom: dict[str, dict[str, Any]] = {}
         self.attribute_route_evidence: dict[str, dict[str, dict[str, Any]]] = {}
+        # Read-only auto discovery; per-vehicle, bounded, no data/tokens stored.
+        self.job_discovery: dict[str, str] = {}
+        self.job_probe_attempts: dict[str, int] = {}
         self.registry = CapabilityRegistry(deepcopy(self._base))
         self.discovery = GuidedActionDiscovery(
             self.registry, context, cooldown_seconds=cooldown_seconds
@@ -367,6 +370,8 @@ class DevelopmentProfile:
             "attribute_drafts": dict(self.attribute_drafts),
             "attribute_custom": deepcopy(self.attribute_custom),
             "attribute_route_evidence": deepcopy(self.attribute_route_evidence),
+            "job_discovery": dict(self.job_discovery),
+            "job_probe_attempts": dict(self.job_probe_attempts),
             "discovery": self.discovery.snapshot(),
         }
 

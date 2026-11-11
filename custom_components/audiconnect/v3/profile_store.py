@@ -11,7 +11,7 @@ from typing import Any
 from .action_discovery import ActionAttempt
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
-from .historical_catalog import ATTRIBUTES
+from .historical_catalog import ATTRIBUTES, V2_JOBS
 from .attribute_routes import validate_custom_read_route, get_read_variant, read_variants
 
 
@@ -112,6 +112,20 @@ def restore_profile(
         if route != "cariad.selectivestatus.batch" and profile.attribute_route_evidence.get(ident, {}).get(route, {}).get("outcome") not in ("verified", "readable_but_stale"):
             raise DevelopmentProfileError("Unverified active route selection")
         profile.attribute_routes[ident] = route
+    # Added after b5: older saved per-vehicle profiles load without any upgrade.
+    observed_jobs = saved.get("job_discovery", {})
+    probed_jobs = saved.get("job_probe_attempts", {})
+    if (not isinstance(observed_jobs, dict) or not isinstance(probed_jobs, dict)
+            or len(observed_jobs) > len(V2_JOBS) or len(probed_jobs) > len(V2_JOBS)):
+        raise DevelopmentProfileError("Invalid CARIAD discovery data")
+    for job, result in observed_jobs.items():
+        if job not in V2_JOBS or result not in ("observed", "not_observed", "inconclusive"):
+            raise DevelopmentProfileError("Untrusted discovery job status")
+    for job, count in probed_jobs.items():
+        if job not in V2_JOBS or type(count) is not int or not 0 <= count <= 1:
+            raise DevelopmentProfileError("Untrusted read-only probe count")
+    profile.job_discovery.update(observed_jobs)
+    profile.job_probe_attempts.update(probed_jobs)
     disabled = discovery.get("disabled_controls", [])
     if not isinstance(disabled, list) or any(
         item not in ("climate.start", "climate.stop") for item in disabled

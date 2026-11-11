@@ -22,6 +22,7 @@ from .attribute_runtime import planned_jobs, observe_read_only
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
 from .legacy_read_mappings import FIELDS as MBB_FIELDS
+from .read_discovery import record_jobs, pending_groups, reserve_group, summary as discovery_summary
 from ..const import CONF_FILTER_VINS
 
 
@@ -174,7 +175,8 @@ class V3Engine:
                 # because the URL spells the same job list differently.
                 if (ident == "cariad.climate.status.probe"
                     and op["path"].endswith("?jobs=climatisation")
-                    and "cariad.climate.status.batch" in attempted_operations):
+                    and "cariad.climate.status.batch" in attempted_operations
+                    and vehicle.climate_state is not None):
                     continue
                 if path in attempted_paths:
                     continue
@@ -188,7 +190,9 @@ class V3Engine:
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     if ident == 'cariad.climate.status.batch':
+                        requested = tuple(path.rsplit("jobs=", 1)[-1].split(","))
                         observe_read_only(vehicle, profile, response.data, response.observed_at)
+                        record_jobs(profile, requested, status=response.status, payload=response.data)
                     elif ident == 'mbb.climate.status':
                         # Parse only proven V2 paths; per-attribute activation
                         # remains explicit because MBB timestamps may be absent.
@@ -225,6 +229,38 @@ class V3Engine:
                 )
                 if response.status in (401, 403, 429) or response.status >= 500:
                     break
+        # Automatic initial CARIAD discovery: the existing 23-job GET handles
+        # most fields. If that response missed known mappings, probe at most
+        # two small job groups immediately and one group on later polls.
+        # No POST, no wake, no parking coordinates, no unbounded API probing.
+        for key, car in self.vehicles.items():
+            profile = self.profiles[key]
+            if car.context.auth != "auth0" or len(profile.registry.capabilities) <= 1:
+                continue  # Pilot-only synthetic tests and legacy cars are unaffected.
+            if not profile.job_discovery:
+                continue  # No successful bulk GET yet; don't spray blind requests.
+            initial = not profile.job_probe_attempts
+            if not initial and self._poll_cycles % 6 != 0:
+                continue  # Subsequent evidence refresh is deliberately slow.
+            max_extra = 2 if initial else 1
+            for jobs in pending_groups(profile, max_groups=max_extra):
+                if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+                    break
+                path = f"/vehicle/v1/vehicles/{car.vin}/selectivestatus?jobs={','.join(jobs)}"
+                try:
+                    response = await self.transport.request("cariad", "GET", path)
+                except (TimeoutError, OSError, RuntimeError, ValueError):
+                    break
+                if response.status in (401, 403, 429) or response.status >= 500:
+                    record_jobs(profile, jobs, status=response.status, payload=response.data)
+                    break
+                reserve_group(profile, jobs)
+                if 200 <= response.status < 300:
+                    cloud_reachable = True
+                    observe_read_only(car, profile, response.data, response.observed_at)
+                record_jobs(profile, jobs, status=response.status, payload=response.data)
+                polled_responses[(key, "cariad", path)] = response
+
         # Explicitly selected targeted/custom GET routes are executed separately
         # from the default shared batch, deduplicated across attributes.
         for key, car in self.vehicles.items():
@@ -656,6 +692,7 @@ class V3Engine:
                         )
                     ][:15],
                     "disabled_controls": sorted(p.discovery.disabled) if p else [],
+                    "automatic_read_discovery": discovery_summary(p) if p else {},
                 },
             })
         return {

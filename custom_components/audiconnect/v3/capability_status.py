@@ -15,6 +15,7 @@ from .development_profiles import DevelopmentProfile
 from .vehicle import V3Vehicle
 from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .legacy_read_mappings import variant_for as legacy_variant_for
+from .read_discovery import summary as discovery_summary
 
 # Source: V2 capability_jobs.BASE_SELECTIVE_JOBS and api_probe.py.
 # This is a migration backlog, not 24 proven V3 capabilities.
@@ -173,7 +174,13 @@ def build_status_report(
             "operation": selected or ("v2.attribute." + attr["id"]),
             "method": "GET" if known else "-",
             "path": mapped_path,
-            "status": evidence.get("status", "not_tested" if known else "mapping_pending"),
+            "status": evidence.get(
+                "status",
+                ("not_observed" if attr["job"] in profile.job_discovery
+                 and profile.job_discovery[attr["job"]] == "not_observed"
+                 and known and attr["paths"]
+                 else "not_tested" if known else "mapping_pending"),
+            ),
             "route_result": evidence.get("status", "not_tested"),
             "source": "v3_live_evidence" if evidence else "v2_attribute_reference",
             "selected": selected is not None, "saved_candidate": False,
@@ -190,7 +197,19 @@ def build_status_report(
             "source": "v2_control_reference", "selected": False,
             "saved_candidate": False, "custom": False, "context_applicable": None,
         })
+    # The catalog is global; these are real scan results for the selected car.
+    scan = discovery_summary(profile)
     counts = {
+        **scan,
+        "observed_attributes": sum(
+            r["source"] == "v3_live_evidence" and
+            r["status"] in ("verified", "readable_but_stale")
+            for r in rows if r.get("entity_key")
+        ),
+        "pending_mappings": sum(
+            r.get("entity_key") and r["status"] == "mapping_pending"
+            for r in rows
+        ),
         "total": len(rows),
         "v2_attribute_inventory": len(INVENTORY["attributes"]),
         "v2_unique_attributes": len(CANONICAL_ATTRIBUTES),
