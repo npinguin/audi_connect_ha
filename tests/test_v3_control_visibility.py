@@ -5,14 +5,15 @@ ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "audiconnect"
 
 
 def test_controls_are_created_only_after_independent_v3_verification():
-    button = (ROOT / "button.py").read_text()
-    switch = (ROOT / "switch.py").read_text()
-    lock = (ROOT / "lock.py").read_text()
-    assert "engine.control_enabled(vehicle.vin, action, capability)" in button
-    assert 'engine.control_enabled(vehicle.vin, "start")' in switch
-    assert 'engine.control_enabled(vehicle.vin, "stop")' in switch
-    assert 'engine.control_enabled(vehicle.vin, "lock", "access")' in lock
-    assert 'engine.control_enabled(vehicle.vin, "unlock", "access")' in lock
+    platforms = (ROOT / "v3" / "ha_platforms.py").read_text()
+    assert "engine.control_enabled(" in platforms
+    assert '"start")' in platforms and '"stop")' in platforms
+    assert '"lock", "access")' in platforms
+    assert '"unlock", "access")' in platforms
+    # The V2 modules are merely entrypoint selectors, not V3 implementers.
+    for domain in ("button", "switch", "lock"):
+        source = (ROOT / f"{domain}.py").read_text()
+        assert 'from .v3.ha_platforms import setup as v3_setup' in source
 
 
 def test_registry_never_hides_v2_entities_to_gate_v3_controls():
