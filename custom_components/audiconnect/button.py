@@ -141,28 +141,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
-    from .v3.engine import V3Engine
-    if isinstance(runtime_data.v3, V3Engine):
-        from .v3.entities import V3CloudRefreshButton, V3ControlButton, CONTROL_BUTTONS
-        engine = runtime_data.v3
-        async_add_entities([
-            V3CloudRefreshButton(runtime_data.coordinator, vehicle)
-            for vehicle in engine.vehicles.values()
-        ])
-        registered: set[str] = set()
-        def add_discovered() -> None:
-            entities = []
-            for vehicle in engine.vehicles.values():
-                for descriptor in CONTROL_BUTTONS:
-                    key, _name, _icon, capability, action = descriptor
-                    if (engine.control_enabled(vehicle.vin, action, capability)
-                            and f"{vehicle.vin.lower()}:{key}" not in registered):
-                        registered.add(f"{vehicle.vin.lower()}:{key}")
-                        entities.append(V3ControlButton(runtime_data.coordinator, vehicle, descriptor))
-            if entities:
-                async_add_entities(entities)
-        add_discovered()
-        config_entry.async_on_unload(runtime_data.coordinator.async_add_listener(add_discovered))
+    if runtime_data.v3 is not None:
+        from .v3.ha_platforms import setup as v3_setup
+        v3_setup("button", config_entry, async_add_entities)
         return
 
     entities = [
