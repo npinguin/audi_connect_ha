@@ -18,7 +18,7 @@
     "v3/attribute_contracts.json"
   ],
   "status_key": "v3_implementation",
-  "meaning": "Code-declared vs independent V3 code, never physical Q8 confirmation.",
+  "meaning": "Code-declared vs independent V3 code, never physical Q8 confirmation. Exactly 109 V2 source entity slots are listed; the independent historical API reference inventory happens to have 110 raw refs.",
   "v2_platforms": [
     "binary_sensor",
     "button",
@@ -80,8 +80,9 @@
     "api_jobs": 23,
     "v2_services": 12,
     "v2_action_options": 11,
-    "entity_rows": 110,
-    "control_workstreams": 20
+    "entity_rows": 109,
+    "control_workstreams": 20,
+    "v3_only_controls": 1
   },
   "entities": [
     {
@@ -2229,21 +2230,6 @@
       "q8_v3_verified": false
     },
     {
-      "id": "switch.climate_quick_control",
-      "platform": "switch",
-      "key": "climate_quick_control",
-      "source": "switch.py",
-      "v2_unique_id_template": "{vin_lower}_switch_climate_quick_control",
-      "v2_experimental": false,
-      "v2_dynamic": false,
-      "historical_ids": [],
-      "historical_paths": [],
-      "v3_implementation": "partial",
-      "notes": "V3 quick switch exists, but only after start+stop are verified.",
-      "priority": "P1",
-      "q8_v3_verified": false
-    },
-    {
       "id": "number.target_state_of_charge",
       "platform": "number",
       "key": "target_state_of_charge",
@@ -4068,5 +4054,13 @@
     "v3_live_q8_parity_proven": false,
     "v3_v2_v3_v2_registry_rollback_proven": false,
     "full_release_allowed": false
-  }
+  },
+  "v3_only_controls": [
+    {
+      "platform": "switch",
+      "key": "climate_quick_control",
+      "source": "switch.py",
+      "description": "V3-exclusive quick switch. Not a source V2-declared switch and not counted as a V2 parity row."
+    }
+  ]
 }
