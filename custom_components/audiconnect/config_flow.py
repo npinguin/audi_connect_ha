@@ -598,6 +598,12 @@ class OptionsFlowHandler(OptionsFlow):
             # A switch back to V2 must recover those V2 preferences.
             user_input = {**self.config_entry.options, **user_input}
             user_input.setdefault("runtime_version", "v2")
+            # Workbench is opt-in and belongs only to the V3 runtime. Leave
+            # existing custom API profiles untouched when it is turned off.
+            if user_input["runtime_version"] != "v3_climate":
+                user_input["v3_development_workbench"] = False
+            else:
+                user_input.setdefault("v3_development_workbench", False)
             user_input.setdefault("v3_climate_start_route", "auto")
             user_input.setdefault("v3_climate_status_route", "auto")
             user_input.setdefault("v3_climate_experimental_unknown", False)
@@ -644,8 +650,16 @@ class OptionsFlowHandler(OptionsFlow):
             ): TextSelector(),
         }
 
-        if self.config_entry.options.get("runtime_version", "v2") == "v2":
-            # Keep the original V2 control options only when running V2.
+        if self.config_entry.options.get("runtime_version", "v2") == "v3_climate":
+            schema[vol.Required(
+                "v3_development_workbench",
+                default=self.config_entry.options.get(
+                    "v3_development_workbench", False
+                ),
+            )] = bool
+        else:
+            # Preserve every historical V2 option and user metadata.
+            # API route editing is reserved for the opt-in V3 Workbench.
             schema.update({
                 vol.Optional("edit_local_dealer", default=False): bool,
                 vol.Required(

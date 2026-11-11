@@ -532,7 +532,8 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         await hass.config_entries.async_forward_entry_setups(
             config_entry, config_entry.runtime_data.loaded_platforms
         )
-        await async_setup_dashboard(hass)
+        if config_entry.options.get("v3_development_workbench", False):
+            await async_setup_dashboard(hass)
     else:
         from .v3.registry_lifecycle import async_apply_v3_entity_visibility
 
@@ -553,6 +554,23 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     )
     if not unload_ok:
         return False
+
+    if isinstance(getattr(runtime, "v3", None), V3Engine):
+        from .v3.dashboard import async_remove_dashboard
+        # On V3→V2 switch, or opting out, hide the sidebar panel. Do not
+        # remove it if another live V3 entry explicitly opted in.
+        others = any(
+            entry.entry_id != config_entry.entry_id
+            and entry.options.get("runtime_version", "v2") == "v3_climate"
+            and entry.options.get("v3_development_workbench", False)
+            and isinstance(
+                getattr(getattr(entry, "runtime_data", None), "v3", None),
+                V3Engine,
+            )
+            for entry in hass.config_entries.async_entries(DOMAIN)
+        )
+        if not others:
+            async_remove_dashboard(hass)
 
     if len(hass.config_entries.async_entries(DOMAIN)) <= 1:
         for service in (

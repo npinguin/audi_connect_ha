@@ -23,6 +23,11 @@ def _engine(hass: Any, entry_id: str) -> V3Engine:
     entry = hass.config_entries.async_get_entry(entry_id)
     if entry is None or entry.domain != DOMAIN:
         raise ValueError("Unknown Audi integration")
+    if (
+        entry.options.get("runtime_version", "v2") != "v3_climate"
+        or not entry.options.get("v3_development_workbench", False)
+    ):
+        raise ValueError("V3 Development Workbench is not enabled")
     runtime = getattr(entry, "runtime_data", None)
     engine = getattr(runtime, "v3", None)
     if not isinstance(engine, V3Engine):
@@ -37,7 +42,11 @@ async def ws_list(hass, connection, msg):
     records = []
     for entry in hass.config_entries.async_entries(DOMAIN):
         engine = getattr(getattr(entry, "runtime_data", None), "v3", None)
-        if not isinstance(engine, V3Engine):
+        if (
+            not isinstance(engine, V3Engine)
+            or entry.options.get("runtime_version", "v2") != "v3_climate"
+            or not entry.options.get("v3_development_workbench", False)
+        ):
             continue
         records.append({
             "entry_id": entry.entry_id,
