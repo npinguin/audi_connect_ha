@@ -51,6 +51,18 @@ async def async_apply_v3_entity_visibility(
                     continue
                 if descriptor["platform"] in ("sensor", "binary_sensor"):
                     active_ids.add(f'{vin}_{descriptor["platform"]}_{descriptor["entity_key"]}')
+            # Control entities are restored ONLY after real-car verification;
+            # historical V2 registry entries remain hidden before that.
+            from .entities import CONTROL_BUTTONS
+            for button_key, _name, _icon, cap, action in CONTROL_BUTTONS:
+                if engine.control_enabled(vehicle.vin, action, cap):
+                    active_ids.add(f"{vin}_button_{button_key}")
+            if (engine.control_enabled(vehicle.vin, "start") and
+                engine.control_enabled(vehicle.vin, "stop")):
+                active_ids.add(f"{vin}_switch_climate_quick_control")
+            if (engine.control_enabled(vehicle.vin, "lock", "access") or
+                engine.control_enabled(vehicle.vin, "unlock", "access")):
+                active_ids.add(f"{vin}_lock_lock")
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
         if entity.unique_id in active_ids or any(entity.unique_id.endswith(suffix) for suffix in _KEEP):
             # Previously hidden by this V3 migration? Restore only that.
