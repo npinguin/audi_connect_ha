@@ -484,15 +484,22 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         config_entry.options.get(V3_RUNTIME_OPTION, V3_DEFAULT) == V3_ENABLED
     )
     if selected_v3:
-        # V3 shares ONLY auth and entry config with V2. Its own engine and
-        # coordinator never invoke AudiAccount.async_refresh_data().
+        # One Audi account, one refresh-token owner. V3 supplies its own
+        # independent vehicle polling and command engine; creating AudiAccount
+        # here does NOT activate its V2 coordinator or cloud business polls.
+        from .v3.auth import V3Auth
+
+        account = AudiAccount(hass, config_entry)
         registry = await hass.async_add_executor_job(
             CapabilityRegistry.from_json_file, catalog_path()
         )
-        engine = V3Engine(hass, config_entry, registry)
+        engine = V3Engine(
+            hass, config_entry, registry,
+            auth=V3Auth(hass, config_entry, shared_account=account),
+        )
         coordinator = V3CleanCoordinator(hass, engine, config_entry)
         config_entry.runtime_data = AudiRuntimeData(
-            account=None, coordinator=coordinator, v3=engine,
+            account=account, coordinator=coordinator, v3=engine,
             loaded_platforms=[
                 Platform.CLIMATE, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SWITCH, Platform.LOCK,
             ],
