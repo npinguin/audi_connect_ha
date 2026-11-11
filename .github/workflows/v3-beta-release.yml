@@ -96,6 +96,7 @@ jobs:
           retention-days: 30
 
   publish-prerelease:
+    if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-v3-3.0.0b4'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
