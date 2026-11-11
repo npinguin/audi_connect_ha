@@ -13,6 +13,7 @@ from typing import Any
 from .auth import V3Auth
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
+from .response_preview import safe_response_preview
 from .registry import CapabilityRegistry
 from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
@@ -222,6 +223,10 @@ class V3Engine:
                 "sequence": attempt.sequence, "operation": operation,
                 "transport": attempt.transport,
                 "status": response.status if response else None,
+                "response_preview": safe_response_preview(
+                    response.data if response else None,
+                    vehicle_vin=vehicle.vin,
+                ),
                 "physical_result": "requires_user_confirmation",
             }
 
@@ -293,6 +298,9 @@ class V3Engine:
             "result": verdict,
             "schema_keys": sorted(response.data.keys())[:20]
             if isinstance(response.data, dict) else [],
+            "response_preview": safe_response_preview(
+                response.data, vehicle_vin=car.vin
+            ),
         }
 
     async def select_working(self, vin: str, aspect: str, operation: str) -> None:
