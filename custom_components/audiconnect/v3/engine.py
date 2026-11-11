@@ -54,6 +54,7 @@ class V3Engine:
         self.last_cloud_poll_success: datetime | None = None
         self.last_cloud_poll_attempt: datetime | None = None
         self._actions = asyncio.Lock()
+        self._normal_action_at: dict[str, float] = {}
         self._known_vehicle_inventory = False
 
     async def discover(self) -> None:
@@ -320,27 +321,47 @@ class V3Engine:
         await self.storage.async_save(self.profiles)
 
     async def send_control(self, vin: str, aspect: str) -> None:
-        """Normal climate UI sends only a previously verified selected route."""
+        """Normal climate UI sends ONE verified request, never retries.
+
+        A per-vehicle cooldown limits duplicate climate requests while the car
+        synchronizes with Audi. HTTP acceptance is not physical confirmation.
+        """
         car = self.require_vehicle(vin)
-        if self.profiles[vin.lower()].discovery._active is not None:
-            raise RuntimeError(
-                "A climate experiment is awaiting physical confirmation"
-            )
-        if not self.control_enabled(vin, aspect):
-            raise RuntimeError("Climate command has not been tested and activated")
         p = self.profiles[vin.lower()]
-        ident = p.active[f"climate.{aspect}"]
-        # Never retry or switch routes on unconfirmed physical action.
-        _family, _method, _path, _body = self._operation_request(car, ident)
-        response = await self.transport.request(
-            _family, _method, _path, body=_body, explicit_action=True,
-        )
-        car.last_command_result = (
-            "accepted_unconfirmed" if 200 <= response.status < 300
-            else f"request_failed_{response.status}"
-        )
-        if not 200 <= response.status < 300:
-            raise RuntimeError("Audi rejected the selected climate command")
+        async with self._actions:
+            if p.discovery._active is not None:
+                raise RuntimeError(
+                    "A climate experiment is awaiting physical confirmation"
+                )
+            if not self.control_enabled(vin, aspect):
+                raise RuntimeError(
+                    "Climate command has not been tested and activated"
+                )
+            now = time.monotonic()
+            if now - self._normal_action_at.get(vin.lower(), -1e12) < 90:
+                raise RuntimeError(
+                    "Climate command cooldown active; verify vehicle state"
+                )
+            ident = p.active[f"climate.{aspect}"]
+            family, method, path, body = self._operation_request(car, ident)
+            self._normal_action_at[vin.lower()] = now
+            try:
+                response = await self.transport.request(
+                    family, method, path, body=body, explicit_action=True
+                )
+            except (TimeoutError, OSError, RuntimeError) as err:
+                car.last_command_result = "transport_uncertain"
+                raise RuntimeError(
+                    "Audi climate command outcome uncertain; check the car"
+                ) from err
+            car.last_command_result = (
+                "accepted_unconfirmed" if 200 <= response.status < 300
+                else f"request_failed_{response.status}"
+            )
+            if not 200 <= response.status < 300:
+                raise RuntimeError(
+                    "Audi rejected the selected climate command"
+                )
 
     def diagnostics(self) -> dict[str, Any]:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
