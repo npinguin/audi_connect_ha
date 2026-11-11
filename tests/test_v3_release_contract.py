@@ -46,7 +46,8 @@ def test_runtime_selection_is_in_options_and_single_setup_owner():
     assert "climate_quick_start" not in translations["options"]["step"]["init"]["data"]
     assert "experimental_commands" not in translations["options"]["step"]["init"]["data"]
     assert "coordinator = V3CleanCoordinator(hass, engine, config_entry)" in init
-    assert "account=None, coordinator=coordinator, v3=engine" in init
+    assert "account=account, coordinator=coordinator, v3=engine" in init
+    assert "shared_account=account" in init
     assert "config_entry.runtime_data = AudiRuntimeData(" in init
 
 
