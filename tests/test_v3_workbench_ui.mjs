@@ -112,3 +112,32 @@ test("HA-native Workbench groups by the vehicle's API family", () => {
   panel.apiFamily="all";panel.render();
   assert.match(panel.shadowRoot.innerHTML,/2 read-only attributes/);
 });
+
+test("Wake, lock and climate are independently selectable for guarded physical testing", async () => {
+  const p = new Panel();
+  p.selected="test";p.vin="VIN1";
+  p.entries=[{entry_id:"test",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  p.step=2;p.category="remote";
+  p.capabilityStatus={counts:{},rows:[],control_actions:[
+    {capability:"remote",action:"wake",api_family:"cariad",candidate_count:1,status:"not_tested"},
+    {capability:"access",action:"lock",api_family:"cariad",candidate_count:1,status:"not_tested"},
+    {capability:"climate",action:"start",api_family:"cariad",candidate_count:1,status:"not_tested"},
+  ]};
+  p.render();
+  assert.match(p.shadowRoot.innerHTML,/wake/);
+  assert.match(p.shadowRoot.innerHTML,/Configure control/);
+  p.api=async (name,args) => {
+    assert.equal(name,"control_routes");
+    assert.equal(args.capability,"remote");
+    assert.equal(args.action,"wake");
+    return {routes:[{id:"cariad.remote.wake",family:"cariad",status:"not_tested",
+      path:"/vehicle/v1/vehicles/{VIN}/vehiclewakeuptrigger"}],requires:"Physical verification"};
+  };
+  await p._click({target:{closest:()=>({dataset:{
+    action:"select-control",capability:"remote",control:"wake"
+  }})}});
+  assert.equal(p.controlAction,"wake");
+  assert.equal(p.step,3);
+  assert.match(p.shadowRoot.innerHTML,/Send one test command/);
+  assert.match(p.shadowRoot.innerHTML,/Verified working/);
+});
