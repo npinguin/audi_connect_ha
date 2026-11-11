@@ -52,7 +52,7 @@ def test_runtime_selection_is_in_options_and_single_setup_owner():
 
 
 def test_clean_capability_owner_and_in_place_entity_id():
-    entry = (AUDI / "climate.py").read_text()
+    entry = (V3 / "ha_platforms.py").read_text()
     modern = (V3 / "entities.py").read_text()
     engine = (V3 / "engine.py").read_text()
     assert "V3ClimateEntity(" in entry
