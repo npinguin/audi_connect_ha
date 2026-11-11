@@ -141,6 +141,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
+    from .v3.engine import V3Engine
+    if isinstance(runtime_data.v3, V3Engine):
+        from .v3.entities import V3CloudRefreshButton
+        async_add_entities([
+            V3CloudRefreshButton(runtime_data.coordinator, vehicle)
+            for vehicle in runtime_data.v3.vehicles.values()
+        ])
+        return
+
     entities = [
         AudiButton(runtime_data.coordinator, description, vehicle)
         for config_vehicle in runtime_data.account.config_vehicles

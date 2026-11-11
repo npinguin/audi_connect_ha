@@ -580,6 +580,16 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
+    from .v3.engine import V3Engine
+    if isinstance(runtime_data.v3, V3Engine):
+        from .v3.entities import V3StatusSensor
+        async_add_entities([
+            V3StatusSensor(runtime_data.coordinator, vehicle, kind)
+            for vehicle in runtime_data.v3.vehicles.values()
+            for kind in ("cloud", "age", "capability", "poll")
+        ])
+        return
+
     entities: list[SensorEntity] = []
 
     for config_vehicle in runtime_data.account.config_vehicles:
