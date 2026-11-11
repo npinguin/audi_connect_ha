@@ -239,3 +239,14 @@ def test_route_cannot_include_bearer_or_password_in_json_keys():
     with pytest.raises(DevelopmentProfileError, match="Invalid JSON"):
         p.add(custom_start(body={"Authorization": "Bearer bad"}))
     assert not p.custom
+
+
+
+def test_development_candidate_save_is_not_equivalent_to_verified_activation():
+    p = workspace()
+    route = "cariad.climate.start.stored"
+    p.save_candidate("climate", "start", route)
+    assert p.snapshot()["draft_selected"]["climate.start"] == route
+    assert "climate.start" not in p.active
+    with pytest.raises(DevelopmentProfileError, match="confirm"):
+        p.choose_working("climate", "start", route)
