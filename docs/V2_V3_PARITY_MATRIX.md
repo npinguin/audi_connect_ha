@@ -69,7 +69,7 @@ V2 metadata evidence: downloaded diagnostic `mode: v2`, `disabled_per_platform: 
 
 ### Service API parity
 
-These are existing V2 Home Assistant service IDs. In the current `__init__.py` branch, V3 uses `account=None`, and `_async_register_services(hass)` is called **only in the V2 setup branch**. Even when an existing global registration survives another account, its handler expects a V2 account. Restoring only entity controls would therefore still break automations.
+These are existing V2 Home Assistant service IDs. In b7, V3 used `account=None` and did not register all services; the patch shares account bootstrap and registers the services in both runtimes, but not every V3 service action is implemented. Even when an existing global registration survives another account, its handler expects a V2 account. Restoring only entity controls would therefore still break automations.
 
 | V2 service | Required in V3 |
 |---|---|
@@ -404,9 +404,9 @@ HA displayed 13 *'no longer has a state class'* repairs after V3 activation. The
 
 The implementation previously disabled 59 registry entries under V3 b7. This patch now restores **only** migration-owned `disabled_by=INTEGRATION` records and never disables historical V2 entries on future V3 loads. Other entities may remain `unavailable` pending V3 data mapping; keeping a registry ID is necessary but **not sufficient** for parity. User-disabled entries are untouched.
 
-Vehicle data is no longer mixed into the Home Assistant technical Diagnostics category. The V2 implementation reclassifies **15 ordinary car sensors** (mileage, maintenance, vehicle/model, charging profiles/timers, etc.) and **11 binary car statuses**. The V3 declarative metadata mirrors the same 15 car-sensor changes. True cloud health (API requests remaining, last poll, freshness, V3 discovery) remains Diagnostic. These changes do not rename or recreate entity IDs and do not invent `state_class`. Existing user-customized categories must be respected by HA.
+V2 upstream platform metadata is immutable. The **V3 declarative metadata** reclassifies 15 vehicle sensor contracts out of Diagnostics, without any V2 sensor or binary sensor code changes. The legacy 11 binary status categories remain unchanged in V2; V3's own binary entities must implement independent metadata and categories. True cloud health (API requests remaining, last poll, freshness, V3 discovery) remains Diagnostic. These changes do not rename or recreate entity IDs and do not invent `state_class`. Existing user-customized categories must be respected by HA.
 
-The target architecture for reusing the **same V2 account/session owner** with an independent selected V2 or V3 engine is defined in [ADR: Shared Account and HA Entity Contract](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md). The ADR's shared-token and all-nine-platform migrations are still open work, not a completed feature.
+The target architecture for reusing the **same V2 account/session owner** with an independent selected V2 or V3 engine is defined in [ADR: Shared Account and HA Entity Contract](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md). The shared authentication/session bootstrap is implemented on the patch branch; all-nine-platform and independent V3 control migrations remain open.
 
 ## Acceptance gates — release blocked until all hold
 
