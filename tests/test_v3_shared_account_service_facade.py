@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.audiconnect import _v3_service_command
+from custom_components.audiconnect.v3.service_commands import execute as _v3_service_command
 from custom_components.audiconnect.v3.auth import V3Auth
 
 
