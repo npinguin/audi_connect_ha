@@ -179,3 +179,29 @@ def test_cached_reading_not_claimed_as_fresh_http_response():
 def test_integration_option_does_not_replace_account_or_runtime_identity():
     from custom_components.audiconnect.v3.runtime import V3_DEFAULT, V3_ENABLED
     assert V3_DEFAULT == "v2" and V3_ENABLED == "v3_climate"
+
+
+
+def test_already_reported_on_or_off_never_repeats_the_command():
+    on, on_conn, _, _, _ = build(state="heating")
+    off, off_conn, _, _, _ = build(state="off")
+    asyncio.run(on.async_turn_on())
+    asyncio.run(off.async_turn_off())
+    assert on_conn.calls == []
+    assert off_conn.calls == []
+
+
+def test_changed_cloud_state_does_not_claim_physical_confirmation_without_timestamp():
+    entity, conn, _, car, _ = build(state="off")
+
+    async def faux_start(vin, **kwargs):
+        car.climatisation_state = "heating"
+        conn.calls.append(("start", vin, kwargs))
+        return True
+
+    conn.start_climate_control = faux_start
+    asyncio.run(entity.async_turn_on())
+    assert entity.hvac_mode is HVACMode.HEAT_COOL
+    assert entity.extra_state_attributes["v3_last_command_outcome"] == (
+        "accepted_unconfirmed"
+    )

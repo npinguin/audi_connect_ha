@@ -95,3 +95,19 @@ contain operation names and aggregate evidence, never VIN or raw responses.
 This first candidate is intentionally a **climate-only V3 vertical slice**,
 not a generic API Workbench. The workbench comes after one complete
 capability is verified end to end.
+
+
+
+## GitHub Actions and HACS fork validation
+
+The fork currently has `has_issues=false`, which caused the earlier HACS
+metadata workflow to fail even when pytest and hassfest were successful.
+Before publishing this candidate as a HACS prerelease, enable **Issues** in
+the fork's GitHub repository Settings, then validate that the HACS check is
+green. Existing older green commits are not evidence that V3 passed.
+
+For HACS, simply editing `manifest.json` is not enough to distribute a
+feature-branch build: HACS normally installs released versions or the
+repository default branch. Do not move fork main/master to V3 just to make
+this candidate appear. Publish a GitHub prerelease/tag for the exact tested
+SHA only after release gates pass.

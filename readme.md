@@ -475,3 +475,23 @@ The card uses the following code in `ui-lovelace.yaml` (or wherever your Dashboa
 [maintenance-shield]: https://img.shields.io/badge/maintainer-audiconnect-blue.svg?style=for-the-badge
 [blackbadge]: https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge
 [black]: https://github.com/ambv/black
+
+
+
+## V3 experimental climate development
+
+The clean V3 climate pilot is developed on
+[`feature/v3-climate-pilot`](https://github.com/npinguin/audi_connect_ha/tree/feature/v3-climate-pilot),
+reviewed in [fork PR #19](https://github.com/npinguin/audi_connect_ha/pull/19).
+It does **not** replace the default V2 installation or upstream PR #915.
+V3 uses the same integration account and a single V3 coordinator that
+delegates existing Audi API adapters during incremental migration. Only
+climate is owned by V3; other capabilities remain on the existing code.
+
+After installing a separately tested V3 candidate, open Audi Connect
+Options and choose `runtime_version = v3_climate` (default `v2`).
+This keeps the current climate unique ID, removes the duplicated quick
+ON/OFF switch in the V3 runtime, and offers ON/OFF without an unsupported
+temperature slider on the tested Q8. Check automations that use the old
+quick-switch ID before opting into V3. V2 is a reversible option.
+See [V3 engineering and release gates](docs/V3_CLIMATE_PILOT.md).

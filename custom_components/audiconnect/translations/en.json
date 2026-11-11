@@ -96,7 +96,10 @@
           "scan_interval": "Scan Interval",
           "filter_vins": "Excluded VINs",
           "edit_local_dealer": "Edit dealer and local service details",
-          "experimental_commands": "Enable experimental vehicle controls"
+          "experimental_commands": "Enable experimental vehicle controls",
+          "runtime_version": "Runtime generation",
+          "v3_climate_start_route": "V3 Climate: start API variant",
+          "v3_climate_status_route": "V3 Climate: status route"
         },
         "title": "Audi Connect Options",
         "data_description": {
@@ -107,7 +110,10 @@
           "scan_interval": "Minutes between cloud polling updates.",
           "filter_vins": "Comma-separated VIN list to exclude from setup and updates.",
           "edit_local_dealer": "Open the form to save dealership, service appointment and warranty details locally, without any Audi API requests.",
-          "experimental_commands": "Show additional user-triggered CARIAD charging, window heating and wake-up actions. Off by default. Verify real operation; HTTP 200 is not proof the vehicle acted."
+          "experimental_commands": "Show additional user-triggered CARIAD charging, window heating and wake-up actions. Off by default. Verify real operation; HTTP 200 is not proof the vehicle acted.",
+          "runtime_version": "Choose V2 or experimental V3 Climate for this Audi integration. One account and coordinator. Existing entities are retained; V3 has one climate entity without a temperature slider.",
+          "v3_climate_start_route": "Auto sends a bodyless CARIAD start. Vehicle settings require explicit selection and a verified target from the car. No fallback command will be sent automatically.",
+          "v3_climate_status_route": "Auto reuses the existing cloud polling batch; no additional cloud requests."
         }
       },
       "dealer_vehicle": {

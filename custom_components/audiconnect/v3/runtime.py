@@ -83,8 +83,9 @@ class V3Runtime:
     def observe(self, data: list[Any]) -> None:
         """Called by the one HA cloud coordinator after its ordinary V2 poll.
 
-        A normalized non-empty climate state proves the passive route was
-        readable. No evidence is recorded for missing data or a cloud outage.
+        A normalized non-empty climate state may be cached. It is counted
+        only as value presence, never a fresh API result or physical reading.
+        No evidence is recorded for missing data or a cloud outage.
         """
         now = time.monotonic()
         for item in data:

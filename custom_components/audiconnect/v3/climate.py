@@ -127,6 +127,8 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
     async def async_turn_on(self) -> None:
         if not self._may_control:
             raise HomeAssistantError("Climate control is not authorized for this vehicle")
+        if self._reported_mode is not None and self._reported_mode not in _OFF:
+            return  # Already reported on; avoid unintended duplicate commands.
         try:
             operation = self.runtime.resolve(self._vehicle, "start")["operation"]
         except RegistryError as exc:
@@ -155,16 +157,16 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
         if result is not True:
             self._last_command_status = "request_failed"
             raise HomeAssistantError("Audi climate start request failed")
-        self._last_command_status = (
-            "confirmed_by_cloud_readback"
-            if self._reported_mode is not None and self._reported_mode not in _OFF
-            else "accepted_unconfirmed"
-        )
+        # The account wrapper may read cached cloud data. Without a verified
+        # *new per-climate capture timestamp* we must not claim physical success.
+        self._last_command_status = "accepted_unconfirmed"
         self.async_write_ha_state()
 
     async def async_turn_off(self) -> None:
         if not self._may_control:
             raise HomeAssistantError("Climate control is not authorized for this vehicle")
+        if self._reported_mode in _OFF:
+            return  # Already reported off; avoid unintended duplicate commands.
         try:
             operation = self.runtime.resolve(self._vehicle, "stop")["operation"]
         except RegistryError as exc:
@@ -177,10 +179,7 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
         if result is not True:
             self._last_command_status = "request_failed"
             raise HomeAssistantError("Audi climate stop request failed")
-        self._last_command_status = (
-            "confirmed_by_cloud_readback" if self._reported_mode in _OFF
-            else "accepted_unconfirmed"
-        )
+        self._last_command_status = "accepted_unconfirmed"
         self.async_write_ha_state()
 
 
