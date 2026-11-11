@@ -14,6 +14,15 @@ class AudiConnectV3Panel extends HTMLElement {
     this.selected = "";
     this.vin = "";
     this.aspect = "status";
+    this.step = 1;
+    this.category = "charging";
+    this.attribute = "";
+    this.controlTarget = "climate";
+    this.inventoryFilter = "available";
+    this.readRoutes = [];
+    this.readChoice = "";
+    this.readDraft = "";
+    this.readActive = "";
     this.routeChoice = "";
     this.routes = [];
     this.capabilityStatus = {counts: {}, rows: []};
@@ -59,6 +68,7 @@ class AudiConnectV3Panel extends HTMLElement {
       }
       await this._routes();
       await this._loadCapabilityStatus();
+      await this._readRoutes();
       this.error = "";
     } catch (err) {
       this.error = String(err.message || err);
@@ -73,6 +83,19 @@ class AudiConnectV3Panel extends HTMLElement {
       return;
     }
     this.capabilityStatus = await this.api("status", this.selection);
+  }
+
+  async _readRoutes() {
+    if (!this.selected || !this.vin || !this.attribute) {
+      this.readRoutes = []; this.readChoice = ""; this.readActive = ""; return;
+    }
+    const data = await this.api("attribute_routes", {...this.selection, attribute: this.attribute});
+    this.readRoutes = data.routes || [];
+    this.readDraft = data.draft || "";
+    this.readActive = data.active || "";
+    this.readChoice = this.readRoutes.some(r => r.id === this.readDraft) ? this.readDraft :
+      this.readRoutes.some(r => r.id === this.readActive) ? this.readActive :
+      this.readRoutes[0]?.id || "";
   }
 
   async _routes() {
@@ -111,6 +134,27 @@ class AudiConnectV3Panel extends HTMLElement {
     } else if (e.target.id === "route") {
       this.routeChoice = e.target.value;
       // Keep edited parameters and JSON definitions in place.
+    } else if (e.target.id === "category") {
+      this.category = e.target.value;
+      this.attribute = "";
+      this.readRoutes = [];
+      this.render();
+    } else if (e.target.id === "attribute") {
+      this.attribute = e.target.value;
+      this.step = 3;
+      await this._readRoutes();
+      this.render();
+    } else if (e.target.id === "control-target") {
+      this.controlTarget = e.target.value;
+      this.attribute = "";
+      this.step = 3;
+      this.render();
+    } else if (e.target.id === "read-route") {
+      this.readChoice = e.target.value;
+      this.render();
+    } else if (e.target.id === "inventory-filter") {
+      this.inventoryFilter = e.target.value;
+      this.render();
     }
   }
 
@@ -118,6 +162,7 @@ class AudiConnectV3Panel extends HTMLElement {
     try {
       await this._routes();
       await this._loadCapabilityStatus();
+      await this._readRoutes();
       this.error = "";
     } catch (err) {
       this.error = String(err.message || err);
@@ -129,6 +174,24 @@ class AudiConnectV3Panel extends HTMLElement {
     const button = e.target.closest("button[data-action]");
     if (!button || this.loading) return;
     const action = button.dataset.action;
+    if (action.startsWith("step-")) {
+      this.step = Number(action.slice(5)); this.render(); return;
+    }
+    if (action === "open-capability") {
+      this.category = button.dataset.capability;
+      this.attribute = "";
+      this.step = 2; this.render(); return;
+    }
+    if (action === "select-attribute") {
+      this.category = button.dataset.capability;
+      this.attribute = button.dataset.attribute;
+      this.step = 3;
+      try { await this._readRoutes(); this.error = ""; }
+      catch (err) { this.error = String(err.message || err); }
+      this.render(); return;
+    }
+    const readRoute = this.shadowRoot.getElementById("read-route")?.value || this.readChoice;
+    const rawReadDefinition = this.shadowRoot.getElementById("read-definition")?.value || "";
     const route = this.shadowRoot.getElementById("route")?.value;
     // Capture edits BEFORE re-render: otherwise the textarea is reset and a
     // custom request silently loses its parameters or entire definition.
@@ -158,6 +221,21 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("disable", {
           ...this.selection, aspect: this.aspect
         });
+      } else if (action === "read-test") {
+        this.lastResult = await this.api("attribute_test", {...this.selection,
+          attribute: this.attribute, operation: readRoute});
+      } else if (action === "read-save") {
+        this.lastResult = await this.api("attribute_save", {...this.selection,
+          attribute: this.attribute, operation: readRoute});
+      } else if (action === "read-activate") {
+        this.lastResult = await this.api("attribute_activate", {...this.selection,
+          attribute: this.attribute, operation: readRoute});
+      } else if (action === "read-disable") {
+        this.lastResult = await this.api("attribute_disable", {...this.selection,
+          attribute: this.attribute});
+      } else if (action === "read-add") {
+        this.lastResult = await this.api("attribute_add", {...this.selection,
+          definition: JSON.parse(rawReadDefinition)});
       } else if (action === "add") {
         const candidate = JSON.parse(rawDefinition);
         this.lastResult = await this.api("add_route", {
@@ -172,6 +250,7 @@ class AudiConnectV3Panel extends HTMLElement {
       }
       await this._routes();
       await this._loadCapabilityStatus();
+      await this._readRoutes();
       const list = await this.api("list");
       this.entries = list.integrations || [];
     } catch (err) {
@@ -198,6 +277,16 @@ class AudiConnectV3Panel extends HTMLElement {
     }, null, 2);
   }
 
+  get initialReadRoute() {
+    const entry = (this.capabilityStatus.rows || []).find(
+      row => row.attribute === this.attribute && row.entity_key);
+    return JSON.stringify({id:"user.read.new_mapping", attribute:this.attribute,
+      family:"cariad", method:"GET",
+      path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=" + (entry?.job || "charging"),
+      response_path:entry?.path && !entry.path.startsWith("/") && entry.path !== "-" ? entry.path :
+        "charging.batteryStatus.value.currentSOC_pct"}, null, 2);
+  }
+
   render() {
     const item = this.entries.find((entry) => entry.entry_id === this.selected);
     const car = item?.vehicles?.find((v) => v.vin === this.vin);
@@ -210,6 +299,14 @@ class AudiConnectV3Panel extends HTMLElement {
     const coverage = this.capabilityStatus || {counts: {}, rows: []};
     const counts = coverage.counts || {};
     const rows = coverage.rows || [];
+    const attributes = rows.filter(r => r.entity_key &&
+      ["v3_live_evidence","v2_attribute_reference"].includes(r.source));
+    const controls = rows.filter(r => r.source === "v2_control_reference");
+    const capabilityNames = [...new Set([...attributes,...controls].map(r => r.capability))].sort();
+    const visibleAttributes = attributes.filter(r => r.capability === this.category &&
+      (this.inventoryFilter !== "available" || ["verified","readable_but_stale"].includes(r.status)));
+    const chosen = this.readRoutes.find(r => r.id === this.readChoice);
+    const canActivateRead = chosen?.result === "verified";
     const bg = "var(--primary-background-color, #f8fafc)";
     const body = "var(--primary-text-color, #111827)";
     this.shadowRoot.innerHTML = `
@@ -253,6 +350,19 @@ class AudiConnectV3Panel extends HTMLElement {
         pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--secondary-background-color,#f8fafc);
           padding:14px;border-radius:9px;font-size:12px;max-height:340px;overflow:auto}
         .foot{font-size:12px;margin-top:25px}
+        .steps{display:flex;gap:8px;margin:12px 0 22px;flex-wrap:wrap}
+        .steps button{flex:1;min-width:145px;text-align:left}
+        .steps button.current{border-color:var(--primary-color,#2366a6);box-shadow:inset 0 -3px var(--primary-color,#2366a6)}
+        .cap-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+        .cap-card{width:100%;padding:16px;text-align:left}
+        .cap-card b{font-size:15px}
+        .cap-card .subline{line-height:1.6;margin-top:8px}
+        .eyeline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .callout{background:var(--secondary-background-color,#f8fafc);padding:15px;border-radius:9px}
+        .attribute-row{display:flex;justify-content:space-between;align-items:center;gap:16px;
+          border-top:1px solid var(--divider-color,#e2e8f0);padding:11px 0}
+        .attribute-row button{text-align:left;flex:1;overflow-wrap:anywhere}
+        .helper{font-size:12px;margin:9px 0;color:var(--secondary-text-color,#64748b)}
         .coverage-table{max-height:400px;overflow:auto}
         table{width:100%;border-collapse:collapse;font-size:12px}
         th{text-align:left;font-weight:700;color:var(--secondary-text-color,#64748b);
@@ -261,13 +371,13 @@ class AudiConnectV3Panel extends HTMLElement {
         td{padding:11px 10px;vertical-align:top;border-bottom:1px solid var(--divider-color,#e2e8f0)}
         .subline{font-size:11px;opacity:.8;margin-top:4px}
         .coverage-note{font-size:12px;margin:10px 0 0}
-        @media(max-width:780px){main{padding:18px 12px}.grid,.cards{grid-template-columns:1fr}h1{font-size:21px}}
+        @media(max-width:780px){main{padding:18px 12px}.grid,.cards,.cap-grid{grid-template-columns:1fr}h1{font-size:21px}}
       </style>
       <main>
         <div class="top">
           <div><div class="eyebrow">Audi Connect / V3 capability workbench</div>
-            <h1>Vehicle API Development</h1>
-            <p>One capability at a time. Discover, test, verify, activate.</p></div>
+            <h1>Audi V3 — Experimental</h1>
+            <p>Recover historical V2 capabilities across API families. Only verified data and manually confirmed controls become active.</p></div>
           <button data-action="refresh" ${this.loading?"disabled":""}>↻ Refresh</button>
         </div>
         <div class="toolbar">
@@ -276,6 +386,11 @@ class AudiConnectV3Panel extends HTMLElement {
           <div class="tool"><label>Vehicle</label><select id="vehicle">
             ${(item?.vehicles||[]).map((v)=>`<option value="${escapeHTML(v.vin)}" ${v.vin===this.vin?"selected":""}>${escapeHTML(v.name)} — ${escapeHTML(v.model)}</option>`).join("")}
           </select></div>
+        </div>
+        <div class="steps">
+          <button data-action="step-1" class="${this.step===1?"current":""}">1 · Inventory & status</button>
+          <button data-action="step-2" class="${this.step===2?"current":""}">2 · Select capability</button>
+          <button data-action="step-3" class="${this.step===3?"current":""}">3 · Configure & test</button>
         </div>
         ${this.error?`<div class="error">${escapeHTML(this.error)}</div>`:""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `
@@ -286,26 +401,40 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="card"><div class="eyebrow">Climate state</div>
               <div class="stat">${escapeHTML(status)}</div>
               <div class="summary">Vehicle age: ${escapeHTML(car.age_minutes??"unknown")} minutes</div></div>
-            <div class="card"><div class="eyebrow">Climate control</div>
+            <div class="card"><div class="eyebrow">Climate pilot / controls</div>
               <div class="stat">${car.start_enabled?"Start ready":"Start unverified"}</div>
               <div class="summary">${car.stop_enabled?"Stop ready":"Stop unverified"} · API quota: ${escapeHTML(item.quota??"unknown")}</div></div>
           </div>
-          <section class="card" style="margin-bottom:18px">
+          <section class="card" style="margin-bottom:18px;display:${this.step===1?"block":"none"}">
             <div class="eyebrow">Capability discovery / evidence</div>
-            <h2>What works — and through which API?</h2>
+            <h2>Historical coverage vs verified V3 data</h2>
             <p>Known from V2 does not mean discovered by V3.
               Read-only attributes and controls have independent evidence;
               stale vehicle readings are not current.</p>
             <div class="line" style="justify-content:flex-start;gap:16px;font-size:12px;margin-bottom:14px">
+              <span><b>${escapeHTML(counts.v2_attribute_inventory??0)}</b> V2 attribute references</span>
+              <span><b>${escapeHTML(counts.v2_control_inventory??0)}</b> V2 controls</span>
+              <span><b>${escapeHTML(counts.v3_verified_attributes??0)}</b> V3 verified attributes</span>
               <span><b>${escapeHTML(counts.verified_working??0)}</b> verified</span>
               <span><b>${escapeHTML(counts.not_tested??0)}</b> not tested</span>
               <span><b>${escapeHTML(counts.stale??0)}</b> stale</span>
               <span><b>${escapeHTML(counts.reported_failed??0)}</b> failed</span>
               <span><b>${escapeHTML(counts.v2_reference_only??0)}</b> known V2 / not migrated</span>
             </div>
+            <div class="cap-grid">${capabilityNames.map(cap=>{
+                const a=attributes.filter(r=>r.capability===cap);
+                const ct=controls.filter(r=>r.capability===cap);
+                const verified=a.filter(r=>r.status==="verified").length;
+                const stale=a.filter(r=>r.status==="readable_but_stale").length;
+                return `<button class="cap-card" data-action="open-capability" data-capability="${escapeHTML(cap)}">
+                  <b>${escapeHTML(cap.replaceAll("_"," "))}</b>
+                  <div class="subline">${verified} verified · ${stale} stale</div>
+                  <div class="subline">${a.length} read-only attributes · ${ct.length} controls</div>
+                </button>`;
+              }).join("")}</div>
             <details>
               <summary style="cursor:pointer;font-weight:700;padding:8px 0">
-                Show ${escapeHTML(rows.length)} capability, attribute and control records
+                Technical evidence — ${escapeHTML(rows.length)} route and attribute records
               </summary>
               <div class="coverage-table"><table>
                 <thead><tr><th>Capability</th><th>Attribute / Control</th>
@@ -326,10 +455,64 @@ class AudiConnectV3Panel extends HTMLElement {
             <p class="coverage-note">${escapeHTML(coverage.notes||"")}
               V2 reference candidates need separate V3 tests.</p>
           </section>
-          <div class="grid">
+          <section class="card" style="margin-bottom:18px;display:${this.step===2?"block":"none"}">
+            <div class="eyebrow">Step 2 / Select</div>
+            <h2>Choose what to configure</h2>
+            <p>Select a domain and one attribute or control. This catalog includes historical support for other Audi vehicles, not just the current Q8.</p>
+            <label>Capability domain</label>
+            <select id="category">${capabilityNames.map(c=>`<option value="${escapeHTML(c)}" ${this.category===c?"selected":""}>${escapeHTML(c.replaceAll("_"," "))}</option>`).join("")}</select>
+            <div class="toolbar">
+              <div class="tool"><label>Show attributes</label>
+                <select id="inventory-filter">
+                  <option value="available" ${this.inventoryFilter==="available"?"selected":""}>Observed on this vehicle</option>
+                  <option value="all" ${this.inventoryFilter==="all"?"selected":""}>All historical V2 references</option>
+                </select>
+              </div>
+            </div>
+            <h2>Read-only attributes</h2>
+            ${visibleAttributes.map(r=>`<div class="attribute-row">
+              <div><b>${escapeHTML(r.entity_key.replaceAll("_"," "))}</b>
+                <div class="subline">${escapeHTML(r.attribute)} · ${escapeHTML(r.status)}</div></div>
+              <button data-action="select-attribute" data-capability="${escapeHTML(r.capability)}"
+                data-attribute="${escapeHTML(r.attribute)}">Configure routes</button>
+            </div>`).join("") || '<p>No observed attributes in this domain. Change the filter to show the complete historical catalog.</p>'}
+            <h2 style="margin-top:20px">Controls</h2>
+            <p>Historical control definitions stay in the catalog. Only Climate has the existing guided POST testing workflow; unverified actions remain disabled.</p>
+            ${controls.filter(r=>r.capability===this.category).map(r=>`<div class="attribute-row">
+              <div><b>${escapeHTML(r.attribute.replaceAll("_"," "))}</b>
+                <div class="subline">${escapeHTML(r.status)} · ${escapeHTML(r.api_family)}</div></div>
+              <button data-action="step-3">Review controls</button>
+            </div>`).join("") || '<p>No historical control references in this domain.</p>'}
+          </section>
+          <section class="card" style="margin-bottom:18px;display:${this.step===3&&this.attribute?"block":"none"}">
+            <div class="eyebrow">Step 3 / Read-only discovery</div>
+            <h2>${escapeHTML(this.attribute || "Choose an attribute in Step 2")}</h2>
+            <p>Compare API routes for this specific attribute. A saved candidate is not enabled. Only a tested route returning a valid, recent vehicle value can drive regular polling.</p>
+            <label>API route</label>
+            <select id="read-route">${this.readRoutes.map(r=>`<option value="${escapeHTML(r.id)}" ${r.id===this.readChoice?"selected":""}>
+              ${escapeHTML(r.family)} · ${escapeHTML(r.kind)} [${escapeHTML(r.result)}]</option>`).join("")}</select>
+            <div class="callout" style="margin-top:13px"><b>${escapeHTML(chosen?.method||"GET")} · ${escapeHTML(chosen?.family||"No route")}</b>
+              <div class="subline"><code>${escapeHTML(chosen?.path||"No mapped path yet")}</code></div>
+              <div class="helper">Active: ${escapeHTML(this.readActive||"none")} · Draft: ${escapeHTML(this.readDraft||"none")}</div>
+            </div>
+            <div class="actions">
+              <button data-action="read-test" class="primary" ${!this.readChoice||this.loading?"disabled":""}>Test read-only GET</button>
+              <button data-action="read-save" ${!this.readChoice||this.loading?"disabled":""}>Save candidate</button>
+              <button data-action="read-activate" ${!canActivateRead||this.loading?"disabled":""}>Activate for polling</button>
+              <button data-action="read-disable" ${!this.readActive||this.loading?"disabled":""}>Disable attribute</button>
+            </div>
+            <details style="margin-top:18px"><summary>Advanced · define another API path and response mapping</summary>
+              <p>Only safe relative CARIAD GET paths. JSON definitions are for engineering cases; no credentials, tokens or external URLs.</p>
+              <textarea id="read-definition" rows="9">${escapeHTML(this.initialReadRoute)}</textarea>
+              <button data-action="read-add" ${this.loading?"disabled":""}>Add custom read route</button>
+            </details>
+            <h2 style="margin-top:20px">Last test result</h2>
+            <pre>${escapeHTML(JSON.stringify(this.lastResult??{"message":"No test yet"},null,2))}</pre>
+          </section>
+          <div class="grid" style="display:${this.step===3&&!this.attribute&&this.category==="climate"?"grid":"none"}">
             <section class="card">
-              <div class="eyebrow">01 / Capability</div>
-              <h2>Climate</h2>
+              <div class="eyebrow">Control discovery</div>
+              <h2>Climate (guided controls)</h2>
               <label>Optional aspect</label>
               <select id="aspect">
                 ${["status","start","stop"].map((v)=>`<option value="${v}" ${this.aspect===v?"selected":""}>${v==="status"?"Status (GET)":v==="start"?"Control · Start":"Control · Stop"}</option>`).join("")}
@@ -369,7 +552,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </section>
             <section class="card">
               <div class="eyebrow">02 / Developer tools</div>
-              <h2>Custom API path</h2>
+              <h2>Advanced · Custom API path</h2>
               <p>Relative paths only. Auth and host remain owned by the Audi integration. {VIN} and typed parameters are supported.</p>
               <label>API definition (JSON)</label>
               <textarea id="definition" rows="13">${escapeHTML(this.initialRoute)}</textarea>
@@ -378,6 +561,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <pre>${escapeHTML(JSON.stringify(this.lastResult??{"message":"No test yet"}, null, 2))}</pre>
             </section>
           </div>
+          ${this.step===3&&!this.attribute&&this.category!=="climate"?`<section class="card"><h2>Control migration pending</h2><p>Historical ${escapeHTML(this.category)} controls remain in the V2 catalog until their own safe route, payload and physical confirmation workflow is implemented. No unverified POST is enabled.</p></section>`:""}
           <p class="foot">Experimental mode. HTTP 200/202 confirms gateway acceptance, not vehicle action.
           Custom paths and results stay in private local HA storage. V2 remains available for rollback.</p>`}
       </main>`;
