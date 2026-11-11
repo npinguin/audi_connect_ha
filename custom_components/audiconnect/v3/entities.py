@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.device_tracker import TrackerEntity
+from homeassistant.components.device_tracker.const import SourceType
+from homeassistant.components.number import NumberEntity, NumberDeviceClass, NumberMode
+from homeassistant.components.select import SelectEntity
 from homeassistant.components.lock import LockEntity
 from homeassistant.components.switch import SwitchEntity
 from typing import Any
@@ -12,7 +16,7 @@ from homeassistant.components.climate import (
     ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode,
 )
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime, PERCENTAGE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -491,3 +495,157 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         if self.is_locked is not False:
             await self.coordinator.engine.send_control(self.vehicle.vin, "unlock", "access")
         self.async_write_ha_state()
+
+
+class V3ParkedTracker(V3BaseEntity, TrackerEntity):
+    """V2-compatible GPS entity for the car's last PARKED position, not live GPS."""
+
+    _attr_name = "Position"
+    _attr_icon = "mdi:car"
+    _attr_should_poll = False
+    _attr_source_type = SourceType.GPS
+
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_device_tracker_position"
+
+    def _coordinates(self) -> tuple[float, float] | None:
+        position = self.vehicle.position
+        if not isinstance(position, dict):
+            return None
+        lat, lon = position.get("latitude"), position.get("longitude")
+        if isinstance(lat, bool) or isinstance(lon, bool):
+            return None
+        try:
+            latitude, longitude = float(lat), float(lon)
+        except (ValueError, TypeError):
+            return None
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return None
+        return latitude, longitude
+
+    @property
+    def available(self) -> bool:
+        return self._coordinates() is not None
+
+    @property
+    def latitude(self) -> float | None:
+        coords = self._coordinates()
+        return coords[0] if coords else None
+
+    @property
+    def longitude(self) -> float | None:
+        coords = self._coordinates()
+        return coords[1] if coords else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        position = self.vehicle.position or {}
+        captured = position.get("timestamp")
+        return {
+            "position_source": "Audi last-known parked location, not live driving GPS",
+            "position_captured_at": captured,
+            "position_age_minutes": _reading_age_minutes(captured),
+            "position_freshness": (
+                "unknown" if captured is None else
+                "stale" if (_reading_age_minutes(captured) or 0) > 60 else
+                "fresh"
+            ),
+        }
+
+
+class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
+    """V2 global charge-target identity; command gated by V3 route evidence."""
+
+    _attr_name = "Target state of charge"
+    _attr_device_class = NumberDeviceClass.BATTERY
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_native_min_value = 20
+    _attr_native_max_value = 100
+    _attr_native_step = 5
+    _attr_mode = NumberMode.SLIDER
+
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_number_target_state_of_charge"
+
+    @property
+    def available(self) -> bool:
+        return (
+            _reading_available(self.vehicle.readings.get("targetstateOfCharge"),
+                               allow_last_known=True)
+            and self.coordinator.engine.control_enabled(
+                self.vehicle.vin, "set_target_soc", "charging"
+            )
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        reading = self.vehicle.readings.get("targetstateOfCharge") or {}
+        value = reading.get("value")
+        return float(value) if (isinstance(value, (int, float))
+                                and not isinstance(value, bool)) else None
+
+    async def async_set_native_value(self, value: float) -> None:
+        if not self.available:
+            raise HomeAssistantError(
+                "V3 charging target write not yet verified for this vehicle"
+            )
+        await self.coordinator.engine.send_setting(
+            self.vehicle.vin, "set_target_soc", int(value)
+        )
+
+
+class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
+    """V2 select identity, independent preferred-mode source and command gate."""
+
+    _attr_name = "Charge mode"
+    _attr_icon = "mdi:battery-clock"
+
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_select_charge_mode"
+
+    @property
+    def available(self) -> bool:
+        return (
+            _reading_available(self.vehicle.readings.get("preferredChargeMode"),
+                               allow_last_known=True)
+            and self.coordinator.engine.control_enabled(
+                self.vehicle.vin, "set_charge_mode", "charging"
+            )
+        )
+
+    @property
+    def options(self) -> list[str]:
+        observed = self.vehicle.readings.get("availableChargeModes") or {}
+        values = observed.get("value")
+        modes = [
+            x for x in values
+            if isinstance(x, str) and x.lower() not in
+            {"", "invalid", "unsupported", "unknown"}
+        ] if isinstance(values, list) else []
+        if not modes:
+            modes = ["manual", "timer"]
+        current = self.current_option
+        if current and current not in modes:
+            modes.append(current)
+        return modes
+
+    @property
+    def current_option(self) -> str | None:
+        reading = self.vehicle.readings.get("preferredChargeMode") or {}
+        value = reading.get("value")
+        if (not isinstance(value, str) or value.lower() in
+                {"", "invalid", "unknown", "unsupported"}):
+            return None
+        return value
+
+    async def async_select_option(self, option: str) -> None:
+        if not self.available or option not in self.options:
+            raise HomeAssistantError(
+                "V3 preferred charge mode is not verified for this vehicle"
+            )
+        await self.coordinator.engine.send_setting(
+            self.vehicle.vin, "set_charge_mode", option
+        )
