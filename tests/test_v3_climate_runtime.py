@@ -56,6 +56,7 @@ def build(*, state="off", authorized=True, opts=None, stored_temp=22):
         climatisation_target_temperature=stored_temp,
         car_type="hybrid",
         model_family="Q8",
+        model="Audi Q8 TFSI e",
         model_source="audi_long_name",
     )
     entry = NS(
@@ -218,3 +219,34 @@ def test_existing_cariad_readable_job_is_evidence_not_fresh_vehicle_state():
     assert evidence["readable_observations"] == 1
     assert evidence["cached_present"] == 1
     assert evidence["last_result"] == "job_previously_readable_timestamp_unverified"
+
+
+
+def test_unknown_capability_requires_manual_opt_in_and_denial_still_wins():
+    entity, conn, _, car, _ = build(authorized=None)
+    assert not entity._may_control
+    entity.runtime.config_entry.options["v3_climate_experimental_unknown"] = True
+    assert entity._may_control
+    asyncio.run(entity.async_turn_on())
+    assert len(conn.calls) == 1
+    car.has_capability = lambda cap: False
+    assert not entity._may_control
+
+
+def test_untrusted_nickname_does_not_enable_q8_default():
+    entity, _, runtime, car, _ = build()
+    car.model_family = ""
+    car.model_source = "nickname_fallback"
+    assert context_for(car, runtime.config_entry).model_family == ""
+    assert runtime.resolve(car, "start")["operation"] == (
+        "cariad.climate.start.vehicle_settings"
+    )
+
+
+def test_trusted_manufacturer_q8_metadata_is_coarse_model_hint():
+    entity, _, runtime, car, _ = build()
+    car.model_family = ""
+    assert context_for(car, runtime.config_entry).model_family == "q8"
+    assert runtime.resolve(car, "start")["operation"] == (
+        "cariad.climate.start.stored"
+    )

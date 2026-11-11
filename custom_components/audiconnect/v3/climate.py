@@ -15,6 +15,7 @@ from homeassistant.components.climate import (
     HVACMode,
 )
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.const import UnitOfTemperature
 
 from ..audi_entity import AudiEntity, entity_unique_id
 from ..coordinator import AudiDataUpdateCoordinator
@@ -35,6 +36,7 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
 
     _attr_name = "Climatisation"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _backing_attr = "climatisation_state"
 
     def __init__(
@@ -59,9 +61,16 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
     @property
     def _may_control(self) -> bool:
         check = getattr(self._vehicle, "has_capability", None)
-        # Explicitly reported denial always wins. For modern CARIAD we
-        # require a positive feature permission to enable vehicle commands.
-        if not callable(check) or check("climatisation") is not True:
+        # An explicit denial stays denied. An UNKNOWN capability can only
+        # be tested after a deliberate integration-wide experimental opt-in.
+        verdict = check("climatisation") if callable(check) else None
+        if verdict is False:
+            return False
+        if verdict is not True and not bool(
+            self.runtime.config_entry.options.get(
+                "v3_climate_experimental_unknown", False
+            )
+        ):
             return False
         impaired = getattr(self._vehicle, "impaired_capabilities", ()) or ()
         if "climatisation" in impaired:

@@ -149,3 +149,16 @@ def test_status_and_control_are_independently_optional():
     assert CapabilityRegistry(raw).resolve(
         "climate", "status", VehicleContext(auth="auth0")
     )["operation"] is None
+
+
+
+def test_bodyless_start_default_is_q8_scoped_not_auth0_global():
+    model = get_registry()
+    assert model.resolve(
+        "climate", "start", VehicleContext(auth="auth0", model_family="")
+    )["operation"] == "cariad.climate.start.vehicle_settings"
+    with pytest.raises(RegistryError):
+        model.resolve(
+            "climate", "start", VehicleContext(auth="auth0", model_family=""),
+            preferred="cariad.climate.start.stored",
+        )

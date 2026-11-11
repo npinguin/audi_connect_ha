@@ -41,8 +41,17 @@ def context_for(vehicle: Any, config_entry: Any) -> VehicleContext:
         car_type = ""
     source = getattr(vehicle, "model_source", None)
     family = getattr(vehicle, "model_family", None)
-    if source not in ("audi_long_name", "audi_short_name") or not isinstance(family, str):
+    if source not in ("audi_long_name", "audi_short_name"):
         family = ""
+    else:
+        # The current Audi model parser does not populate model_family. The
+        # Q8 experimental default may use only trusted manufacturer metadata,
+        # never user-edited nicknames as a capability or authorization source.
+        model = getattr(vehicle, "model", None)
+        model = model.strip().lower() if isinstance(model, str) else ""
+        family = family.strip().lower() if isinstance(family, str) else ""
+        if not family and (model.startswith("audi q8") or model.startswith("q8")):
+            family = "q8"
     return VehicleContext(
         auth=auth,
         region=str(config_entry.data.get("region") or "").upper(),

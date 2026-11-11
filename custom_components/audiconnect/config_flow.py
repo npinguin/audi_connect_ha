@@ -597,6 +597,7 @@ class OptionsFlowHandler(OptionsFlow):
             user_input.setdefault("runtime_version", "v2")
             user_input.setdefault("v3_climate_start_route", "auto")
             user_input.setdefault("v3_climate_status_route", "auto")
+            user_input.setdefault("v3_climate_experimental_unknown", False)
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
             user_input[CONF_SCAN_INTERVAL] = max(
                 int(user_input[CONF_SCAN_INTERVAL]), MIN_UPDATE_INTERVAL
@@ -628,6 +629,12 @@ class OptionsFlowHandler(OptionsFlow):
                         "cariad.climate.start.stored",
                         "cariad.climate.start.vehicle_settings",
                     )),
+                    vol.Required(
+                        "v3_climate_experimental_unknown",
+                        default=self.config_entry.options.get(
+                            "v3_climate_experimental_unknown", False
+                        ),
+                    ): bool,
                     vol.Required(
                         "v3_climate_status_route",
                         default=self.config_entry.options.get(

@@ -80,14 +80,17 @@
       "priority": 0,
       "request_mode": "bodyless",
       "confirmation": "vehicle_readback",
-      "notes": "Q8 PHEV bodyless ON tested; no temperature parameter."
+      "notes": "Q8-model scoped default using vehicle-stored climate settings. Never automatically retry with another route.",
+      "scope": {
+        "model_family": "q8"
+      }
     },
     "cariad.climate.start.vehicle_settings": {
       "family": "cariad",
       "method": "POST",
       "path": "/vehicle/v1/vehicles/{VIN}/climatisation/start",
       "delivery": "manual",
-      "priority": 20,
+      "priority": 10,
       "request_mode": "verified_vehicle_target",
       "confirmation": "vehicle_readback",
       "notes": "Opt-in: only vehicle-reported target temp, existing safe settings read-modify-write."

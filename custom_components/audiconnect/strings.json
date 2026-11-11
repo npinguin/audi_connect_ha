@@ -99,7 +99,8 @@
           "experimental_commands": "Enable experimental vehicle controls",
           "runtime_version": "Runtime generation",
           "v3_climate_start_route": "V3 Climate: start API variant",
-          "v3_climate_status_route": "V3 Climate: status route"
+          "v3_climate_status_route": "V3 Climate: status route",
+          "v3_climate_experimental_unknown": "V3 Climate: test when advertised capability is unknown"
         },
         "title": "Audi Connect Options",
         "data_description": {
@@ -112,8 +113,9 @@
           "edit_local_dealer": "Open the form to save dealership, service appointment and warranty details locally, without any Audi API requests.",
           "experimental_commands": "Show additional user-triggered CARIAD charging, window heating and wake-up actions. Off by default. Verify real operation; HTTP 200 is not proof the vehicle acted.",
           "runtime_version": "V2 retains existing functionality. V3 Climate (experimental) uses the same account and single coordinator with one climate entity and no temperature slider. Revert to V2 here.",
-          "v3_climate_start_route": "Auto selects bodyless CARIAD start. The vehicle-settings variant is explicit opt-in and requires a valid target reported by the vehicle; no automatic fallback.",
-          "v3_climate_status_route": "Auto reuses existing polling. Selecting the CARIAD batch does not add requests; legacy vehicles remain on V2."
+          "v3_climate_start_route": "Auto picks bodyless start only for a manufacturer-identified Q8 family; other Auth0 models use the existing verified-settings adapter with safety checks. Explicitly select another compatible route to test it.",
+          "v3_climate_status_route": "Auto reuses existing polling. Selecting the CARIAD batch does not add requests; legacy vehicles remain on V2.",
+          "v3_climate_experimental_unknown": "Off by default. Only when Audi has not supplied a capability list, allow manual testing of a reviewed climate command. Explicit denial and impaired capability remain blocked; no automatic retries."
         }
       },
       "dealer_vehicle": {
