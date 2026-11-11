@@ -130,6 +130,10 @@ class V3Engine:
             attempted_paths: set[str] = set()
             # Bounded GET discovery, no auto wake and no repeated duplicate URL.
             for ident in routes[:3]:
+                # A custom route with user parameters has no safe background
+                # default until its input is explicitly persisted.
+                if profile.custom.get(ident, {}).get("variables"):
+                    continue
                 op = profile.registry.operations[ident]
                 if op["method"] != "GET" or op["family"] != "cariad":
                     continue
@@ -202,7 +206,7 @@ class V3Engine:
                 vehicle, operation, params
             )
             attempt = profile.begin_test(
-                "climate", aspect, operation, now=time.monotonic()
+                "climate", aspect, operation, now=time.time()
             )
             await self.storage.async_save(self.profiles)
             try:
@@ -231,11 +235,14 @@ class V3Engine:
             sequence,
             worked=None if outcome == "uncertain" else outcome == "worked",
             inspected_vehicle=outcome != "uncertain",
-            now=time.monotonic(),
+            now=time.time(),
         )
         if outcome == "worked":
             attempt = profile.discovery.history[-1]
-            profile.choose_working("climate", attempt.action, attempt.operation)
+            if not profile.custom.get(attempt.operation, {}).get("variables"):
+                profile.choose_working(
+                    "climate", attempt.action, attempt.operation
+                )
         await self.storage.async_save(self.profiles)
         return {"confirmed": outcome, "active": dict(profile.active)}
 
@@ -246,7 +253,9 @@ class V3Engine:
         return op
 
 
-    async def test_status_route(self, vin: str, operation: str) -> dict[str, Any]:
+    async def test_status_route(
+        self, vin: str, operation: str, *, params: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """On-demand read-only GET test, with explicit response classification."""
         car = self.require_vehicle(vin)
         p = self.profiles[car.vin.lower()]
@@ -255,7 +264,9 @@ class V3Engine:
         )["available_operations"]
         if operation not in allowed:
             raise ValueError("Status route not applicable to selected vehicle")
-        family, method, path, body = self._operation_request(car, operation)
+        family, method, path, body = self._operation_request(
+            car, operation, params
+        )
         if method != "GET" or family != "cariad" or body is not None:
             raise ValueError("Only reviewed CARIAD GET discovery is available")
         response = await self.transport.request(family, method, path)
@@ -270,7 +281,7 @@ class V3Engine:
             "climate", operation, http_status=response.status,
             schema_valid=valid, fresh=fresh,
         )
-        if verdict == "worked":
+        if verdict == "worked" and not p.custom.get(operation, {}).get("variables"):
             p.choose_working("climate", "status", operation)
         await self.storage.async_save(self.profiles)
         return {
@@ -288,6 +299,10 @@ class V3Engine:
         """Admin selects another previously verified route; no request."""
         car = self.require_vehicle(vin)
         p = self.profiles[car.vin.lower()]
+        if p.custom.get(operation, {}).get("variables"):
+            raise DevelopmentProfileError(
+                "Dynamic parameters are test-only until V3 can save the input profile"
+            )
         p.choose_working("climate", aspect, operation)
         await self.storage.async_save(self.profiles)
 
@@ -299,6 +314,10 @@ class V3Engine:
     async def send_control(self, vin: str, aspect: str) -> None:
         """Normal climate UI sends only a previously verified selected route."""
         car = self.require_vehicle(vin)
+        if self.profiles[vin.lower()].discovery._active is not None:
+            raise RuntimeError(
+                "A climate experiment is awaiting physical confirmation"
+            )
         if not self.control_enabled(vin, aspect):
             raise RuntimeError("Climate command has not been tested and activated")
         p = self.profiles[vin.lower()]

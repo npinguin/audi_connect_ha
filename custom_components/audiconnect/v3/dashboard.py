@@ -130,7 +130,9 @@ async def ws_test(hass, connection, msg):
     try:
         engine = _engine(hass, msg["entry_id"])
         if msg["aspect"] == "status":
-            result = await engine.test_status_route(msg["vin"], msg["operation"])
+            result = await engine.test_status_route(
+                msg["vin"], msg["operation"], params=msg.get("parameters"),
+            )
         else:
             result = await engine.test_action(
                 msg["vin"], msg["aspect"], msg["operation"],
