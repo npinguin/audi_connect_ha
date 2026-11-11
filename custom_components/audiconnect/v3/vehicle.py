@@ -18,6 +18,7 @@ class V3Vehicle:
     model_family: str
     country: str
     car_type: str = ""
+    auth_family: str = "auth0"
     climate_state: str | None = None
     climate_captured: datetime | None = None
     last_status_observed: datetime | None = None
@@ -57,7 +58,7 @@ class V3Vehicle:
     @property
     def context(self) -> VehicleContext:
         return VehicleContext(
-            auth="auth0", region=self.country,
+            auth=self.auth_family, region=self.country,
             vehicle_type=self.car_type, model_family=self.model_family,
         )
 

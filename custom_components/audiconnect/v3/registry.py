@@ -160,7 +160,8 @@ class CapabilityRegistry:
 
     def operations_for(self, capability: str, aspect: str) -> list[str]:
         definition = self.capabilities.get(capability)
-        if definition is None or (aspect != "status" and aspect not in (definition.get("control") or {})):
+        if definition is None or (aspect not in ("status", "start", "stop") and
+                                   aspect not in (definition.get("control") or {})):
             raise RegistryError("Unknown capability or aspect")
         node = definition.get("status") if aspect == "status" else (
             (definition.get("control") or {}).get(aspect)

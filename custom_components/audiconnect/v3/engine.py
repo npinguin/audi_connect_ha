@@ -79,7 +79,9 @@ class V3Engine:
                 continue
             if parsed.vin.lower() in excluded:
                 continue
-            known[parsed.vin.lower()] = self.vehicles.get(parsed.vin.lower(), parsed)
+            vehicle = self.vehicles.get(parsed.vin.lower(), parsed)
+            vehicle.auth_family = "auth0" if self.auth.uses_auth0 else "legacy"
+            known[parsed.vin.lower()] = vehicle
         if not known:
             if found and excluded:
                 self._known_vehicle_inventory = True
@@ -154,7 +156,7 @@ class V3Engine:
                 if profile.custom.get(ident, {}).get("variables"):
                     continue
                 op = profile.registry.operations[ident]
-                if op["method"] != "GET" or op["family"] != "cariad":
+                if op["method"] != "GET" or op["family"] not in ("cariad", "mbb"):
                     continue
                 family, method, path, _body = self._operation_request(vehicle, ident)
                 # The default targeted climate probe repeats a job already
@@ -170,8 +172,8 @@ class V3Engine:
                 attempted_operations.add(ident)
                 try:
                     response = await self.transport.request(family, method, path)
-                except (TimeoutError, OSError, RuntimeError):
-                    break  # Network outage is not evidence of unsupported capability
+                except (TimeoutError, OSError, RuntimeError, ValueError):
+                    break  # Auth/transport failure is not proof of unsupported vehicle
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     if ident == 'cariad.climate.status.batch':
