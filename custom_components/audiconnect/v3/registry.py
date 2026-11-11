@@ -17,6 +17,36 @@ _ALLOWED_SCOPE = frozenset({"auth", "region", "vehicle_type", "model_family"})
 _ALLOWED_METHODS = frozenset({"GET", "POST"})
 
 
+def read_json_path(payload: Any, path: str) -> Any:
+    """Extract legacy dotted paths or RFC 6901 JSON Pointers, without eval."""
+    if not isinstance(path, str) or not path:
+        return None
+    if path.startswith("/"):
+        # RFC 6901: ~1 represents a slash, ~0 represents a tilde.
+        parts = [part.replace("~1", "/").replace("~0", "~")
+                 for part in path[1:].split("/")]
+    else:
+        parts = path.split(".")
+    node = payload
+    for part in parts:
+        if isinstance(node, dict):
+            if part not in node:
+                return None
+            node = node[part]
+        elif isinstance(node, list):
+            if not part.isascii() or not part.isdigit() or (
+                len(part) > 1 and part[0] == "0"
+            ):
+                return None
+            index = int(part)
+            if index >= len(node):
+                return None
+            node = node[index]
+        else:
+            return None
+    return node
+
+
 class RegistryError(ValueError):
     """Invalid V3 catalog or unsupported operation."""
 
@@ -233,12 +263,11 @@ class CapabilityRegistry:
 
     def extract(self, operation: str, payload: Any) -> tuple[Any, str | None]:
         """Read a declarative RFC 6901 pointer or legacy dotted path."""
-        from .historical_catalog import read_path
         op = self.operations[operation]
         if op["method"] != "GET":
             raise RegistryError("Only a GET response may be extracted")
         for path in op["response_paths"]:
-            result = read_path(payload, path)
+            result = read_json_path(payload, path)
             if result is not None:
                 return result, path
         return None, None

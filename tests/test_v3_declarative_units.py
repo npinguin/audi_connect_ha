@@ -57,7 +57,7 @@ def test_custom_route_supports_declarative_conversions_without_executable_code()
          "response_path":"/fuelStatus/rangeStatus/value/totalRange_mi",
          "conversion":{"unit_class":"distance","from":"mi","to":"km"}}
     assert validate_custom_read_route(inp)==inp
-    assert read_variants("stateOfCharge",{inp["id"]:inp})[-1]["conversion"]==inp["conversion"]
+    assert read_variants("TOTAL_RANGE",{inp["id"]:inp})[-1]["conversion"]==inp["conversion"]
     with pytest.raises(ValueError):
         validate_custom_read_route({**inp,"conversion":{"type":"python","expression":"eval(...)"}})
 
