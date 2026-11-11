@@ -1,10 +1,10 @@
 # Audi Connect — Feature Restore Engineering
 
-**Stage:** Read-only discovery only. **Branch:** `feature/restore-audi-data` from fork main `2.5.3b11`.
+**Stage:** Read-only trip/health discovery plus safeguards for an existing opt-in experimental wake action. **Branch:** `feature/restore-audi-data` from fork main `2.5.3b11`.
 
 ## Purpose
 
-Restore Audi/CARIAD data that became unavailable after the 2026 Auth0 transition, especially the four existing trip sensors and PHEV fuel/electric consumption. Do not alter stable lock/unlock, flash, climate, charging, entity identifiers or Home Assistant config entries.
+Restore Audi/CARIAD data that became unavailable after the 2026 Auth0 transition, especially the four existing trip sensors and PHEV fuel/electric consumption. Preserve stable lock/unlock, flash, climate, charging and entity identifiers and Home Assistant config entries; carry only targeted upstream-reviewed regression fixes without changing action routes.
 
 ## What is already proven versus unknown
 
@@ -12,7 +12,7 @@ Restore Audi/CARIAD data that became unavailable after the 2026 Auth0 transition
 - **Unverified candidates:** modern `/vehicle/v1/trips/{vin}/...` and `/vehicle/v1/vehicles/{vin}/tripstatistics` endpoints found in independent clients. Their availability, permissions, payloads and units on a particular Audi are unknown.
 - **Unverified diagnostics:** `batterySupport`, `tyrePressure` and `vehicleHealthWarnings` selectivestatus jobs. A capability identifier or HTTP 200 does not prove readable vehicle data.
 - **Independent channel:** the Audi EU Data Act portal requires separate explicit consent and potentially an independently authenticated session. CARIAD access tokens must not be assumed valid for it.
-- **Not in scope yet:** automatic data restoration, new sensors or commands, notifications/push, additional background polling and any conversion to third-party cloud services.
+- **Not in scope yet:** automatic data restoration, unverified sensors or commands, automated wake triggers, notifications/push, additional background polling and any conversion to third-party cloud services.
 
 ## Feature restore probe — opt-in only
 
