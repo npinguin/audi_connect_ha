@@ -60,34 +60,8 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
 
     @property
     def _may_control(self) -> bool:
-        # Only Auth0 cars are migrated to the V3 climate entity in this pilot.
-        # The model registry can *describe* MBB but cannot authorize dispatch
-        # through an unreviewed V3 legacy adapter.
-        service = getattr(self._vehicle, "_audi_service", None)
-        if not getattr(service, "uses_auth0", False):
-            return False
-        check = getattr(self._vehicle, "has_capability", None)
-        # An explicit denial stays denied. An UNKNOWN capability can only
-        # be tested after a deliberate integration-wide experimental opt-in.
-        verdict = check("climatisation") if callable(check) else None
-        if verdict is False:
-            return False
-        if verdict is not True and not bool(
-            self.runtime.config_entry.options.get(
-                "v3_climate_experimental_unknown", False
-            )
-        ):
-            return False
-        impaired = getattr(self._vehicle, "impaired_capabilities", ()) or ()
-        if "climatisation" in impaired:
-            return False
-        try:
-            return (
-                self.runtime.resolve(self._vehicle, "start")["operation"] is not None
-                and self.runtime.resolve(self._vehicle, "stop")["operation"] is not None
-            )
-        except RegistryError:
-            return False
+        """V3 runtime is the single owner of capability eligibility."""
+        return self.runtime.control_verdict(self._vehicle)["enabled"]
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
@@ -140,8 +114,11 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
             raise HomeAssistantError("Unsupported Audi V3 climate mode")
 
     async def async_turn_on(self) -> None:
-        if not self._may_control:
-            raise HomeAssistantError("Climate control is not authorized for this vehicle")
+        verdict = self.runtime.control_verdict(self._vehicle)
+        if not verdict["enabled"]:
+            raise HomeAssistantError(
+                "Climate control is not authorized: " + verdict["reason"]
+            )
         if self._reported_mode is not None and self._reported_mode not in _OFF:
             return  # Already reported on; avoid unintended duplicate commands.
         try:
@@ -178,8 +155,11 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
         self.async_write_ha_state()
 
     async def async_turn_off(self) -> None:
-        if not self._may_control:
-            raise HomeAssistantError("Climate control is not authorized for this vehicle")
+        verdict = self.runtime.control_verdict(self._vehicle)
+        if not verdict["enabled"]:
+            raise HomeAssistantError(
+                "Climate control is not authorized: " + verdict["reason"]
+            )
         if self._reported_mode in _OFF:
             return  # Already reported off; avoid unintended duplicate commands.
         try:

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .registry import CapabilityRegistry, RouteEvidence, VehicleContext
+from .registry import CapabilityRegistry, RegistryError, RouteEvidence, VehicleContext
 
 V3_RUNTIME_OPTION = "runtime_version"
 V3_CLIMATE_START_OPTION = "v3_climate_start_route"
@@ -84,10 +84,55 @@ class V3Runtime:
             preferred = "auto"
         if preferred == "auto":
             preferred = None
-        return self.registry.resolve(
-            "climate", aspect, context, self._evidence_for(vehicle),
-            preferred=preferred, now=time.monotonic(),
-        )
+        try:
+            return self.registry.resolve(
+                "climate", aspect, context, self._evidence_for(vehicle),
+                preferred=preferred, now=time.monotonic(),
+            )
+        except RegistryError:
+            # Preferences are integration-wide; eligibility is per vehicle.
+            # A reviewed Q8 override cannot break a second Auth0 model.
+            result = self.registry.resolve(
+                "climate", aspect, context, self._evidence_for(vehicle),
+                now=time.monotonic(),
+            )
+            result["reason"] = "account_preference_not_applicable_safe_default"
+            return result
+
+    def control_verdict(self, vehicle: Any) -> dict[str, Any]:
+        """Canonical actuator gate used by both V3 entity and diagnostics."""
+        if context_for(vehicle, self.config_entry).auth != "auth0":
+            return {"enabled": False, "reason": "not authorized: legacy uses V2"}
+        checker = getattr(vehicle, "has_capability", None)
+        reported = checker("climatisation") if callable(checker) else None
+        if reported is False:
+            return {"enabled": False, "reason": "not authorized: explicitly unsupported"}
+        if "climatisation" in (
+            getattr(vehicle, "impaired_capabilities", ()) or ()
+        ):
+            return {"enabled": False, "reason": "not authorized: impaired"}
+        if reported is not True and not self.config_entry.options.get(
+            "v3_climate_experimental_unknown", False
+        ):
+            return {"enabled": False, "reason": "not authorized: unknown capability"}
+        start = self.resolve(vehicle, "start")["operation"]
+        stop = self.resolve(vehicle, "stop")["operation"]
+        if not start or not stop:
+            return {"enabled": False, "reason": "no reviewed API operation"}
+        if start == "cariad.climate.start.vehicle_settings":
+            target = getattr(vehicle, "climatisation_target_temperature", None)
+            if (
+                isinstance(target, bool) or not isinstance(target, (int, float))
+                or not 15 <= target <= 30
+            ):
+                return {"enabled": False, "reason": "stored target temperature unavailable"}
+        return {
+            "enabled": True,
+            "reason": (
+                "advertised_and_reviewed_route" if reported is True
+                else "user_opted_in_unknown_capability"
+            ),
+        }
 
     def observe(self, data: list[Any]) -> None:
         """Called by the one HA cloud coordinator after its ordinary V2 poll.
@@ -142,6 +187,7 @@ class V3Runtime:
                     aspect: self.resolve(vehicle, aspect)
                     for aspect in ("status", "start", "stop")
                 },
+                "control_eligibility": self.control_verdict(vehicle),
                 "read_evidence": {
                     ident: {
                         "readable_observations": item.readable,

@@ -86,3 +86,15 @@ No generic dynamic HTTP executor; no arbitrary host/Authorization override; no a
 ## Engineering review checklist
 
 Check the source of truth remains singular: no duplicated entity unique IDs; no new duplicate background jobs; exactly one account/session; no copied OAuth secrets in config; no undocumented fallback; errors and unavailable state are distinct; all fallback paths are real and tested; config options preserve user settings; docs/tests/manifest agree on version. PR review must reject drift rather than patch around it.
+
+
+## One control-eligibility owner
+
+`V3Runtime.control_verdict(vehicle)` is canonical for reported/impaired/unknown,
+reviewed route selection and safe target preconditions. The HA climate entity
+and diagnostics both use that decision, avoiding drift. In a mixed-vehicle
+account, a globally selected Q8 operation not applicable to a second car
+resolves to its context-appropriate reviewed default and records the reason.
+This is **selection**, never a second command or a retry. Unavailable
+vehicle-stored temperature makes settings-based control unavailable rather
+than advertising a button that can only fail.

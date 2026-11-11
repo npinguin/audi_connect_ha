@@ -287,3 +287,39 @@ def test_v3_control_only_entity_can_be_added_without_status(monkeypatch):
     assert len(added) == 1
     assert isinstance(added[0], AudiV3Climate)
     assert added[0].unique_id == entity.unique_id
+
+
+
+def test_global_q8_option_keeps_second_auth0_car_operational():
+    entity, _, runtime, car, _ = build(
+        opts={
+            "runtime_version": "v3_climate",
+            "v3_climate_start_route": "cariad.climate.start.stored",
+        }
+    )
+    car.model_family = ""
+    car.model_source = "nickname_fallback"
+    result = runtime.resolve(car, "start")
+    assert result["operation"] == "cariad.climate.start.vehicle_settings"
+    assert result["reason"] == "account_preference_not_applicable_safe_default"
+    assert runtime.diagnostics([car])[0]["climate"]["start"]["operation"] == result["operation"]
+
+
+def test_canonical_eligibility_matches_diagnostics():
+    entity, _, runtime, car, _ = build(
+        opts={"runtime_version": "v3_climate"}, stored_temp=None
+    )
+    car.model_family = ""
+    car.model_source = "nickname_fallback"
+    assert not entity._may_control
+    result = runtime.diagnostics([car])[0]
+    assert not result["control_eligibility"]["enabled"]
+    assert "stored target" in result["control_eligibility"]["reason"]
+
+
+def test_status_only_climate_stays_visible_when_control_denied():
+    entity, _, runtime, car, _ = build(state="heating", authorized=False)
+    assert entity.hvac_mode is HVACMode.HEAT_COOL
+    assert not runtime.control_verdict(car)["enabled"]
+    assert entity.supported_features == 0
+    assert entity.available
