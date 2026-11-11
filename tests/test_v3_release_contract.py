@@ -71,3 +71,26 @@ def test_no_auto_wake_and_v3_device_registry_cleanup_disabled():
     assert "class V3CleanCoordinator(DataUpdateCoordinator" in modern
     assert "AudiDataUpdateCoordinator" not in modern
     assert "trigger_vehicle_wakeup" not in modern
+
+
+def test_workbench_is_opt_in_and_panel_re_registration_is_safe():
+    main = (AUDI / "__init__.py").read_text()
+    dashboard = (V3 / "dashboard.py").read_text()
+    flow = (AUDI / "config_flow.py").read_text()
+    assert 'config_entry.options.get("v3_development_workbench", False)' in main
+    assert '_HANDLERS_KEY = "audiconnect_v3_dashboard_commands_registered"' in dashboard
+    assert "if not hass.data.get(_HANDLERS_KEY):" in dashboard
+    assert 'hass.data.pop(_READY_KEY, False)' in dashboard
+    assert '"v3_development_workbench"' in flow
+
+
+def test_workbench_capability_coverage_and_draft_storage_contract():
+    dashboard = (V3 / "dashboard.py").read_text()
+    client = (V3 / "frontend/panel.js").read_text()
+    model = (V3 / "development_profiles.py").read_text()
+    assert '"audiconnect/v3/status"' in dashboard
+    assert '"audiconnect/v3/save_candidate"' in dashboard
+    assert 'this.api("status"' in client
+    assert 'this.api("save_candidate"' in client
+    assert "def save_candidate(" in model
+    assert '"draft_selected": dict(self.draft_selected)' in model
