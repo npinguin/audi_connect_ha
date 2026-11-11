@@ -31,12 +31,15 @@
     "switch"
   ],
   "v3_platforms": [
-    "climate",
-    "sensor",
     "binary_sensor",
     "button",
-    "switch",
-    "lock"
+    "climate",
+    "sensor",
+    "device_tracker",
+    "lock",
+    "number",
+    "select",
+    "switch"
   ],
   "v2_services": [
     "probe_api_paths",
@@ -82,7 +85,9 @@
     "v2_action_options": 11,
     "entity_rows": 109,
     "control_workstreams": 20,
-    "v3_only_controls": 1
+    "v3_only_controls": 1,
+    "v3_platforms_forwarded": 9,
+    "v3_native_controls_readiness": "partial_unverified"
   },
   "entities": [
     {
@@ -2239,8 +2244,8 @@
       "v2_dynamic": true,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "V3 loaded_platforms omits this platform entirely.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 number entity uses historical ID; setting write requires verified V3 declarative route/readback.",
       "priority": "P0",
       "q8_v3_verified": false
     },
@@ -2254,8 +2259,8 @@
       "v2_dynamic": true,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "V3 loaded_platforms omits this platform entirely.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 number entity uses historical ID; setting write requires verified V3 declarative route/readback.",
       "priority": "P1",
       "q8_v3_verified": false
     },
@@ -2269,8 +2274,8 @@
       "v2_dynamic": true,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "V3 loaded_platforms omits this platform entirely.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 number entity uses historical ID; setting write requires verified V3 declarative route/readback.",
       "priority": "P1",
       "q8_v3_verified": false
     },
@@ -2284,8 +2289,8 @@
       "v2_dynamic": false,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "V3 loaded_platforms omits this platform entirely.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 select entity uses historical ID; preferredChargeMode source/write requires verified V3 declarative route/readback.",
       "priority": "P1",
       "q8_v3_verified": false
     },
@@ -2329,8 +2334,8 @@
       "v2_dynamic": false,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "V3 loaded_platforms omits this platform entirely.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 GPS entity and bounded parked-position GET present; live Q8 data not verified.",
       "priority": "P2",
       "q8_v3_verified": false
     }
@@ -4074,12 +4079,19 @@
     "restore_own_previous_integration_disable_records": true,
     "user_disabled_entities_unchanged": true,
     "vehicle_sensor_diagnostic_categories_removed_in_patch": 15,
-    "vehicle_binary_diagnostic_categories_removed_in_patch": 11,
+    "vehicle_binary_diagnostic_categories_removed_in_patch": 0,
     "technical_cloud_diagnostics_still_category_diagnostic": true,
-    "v2_account_auth_owner_shared_with_v3_implemented": false,
-    "all_nine_ha_platforms_implemented_in_v3": false,
+    "v2_account_auth_owner_shared_with_v3_implemented": true,
+    "all_nine_ha_platforms_implemented_in_v3": true,
     "all_historical_ha_entities_available_in_v3": false,
     "full_ha_identity_runtime_acceptance_proven": false,
-    "architecture_doc": "docs/V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md"
-  }
+    "architecture_doc": "docs/V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md",
+    "all_nine_ha_platforms_forwarded_in_v3": true,
+    "all_nine_ha_platforms_functional_parity_proven": false,
+    "v2_business_logic_mutated_for_v3": false,
+    "v3_business_implementation_owns_ha_entities": true,
+    "request_id_pendingrequests_followup_implemented": true,
+    "request_id_physical_vehicle_readback_proven": false
+  },
+  "latest_candidate_notes": "V3 has own nine-platform entrypoint and bounded request-ID follow-up, but no physical Q8 acceptance; status labels refer to source implementation, not live parity."
 }
