@@ -139,8 +139,15 @@ class V3ProfileStorage:
     async def async_save(self, profiles: Mapping[str, DevelopmentProfile]) -> None:
         if len(profiles) > 50:
             raise DevelopmentProfileError("Too many vehicles")
-        await self._store.async_save({
-            "profiles": {
-                key: value.snapshot() for key, value in profiles.items()
-            }
+        # A partial or failed vehicle inventory is NOT permission to delete
+        # earlier tested configurations belonging to the same account.
+        old = await self._store.async_load() or {}
+        if not isinstance(old, dict) or not isinstance(old.get("profiles", {}), dict):
+            raise DevelopmentProfileError("Invalid existing local profile store")
+        records = dict(old.get("profiles", {}))
+        records.update({
+            key: value.snapshot() for key, value in profiles.items()
         })
+        if len(records) > 50:
+            raise DevelopmentProfileError("Too many saved vehicle profiles")
+        await self._store.async_save({"profiles": records})
