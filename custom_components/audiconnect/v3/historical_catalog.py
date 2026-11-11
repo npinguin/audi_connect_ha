@@ -1647,12 +1647,33 @@ CANONICAL_ATTRIBUTES = {
 }
 
 
-def read_path(payload: Any, dotted_path: str) -> Any:
+def read_path(payload: Any, path: str) -> Any:
+    """Extract legacy dotted paths or RFC 6901 JSON Pointers, without eval."""
+    if not isinstance(path, str) or not path:
+        return None
+    if path.startswith("/"):
+        # RFC 6901: ~1 represents a slash, ~0 represents a tilde.
+        parts = [part.replace("~1", "/").replace("~0", "~")
+                 for part in path[1:].split("/")]
+    else:
+        parts = path.split(".")
     node = payload
-    for field in dotted_path.split("."):
-        if not isinstance(node, dict) or field not in node:
+    for part in parts:
+        if isinstance(node, dict):
+            if part not in node:
+                return None
+            node = node[part]
+        elif isinstance(node, list):
+            if not part.isascii() or not part.isdigit() or (
+                len(part) > 1 and part[0] == "0"
+            ):
+                return None
+            index = int(part)
+            if index >= len(node):
+                return None
+            node = node[index]
+        else:
             return None
-        node = node[field]
     return node
 
 def capture_time(payload: Any, dotted_path: str) -> str | None:

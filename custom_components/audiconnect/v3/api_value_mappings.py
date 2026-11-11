@@ -10,6 +10,8 @@ import json
 import math
 from pathlib import Path
 from typing import Any, Mapping
+from .attribute_contracts import contract_for
+from .historical_catalog import ATTRIBUTES
 from homeassistant.util.unit_conversion import (
     DistanceConverter, DurationConverter, ElectricCurrentConverter,
     PowerConverter, TemperatureConverter, EnergyConverter, SpeedConverter,
@@ -33,7 +35,28 @@ def _route_mappings() -> dict[str, dict[str, dict[str, Any]]]:
     return doc["routes"]
 
 def transform_for(family: str, attribute: str) -> dict[str, Any] | None:
-    return _route_mappings().get(family, {}).get(attribute)
+    result = _route_mappings().get(family, {}).get(attribute)
+    return validate_attribute_transform(attribute, result) if result is not None else None
+
+def validate_attribute_transform(attribute: str, value: Any) -> dict[str, Any]:
+    """A route's target unit must agree with its HA semantic contract."""
+    conversion = validate_transform(value)
+    definition = ATTRIBUTES.get(attribute)
+    if definition is None:
+        raise ValueError("Unknown Audi attribute")
+    contract = contract_for(definition["entity_key"])
+    target = contract.get("unit")
+    if target is None or conversion["to"] != target:
+        raise ValueError("API destination unit does not match the HA attribute contract")
+    device = contract.get("device_class")
+    family = conversion["unit_class"]
+    if device is not None and (device == "distance" and family != "distance"
+                               or device == "power" and family != "power"
+                               or device == "temperature" and family != "temperature"
+                               or device == "current" and family != "current"):
+        raise ValueError("API converter family does not match device class")
+    return conversion
+
 
 def validate_transform(value: Any) -> dict[str, Any]:
     if not isinstance(value, Mapping) or set(value) != {"unit_class", "from", "to"}:

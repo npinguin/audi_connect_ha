@@ -232,17 +232,13 @@ class CapabilityRegistry:
         }
 
     def extract(self, operation: str, payload: Any) -> tuple[Any, str | None]:
-        """Read a dotted JSON response path, never eval/Jinja user content."""
+        """Read a declarative RFC 6901 pointer or legacy dotted path."""
+        from .historical_catalog import read_path
         op = self.operations[operation]
         if op["method"] != "GET":
             raise RegistryError("Only a GET response may be extracted")
         for path in op["response_paths"]:
-            result = payload
-            for key in path.split("."):
-                if not isinstance(result, dict) or key not in result:
-                    result = None
-                    break
-                result = result[key]
+            result = read_path(payload, path)
             if result is not None:
                 return result, path
         return None, None

@@ -8,11 +8,11 @@ import re
 from typing import Any, Mapping
 from .historical_catalog import ATTRIBUTES
 from .legacy_read_mappings import variant_for
-from .api_value_mappings import transform_for, validate_transform
+from .api_value_mappings import transform_for, validate_attribute_transform
 
 _BASE = "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}"
 _ID = re.compile(r"^user\.read\.[a-z][a-z0-9_]{0,40}$")
-_PATH = re.compile(r"^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*$")
+_PATH = re.compile(r"^(?:[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*|/(?:[^/~]|~[01])*(?:/(?:[^/~]|~[01])*)*)$")
 
 
 def validate_custom_read_route(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -34,7 +34,7 @@ def validate_custom_read_route(value: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(mapping, str) or len(mapping) > 180 or not _PATH.fullmatch(mapping):
         raise ValueError("Invalid response mapping")
     if "conversion" in value:
-        validate_transform(value["conversion"])
+        validate_attribute_transform(attr, value["conversion"])
     return dict(value)
 
 

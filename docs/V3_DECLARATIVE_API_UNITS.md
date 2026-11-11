@@ -27,3 +27,9 @@ Do not activate a transform until the raw unit is confirmed in a saved
 redacted API response and matches the destination contract. The two
 historical V2 dynamic units (charge rate and remaining charge time) are
 marked `unit_resolution: api_route`, not hardcoded as A/min.
+\nResponse selectors also accept the standard **RFC 6901 JSON Pointer**
+(e.g. `/charging/batteryStatus/value/currentSOC_pct`). Existing dotted V2
+paths remain supported for compatibility. The same extraction helper is used
+for registered operations and per-attribute route mapping. A converter's
+destination unit must match the HA attribute contract; an API cannot
+reinterpret SoC as distance.\n

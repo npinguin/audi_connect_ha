@@ -5,7 +5,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.util.unit_conversion import DistanceConverter, PowerConverter
 from custom_components.audiconnect.v3.attribute_contracts import attribute_contracts
 from custom_components.audiconnect.v3.api_value_mappings import (
-    normalize_api_value, validate_transform,
+    normalize_api_value, validate_transform, validate_attribute_transform,
 )
 from custom_components.audiconnect.v3.entities import V3ReadOnlySensor
 from custom_components.audiconnect.v3.vehicle import V3Vehicle
@@ -51,12 +51,37 @@ def test_api_route_uses_standard_home_assistant_converters():
 
 
 def test_custom_route_supports_declarative_conversions_without_executable_code():
-    inp={"id":"user.read.distance","attribute":"stateOfCharge",
+    inp={"id":"user.read.distance","attribute":"TOTAL_RANGE",
          "family":"cariad","method":"GET",
-         "path":"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=charging",
-         "response_path":"charging.batteryStatus.value.currentSOC_pct",
+         "path":"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=fuelStatus",
+         "response_path":"/fuelStatus/rangeStatus/value/totalRange_mi",
          "conversion":{"unit_class":"distance","from":"mi","to":"km"}}
     assert validate_custom_read_route(inp)==inp
     assert read_variants("stateOfCharge",{inp["id"]:inp})[-1]["conversion"]==inp["conversion"]
     with pytest.raises(ValueError):
         validate_custom_read_route({**inp,"conversion":{"type":"python","expression":"eval(...)"}})
+
+
+
+def test_api_conversions_cannot_reinterpret_percentage_as_distance():
+    with pytest.raises(ValueError, match="destination unit"):
+        validate_attribute_transform("stateOfCharge",{
+            "unit_class":"distance","from":"mi","to":"km"
+        })
+
+
+def test_json_pointer_rfc6901_extraction_preserves_false_and_zero():
+    from custom_components.audiconnect.v3.historical_catalog import read_path
+    payload={"data":{"foo/bar":[{"soc":0},{"enabled":False}],"~key":75}}
+    assert read_path(payload,"/data/foo~1bar/0/soc")==0
+    assert read_path(payload,"/data/foo~1bar/1/enabled") is False
+    assert read_path(payload,"/data/~0key")==75
+    assert read_path(payload,"/data/foo~1bar/9/soc") is None
+    assert read_path(payload,"data.foo/bar") == payload["data"]["foo/bar"]
+
+
+def test_legacy_dotted_and_standard_pointer_both_allowed_for_get_routes():
+    base={"id":"user.read.pointer","attribute":"TOTAL_RANGE","family":"cariad",
+          "method":"GET","path":"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=fuelStatus",
+          "response_path":"/fuelStatus/rangeStatus/value/totalRange_km"}
+    assert validate_custom_read_route(base)==base
