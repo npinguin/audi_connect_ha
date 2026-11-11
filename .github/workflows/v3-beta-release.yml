@@ -7,12 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Manual release requests are disabled for this one-off push-triggered b8; push on the V3 branch executes publish after validation"
+        description: "Publish ONLY after verified V2 parity and explicit release approval"
         required: true
         type: choice
         default: do-not-publish
         options:
           - do-not-publish
+          - publish-v2-parity-complete
 
 permissions:
   contents: read
@@ -23,7 +24,7 @@ concurrency:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/feature/v3-clean-discovery' && (github.event_name == 'push')
+    if: github.ref == 'refs/heads/feature/v3-clean-discovery' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -100,9 +101,8 @@ jobs:
           retention-days: 30
 
   publish-prerelease:
-    # Explicit user-requested test release: publish this branch's verified b8 SHA
-    # automatically once; never overwrite immutable prerelease tags/assets.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/v3-clean-discovery'
+    # Release is gated on physical V2 parity. No automatic tag on push.
+    if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-v2-parity-complete' && github.ref == 'refs/heads/feature/v3-clean-discovery'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -115,6 +115,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: audi-connect-v3-3.0.0b8-validated
+
+      - name: Reject release without V2 parity sign-off
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          baseline = json.loads(Path("docs/V2_V3_PARITY_BASELINE.json").read_text())
+          gate = baseline["release_gate"]
+          assert gate["v3_static_parity_proven"] is True, "Static V2 parity not proven"
+          assert gate["v3_live_q8_parity_proven"] is True, "Q8 runtime parity not proven"
+          assert gate["v3_v2_v3_v2_registry_rollback_proven"] is True, "Rollback not proven"
+          assert gate["full_release_allowed"] is True, "No release sign-off"
+          PY
 
       - name: Prevent prerelease replacement
         env:
