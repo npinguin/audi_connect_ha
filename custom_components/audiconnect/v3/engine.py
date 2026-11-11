@@ -100,6 +100,14 @@ class V3Engine:
                 preview["relative_path"], preview["json_body"],
             )
         op = profile.registry.operations[ident]
+        # This historical CARIAD variant is a read-modify-write settings
+        # operation, not a bodyless command. Do not silently alias it to the
+        # Q8 bodyless start. Developers can test explicit custom JSON routes.
+        if ident == "cariad.climate.start.vehicle_settings":
+            raise ValueError(
+                "The stored-settings start adapter is not implemented in clean V3; "
+                "add an explicit development route and test its payload first"
+            )
         path = op["path"].format(
             VIN=vehicle.vin, COUNTRY=vehicle.country,
             TYPE="Audi", JOBS="climatisation",
@@ -139,8 +147,8 @@ class V3Engine:
                     value, captured, route=ident, observed_at=response.observed_at,
                     http_status=response.status,
                 )
-                if valid:
-                    fresh = vehicle.climate_captured is not None
+                if valid and 200 <= response.status < 300:
+                    fresh = bool(captured)
                     profile.record_status(
                         "climate", ident, http_status=response.status,
                         schema_valid=True, fresh=fresh,
@@ -155,6 +163,9 @@ class V3Engine:
                 if response.status in (401, 403, 429) or response.status >= 500:
                     break
         self.last_cloud_poll_success = datetime.now(UTC)
+        # One local write per scheduled discovery cycle; keep learned routes
+        # and evidence across HA restarts without touching integration options.
+        await self.storage.async_save(self.profiles)
         return list(self.vehicles.values())
 
     def require_vehicle(self, vin: str) -> V3Vehicle:

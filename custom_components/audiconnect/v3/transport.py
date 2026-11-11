@@ -67,7 +67,7 @@ class V3Transport:
     ) -> V3Response:
         if method not in ("GET", "POST"):
             raise ValueError("Unsupported method")
-        if method == "POST" and not explicit_action:
+        if method == "POST" and family != "graphql" and not explicit_action:
             raise ValueError("Every vehicle mutation requires direct user intent")
         if family not in ("cariad", "graphql"):
             raise ValueError("Unsupported V3 API family")

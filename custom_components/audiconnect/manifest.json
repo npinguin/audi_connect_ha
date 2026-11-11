@@ -5,6 +5,12 @@
     "@npinguin"
   ],
   "config_flow": true,
+  "dependencies": [
+    "http",
+    "frontend",
+    "panel_custom",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/npinguin/audi_connect_ha/blob/feature/v3-clean-discovery/docs/V3_ADR_001_INDEPENDENT_DISCOVERY.md",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
@@ -15,11 +21,5 @@
   "requirements": [
     "beautifulsoup4"
   ],
-  "version": "3.0.0b2",
-  "dependencies": [
-    "http",
-    "frontend",
-    "panel_custom",
-    "websocket_api"
-  ]
+  "version": "3.0.0b2"
 }

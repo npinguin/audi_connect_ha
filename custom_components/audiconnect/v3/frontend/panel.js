@@ -108,6 +108,10 @@ class AudiConnectV3Panel extends HTMLElement {
     if (!button || this.loading) return;
     const action = button.dataset.action;
     const route = this.shadowRoot.getElementById("route")?.value;
+    // Capture edits BEFORE re-render: otherwise the textarea is reset and a
+    // custom request silently loses its parameters or entire definition.
+    const rawParameters = this.shadowRoot.getElementById("parameters")?.value || "{}";
+    const rawDefinition = this.shadowRoot.getElementById("definition")?.value || "";
     this.loading = true; this.error = ""; this.render();
     try {
       if (action === "refresh") {
@@ -115,8 +119,7 @@ class AudiConnectV3Panel extends HTMLElement {
       }
       if (action === "test") {
         let parameters = {};
-        const source = this.shadowRoot.getElementById("parameters")?.value || "{}";
-        parameters = JSON.parse(source);
+        parameters = JSON.parse(rawParameters);
         this.lastResult = await this.api("test", {
           ...this.selection, aspect: this.aspect,
           operation: route, parameters
@@ -130,8 +133,7 @@ class AudiConnectV3Panel extends HTMLElement {
           ...this.selection, aspect: this.aspect
         });
       } else if (action === "add") {
-        const raw = this.shadowRoot.getElementById("definition")?.value || "";
-        const candidate = JSON.parse(raw);
+        const candidate = JSON.parse(rawDefinition);
         this.lastResult = await this.api("add_route", {
           ...this.selection, route: candidate
         });
