@@ -74,7 +74,7 @@ def test_v3_unsupported_actions_fail_closed_and_do_not_invoke_v2():
 
 def test_v3_parameterized_climate_start_never_discards_temperature():
     engine = SimpleNamespace(send_control=AsyncMock())
-    with pytest.raises(HomeAssistantError, match="settings are not migrated"):
+    with pytest.raises(HomeAssistantError, match="parameterized climate start is not yet implemented"):
         asyncio.run(_v3_service_command(
             engine, "TESTVIN", "start_climatisation",
             {"device_id": "dev", "temp_c": 22},
