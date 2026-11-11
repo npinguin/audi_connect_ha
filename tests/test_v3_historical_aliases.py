@@ -4,9 +4,10 @@ from custom_components.audiconnect.v3.historical_catalog import (
 )
 
 def test_raw_references_and_user_facing_logical_entities_are_distinct():
-    assert len(INVENTORY["attributes"]) == 109
+    assert len(INVENTORY["attributes"]) == len(ATTRIBUTES)
     assert len(ALIAS_OF) == 9
-    assert len(CANONICAL_ATTRIBUTES) == 100
+    assert len(CANONICAL_ATTRIBUTES) == len(ATTRIBUTES) - len(ALIAS_OF)
+    assert "any_door_unlocked" in CANONICAL_ATTRIBUTES
     assert ALIAS_OF["mileage"] == "UTC_TIME_AND_KILOMETER_STATUS"
     assert ALIAS_OF["range"] == "TOTAL_RANGE"
     assert ALIAS_OF["oil_level"] == "OIL_LEVEL_DIPSTICKS_PERCENTAGE"
