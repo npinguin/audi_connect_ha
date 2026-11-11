@@ -200,3 +200,42 @@ def test_nested_or_format_modified_path_placeholders_are_blocked():
         profile.add(custom_start(path="/vehicles/{VIN!r}/start"))
     with pytest.raises(DevelopmentProfileError):
         profile.add(custom_start(path="/vehicles/{VIN:40}/start"))
+
+
+
+def test_status_get_can_be_chosen_only_after_fresh_valid_response():
+    p = workspace()
+    op = p.add({
+        "id": "user.climate.status.probe",
+        "capability": "climate",
+        "aspect": "status",
+        "family": "cariad",
+        "method": "GET",
+        "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=climatisation",
+        "response_paths": ["climatisation.climatisationStatus.value.climatisationState"],
+    })
+    assert p.record_status("climate", op, http_status=200, schema_valid=True, fresh=False) == "readable_but_stale"
+    with pytest.raises(DevelopmentProfileError, match="fresh"):
+        p.choose_working("climate", "status", op)
+    assert p.record_status("climate", op, http_status=200, schema_valid=True, fresh=True) == "worked"
+    p.choose_working("climate", "status", op)
+    assert p.snapshot()["active"]["climate.status"] == op
+    assert p.record_status("climate", op, http_status=404, schema_valid=False, fresh=False) == "failed"
+    assert "climate.status" not in p.snapshot()["active"]
+
+
+def test_rate_limit_does_not_count_as_confirmed_unsupported():
+    p = workspace()
+    result = p.record_status(
+        "climate", "cariad.climate.status.batch",
+        http_status=429, schema_valid=False, fresh=False,
+    )
+    assert result == "inconclusive"
+    assert p.snapshot()["read_evidence"]["cariad.climate.status.batch"]["outcome"] == "inconclusive"
+
+
+def test_route_cannot_include_bearer_or_password_in_json_keys():
+    p = workspace()
+    with pytest.raises(DevelopmentProfileError, match="Invalid JSON"):
+        p.add(custom_start(body={"Authorization": "Bearer bad"}))
+    assert not p.custom

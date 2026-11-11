@@ -93,3 +93,20 @@ is disabled and diagnostics expose the tested options and results.
 6. HACS/pytest/hassfest + real Q8 acceptance before publishing another release.
 
 **Do not treat this model-only branch as a working HACS test release.**
+
+
+## GET evidence and active route selection
+
+Status GET operations are handled with `record_status()`: evidence records
+HTTP status separately from schema correctness and field freshness. Only a
+2xx response **with valid schema and fresh data** can become the selected
+polling route via `choose_working("climate", "status", operation_id)`.
+A 429, authorization failure or cloud outage is inconclusive, not a
+permanent capability denial. If a selected route later fails, its
+selection is withdrawn until a new confirmed result.
+
+All operation evidence is represented in the local `snapshot()` structure,
+but only the application-layer HA Store integration will make it persistent
+across restarts. This representation must never be mistaken for a sanitized
+community export: custom user-authored descriptions and relative routes may
+contain their own sensitive literals and require privacy filtering.

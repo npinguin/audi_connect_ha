@@ -52,6 +52,7 @@ def _check_template(value: Any, allowed: set[str], *, depth: int = 0) -> None:
     elif isinstance(value, dict):
         if len(value) > 50 or any(
             not isinstance(k, str) or len(k) > 64 or "{" in k
+            or re.search(r"(?:authorization|bearer|password|secret|access.?token|refresh.?token|api.?key)", k, re.I)
             for k in value
         ):
             raise DevelopmentProfileError("Invalid JSON object keys")
@@ -199,6 +200,9 @@ class DevelopmentProfile:
         }
         self.custom: dict[str, dict[str, Any]] = {}
         self.active: dict[str, str] = {}
+        # Last classified status-GET outcome per operation. This is transport
+        # evidence, never physical action evidence.
+        self.read_results: dict[str, dict[str, Any]] = {}
         self.registry = CapabilityRegistry(deepcopy(self._base))
         self.discovery = GuidedActionDiscovery(
             self.registry, context, cooldown_seconds=cooldown_seconds
@@ -270,6 +274,39 @@ class DevelopmentProfile:
             # mapping. Never keep advertising a known-broken command.
             self.active.pop(key)
 
+    def record_status(
+        self, capability: str, operation: str, *, http_status: int,
+        schema_valid: bool, fresh: bool
+    ) -> str:
+        """Classify an observed GET without issuing a request or exposing data.
+
+        Route selection requires HTTP acceptance, recognized response mapping
+        AND fresh field evidence. Cloud success alone is insufficient.
+        """
+        if capability != "climate" or not 100 <= http_status <= 599:
+            raise DevelopmentProfileError("Invalid climate status observation")
+        if type(schema_valid) is not bool or type(fresh) is not bool:
+            raise DevelopmentProfileError("Status evidence must be explicit booleans")
+        if operation not in self.registry.resolve(
+            capability, "status", self.discovery.context
+        )["available_operations"]:
+            raise DevelopmentProfileError("Status operation not applicable")
+        result = (
+            "worked" if 200 <= http_status < 300 and schema_valid and fresh
+            else "readable_but_stale" if 200 <= http_status < 300 and schema_valid
+            else "inconclusive" if http_status in (401, 403, 429) or http_status >= 500
+            else "failed"
+        )
+        self.read_results[operation] = {
+            "http_status": http_status,
+            "schema_valid": schema_valid,
+            "fresh": fresh,
+            "outcome": result,
+        }
+        if result != "worked" and self.active.get("climate.status") == operation:
+            self.active.pop("climate.status")
+        return result
+
     def choose_working(self, capability: str, action: str, operation: str) -> None:
         """Configuration can activate ONLY a confirmed working variant."""
         key = f"{capability}.{action}"
@@ -279,13 +316,21 @@ class DevelopmentProfile:
             capability, action, self.discovery.context
         )["available_operations"]:
             raise DevelopmentProfileError("Route is not applicable")
-        results = [
-            row.result for row in self.discovery.history
-            if row.capability == capability and row.action == action
-            and row.operation == operation
-        ]
-        if not results or results[-1] != "worked":
-            raise DevelopmentProfileError("Latest real vehicle test must confirm this route")
+        if action == "status":
+            if self.read_results.get(operation, {}).get("outcome") != "worked":
+                raise DevelopmentProfileError(
+                    "Latest GET must prove valid, fresh status data"
+                )
+        else:
+            results = [
+                row.result for row in self.discovery.history
+                if row.capability == capability and row.action == action
+                and row.operation == operation
+            ]
+            if not results or results[-1] != "worked":
+                raise DevelopmentProfileError(
+                    "Latest real vehicle test must confirm this route"
+                )
         self.active[key] = operation
 
     def disable(self, capability: str, action: str) -> None:
@@ -298,6 +343,7 @@ class DevelopmentProfile:
             "schema_version": 1,
             "custom_routes": deepcopy(list(self.custom.values())),
             "active": dict(self.active),
+            "read_evidence": deepcopy(self.read_results),
             "discovery": self.discovery.snapshot(),
         }
 
