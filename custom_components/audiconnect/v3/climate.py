@@ -60,6 +60,12 @@ class AudiV3Climate(AudiEntity, ClimateEntity):
 
     @property
     def _may_control(self) -> bool:
+        # Only Auth0 cars are migrated to the V3 climate entity in this pilot.
+        # The model registry can *describe* MBB but cannot authorize dispatch
+        # through an unreviewed V3 legacy adapter.
+        service = getattr(self._vehicle, "_audi_service", None)
+        if not getattr(service, "uses_auth0", False):
+            return False
         check = getattr(self._vehicle, "has_capability", None)
         # An explicit denial stays denied. An UNKNOWN capability can only
         # be tested after a deliberate integration-wide experimental opt-in.
