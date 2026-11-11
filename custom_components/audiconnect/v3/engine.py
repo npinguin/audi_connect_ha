@@ -713,14 +713,23 @@ class V3Engine:
                 ) from err
             self._api_record(p, ident, family, method, response, car.vin)
             await self.storage.async_save(self.profiles)
-            car.last_command_result = (
-                "accepted_unconfirmed" if 200 <= response.status < 300
-                else f"request_failed_{response.status}"
-            )
             if not 200 <= response.status < 300:
-                raise RuntimeError(
-                    "Audi rejected the selected vehicle command"
-                )
+                car.last_command_result = f"request_failed_{response.status}"
+                raise RuntimeError("Audi rejected the selected vehicle command")
+            car.last_command_result = "accepted_unconfirmed"
+            if family == "cariad":
+                from .request_status import confirm, request_id_of
+                request_id = request_id_of(response.data)
+                if request_id is not None:
+                    outcome = await confirm(self.transport, car.vin, request_id)
+                    car.last_command_result = outcome
+                    if outcome == "rejected":
+                        raise RuntimeError(
+                            "Audi vehicle rejected the command; no automatic retry"
+                        )
+            # Even 'backend_completed' means command execution confirmed by
+            # Audi's backend, not proof of actual vehicle state. Scheduled
+            # V3 read-only polling remains the physical state source.
 
 
     async def send_setting(self, vin: str, kind: str, value: Any) -> None:
