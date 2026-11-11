@@ -259,6 +259,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         self.attribute = attribute
         self._attr_unique_id = f'{vehicle.vin.lower()}_sensor_{attribute["entity_key"]}'
         contract = contract_for(attribute["entity_key"])
+        self._allow_last_known = contract.get("display_last_known", False) is True
         self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
         self._attr_native_unit_of_measurement = contract.get("unit")
         if contract.get("device_class"):
@@ -273,7 +274,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     @property
     def available(self) -> bool:
         reading = self.vehicle.readings.get(self.attribute["id"])
-        return _reading_available(reading, allow_last_known=True)
+        return _reading_available(reading, allow_last_known=self._allow_last_known)
 
     @property
     def native_value(self):
