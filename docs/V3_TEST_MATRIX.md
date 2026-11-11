@@ -1,13 +1,13 @@
 # Audi Connect V3 — release acceptance matrix and migration gates
 
-## 3.0.0b4 code gates
+## 3.0.0b5 discovery test gates
 
 | Gate | Automated criterion | Live criterion |
 |---|---|---|
 | HACS/manifest | Beta version/tag match; hassfest + HACS validation | HACS install/rollback |
 | Runtime | V3 coordinator is not a subclass of V2 | Exactly one polling task |
 | Transport | Auth boundary only shared; approved CARIAD/GraphQL hosts | Q8 region/credential works |
-| Minimal entities | Only Climate, Cloud, Age, Capability, Poll, Refresh | No active old V2 switches |
+| Minimal entities | Climate, Cloud, Age, Capability, Poll, Refresh plus discovered read-only sensors/binary sensors | No active old V2 switches |
 | Entity IDs | Climate/cloud/age IDs preserved | No broken automations after V2 rollback |
 | Status discovery | GET schema/freshness and alternatives; 429 inconclusive | Valid Q8 climate state & timestamp |
 | Control test | Requires user click and post-action confirmation | Q8 Start / Stop physically verified |
