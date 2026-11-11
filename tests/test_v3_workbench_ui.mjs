@@ -55,3 +55,44 @@ test("Save candidate survives route selection and rerender", async () => {
   await panel._routes();
   assert.equal(panel.routeChoice, routes[1].id);
 });
+
+test("Workbench has three steps and keeps V2 backlog separate from verified attributes", async () => {
+  const panel = new Panel();
+  panel.step = 1;
+  panel.entries = [{entry_id:"entry", vehicles:[{vin:"TESTVIN",name:"Audi",model:"Q8"}]}];
+  panel.selected="entry"; panel.vin="TESTVIN";
+  panel.capabilityStatus = {counts:{
+    v2_attribute_inventory:109,v2_control_inventory:21,v3_verified_attributes:1,
+  },rows:[
+    {capability:"charging",aspect:"status",attribute:"stateOfCharge",
+      entity_key:"state_of_charge",status:"verified",source:"v3_live_evidence",
+      api_family:"cariad",path:"charging.batteryStatus.value.currentSOC_pct"},
+    {capability:"remote",aspect:"control",attribute:"lock",
+      status:"migration_pending",source:"v2_control_reference"},
+  ]};
+  panel.render();
+  assert.match(panel.shadowRoot.innerHTML,/Inventory & status/);
+  assert.match(panel.shadowRoot.innerHTML,/Select capability/);
+  assert.match(panel.shadowRoot.innerHTML,/Configure & test/);
+  assert.match(panel.shadowRoot.innerHTML,/109/);
+  assert.match(panel.shadowRoot.innerHTML,/21/);
+  assert.match(panel.shadowRoot.innerHTML,/1 verified/);
+  await panel._click({target:{closest:() => ({dataset:{action:"step-2"}})}});
+  assert.equal(panel.step,2);
+  assert.match(panel.shadowRoot.innerHTML,/state_of_charge/);
+  panel.api=async (name,data) => {
+    assert.equal(name,"attribute_routes");
+    assert.equal(data.attribute,"stateOfCharge");
+    return {routes:[{id:"cariad.selectivestatus.batch",family:"cariad",
+      method:"GET",kind:"shared_batch",result:"verified",
+      path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}"}],
+      active:"cariad.selectivestatus.batch"};
+  };
+  await panel._click({target:{closest:() => ({dataset:{
+    action:"select-attribute",capability:"charging",attribute:"stateOfCharge"
+  }})}});
+  assert.equal(panel.step,3);
+  assert.equal(panel.attribute,"stateOfCharge");
+  assert.match(panel.shadowRoot.innerHTML,/Activate for polling/);
+  assert.match(panel.shadowRoot.innerHTML,/Advanced · define another API path/);
+});

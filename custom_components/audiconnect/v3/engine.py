@@ -467,7 +467,13 @@ class V3Engine:
         route = get_read_variant(attribute, operation, profile.attribute_custom)
         path = route["path"].replace("{VIN}", car.vin)
         if "{JOBS}" in path:
-            path = path.replace("{JOBS}", ",".join(planned_jobs(car, profile)))
+            jobs = list(planned_jobs(car, profile))
+            required = ATTRIBUTES[attribute]["job"]
+            # Manual discovery of a missing attribute must include its own job,
+            # even if the regular vehicle poll already pruned unobserved jobs.
+            if required and required not in jobs:
+                jobs.append(required)
+            path = path.replace("{JOBS}", ",".join(jobs))
         return route["family"], path, route["response_paths"]
 
     def _record_attribute_response(self, car: V3Vehicle, profile: DevelopmentProfile,

@@ -231,3 +231,87 @@ async def test_stale_status_can_try_distinct_get_candidate():
     assert engine.profiles[VIN.lower()].active["climate.status"] == (
         "cariad.climate.status.probe"
     )
+
+@pytest.mark.asyncio
+async def test_historical_sensors_recovered_and_targeted_selection_affects_real_poll():
+    """One source response -> two attributes; selected alternate GET -> real poll."""
+    stamp = datetime.now(UTC).isoformat()
+    def snapshot(*, climate=True, charging=True):
+        payload = {}
+        if climate:
+            payload["climatisation"] = {"climatisationStatus": {"value": {
+                "climatisationState": "off", "carCapturedTimestamp": stamp}}}
+        if charging:
+            payload["charging"] = {"batteryStatus": {"value": {
+                "currentSOC_pct": 61, "carCapturedTimestamp": stamp}},
+                "chargingStatus": {"value": {
+                    "chargingState": "charging", "carCapturedTimestamp": stamp}}}
+        return V3Response(200, payload, datetime.now(UTC), 99)
+    engine, transport, store = engine_for(
+        snapshot(),       # first shared V3 batch
+        snapshot(climate=False),  # explicitly requested targeted charging test
+        snapshot(charging=False),  # subsequent normal batch (climate only)
+        snapshot(climate=False),  # selected targeted charging GET
+    )
+    await engine.poll()
+    car = engine.require_vehicle(VIN)
+    profile = engine.profiles[VIN.lower()]
+    assert car.readings["stateOfCharge"]["value"] == 61
+    assert car.readings["chargingState"]["value"] == "charging"
+    assert profile.attribute_routes["stateOfCharge"] == "cariad.selectivestatus.batch"
+    assert len([call for call in transport.calls if len(call) > 1]) == 1
+    result = await engine.test_attribute_route(
+        VIN, "stateOfCharge", "cariad.selectivestatus.targeted"
+    )
+    assert result["result"] == "verified"
+    assert profile.attribute_routes["stateOfCharge"] == "cariad.selectivestatus.batch"
+    await engine.save_attribute_candidate(VIN, "stateOfCharge", "cariad.selectivestatus.targeted")
+    await engine.activate_attribute_route(VIN, "stateOfCharge", "cariad.selectivestatus.targeted")
+    assert profile.attribute_routes["stateOfCharge"] == "cariad.selectivestatus.targeted"
+    await engine.poll()
+    requests = [call for call in transport.calls if len(call) > 1]
+    assert len(requests) == 4
+    assert requests[-1][2].endswith("selectivestatus?jobs=charging")
+    assert requests[-1][1] == "GET"
+    assert all(call[1] == "GET" for call in requests)
+    restored = await store.async_load(engine.registry, {VIN.lower(): car.context})
+    assert restored[VIN.lower()].attribute_routes["stateOfCharge"] == (
+        "cariad.selectivestatus.targeted"
+    )
+
+
+@pytest.mark.asyncio
+async def test_manual_batch_probe_includes_requested_job_even_if_unobserved():
+    engine, transport, _ = engine_for(status())
+    await engine.poll()
+    car = engine.require_vehicle(VIN)
+    profile = engine.profiles[VIN.lower()]
+    profile.attribute_routes.pop("stateOfCharge", None)
+    profile.attribute_evidence.pop("stateOfCharge", None)
+    family, path, mappings = engine._attribute_request(
+        car, profile, "stateOfCharge", "cariad.selectivestatus.batch"
+    )
+    assert family == "cariad"
+    assert "charging" in path.split("jobs=")[-1].split(",")
+    assert any("currentSOC_pct" in name for name in mappings)
+
+
+@pytest.mark.asyncio
+async def test_failed_http_probe_does_not_mutate_attribute_state_or_ability():
+    engine, transport, _ = engine_for(
+        status(),
+        V3Response(403, {"charging": {"batteryStatus": {"value": {
+            "currentSOC_pct": 88,
+            "carCapturedTimestamp": datetime.now(UTC).isoformat(),
+        }}}}, datetime.now(UTC)),
+    )
+    await engine.poll()
+    result = await engine.test_attribute_route(
+        VIN, "stateOfCharge", "cariad.selectivestatus.targeted"
+    )
+    assert result["result"] == "api_error"
+    assert "stateOfCharge" not in engine.require_vehicle(VIN).readings
+    with pytest.raises(ValueError, match="verify fresh"):
+        await engine.activate_attribute_route(
+            VIN, "stateOfCharge", "cariad.selectivestatus.targeted"
+        )
