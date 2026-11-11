@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
-from aiohttp import ClientResponseError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .auth import V3Auth

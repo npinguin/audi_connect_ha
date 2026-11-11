@@ -58,8 +58,8 @@ class V3Vehicle:
 
     @property
     def climate_supported(self) -> bool | None:
-        """Unknown until a valid schema is observed; command is separate."""
-        return self.climate_state is not None
+        """No hard unsupported verdict from merely missing cloud data."""
+        return True if self.climate_state is not None else None
 
     def set_climate(
         self, value: Any, captured: Any, *,
