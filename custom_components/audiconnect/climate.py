@@ -61,18 +61,20 @@ async def async_setup_entry(
             hass, "climate", "climatisation", vehicle, _ATTR_KEY
         )
         if modern_v3:
-            check = getattr(vehicle, "has_capability", None)
-            create = create or (
-                callable(check) and check("climatisation") is True
+            # Capability aspects are optional and independent. Control-only
+            # climate must be constructible without a current status reading,
+            # including after the user explicitly opts into testing an UNKNOWN
+            # capability. An explicit negative verdict still blocks control.
+            entity = AudiV3Climate(
+                runtime_data.coordinator, vehicle, runtime_data.v3
             )
+            create = create or entity._may_control
         if not create:
             continue
-        # V3 reuses the existing unique ID; unsupported commands are disabled
-        # without destroying the status entity or its automation history.
+        # Preserve the same unique ID and registry history. Other V2 climate
+        # features remain untouched until individually migrated.
         if modern_v3:
-            entities.append(
-                AudiV3Climate(runtime_data.coordinator, vehicle, runtime_data.v3)
-            )
+            entities.append(entity)
         else:
             entities.append(AudiClimate(runtime_data.coordinator, vehicle))
     async_add_entities(entities)

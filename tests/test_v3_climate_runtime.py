@@ -250,3 +250,40 @@ def test_trusted_manufacturer_q8_metadata_is_coarse_model_hint():
     assert runtime.resolve(car, "start")["operation"] == (
         "cariad.climate.start.stored"
     )
+
+
+
+def test_v3_control_only_entity_can_be_added_without_status(monkeypatch):
+    from custom_components.audiconnect import climate as climate_module
+
+    entity, _, runtime, car, coordinator = build(
+        state=None, authorized=None,
+        opts={
+            "runtime_version": "v3_climate",
+            "v3_climate_experimental_unknown": True,
+        }
+    )
+    assert entity._reported_mode is None
+    assert entity._may_control
+
+    monkeypatch.setattr(
+        climate_module, "should_create_entity", lambda *_args, **_kwargs: False
+    )
+    entry = NS(
+        runtime_data=NS(
+            v3=runtime,
+            account=NS(config_vehicles=[NS(vehicle=car)]),
+            coordinator=coordinator,
+        ),
+        data={"region": "EU"},
+        options=runtime.config_entry.options,
+    )
+    added = []
+    asyncio.run(
+        climate_module.async_setup_entry(
+            None, entry, lambda entities: added.extend(entities)
+        )
+    )
+    assert len(added) == 1
+    assert isinstance(added[0], AudiV3Climate)
+    assert added[0].unique_id == entity.unique_id
