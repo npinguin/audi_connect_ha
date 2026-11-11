@@ -414,6 +414,8 @@ class AudiConnectV3Panel extends HTMLElement {
               stale vehicle readings are not current.</p>
             <div class="line" style="justify-content:flex-start;gap:16px;font-size:12px;margin-bottom:14px">
               <span><b>${escapeHTML(counts.v2_attribute_inventory??0)}</b> V2 attribute references</span>
+              <span><b>${escapeHTML(counts.v2_unique_attributes??counts.v2_attribute_inventory??0)}</b> unique attributes</span>
+              <span><b>${escapeHTML(counts.v2_alias_references??0)}</b> aliases (not duplicate functions)</span>
               <span><b>${escapeHTML(counts.v2_control_inventory??0)}</b> V2 controls</span>
               <span><b>${escapeHTML(counts.v3_verified_attributes??0)}</b> V3 verified attributes</span>
               <span><b>${escapeHTML(counts.verified_working??0)}</b> verified</span>

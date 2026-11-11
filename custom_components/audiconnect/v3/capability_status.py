@@ -13,7 +13,7 @@ from typing import Any
 
 from .development_profiles import DevelopmentProfile
 from .vehicle import V3Vehicle
-from .historical_catalog import INVENTORY
+from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .legacy_read_mappings import variant_for as legacy_variant_for
 
 # Source: V2 capability_jobs.BASE_SELECTIVE_JOBS and api_probe.py.
@@ -152,7 +152,7 @@ def build_status_report(
             "context_applicable": None,
         })
 
-    for attr in INVENTORY["attributes"]:
+    for attr in CANONICAL_ATTRIBUTES.values():
         evidence = profile.attribute_evidence.get(attr["id"], {})
         selected = profile.attribute_routes.get(attr["id"])
         legacy = legacy_variant_for(attr["id"])
@@ -193,6 +193,8 @@ def build_status_report(
     counts = {
         "total": len(rows),
         "v2_attribute_inventory": len(INVENTORY["attributes"]),
+        "v2_unique_attributes": len(CANONICAL_ATTRIBUTES),
+        "v2_alias_references": len(ALIAS_OF),
         "v2_control_inventory": len(INVENTORY["controls"]),
         "v3_verified_attributes": sum(r["source"] == "v3_live_evidence" and r["status"] == "verified" for r in rows),
         "v2_unmapped_attributes": sum(r["status"] == "mapping_pending" for r in rows),

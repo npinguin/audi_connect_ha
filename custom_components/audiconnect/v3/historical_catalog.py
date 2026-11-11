@@ -1612,6 +1612,20 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
 V2_JOBS = tuple(row["id"] for row in INVENTORY["jobs"])
 ATTRIBUTES = {row["id"]: row for row in INVENTORY["attributes"]}
 CONTROLS = {row["id"]: row for row in INVENTORY["controls"]}
+# Preserve all raw historical references, but one Home Assistant unique ID
+# must never be counted twice in the user-facing capability inventory.
+_CANONICAL_BY_ENTITY = {
+    row["entity_key"]: row["id"] for row in INVENTORY["attributes"] if row["paths"]
+}
+ALIAS_OF = {
+    row["id"]: _CANONICAL_BY_ENTITY[row["entity_key"]]
+    for row in INVENTORY["attributes"]
+    if not row["paths"] and row["entity_key"] in _CANONICAL_BY_ENTITY
+}
+CANONICAL_ATTRIBUTES = {
+    name: row for name, row in ATTRIBUTES.items() if name not in ALIAS_OF
+}
+
 
 def read_path(payload: Any, dotted_path: str) -> Any:
     node = payload
