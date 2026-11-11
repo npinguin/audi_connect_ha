@@ -1,0 +1,77 @@
+# ADR — Shared Audi account, switchable V2/V3 runtime and stable HA entities
+
+**Status:** accepted engineering direction; migration NOT yet implemented.
+**Priority:** V2 parity first. Media, new Trips and other roadmap features remain out of scope until validated.
+
+## Objective
+
+One Audi Connect integration installation and config entry. Reuse the existing V2 Audi account, authentication, region, credentials, S-PIN, VIN ownership and Home Assistant device registry. Let the user switch the selected data/command engine between V2 and V3 without reconfiguration or changing entity IDs in dashboards, templates, scripts, automations, Recorder/statistics or RHI Mobility references.
+
+The switch currently triggers a Home Assistant config-entry unload/reload, **not** a zero-downtime hot swap. No new login or pairing should be required and only one active engine may poll/send commands.
+
+## Reality in b7, versus target
+
+| Layer | Existing V3 implementation | Required target |
+|---|---|---|
+| Config entry | Same V2 entry, options switch | Keep |
+| Account | `AudiRuntimeData(account=None)` | Reuse one Audi account/session owner |
+| Authentication | `V3Auth` creates its own `AudiService/AudiAPI` instance and manages refresh tokens | One token owner, one refresh lifecycle |
+| Polling | Independent V3 coordinator, separate from V2 | Keep exactly one active coordinator |
+| Data model | Independent V3 Vehicle/attribute schema | Keep V3 clean; normalized fields feed the old HA contracts |
+| HA service routing | V2-only service registration, handlers resolve V2 `config_vehicles` | One service facade, dispatch to active engine by VIN |
+| HA platforms | V3 forwards six versus V2 nine | All nine platforms with stable native entities |
+| Registry handling | Legacy V3 migration disabled historical entries (59 in Q8 diagnostic) | Never disable/remove V2 IDs on runtime change; restore recorded disablements |
+| HA metadata | 15 car sensors and 11 car binary sensors tagged diagnostic in V2 | Vehicle data in ordinary Sensors/Binary sensors, technical health in Diagnostics |
+
+The shared account must **not** mean V3 secretly calls `AudiAccount.async_refresh_data` or V2 vehicle methods: these start V2 polling and transformations. Reuse login/session/device identity but dispatch data reads/commands to the selected independent runtime.
+
+## Architecture
+
+```text
+Audi Connect config entry / account / session / refresh token / region
+ ├─ stable HA device (identifier = VIN), stable entity unique IDs
+ ├─ stable native HA entity contracts, all nine platforms
+ ├─ stable audiconnect.* service IDs and parameters
+ ├─ dispatch + command authorization layer
+ └─ runtime switch (HA config-entry reload; one active owner)
+     ├─ V2: existing coordinator/vehicle model/command adapter
+     └─ V3: new coordinator/normalized attrs/declared API executors
+```
+
+### Identity contract
+
+- Do not rename `entity_id` or `unique_id`; `{vin_lower}_{platform}_{key}` is canonical, plus existing account-level IDs.
+- A V3 entity that represents a historical V2 function MUST reuse the exact V2 unique ID and HA platform; a new V3-specific entity gets a distinct name without hijacking an existing V2 ID.
+- No duplicate vehicle devices, no delete/recreate of the config entry or entity registry, no user setting overwrite.
+- Missing/old cloud data may make an entity unavailable, but **never** mass-disable registry entries or silently change IDs.
+- Respect `RegistryEntryDisabler.USER`. Restore only integration disablements previously recorded by our own V3 visibility migration.
+- Capability-disabled commands are safely unavailable or rejected; the user-visible entity identity remains stable.
+
+### Presentation contract
+
+Home Assistant entity category is NOT the data's API capability and NOT `device_class` or `state_class`.
+
+- **Sensors / Binary sensors:** vehicle data (SoC, range, mileage, charging, doors/windows/lights, parking, maintenance, driving, charge profiles/timers).
+- **Controls:** climate, charging buttons, numbers, select, lock; preserve device-level native HA UI.
+- **Configuration:** vehicle configurable options, e.g. climate zones, at unlock, window heating.
+- **Diagnostics:** integration/cloud health only (last poll, cloud quota, API errors, data freshness and age, discovery, retry/quota). Maintenance warnings belong to vehicle state, not cloud diagnostics.
+- Source conversion in API definitions; semantic unit/device class/state class/precision in attribute contracts. HA entities only present normalized values.
+- Do not fabricate Recorder `state_class` just to silence existing repair warnings. Check statistics against V2 separately.
+- Reclassifying entities changes only the entity category. Never modify unique IDs or delete Recorder history.
+
+### Service contract
+
+Register every V2 HA service under the same `audiconnect.*` identifier in either runtime. Resolve the VIN from the HA device registry, check ownership and V3/V2 selection, invoke the **current** runtime adapter. Keep all schemas, aliases and 11 execute_vehicle_action options. A shared account does not authorize a command.
+
+Every physical command: explicit user action → VIN capability and credentials → exact safe API family/payload → requestID pending/finished check → observed vehicle readback. Accepted HTTP != completed physical action. No automatic POST, no blind retries and no S-PIN leakage.
+
+### Implementation stages
+
+1. **Implemented in patch branch:** stop V3 registry auto-disable; restore old integration-disabled registry entries owned by the config entry. Reclassify V2/V3 ordinary vehicle data away from Diagnostics. Add drift and identity tests.
+2. **Not yet implemented:** share one Audi account/auth/token owner with V3 instead of constructing a second `AudiService`.
+3. **Not yet implemented:** service dispatch facade for all existing `audiconnect.*` actions with per-VIN independent V3 command implementation.
+4. **Not yet implemented:** implement V3-compatible number/select/device_tracker and complete the other six platforms; reuse all historic V2 unique IDs.
+5. **Not yet implemented:** prove all V2 read-only fields, derived statuses, UI settings, command requestID lifecycle and 13 Recorder migrations.
+6. **Required accept:** V2→V3→V2→V3 on the Q8, no renames or HA code changes, active polling and service calls work, physical actions validated on authorized vehicle.
+
+The [full parity matrix](V2_V3_PARITY_MATRIX.md) and [JSON baseline](V2_V3_PARITY_BASELINE.json) are the per-feature checklist; this ADR is the architecture/identity/presentation contract. Keep V2 the production fallback until all gates pass.
