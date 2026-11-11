@@ -16,6 +16,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.aspect = "status";
     this.routeChoice = "";
     this.routes = [];
+    this.capabilityStatus = {counts: {}, rows: []};
     this.pending = null;
     this.lastResult = null;
     this.error = "";
@@ -57,12 +58,21 @@ class AudiConnectV3Panel extends HTMLElement {
         this.vin = group?.vehicles[0]?.vin || "";
       }
       await this._routes();
+      await this._loadCapabilityStatus();
       this.error = "";
     } catch (err) {
       this.error = String(err.message || err);
     } finally {
       this.loading = false; this.render();
     }
+  }
+
+  async _loadCapabilityStatus() {
+    if (!this.selected || !this.vin) {
+      this.capabilityStatus = {counts: {}, rows: []};
+      return;
+    }
+    this.capabilityStatus = await this.api("status", this.selection);
   }
 
   async _routes() {
@@ -107,6 +117,7 @@ class AudiConnectV3Panel extends HTMLElement {
   async _reloadRoutes() {
     try {
       await this._routes();
+      await this._loadCapabilityStatus();
       this.error = "";
     } catch (err) {
       this.error = String(err.message || err);
@@ -160,6 +171,7 @@ class AudiConnectV3Panel extends HTMLElement {
         });
       }
       await this._routes();
+      await this._loadCapabilityStatus();
       const list = await this.api("list");
       this.entries = list.integrations || [];
     } catch (err) {
@@ -195,6 +207,9 @@ class AudiConnectV3Panel extends HTMLElement {
       r.id === selectedRoute && r.outcome === "worked"
     );
     const status = car?.climate_state ?? "unknown";
+    const coverage = this.capabilityStatus || {counts: {}, rows: []};
+    const counts = coverage.counts || {};
+    const rows = coverage.rows || [];
     const bg = "var(--primary-background-color, #f8fafc)";
     const body = "var(--primary-text-color, #111827)";
     this.shadowRoot.innerHTML = `
@@ -238,6 +253,14 @@ class AudiConnectV3Panel extends HTMLElement {
         pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--secondary-background-color,#f8fafc);
           padding:14px;border-radius:9px;font-size:12px;max-height:340px;overflow:auto}
         .foot{font-size:12px;margin-top:25px}
+        .coverage-table{max-height:400px;overflow:auto}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th{text-align:left;font-weight:700;color:var(--secondary-text-color,#64748b);
+          padding:11px 10px;position:sticky;top:0;background:var(--card-background-color,white);
+          border-bottom:1px solid var(--divider-color,#d1d5db)}
+        td{padding:11px 10px;vertical-align:top;border-bottom:1px solid var(--divider-color,#e2e8f0)}
+        .subline{font-size:11px;opacity:.8;margin-top:4px}
+        .coverage-note{font-size:12px;margin:10px 0 0}
         @media(max-width:780px){main{padding:18px 12px}.grid,.cards{grid-template-columns:1fr}h1{font-size:21px}}
       </style>
       <main>
@@ -267,6 +290,42 @@ class AudiConnectV3Panel extends HTMLElement {
               <div class="stat">${car.start_enabled?"Start ready":"Start unverified"}</div>
               <div class="summary">${car.stop_enabled?"Stop ready":"Stop unverified"} · API quota: ${escapeHTML(item.quota??"unknown")}</div></div>
           </div>
+          <section class="card" style="margin-bottom:18px">
+            <div class="eyebrow">Capability discovery / evidence</div>
+            <h2>What works — and through which API?</h2>
+            <p>Known from V2 does not mean discovered by V3.
+              Read-only attributes and controls have independent evidence;
+              stale vehicle readings are not current.</p>
+            <div class="line" style="justify-content:flex-start;gap:16px;font-size:12px;margin-bottom:14px">
+              <span><b>${escapeHTML(counts.verified_working??0)}</b> verified</span>
+              <span><b>${escapeHTML(counts.not_tested??0)}</b> not tested</span>
+              <span><b>${escapeHTML(counts.stale??0)}</b> stale</span>
+              <span><b>${escapeHTML(counts.reported_failed??0)}</b> failed</span>
+              <span><b>${escapeHTML(counts.v2_reference_only??0)}</b> known V2 / not migrated</span>
+            </div>
+            <details>
+              <summary style="cursor:pointer;font-weight:700;padding:8px 0">
+                Show ${escapeHTML(rows.length)} capability, attribute and control records
+              </summary>
+              <div class="coverage-table"><table>
+                <thead><tr><th>Capability</th><th>Attribute / Control</th>
+                  <th>API family / Path</th><th>Discovery result</th></tr></thead>
+                <tbody>${rows.map((r)=>`<tr>
+                  <td><b>${escapeHTML(r.capability)}</b>
+                    <div class="subline">${escapeHTML(r.aspect)}</div></td>
+                  <td><code>${escapeHTML(r.attribute)}</code></td>
+                  <td><b>${escapeHTML(r.api_family)}</b>
+                    <div class="subline"><code>${escapeHTML(r.method)} ${escapeHTML(r.path)}</code></div></td>
+                  <td><b>${escapeHTML(r.status)}</b>
+                    <div class="subline">${escapeHTML(r.source)}
+                    ${r.selected?" · ACTIVE":""}
+                    ${r.saved_candidate?" · SAVED CANDIDATE":""}</div></td>
+                </tr>`).join("")}</tbody>
+              </table></div>
+            </details>
+            <p class="coverage-note">${escapeHTML(coverage.notes||"")}
+              V2 reference candidates need separate V3 tests.</p>
+          </section>
           <div class="grid">
             <section class="card">
               <div class="eyebrow">01 / Capability</div>
