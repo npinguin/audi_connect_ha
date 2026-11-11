@@ -69,6 +69,24 @@ async def ws_list(hass, connection, msg):
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/status",
+    vol.Required("entry_id"): str,
+    vol.Required("vin"): str,
+})
+@websocket_api.async_response
+async def ws_status(hass, connection, msg):
+    try:
+        from .capability_status import build_status_report
+        engine = _engine(hass, msg["entry_id"])
+        vehicle = engine.require_vehicle(msg["vin"])
+        profile = engine.profiles[vehicle.vin.lower()]
+        connection.send_result(msg["id"], build_status_report(vehicle, profile))
+    except (ValueError, KeyError, RuntimeError) as exc:
+        connection.send_error(msg["id"], "v3_status_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/routes",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("aspect"): vol.In(("status", "start", "stop")),
@@ -236,7 +254,7 @@ async def async_setup_dashboard(hass) -> None:
         StaticPathConfig("/audiconnect_v3", str(frontend_dir), False)
     ])
     for handler in (
-        ws_list, ws_routes, ws_add_route, ws_test,
+        ws_list, ws_status, ws_routes, ws_add_route, ws_test,
         ws_review, ws_select, ws_save_candidate, ws_disable,
     ):
         websocket_api.async_register_command(hass, handler)

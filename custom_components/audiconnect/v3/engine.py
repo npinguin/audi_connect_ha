@@ -17,6 +17,7 @@ from .response_preview import safe_response_preview
 from .registry import CapabilityRegistry
 from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
+from .freshness import timestamp_is_fresh
 
 
 def _captured(data: Any, path: str | None) -> str | None:
@@ -120,6 +121,7 @@ class V3Engine:
         self.last_cloud_poll_attempt = datetime.now(UTC)
         if not self._known_vehicle_inventory:
             await self.discover()
+        cloud_reachable = False
         for key, vehicle in self.vehicles.items():
             profile = self.profiles[key]
             routes = profile.registry.resolve(
@@ -147,14 +149,20 @@ class V3Engine:
                     response = await self.transport.request(family, method, path)
                 except (TimeoutError, OSError, RuntimeError):
                     break  # Network outage is not evidence of unsupported capability
+                if 200 <= response.status < 300:
+                    cloud_reachable = True
                 value, field = profile.registry.extract(ident, response.data)
                 captured = _captured(response.data, field)
-                valid = vehicle.set_climate(
-                    value, captured, route=ident, observed_at=response.observed_at,
-                    http_status=response.status,
+                valid = (
+                    200 <= response.status < 300
+                    and vehicle.set_climate(
+                        value, captured, route=ident,
+                        observed_at=response.observed_at, http_status=response.status,
+                    )
                 )
-                if valid and 200 <= response.status < 300:
-                    fresh = bool(captured)
+                if valid:
+                    vehicle.climate_field = field
+                    fresh = timestamp_is_fresh(captured, response.observed_at)
                     profile.record_status(
                         "climate", ident, http_status=response.status,
                         schema_valid=True, fresh=fresh,
@@ -168,7 +176,8 @@ class V3Engine:
                 )
                 if response.status in (401, 403, 429) or response.status >= 500:
                     break
-        self.last_cloud_poll_success = datetime.now(UTC)
+        if cloud_reachable:
+            self.last_cloud_poll_success = datetime.now(UTC)
         # One local write per scheduled discovery cycle; keep learned routes
         # and evidence across HA restarts without touching integration options.
         await self.storage.async_save(self.profiles)
@@ -278,11 +287,16 @@ class V3Engine:
         response = await self.transport.request(family, method, path)
         field_value, field = p.registry.extract(operation, response.data)
         timestamp = _captured(response.data, field)
-        valid = car.set_climate(
-            field_value, timestamp, route=operation,
-            observed_at=response.observed_at, http_status=response.status,
+        valid = (
+            200 <= response.status < 300
+            and car.set_climate(
+                field_value, timestamp, route=operation,
+                observed_at=response.observed_at, http_status=response.status,
+            )
         )
-        fresh = bool(timestamp and valid)
+        if valid:
+            car.climate_field = field
+        fresh = bool(valid and timestamp_is_fresh(timestamp, response.observed_at))
         verdict = p.record_status(
             "climate", operation, http_status=response.status,
             schema_valid=valid, fresh=fresh,

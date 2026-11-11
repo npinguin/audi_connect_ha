@@ -22,6 +22,7 @@ class V3Vehicle:
     climate_captured: datetime | None = None
     last_status_observed: datetime | None = None
     climate_source: str | None = None
+    climate_field: str | None = None
     climate_http_status: int | None = None
     last_command_result: str | None = None
 

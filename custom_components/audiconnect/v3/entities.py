@@ -58,21 +58,28 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
 
     @property
     def available(self) -> bool:
+        age = self.vehicle.capture_age_minutes
+        status_current = (
+            self.vehicle.climate_state is not None
+            and age is not None and age <= 60
+        )
         return self.coordinator.last_update_success and (
-            self.vehicle.climate_state is not None or bool(self.supported_features)
+            status_current or bool(self.supported_features)
         )
 
     @property
     def hvac_mode(self) -> HVACMode | None:
         state = self.vehicle.climate_state
-        if state is None:
+        age = self.vehicle.capture_age_minutes
+        if state is None or age is None or age > 60:
             return None
         return HVACMode.OFF if state in ("off", "stopped", "inactive") else HVACMode.HEAT_COOL
 
     @property
     def hvac_action(self) -> HVACAction | None:
         state = self.vehicle.climate_state
-        if state is None:
+        age = self.vehicle.capture_age_minutes
+        if state is None or age is None or age > 60:
             return None
         return {
             "off": HVACAction.OFF, "stopped": HVACAction.OFF,
@@ -165,6 +172,9 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
             return "online" if self.coordinator.last_update_success else "failed"
         if self.vehicle.climate_state is None:
             return "unknown"
+        age = self.vehicle.capture_age_minutes
+        if age is None or age > 60:
+            return "stale_status"
         if self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
             return "status_and_control"
         return "status_only"
