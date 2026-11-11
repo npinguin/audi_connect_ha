@@ -402,7 +402,7 @@ async def ws_control_disable(hass, connection, msg):
         )
         connection.send_result(msg["id"], {"disabled": True})
     except (ValueError, KeyError, RuntimeError) as exc:
-        connection.send_error(msg["id"], "v3_control_disable_failed", str(exc)
+        connection.send_error(msg["id"], "v3_control_disable_failed", str(exc))
 
 
 async def async_setup_dashboard(hass) -> None:
