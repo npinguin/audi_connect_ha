@@ -5,7 +5,10 @@ import vm from "node:vm";
 let Panel;
 class FakeElement {
   attachShadow() {
-    return {addEventListener() {}, innerHTML: "", getElementById() {return null;}};
+    this.shadowRoot = {
+      addEventListener() {}, innerHTML: "", getElementById() {return null;},
+    };
+    return this.shadowRoot;
   }
 }
 vm.runInNewContext(
