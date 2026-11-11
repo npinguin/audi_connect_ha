@@ -23,6 +23,8 @@ from .attribute_runtime import planned_jobs, observe_read_only
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
 from .legacy_read_mappings import FIELDS as MBB_FIELDS
+from .legacy_read_mappings import ROUTES as MBB_ROUTES
+from .historical_catalog import V2_JOBS
 from .read_discovery import record_jobs, pending_groups, reserve_group, summary as discovery_summary
 from ..const import CONF_FILTER_VINS
 
@@ -152,6 +154,75 @@ class V3Engine:
             payload=response.data if response else None, vin=vin,
             at=response.observed_at if response else None,
         ))
+
+    async def test_family_reads(self, vin: str, family: str) -> dict[str, Any]:
+        """Explicit, bounded read-only API-family sweep, never remote commands.
+
+        CARIAD: one 23-job GET plus at most two targeted mapped GET groups.
+        Legacy MBB: at most charger and climater GETs, only for legacy auth.
+        The API cloud budget remains enforced by V3Transport.
+        """
+        vehicle = self.require_vehicle(vin)
+        expected = "mbb" if vehicle.context.auth == "legacy" else "cariad"
+        if family != expected:
+            raise ValueError("API family is not applicable to this vehicle")
+        profile = self.profiles[vehicle.vin.lower()]
+        outcomes: list[dict[str, Any]] = []
+        if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+            raise RuntimeError("Audi quota is low; read-only scan has been suspended")
+        if family == "cariad":
+            plans = [("cariad.discovery.full",
+                      "/vehicle/v1/vehicles/" + vehicle.vin
+                      + "/selectivestatus?jobs=" + ",".join(V2_JOBS),
+                      tuple(V2_JOBS))]
+        else:
+            plans = [(f"mbb.discovery.{kind}",
+                      template.format(VIN=vehicle.vin, TYPE="Audi", COUNTRY=vehicle.country),
+                      ()) for kind, template in MBB_ROUTES.items()]
+        async def run_one(route_id: str, path: str, jobs: tuple[str, ...]) -> bool:
+            if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+                return False
+            try:
+                response = await self.transport.request(family, "GET", path)
+            except (TimeoutError, OSError, RuntimeError, ValueError):
+                self._api_record(profile, route_id, family, "GET", None, vehicle.vin)
+                outcomes.append({"operation": route_id, "http_status": None,
+                                 "result": "transport_uncertain"})
+                return False
+            self._api_record(profile, route_id, family, "GET", response, vehicle.vin)
+            outcome = "http_ok" if 200 <= response.status < 300 else "http_error"
+            if family == "cariad":
+                record_jobs(profile, jobs, status=response.status, payload=response.data)
+                if outcome == "http_ok":
+                    observe_read_only(vehicle, profile, response.data, response.observed_at)
+            elif outcome == "http_ok":
+                kind = route_id.rsplit(".", 1)[-1]
+                for attribute, (mapped_kind, field) in MBB_FIELDS.items():
+                    if kind == mapped_kind:
+                        self._record_attribute_response(
+                            vehicle, profile, attribute, f"mbb.{kind}.readonly",
+                            [field], response,
+                        )
+            outcomes.append({"operation": route_id, "http_status": response.status,
+                             "result": outcome})
+            return outcome == "http_ok"
+        for ident, path, jobs in plans:
+            if not await run_one(ident, path, jobs):
+                break
+        if family == "cariad" and outcomes and outcomes[0]["result"] == "http_ok":
+            for group in pending_groups(profile, max_groups=2):
+                path = (f"/vehicle/v1/vehicles/{vehicle.vin}/selectivestatus?jobs="
+                        + ",".join(group))
+                if not await run_one("cariad.discovery." + "_".join(group), path, group):
+                    break
+                reserve_group(profile, group)
+        await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
+        return {
+            "family": family, "request_count": len(outcomes),
+            "results": outcomes, "readable_attributes": len(vehicle.readings),
+            "note": "Only safe GET requests were sent. Stale cloud data is not current vehicle data.",
+        }
 
     def api_results_for(self, vin: str, family: str = "all") -> list[dict[str, Any]]:
         car = self.require_vehicle(vin)

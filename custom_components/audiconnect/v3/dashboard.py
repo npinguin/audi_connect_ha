@@ -422,6 +422,23 @@ async def ws_api_results(hass, connection, msg):
         connection.send_error(msg["id"], "v3_api_results_failed", str(exc))
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/test_family_reads",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("family"): vol.In(("cariad", "mbb")),
+})
+@websocket_api.async_response
+async def ws_test_family_reads(hass, connection, msg):
+    try:
+        result = await _engine(hass, msg["entry_id"]).test_family_reads(
+            msg["vin"], msg["family"]
+        )
+        connection.send_result(msg["id"], result)
+    except (ValueError, KeyError, RuntimeError, OSError, TimeoutError) as exc:
+        connection.send_error(msg["id"], "v3_family_read_test_failed", str(exc))
+
+
 async def async_setup_dashboard(hass) -> None:
     if hass.data.get(_READY_KEY):
         return
@@ -437,7 +454,7 @@ async def async_setup_dashboard(hass) -> None:
             ws_review, ws_select, ws_save_candidate, ws_disable,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
-            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results,
+            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_test_family_reads,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True
