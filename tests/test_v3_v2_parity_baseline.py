@@ -64,8 +64,10 @@ def test_full_v2_platform_and_dynamic_number_inventory():
     from custom_components.audiconnect.const import PLATFORMS
     assert set(BASE["v2_platforms"]) == {p.value for p in PLATFORMS}
     assert len(BASE["v2_platforms"]) == 9
-    assert len(BASE["v3_platforms"]) == 6
-    assert {"number", "select", "device_tracker"}.isdisjoint(BASE["v3_platforms"])
+    assert len(BASE["v3_platforms"]) == 9
+    assert set(BASE["v3_platforms"]) == set(BASE["v2_platforms"])
+    assert BASE["ha_identity_and_presentation"]["all_nine_ha_platforms_forwarded_in_v3"] is True
+    assert BASE["ha_identity_and_presentation"]["all_nine_ha_platforms_functional_parity_proven"] is False
     assert "charge_profile_{profile_id}_target_soc" in _rows("number")
     assert {"charge_mode"} == _rows("select")
     assert {"climatisation"} == _rows("climate")
