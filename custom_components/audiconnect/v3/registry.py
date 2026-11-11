@@ -93,6 +93,10 @@ class CapabilityRegistry:
             raise RegistryError("V3 catalog sections must be objects")
         if not self.capabilities or len(self.capabilities) > 30:
             raise RegistryError("Empty or excessive V3 capability catalog")
+        if self.families.get("cariad", {}).get("executor") not in (None, "cariad_v1"):
+            raise RegistryError("Unrecognized CARIAD family executor")
+        if self.families.get("mbb", {}).get("executor") not in (None, "mbb_legacy_v1"):
+            raise RegistryError("Unrecognized legacy MBB executor")
         for ident, op in self.operations.items():
             if not isinstance(op, dict):
                 raise RegistryError("Malformed operation")

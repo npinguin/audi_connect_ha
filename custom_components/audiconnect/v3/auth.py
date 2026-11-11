@@ -73,6 +73,8 @@ class V3Auth:
             token = getattr(self.service, "_bearer_token_json", None)
         elif family == "graphql":
             token = getattr(self.service, "audiToken", None)
+        elif family == "mbb":
+            token = getattr(self.service, "vwToken", None)
         else:
             raise ValueError("V3 family is not enabled")
         value = token.get("access_token") if isinstance(token, dict) else None
