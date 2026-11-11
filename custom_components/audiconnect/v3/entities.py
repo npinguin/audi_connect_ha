@@ -11,7 +11,7 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.components.climate import (
     ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode,
 )
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle
+from .attribute_contracts import contract_for
 
 
 class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
@@ -250,7 +251,17 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         super().__init__(coordinator, vehicle)
         self.attribute = attribute
         self._attr_unique_id = f'{vehicle.vin.lower()}_sensor_{attribute["entity_key"]}'
-        self._attr_name = attribute["entity_key"].replace("_", " ").capitalize()
+        contract = contract_for(attribute["entity_key"])
+        self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
+        self._attr_native_unit_of_measurement = contract.get("unit")
+        if contract.get("device_class"):
+            self._attr_device_class = SensorDeviceClass(contract["device_class"])
+        if contract.get("state_class"):
+            self._attr_state_class = SensorStateClass(contract["state_class"])
+        if contract.get("precision") is not None:
+            self._attr_suggested_display_precision = contract["precision"]
+        if contract.get("category") == "diagnostic":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def available(self) -> bool:
@@ -262,21 +273,6 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         reading = self.vehicle.readings.get(self.attribute["id"])
         value = reading.get("value") if reading else None
         return value if isinstance(value, (str, int, float, bool)) else None
-
-    @property
-    def native_unit_of_measurement(self) -> str | None:
-        name = self.attribute["entity_key"]
-        if name in ("state_of_charge", "target_state_of_charge", "tank_level"):
-            return "%"
-        if name in ("range", "hybrid_range", "mileage", "service_inspection_distance",
-                    "oil_change_distance", "service_adblue_distance"):
-            return "km"
-        if name in ("remaining_charging_time", "remaining_climatisation_time",
-                    "service_inspection_time", "oil_change_time"):
-            return "min" if name.startswith("remaining_") else "d"
-        if name == "charging_power":
-            return "kW"
-        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

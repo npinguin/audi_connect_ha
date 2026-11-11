@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 from .freshness import timestamp_is_fresh
 from .historical_catalog import ATTRIBUTES, V2_JOBS, advertised_capabilities, extract_attributes
+from .api_value_mappings import normalize_api_value, transform_for
 
 
 def planned_jobs(vehicle: Any, profile: Any) -> tuple[str, ...]:
@@ -34,6 +35,11 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
     mapped = fresh_count = 0
     for row in extract_attributes(payload):
         ident, value = row["id"], row["value"]
+        try:
+            value = normalize_api_value(value, transform_for("cariad", ident))
+        except ValueError:
+            # Misconfigured or incompatible response mapping is not a valid sensor.
+            continue
         if isinstance(value, str) and value.strip().lower() in (
             "unknown", "invalid", "unsupported", "unavailable", "error", ""
         ):

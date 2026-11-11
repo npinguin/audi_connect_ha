@@ -24,6 +24,7 @@ from .attribute_routes import get_read_variant, read_variants, validate_custom_r
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
 from .legacy_read_mappings import FIELDS as MBB_FIELDS
 from .legacy_read_mappings import ROUTES as MBB_ROUTES
+from .api_value_mappings import normalize_api_value
 from .historical_catalog import V2_JOBS
 from .read_discovery import record_jobs, pending_groups, reserve_group, summary as discovery_summary
 from ..const import CONF_FILTER_VINS
@@ -737,7 +738,12 @@ class V3Engine:
             value = None
         if isinstance(value, list) and not value:
             value = None
-        family = get_read_variant(attribute, operation, profile.attribute_custom)["family"]
+        variant = get_read_variant(attribute, operation, profile.attribute_custom)
+        family = variant["family"]
+        try:
+            value = normalize_api_value(value, variant.get("conversion"))
+        except ValueError:
+            value = None
         captured = capture_time(response.data, field) if value is not None else None
         fresh = timestamp_is_fresh(captured, response.observed_at)
         if not 200 <= response.status < 300:

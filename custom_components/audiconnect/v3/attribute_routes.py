@@ -8,6 +8,7 @@ import re
 from typing import Any, Mapping
 from .historical_catalog import ATTRIBUTES
 from .legacy_read_mappings import variant_for
+from .api_value_mappings import transform_for, validate_transform
 
 _BASE = "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}"
 _ID = re.compile(r"^user\.read\.[a-z][a-z0-9_]{0,40}$")
@@ -15,9 +16,8 @@ _PATH = re.compile(r"^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*$")
 
 
 def validate_custom_read_route(value: Mapping[str, Any]) -> dict[str, Any]:
-    if not isinstance(value, Mapping) or set(value) != {
-        "id", "attribute", "family", "method", "path", "response_path"
-    }:
+    required = {"id", "attribute", "family", "method", "path", "response_path"}
+    if not isinstance(value, Mapping) or not required <= set(value) or set(value) - required - {"conversion"}:
         raise ValueError("Invalid custom read route fields")
     ident, attr = value["id"], value["attribute"]
     if not isinstance(ident, str) or not _ID.fullmatch(ident) or attr not in ATTRIBUTES:
@@ -33,6 +33,8 @@ def validate_custom_read_route(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("Only the VIN placeholder is permitted")
     if not isinstance(mapping, str) or len(mapping) > 180 or not _PATH.fullmatch(mapping):
         raise ValueError("Invalid response mapping")
+    if "conversion" in value:
+        validate_transform(value["conversion"])
     return dict(value)
 
 
@@ -44,19 +46,23 @@ def read_variants(attribute: str, custom: Mapping[str, dict[str, Any]]) -> list[
     if field["paths"] and field["job"]:
         variants.extend((
             {"id": "cariad.selectivestatus.batch", "family": "cariad", "method": "GET",
-             "path": _BASE, "response_paths": field["paths"], "kind": "shared_batch"},
+             "path": _BASE, "response_paths": field["paths"], "kind": "shared_batch",
+             "conversion": transform_for("cariad", attribute)},
             {"id": "cariad.selectivestatus.targeted", "family": "cariad", "method": "GET",
              "path": _BASE.replace("{JOBS}", field["job"]),
-             "response_paths": field["paths"], "kind": "targeted_job"},
+             "response_paths": field["paths"], "kind": "targeted_job",
+             "conversion": transform_for("cariad", attribute)},
         ))
     legacy = variant_for(attribute)
     if legacy is not None:
+        legacy["conversion"] = transform_for("mbb", attribute)
         variants.append(legacy)
     for ident, value in custom.items():
         if value.get("attribute") == attribute:
             variants.append({"id": ident, "family": value["family"],
                 "method": "GET", "path": value["path"],
-                "response_paths": [value["response_path"]], "kind": "custom"})
+                "response_paths": [value["response_path"]], "kind": "custom",
+                "conversion": value.get("conversion")})
     return variants
 
 
