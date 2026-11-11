@@ -480,10 +480,20 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     v3: V3Runtime | None = None
     if config_entry.options.get(V3_RUNTIME_OPTION, V3_DEFAULT) == V3_ENABLED:
         # One shared Audi account. Catalog file is read off HA's event loop.
-        registry = await hass.async_add_executor_job(
-            CapabilityRegistry.from_json_file, catalog_path()
-        )
-        v3 = V3Runtime(registry, config_entry)
+        # A damaged experimental catalog must not prevent the existing
+        # account, sensors and ordinary V2 coordinator from starting.
+        try:
+            registry = await hass.async_add_executor_job(
+                CapabilityRegistry.from_json_file, catalog_path()
+            )
+        except (OSError, ValueError) as err:
+            _LOGGER.error(
+                "Audi V3 experimental catalog validation failed; running "
+                "the V2 adapter instead. Fix or roll back V3 configuration: %s",
+                err,
+            )
+        else:
+            v3 = V3Runtime(registry, config_entry)
     coordinator_class = AudiV3Coordinator if v3 is not None else AudiDataUpdateCoordinator
     coordinator = coordinator_class.from_entry(hass, account, config_entry)
     if isinstance(coordinator, AudiV3Coordinator):
