@@ -11,6 +11,7 @@ from typing import Any
 import homeassistant.helpers.config_validation as cv
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.const import Platform
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -54,6 +55,8 @@ from .const import (
 from .coordinator import AudiDataUpdateCoordinator
 from .local_extensions import DEALER_FIELDS, update_local_dealer_options
 from .v3.coordinator import AudiV3Coordinator
+from .v3.coordinator_clean import V3CleanCoordinator
+from .v3.engine import V3Engine
 from .v3.registry import CapabilityRegistry
 from .v3.runtime import (
     V3_DEFAULT, V3_ENABLED, V3_RUNTIME_OPTION, V3Runtime, catalog_path,
@@ -142,9 +145,10 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
 class AudiRuntimeData:
     """Runtime data for each config entry."""
 
-    account: AudiAccount
-    coordinator: AudiDataUpdateCoordinator
-    v3: V3Runtime | None = None
+    account: AudiAccount | None
+    coordinator: AudiDataUpdateCoordinator | V3CleanCoordinator
+    v3: V3Runtime | V3Engine | None = None
+    loaded_platforms: list[Platform] = field(default_factory=lambda: list(PLATFORMS))
     options_snapshot: dict[str, Any] = field(default_factory=dict)
     data_snapshot: dict[str, Any] = field(default_factory=dict)
 
@@ -476,58 +480,74 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             else "Audi Connect needs your myAudi username and password to sign in"
         )
 
-    account = AudiAccount(hass, config_entry)
-    v3: V3Runtime | None = None
-    if config_entry.options.get(V3_RUNTIME_OPTION, V3_DEFAULT) == V3_ENABLED:
-        # One shared Audi account. Catalog file is read off HA's event loop.
-        # A damaged experimental catalog must not prevent the existing
-        # account, sensors and ordinary V2 coordinator from starting.
-        try:
-            registry = await hass.async_add_executor_job(
-                CapabilityRegistry.from_json_file, catalog_path()
-            )
-        except (OSError, ValueError) as err:
-            _LOGGER.error(
-                "Audi V3 experimental catalog validation failed; running "
-                "the V2 adapter instead. Fix or roll back V3 configuration: %s",
-                err,
-            )
-        else:
-            v3 = V3Runtime(registry, config_entry)
-    coordinator_class = AudiV3Coordinator if v3 is not None else AudiDataUpdateCoordinator
-    coordinator = coordinator_class.from_entry(hass, account, config_entry)
-    if isinstance(coordinator, AudiV3Coordinator):
-        coordinator.v3 = v3
-
-    async def _request_refresh(*_: Any) -> None:
-        await coordinator.async_request_refresh()
-
-    account.set_refresh_callback(_request_refresh)
-    config_entry.runtime_data = AudiRuntimeData(
-        account=account,
-        coordinator=coordinator,
-        v3=v3,
-        options_snapshot=dict(config_entry.options),
-        data_snapshot=_reloadable_data(config_entry),
+    selected_v3 = (
+        config_entry.options.get(V3_RUNTIME_OPTION, V3_DEFAULT) == V3_ENABLED
     )
+    if selected_v3:
+        # V3 shares ONLY auth and entry config with V2. Its own engine and
+        # coordinator never invoke AudiAccount.async_refresh_data().
+        registry = await hass.async_add_executor_job(
+            CapabilityRegistry.from_json_file, catalog_path()
+        )
+        engine = V3Engine(hass, config_entry, registry)
+        coordinator = V3CleanCoordinator(hass, engine, config_entry)
+        config_entry.runtime_data = AudiRuntimeData(
+            account=None, coordinator=coordinator, v3=engine,
+            loaded_platforms=[
+                Platform.CLIMATE, Platform.SENSOR, Platform.BUTTON,
+            ],
+            options_snapshot=dict(config_entry.options),
+            data_snapshot=_reloadable_data(config_entry),
+        )
+    else:
+        account = AudiAccount(hass, config_entry)
+        coordinator = AudiDataUpdateCoordinator.from_entry(
+            hass, account, config_entry
+        )
+
+        async def _request_refresh(*_: Any) -> None:
+            await coordinator.async_request_refresh()
+
+        account.set_refresh_callback(_request_refresh)
+        config_entry.runtime_data = AudiRuntimeData(
+            account=account, coordinator=coordinator,
+            options_snapshot=dict(config_entry.options),
+            data_snapshot=_reloadable_data(config_entry),
+        )
 
     config_entry.async_on_unload(
         config_entry.add_update_listener(_async_update_listener)
     )
-
     if config_entry.options.get(CONF_SCAN_INITIAL, True):
         await coordinator.async_config_entry_first_refresh()
 
     _async_cleanup_orphaned_devices(hass, config_entry)
-    _async_register_services(hass)
-    await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
+    if selected_v3:
+        from .v3.registry_lifecycle import async_apply_v3_entity_visibility
+        from .v3.dashboard import async_setup_dashboard
+
+        await async_apply_v3_entity_visibility(hass, config_entry, True)
+        await hass.config_entries.async_forward_entry_setups(
+            config_entry, config_entry.runtime_data.loaded_platforms
+        )
+        await async_setup_dashboard(hass)
+    else:
+        from .v3.registry_lifecycle import async_apply_v3_entity_visibility
+
+        await async_apply_v3_entity_visibility(hass, config_entry, False)
+        _async_register_services(hass)
+        await hass.config_entries.async_forward_entry_setups(
+            config_entry, PLATFORMS
+        )
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Unload Audi Connect entry."""
+    runtime = getattr(config_entry, "runtime_data", None)
+    platforms = runtime.loaded_platforms if runtime is not None else PLATFORMS
     unload_ok = await hass.config_entries.async_unload_platforms(
-        config_entry, PLATFORMS
+        config_entry, platforms
     )
     if not unload_ok:
         return False
