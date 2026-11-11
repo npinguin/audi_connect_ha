@@ -1,6 +1,9 @@
 name: V3 Climate Beta — validate and publish
 
 on:
+  push:
+    branches:
+      - feature/v3-climate-pilot
   workflow_dispatch:
     inputs:
       confirmation:
@@ -21,7 +24,7 @@ concurrency:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/feature/v3-climate-pilot' && inputs.confirmation == 'publish-v3-3.0.0b1'
+    if: github.ref == 'refs/heads/feature/v3-climate-pilot' && (github.event_name == 'push' || inputs.confirmation == 'publish-v3-3.0.0b1')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -117,5 +120,4 @@ jobs:
             --target "${GITHUB_SHA}" \
             --title "Audi Connect 3.0.0b1 — V3 Climate (experimental)" \
             --notes-file docs/V3_RELEASE_NOTES_3.0.0b1.md \
-            --prerelease \
-            --verify-tag=false
+            --prerelease
