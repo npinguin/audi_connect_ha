@@ -577,7 +577,9 @@ class V3Engine:
         if result.get("outcome") != "verified" and not (
             choice["family"] == "mbb" and result.get("outcome") == "readable_but_stale"
         ):
-            raise ValueError("Test the route and verify vehicle data before activation")
+            if choice["family"] == "mbb":
+                raise ValueError("Test an MBB GET response before enabling legacy polling")
+            raise ValueError("Test the route and verify fresh vehicle data before activation")
         profile.attribute_routes[attribute] = route
         profile.attribute_drafts[attribute] = route
         await self.storage.async_save(self.profiles)
