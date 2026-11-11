@@ -40,4 +40,5 @@ def test_required_v3_platforms_forwarded_in_v3():
     assert "Platform.CLIMATE, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SWITCH, Platform.LOCK" in init
     assert "AudiDataUpdateCoordinator.from_entry" in init
     assert "coordinator = V3CleanCoordinator(hass, engine, config_entry)" in init
-    assert "account=None, coordinator=coordinator, v3=engine" in init
+    assert "account=account, coordinator=coordinator, v3=engine" in init
+    assert "auth=V3Auth(hass, config_entry, shared_account=account)" in init
