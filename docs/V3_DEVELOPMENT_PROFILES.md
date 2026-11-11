@@ -113,3 +113,18 @@ dashboard/runtime**; the published 3.0.0b1 release still uses the previous
 architecture. This representation must never be mistaken for a sanitized
 community export: custom user-authored descriptions and relative routes may
 contain their own sensitive literals and require privacy filtering.
+
+
+## b3 Workbench UI and selection persistence
+
+The Workbench has a **Save candidate** operation separate from **Activate
+verified path**. Draft selections are persisted in a dedicated field of the
+vehicle-scoped profile and restored from HA Store without authorizing
+untested controls. Selection is preserved while choosing alternatives in
+the dropdown and across UI refresh/reload.
+
+The **Capability Status Dashboard** lists V3 catalog attributes and
+controls with family, route, result and selection. Historical V2 read-only
+job names/potential GET paths are included only as `known_v2_not_migrated`
+references for the next engineer to systematically validate. They are
+not automatically probed or advertised as working.

@@ -1,4 +1,4 @@
-# Audi Connect V3 — installation and configuration (3.0.0b2)
+# Audi Connect V3 — installation and configuration (3.0.0b3)
 
 ## Upgrade in place
 
@@ -6,7 +6,7 @@ Keep the current Audi Connect integration. Back up Home Assistant and make
 note of existing V2 climate/charging automations. **Do not add a second Audi
 Connect entry or delete the old entity registry.**
 
-1. In HACS select the experimental `3.0.0b2` release from
+1. In HACS select the experimental `3.0.0b3` release from
    `npinguin/audi_connect_ha` and restart HA.
 2. Open **Settings → Devices & Services → Audi Connect → Configure**.
    Choose `v3_climate` as Runtime generation and retain your cloud scan
@@ -16,7 +16,10 @@ Connect entry or delete the old entity registry.**
    vehicle age, V3 polling status, climate capability, and cloud refresh.
    Registered historical V2 entities may be listed as **disabled**; do not
    delete them.
-4. Open the **Audi V3 Development** item in the HA sidebar (administrator).
+4. If you need API experiments, enable **V3 Development Workbench** in
+   Audi Connect Options while V3 is active (off by default). Reopen the
+   integration after saving and open the **Audi V3 Development** sidebar
+   item (administrator). Turning it off hides the panel but keeps tests.
    Select your existing Audi config entry and vehicle. Work with Climate
    Status / Start / Stop separately.
 5. For Status click **Test GET**. The result includes the HTTP status,
@@ -81,3 +84,25 @@ configuration entry.
   actual action completion, source freshness and API call budget.
 
 **No extra accounts, no entity deletions and no automatic actuator retries.**
+
+
+### Candidate save versus activation
+
+The Workbench offers **Save candidate** to remember the currently chosen
+route for the selected vehicle and aspect. It persists across HA restarts
+without executing or activating the route. **Activate verified path** is a
+separate action available only after a valid, recent status GET or user-
+confirmed physical control test. An untested or stale route is never
+silently enabled.
+
+A **Capability Status** section lists each known V3 attribute/control,
+its family, template route, measured result and selected state. Additional
+read-only job paths inherited as **V2 references** are explicitly marked
+`known_v2_not_migrated`. These entries are migration candidates, not
+claims that those APIs are working in V3.
+
+### V2 configuration and rollback
+
+The Options dialog preserves original V2 flags and local dealer metadata
+when switching runtimes. V3-only workbench controls are off in V2; returning
+to V3 does not delete custom API profiles or route test history.

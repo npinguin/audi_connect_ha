@@ -1,6 +1,6 @@
 # Audi Connect V3 — release acceptance matrix and migration gates
 
-## 3.0.0b2 code gates
+## 3.0.0b3 code gates
 
 | Gate | Automated criterion | Live criterion |
 |---|---|---|

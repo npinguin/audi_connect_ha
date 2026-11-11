@@ -1,4 +1,4 @@
-# Audi Connect V3 — Why / What / How (3.0.0b2)
+# Audi Connect V3 — Why / What / How (3.0.0b3)
 
 **One Audi Connect integration, one config entry, one active runtime.**
 V2 is the rollback choice. **Only login/token handling and integration
@@ -124,9 +124,26 @@ in **V2** until individually migrated; they do not leak into V3.
 
 ## Release acceptance
 
-`3.0.0b2` is an **experimental HACS prerelease**, not a production migration
+`3.0.0b3` is an **experimental HACS prerelease**, not a production migration
 claim. Exact-SHA Python/hassfest/HACS checks gate publication. Real car
 acceptance remains separate: verify login, Q8 discovery, cloud timestamps,
 climate GET, one guided start/stop, physical readback, HA entity count,
 V2→V3→V2 rollback and cloud budget. Report failures with privacy-safe
 diagnostics; do not publish full raw Audi responses or VINs.
+
+
+## b3 stabilization
+
+- The Development Workbench is administrator-only and **opt-in**. The
+  sidebar item exists only when V3 is selected and explicitly enabled.
+  Disabling it or switching back to V2 hides it without erasing profiles.
+- Candidate route selection and verified activation are two distinct persisted
+  operations. A user can save any context-applicable known route, while
+  physical control exposure still requires confirmed success.
+- Per-vehicle capability/attribute/control status reports expose API family,
+  route template, evidence, freshness and active/candidate selection.
+  Read-only jobs from the V2 implementation are a **reference backlog**,
+  not yet tested V3 capabilities.
+- Vehicle capture timestamps must be no more than 60 minutes old and no
+  more than five minutes in the future to count as fresh. Cloud reachability
+  and vehicle data freshness remain separate.
