@@ -195,7 +195,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         state_class=SensorStateClass.TOTAL_INCREASING,
         device_class=SensorDeviceClass.DISTANCE,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
         suggested_display_precision=0,
     ),
     AudiSensorEntityDescription(
@@ -231,7 +231,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Service inspection time",
         icon="mdi:room-service-outline",
         native_unit_of_measurement=UnitOfTime.DAYS,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="service_inspection_distance",
@@ -240,7 +240,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:room-service-outline",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
         suggested_display_precision=0,
     ),
     AudiSensorEntityDescription(
@@ -249,7 +249,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Oil change time",
         icon="mdi:oil",
         native_unit_of_measurement=UnitOfTime.DAYS,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="oil_change_distance",
@@ -258,7 +258,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         icon="mdi:oil",
         native_unit_of_measurement=UnitOfLength.KILOMETERS,
         device_class=SensorDeviceClass.DISTANCE,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
         suggested_display_precision=0,
     ),
     AudiSensorEntityDescription(
@@ -339,14 +339,14 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         attr_key="primary_engine_type",
         name="Primary engine type",
         icon="mdi:engine",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="secondary_engine_type",
         attr_key="secondary_engine_type",
         name="Secondary engine type",
         icon="mdi:engine",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="primary_engine_range",
@@ -378,7 +378,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         attr_key="car_type",
         name="Car Type",
         icon="mdi:car-info",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="secondary_engine_range_percent",
@@ -448,7 +448,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         attr_key="plug_led_color",
         name="Plug LED Color",
         icon="mdi:ev-plug-type1",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="doors_trunk_status",
@@ -486,7 +486,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Position Last Updated",
         icon="mdi:map-marker-clock",
         device_class=SensorDeviceClass.TIMESTAMP,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="remaining_climatisation_time",
@@ -523,7 +523,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         attr_key="active_charging_profile_name",
         name="Active Charging Profile",
         icon="mdi:map-marker",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="active_charging_profile_min_soc",
@@ -531,21 +531,21 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         name="Active Charging Profile Min SoC",
         icon="mdi:battery-alert-variant-outline",
         native_unit_of_measurement=PERCENTAGE,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="preferred_charging_time_start",
         attr_key="preferred_charging_time_start",
         name="Preferred Charging Window Start",
         icon="mdi:clock-start",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="preferred_charging_time_end",
         attr_key="preferred_charging_time_end",
         name="Preferred Charging Window End",
         icon="mdi:clock-end",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiSensorEntityDescription(
         key="climatisation_timer_enabled_count",
@@ -568,7 +568,7 @@ SENSOR_DESCRIPTIONS: tuple[AudiSensorEntityDescription, ...] = (
         attr_key="charging_timer_enabled_count",
         name="Charging Timers Enabled",
         icon="mdi:timer-cog-outline",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
         extra_attrs_fn=_charging_timer_attrs,
     ),
 )
