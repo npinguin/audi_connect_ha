@@ -36,10 +36,10 @@ V2 metadata evidence: downloaded diagnostic `mode: v2`, `disabled_per_platform: 
 | `button` | 9 | partial: 5 gated experimental buttons + separate V3 cloud refresh; V2 flash/engine absent | 9 declared V2 button types; exact controls and requests incl. V2 refresh semantics |
 | `climate` | 1 | partial: no target temperature control or restoring V2 last target | same unique ID, target temperature 15–30°C, on/off, status and settings |
 | `sensor` | 63 | partial: only historical source-mapped + a few diagnostics; derived composites absent | same unique IDs, 57 declared sensors + 6 supplemental sensors; correct metadata, Recorder and freshness |
-| `device_tracker` | 1 | absent: not forwarded by V3 | same unique ID; last-parked coordinates with timestamp/privacy and no live-driving claim |
+| `device_tracker` | 1 | structural V3 entity + bounded parked GET; live unverified | same unique ID; last-parked coordinates with timestamp/privacy and no live-driving claim |
 | `lock` | 1 | partial: guarded native lock; not physically verified | same unique ID, S-PIN, request-ID completion, real vehicle readback |
-| `number` | 3 | absent: not forwarded by V3 | two base SoC sliders + dynamic per-location target slider; bounds 20–100, step 5 |
-| `select` | 1 | absent: not forwarded by V3 | preferred charge mode select with reported options + safe manual/timer fallback |
+| `number` | 3 | global target native entity added; dynamic profiles and write parity missing | two base SoC sliders + dynamic per-location target slider; bounds 20–100, step 5 |
+| `select` | 1 | native preferred charge mode entity added; writing gated/unverified | preferred charge mode select with reported options + safe manual/timer fallback |
 | `switch` | 7 | partial: only V3 climate quick switch, six V2 climate settings and preheater absent | 7 V2 switch declarations + climate quick contract |
 
 ## V2 control-action and writable-setting parity — all control workstreams
