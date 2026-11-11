@@ -424,12 +424,56 @@ class V3Engine:
                     self._record_attribute_response(car, profile, ident, route, mappings, response)
                 if 200 <= response.status < 300:
                     cloud_reachable = True
+        # Retain the V2 GPS tracker contract without adding a new cloud poller.
+        if self._poll_cycles == 1 or self._poll_cycles % 12 == 0:
+            await self._poll_parked_positions()
         if cloud_reachable:
             self.last_cloud_poll_success = datetime.now(UTC)
         # One local write per scheduled discovery cycle; keep learned routes
         # and evidence across HA restarts without touching integration options.
         await self.storage.async_save(self.profiles)
         return list(self.vehicles.values())
+
+    async def _poll_parked_positions(self) -> None:
+        """Infrequent GET for the user's existing Audi parked GPS tracker.
+
+        No coordinates in API evidence, diagnostics or profile storage.
+        """
+        if not hasattr(self.hass, "data"):
+            return  # synthetic test engines without the HA registry
+        from homeassistant.helpers import entity_registry as er
+        from .parking import parse_parked_position, keep_newest_position
+
+        registry = er.async_get(self.hass)
+        permitted = {
+            entity.unique_id
+            for entity in er.async_entries_for_config_entry(
+                registry, self.entry.entry_id
+            )
+            if entity.domain == "device_tracker"
+            and entity.disabled_by is None
+        }
+        for car in self.vehicles.values():
+            if (car.context.auth != "auth0"
+                    or f"{car.vin.lower()}_device_tracker_position" not in permitted):
+                continue
+            if (self.transport.remaining_calls is not None
+                    and self.transport.remaining_calls <= 12):
+                return
+            try:
+                reply = await self.transport.request(
+                    "cariad", "GET",
+                    f"/vehicle/v1/vehicles/{car.vin}/parkingposition",
+                )
+            except (TimeoutError, OSError, RuntimeError, ValueError):
+                return
+            if reply.status in (401, 403, 429) or reply.status >= 500:
+                return
+            if not 200 <= reply.status < 300:
+                continue
+            point = parse_parked_position(reply.data)
+            if point and keep_newest_position(car.position, point):
+                car.position = point
 
     def require_vehicle(self, vin: str) -> V3Vehicle:
         vehicle = self.vehicles.get(vin.lower())
@@ -628,7 +672,10 @@ class V3Engine:
         p.disable("climate", aspect)
         await self.storage.async_save(self.profiles)
 
-    async def send_control(self, vin: str, aspect: str, capability: str = "climate") -> None:
+    async def send_control(
+        self, vin: str, aspect: str, capability: str = "climate",
+        *, params: dict[str, Any] | None = None,
+    ) -> None:
         """Normal climate UI sends ONE verified request, never retries.
 
         A per-vehicle cooldown limits duplicate climate requests while the car
@@ -651,7 +698,7 @@ class V3Engine:
                     "Vehicle command cooldown active; verify vehicle state"
                 )
             ident = p.active[f"{capability}.{aspect}"]
-            family, method, path, body = self._operation_request(car, ident)
+            family, method, path, body = self._operation_request(car, ident, params)
             self._normal_action_at[vin.lower()] = now
             try:
                 response = await self.transport.request(
@@ -675,6 +722,23 @@ class V3Engine:
                     "Audi rejected the selected vehicle command"
                 )
 
+
+    async def send_setting(self, vin: str, kind: str, value: Any) -> None:
+        """Typed V3-owned write through an explicitly verified route.
+
+        This method cannot invoke V2. OEM method, path and body are owned by
+        the active declarative V3 operation.
+        """
+        if kind == "set_target_soc":
+            if (isinstance(value, bool) or not isinstance(value, int)
+                    or value not in range(20, 101, 5)):
+                raise ValueError("Audi target SoC must be 20..100 in steps of 5")
+        elif kind == "set_charge_mode":
+            if value not in ("manual", "timer"):
+                raise ValueError("Audi charge mode must be manual or timer")
+        else:
+            raise ValueError("Unsupported V3 setting")
+        await self.send_control(vin, kind, "charging", params={"value": value})
 
     def attribute_routes_for(self, vin: str, attribute: str) -> dict[str, Any]:
         car = self.require_vehicle(vin)
