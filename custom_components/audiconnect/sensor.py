@@ -580,35 +580,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
-    from .v3.engine import V3Engine
-    if isinstance(runtime_data.v3, V3Engine):
-        from .v3.entities import V3StatusSensor, V3ReadOnlySensor
-        from .v3.historical_catalog import ATTRIBUTES
-        seen: set[str] = set()
-        async_add_entities([
-            V3StatusSensor(runtime_data.coordinator, vehicle, kind)
-            for vehicle in runtime_data.v3.vehicles.values()
-            for kind in ("cloud", "age", "capability", "poll")
-        ])
-        def add_discovered() -> None:
-            entities = []
-            for vehicle in runtime_data.v3.vehicles.values():
-                profile = runtime_data.v3.profiles.get(vehicle.vin.lower())
-                for key in (profile.attribute_routes if profile else {}):
-                    descriptor = ATTRIBUTES.get(key)
-                    if not descriptor or descriptor["platform"] != "sensor":
-                        continue
-                    reading = vehicle.readings.get(key)
-                    if not reading or not isinstance(reading.get("value"), (str, int, float, bool)):
-                        continue
-                    entity_key = f'{vehicle.vin.lower()}:{descriptor["entity_key"]}'
-                    if entity_key not in seen:
-                        seen.add(entity_key)
-                        entities.append(V3ReadOnlySensor(runtime_data.coordinator, vehicle, descriptor))
-            if entities:
-                async_add_entities(entities)
-        add_discovered()
-        config_entry.async_on_unload(runtime_data.coordinator.async_add_listener(add_discovered))
+    if runtime_data.v3 is not None:
+        from .v3.ha_platforms import setup as v3_setup
+        v3_setup("sensor", config_entry, async_add_entities)
         return
 
     entities: list[SensorEntity] = []
