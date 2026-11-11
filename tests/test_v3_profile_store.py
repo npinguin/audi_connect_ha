@@ -124,3 +124,23 @@ async def test_partial_vehicle_save_never_erases_another_car_profile():
         catalog, {"current_vehicle": ctx}
     )
     assert isinstance(loaded["current_vehicle"], DevelopmentProfile)
+
+
+
+def test_saved_unverified_candidate_survives_restart_but_not_active():
+    catalog, context, profile = fresh()
+    candidate = "cariad.climate.start.stored"
+    profile.save_candidate("climate", "start", candidate)
+    assert "climate.start" not in profile.active
+    restored = restore_profile(catalog, context, profile.snapshot())
+    assert restored.draft_selected["climate.start"] == candidate
+    assert "climate.start" not in restored.active
+    assert restored.control_results == {}
+
+
+def test_invalid_candidate_cannot_be_injected_through_saved_profile():
+    catalog, context, profile = fresh()
+    saved = profile.snapshot()
+    saved["draft_selected"] = {"climate.start": "mbb.climate.start"}
+    with pytest.raises(DevelopmentProfileError):
+        restore_profile(catalog, context, saved)
