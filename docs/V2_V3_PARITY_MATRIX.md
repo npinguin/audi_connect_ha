@@ -398,6 +398,16 @@ HA displayed 13 *'no longer has a state class'* repairs after V3 activation. The
 | `sensor.primary_engine_range_percent` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
 | `sensor.range` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
 
+## Shared HA identity and clear device presentation
+
+**Zero user migration** is part of V2 parity: same config entry, VIN device, `unique_id`, `entity_id`, native platform, service identifiers and payload schemas, unit/Recorder metadata, dashboards and automations. Switching via the integration option currently unloads/reloads the config entry; it is not a second login, re-pairing or an instantaneous in-memory switch. Precisely one coordinator performs polling and actions.
+
+The implementation previously disabled 59 registry entries under V3 b7. This patch now restores **only** migration-owned `disabled_by=INTEGRATION` records and never disables historical V2 entries on future V3 loads. Other entities may remain `unavailable` pending V3 data mapping; keeping a registry ID is necessary but **not sufficient** for parity. User-disabled entries are untouched.
+
+Vehicle data is no longer mixed into the Home Assistant technical Diagnostics category. The V2 implementation reclassifies **15 ordinary car sensors** (mileage, maintenance, vehicle/model, charging profiles/timers, etc.) and **11 binary car statuses**. The V3 declarative metadata mirrors the same 15 car-sensor changes. True cloud health (API requests remaining, last poll, freshness, V3 discovery) remains Diagnostic. These changes do not rename or recreate entity IDs and do not invent `state_class`. Existing user-customized categories must be respected by HA.
+
+The target architecture for reusing the **same V2 account/session owner** with an independent selected V2 or V3 engine is defined in [ADR: Shared Account and HA Entity Contract](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md). The ADR's shared-token and all-nine-platform migrations are still open work, not a completed feature.
+
 ## Acceptance gates — release blocked until all hold
 
 1. **Inventory diff**: every V2 entity/service/action has an explicit mapping to the independent V3 runtime, or is explicitly vehicle-unsupported. New V2 source declarations automatically fail an inventory-drift test.
