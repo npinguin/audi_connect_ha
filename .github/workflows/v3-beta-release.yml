@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Manual release requests are disabled for this one-off push-triggered b5; push on the V3 branch executes publish after validation"
+        description: "Manual release requests are disabled for this one-off push-triggered b6; push on the V3 branch executes publish after validation"
         required: true
         type: choice
         default: do-not-publish
@@ -35,7 +35,7 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          expected = "3.0.0b5"
+          expected = "3.0.0b6"
           manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
           model = json.loads(Path("custom_components/audiconnect/v3/climate.json").read_text())
           assert manifest["domain"] == "audiconnect"
@@ -84,23 +84,23 @@ jobs:
       - name: Package only the HA integration
         run: |
           cd custom_components
-          zip -qr "../audi_connect_v3_3.0.0b5.zip" audiconnect -x "*/__pycache__/*" "*.pyc"
+          zip -qr "../audi_connect_v3_3.0.0b6.zip" audiconnect -x "*/__pycache__/*" "*.pyc"
           cd ..
-          test -s audi_connect_v3_3.0.0b5.zip
-          sha256sum audi_connect_v3_3.0.0b5.zip > SHA256SUMS_V3_3.0.0b5.txt
+          test -s audi_connect_v3_3.0.0b6.zip
+          sha256sum audi_connect_v3_3.0.0b6.zip > SHA256SUMS_V3_3.0.0b6.txt
 
       - name: Upload manual-install test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: audi-connect-v3-3.0.0b5-validated
+          name: audi-connect-v3-3.0.0b6-validated
           path: |
-            audi_connect_v3_3.0.0b5.zip
-            SHA256SUMS_V3_3.0.0b5.txt
+            audi_connect_v3_3.0.0b6.zip
+            SHA256SUMS_V3_3.0.0b6.txt
           if-no-files-found: error
           retention-days: 30
 
   publish-prerelease:
-    # Explicit user-requested test release: publish this branch's verified b5 SHA
+    # Explicit user-requested test release: publish this branch's verified b6 SHA
     # automatically once; never overwrite immutable prerelease tags/assets.
     if: github.event_name == 'push' && github.ref == 'refs/heads/feature/v3-clean-discovery'
     needs: verify
@@ -114,19 +114,19 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: audi-connect-v3-3.0.0b5-validated
+          name: audi-connect-v3-3.0.0b6-validated
 
       - name: Prevent prerelease replacement
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/3.0.0b5" >/dev/null 2>&1; then
-            echo "Refusing to replace already-published 3.0.0b5." >&2
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/3.0.0b6" >/dev/null 2>&1; then
+            echo "Refusing to replace already-published 3.0.0b6." >&2
             exit 1
           fi
-          if gh release view 3.0.0b5 >/dev/null 2>&1; then
-            echo "Refusing to replace existing prerelease 3.0.0b5." >&2
+          if gh release view 3.0.0b6 >/dev/null 2>&1; then
+            echo "Refusing to replace existing prerelease 3.0.0b6." >&2
             exit 1
           fi
 
@@ -134,8 +134,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create 3.0.0b5 audi_connect_v3_3.0.0b5.zip SHA256SUMS_V3_3.0.0b5.txt \
+          gh release create 3.0.0b6 audi_connect_v3_3.0.0b6.zip SHA256SUMS_V3_3.0.0b6.txt \
             --target "${GITHUB_SHA}" \
-            --title "Audi Connect 3.0.0b5 — V3 Capability Discovery Test (experimental)" \
-            --notes-file docs/V3_RELEASE_NOTES_3.0.0b5.md \
+            --title "Audi Connect 3.0.0b6 — V3 Capability Discovery Test (experimental)" \
+            --notes-file docs/V3_RELEASE_NOTES_3.0.0b6.md \
             --prerelease

@@ -34,3 +34,20 @@ and release independently verified vertical slices as subsequent betas.
 ## Next engineer: read-only discovery
 
 Extend the capability inventory using historic V2 job and researched API paths. Record attribute, family, method, route, response mapping, capture time, freshness and tested outcome per vehicle. V2 references are not proof of V3 support. Maintain the single-package V2/V3 switch.
+
+## 3.0.0b6 additional discovery and remote-control gates
+
+- V3 startup auto-discovery must issue only bounded CARIAD GET requests.
+- Workbench uses native HA body fonts and filters by vehicle API family.
+- Wake-up, charging start/stop, window heating start/stop, climate ON/OFF and
+  access lock/unlock have explicit CARIAD routes and per-vehicle evidence.
+- Never POST on startup or due to a route not being found. No automatic fallback
+  from charging/start to charging/start-stop.
+- Only an explicit human-selected control test can POST once. Afterward the
+  operator must verify the physical vehicle action before activation.
+- S-PIN is required for lock/unlock, used only inside the explicit request,
+  and excluded from diagnostics and Workbench response previews.
+- HA buttons, quick climate switch and lock reuse the old V2 unique IDs and
+  are created only after human verification. Door Lock additionally requires
+  a readable current door state, so unknown must not mean unlocked.
+- V2 rollback, legacy MBB and still-unmapped V2 controls remain separate tests.
