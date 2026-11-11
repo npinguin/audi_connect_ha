@@ -155,6 +155,21 @@ async def async_get_config_entry_diagnostics(
     if runtime is None:
         return result
 
+    # Clean V3 has no AudiAccount, V2 vehicle state, or legacy HTTP client.
+    # Export only bounded capability evidence and polling facts.
+    from .v3.engine import V3Engine
+    if isinstance(getattr(runtime, "v3", None), V3Engine):
+        result["runtime"] = {
+            "last_update_success": bool(
+                getattr(runtime.coordinator, "last_update_success", False)
+            ),
+            "v3": runtime.v3.diagnostics(),
+            "active_ha_platforms": [
+                str(x) for x in runtime.loaded_platforms
+            ],
+        }
+        return result
+
     account = runtime.account
     connection = account.connection
     coordinator = runtime.coordinator

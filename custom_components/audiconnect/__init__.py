@@ -170,7 +170,7 @@ def _get_account_for_vin(hass: HomeAssistant, vin: str) -> AudiAccount | None:
     vin_lower = vin.lower()
     for entry in hass.config_entries.async_entries(DOMAIN):
         runtime_data: AudiRuntimeData | None = getattr(entry, "runtime_data", None)
-        if runtime_data is None:
+        if runtime_data is None or runtime_data.account is None:
             continue
         for vehicle_data in runtime_data.account.config_vehicles:
             if vehicle_data.vehicle and vehicle_data.vehicle.vin.lower() == vin_lower:
@@ -518,7 +518,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
     config_entry.async_on_unload(
         config_entry.add_update_listener(_async_update_listener)
     )
-    if config_entry.options.get(CONF_SCAN_INITIAL, True):
+    # V3 must enumerate its vehicles before creating the limited HA entities.
+    # V2 retains the user's historical "scan on setup" preference.
+    if selected_v3 or config_entry.options.get(CONF_SCAN_INITIAL, True):
         await coordinator.async_config_entry_first_refresh()
 
     _async_cleanup_orphaned_devices(hass, config_entry)
