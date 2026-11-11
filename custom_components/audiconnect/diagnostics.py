@@ -191,7 +191,7 @@ async def async_get_config_entry_diagnostics(
                 "capabilities": ["climate"],
                 "vehicles": runtime.v3.diagnostics(vehicles),
             }
-            if runtime.v3 is not None
+            if getattr(runtime, "v3", None) is not None
             else {"mode": "v2", "capabilities": []}
         ),
         "vehicles": [
