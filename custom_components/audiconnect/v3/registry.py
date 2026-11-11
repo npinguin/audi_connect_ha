@@ -91,8 +91,8 @@ class CapabilityRegistry:
             self.families, self.operations, self.capabilities
         )):
             raise RegistryError("V3 catalog sections must be objects")
-        if set(self.capabilities) != {"climate"}:
-            raise RegistryError("V3 pilot intentionally owns only climate")
+        if not self.capabilities or len(self.capabilities) > 30:
+            raise RegistryError("Empty or excessive V3 capability catalog")
         for ident, op in self.operations.items():
             if not isinstance(op, dict):
                 raise RegistryError("Malformed operation")
@@ -132,9 +132,12 @@ class CapabilityRegistry:
             if not definition:
                 raise RegistryError("Capability must have a supported aspect")
             control = definition.get("control") or {}
-            if not isinstance(control, dict) or set(control) - {"start", "stop"}:
+            if not isinstance(control, dict) or any(
+                not isinstance(action, str) or not action or len(action) > 48
+                for action in control
+            ):
                 raise RegistryError("Invalid control definition")
-            for aspect in ("status", "start", "stop"):
+            for aspect in ("status", *control):
                 node = definition.get("status") if aspect == "status" else control.get(aspect)
                 if node is None:
                     continue
@@ -153,7 +156,7 @@ class CapabilityRegistry:
 
     def operations_for(self, capability: str, aspect: str) -> list[str]:
         definition = self.capabilities.get(capability)
-        if definition is None or aspect not in ("status", "start", "stop"):
+        if definition is None or (aspect != "status" and aspect not in (definition.get("control") or {})):
             raise RegistryError("Unknown capability or aspect")
         node = definition.get("status") if aspect == "status" else (
             (definition.get("control") or {}).get(aspect)

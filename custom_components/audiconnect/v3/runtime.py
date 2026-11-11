@@ -30,7 +30,7 @@ STATUS_OPTIONS = ("auto", "cariad.climate.status.batch")
 
 
 def catalog_path() -> Path:
-    return Path(__file__).with_name("climate.json")
+    return Path(__file__).with_name("full_catalog.json")
 
 
 def context_for(vehicle: Any, config_entry: Any) -> VehicleContext:

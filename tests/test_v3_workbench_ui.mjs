@@ -79,7 +79,7 @@ test("Workbench has three steps and keeps V2 backlog separate from verified attr
   assert.match(panel.shadowRoot.innerHTML,/1 verified/);
   await panel._click({target:{closest:() => ({dataset:{action:"step-2"}})}});
   assert.equal(panel.step,2);
-  assert.match(panel.shadowRoot.innerHTML,/state_of_charge/);
+  assert.match(panel.shadowRoot.innerHTML,/state of charge/);
   panel.api=async (name,data) => {
     assert.equal(name,"attribute_routes");
     assert.equal(data.attribute,"stateOfCharge");

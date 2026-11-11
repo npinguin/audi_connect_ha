@@ -1,0 +1,705 @@
+{
+  "schema_version": 1,
+  "brand": "audi",
+  "api_families": {
+    "cariad": {
+      "auth": "auth0",
+      "host_owner": "audi_auth_session",
+      "notes": "Region host resolved by existing Audi adapter; not configurable as arbitrary URL."
+    },
+    "mbb": {
+      "auth": "legacy",
+      "host_owner": "legacy_home_region",
+      "notes": "Legacy home-region and authentication retained in existing adapter."
+    }
+  },
+  "capabilities": {
+    "climate": {
+      "status": {
+        "operations": [
+          "cariad.climate.status.batch",
+          "cariad.climate.status.probe",
+          "mbb.climate.status",
+          "cariad.status.activeVentilation",
+          "cariad.status.auxiliaryHeating",
+          "cariad.status.climatisation",
+          "cariad.status.climatisationTimers",
+          "cariad.status.hybridCarAuxiliaryHeating",
+          "mbb.climate.status.preheater"
+        ]
+      },
+      "control": {
+        "start": {
+          "operations": [
+            "cariad.climate.start.stored",
+            "cariad.climate.start.vehicle_settings",
+            "mbb.climate.start"
+          ]
+        },
+        "stop": {
+          "operations": [
+            "cariad.climate.stop",
+            "mbb.climate.stop"
+          ]
+        }
+      }
+    },
+    "vehicle_status": {
+      "status": {
+        "operations": [
+          "cariad.status.fuelStatus",
+          "cariad.status.lvBattery",
+          "cariad.status.measurements",
+          "cariad.status.oilLevel",
+          "cariad.status.readiness",
+          "cariad.status.userCapabilities",
+          "cariad.status.vehicleHealthWarnings",
+          "cariad.status.vehicleLights",
+          "mbb.vehicle_status.status.vehicle_data"
+        ]
+      }
+    },
+    "service": {
+      "status": {
+        "operations": [
+          "cariad.status.vehicleHealthInspection"
+        ]
+      }
+    },
+    "access": {
+      "status": {
+        "operations": [
+          "cariad.status.access"
+        ]
+      }
+    },
+    "charging": {
+      "status": {
+        "operations": [
+          "cariad.status.batteryChargingCare",
+          "cariad.status.batterySupport",
+          "cariad.status.charging",
+          "cariad.status.chargingProfiles",
+          "cariad.status.chargingTimers",
+          "cariad.status.departureProfiles",
+          "cariad.status.departureTimers",
+          "mbb.charging.status.charger",
+          "mbb.charging.status.departure_timer"
+        ]
+      }
+    },
+    "mobility": {
+      "status": {
+        "operations": []
+      }
+    },
+    "remote": {
+      "status": {
+        "operations": [
+          "cariad.status.honkAndFlash"
+        ]
+      }
+    }
+  },
+  "operations": {
+    "cariad.climate.status.batch": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}",
+      "delivery": "existing_poll",
+      "priority": 0,
+      "response_paths": [
+        "climatisation.climatisationStatus.value.climatisationState",
+        "climatisation.auxiliaryHeatingStatus.value.climatisationState"
+      ]
+    },
+    "cariad.climate.status.probe": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=climatisation",
+      "delivery": "manual",
+      "priority": 30,
+      "response_paths": [
+        "climatisation.climatisationStatus.value.climatisationState",
+        "climatisation.auxiliaryHeatingStatus.value.climatisationState"
+      ]
+    },
+    "mbb.climate.status": {
+      "family": "mbb",
+      "method": "GET",
+      "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater",
+      "delivery": "existing_poll",
+      "priority": 0,
+      "response_paths": [
+        "climater.status.climatisationStatusData.climatisationState.content"
+      ]
+    },
+    "cariad.climate.start.stored": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/climatisation/start",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "bodyless",
+      "confirmation": "vehicle_readback",
+      "notes": "Q8-model scoped default using vehicle-stored climate settings. Never automatically retry with another route.",
+      "scope": {
+        "model_family": "q8"
+      }
+    },
+    "cariad.climate.start.vehicle_settings": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/climatisation/start",
+      "delivery": "manual",
+      "priority": 10,
+      "request_mode": "verified_vehicle_target",
+      "confirmation": "vehicle_readback",
+      "notes": "Opt-in: only vehicle-reported target temp, existing safe settings read-modify-write."
+    },
+    "cariad.climate.stop": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/climatisation/stop",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "bodyless",
+      "confirmation": "vehicle_readback"
+    },
+    "mbb.climate.start": {
+      "family": "mbb",
+      "method": "POST",
+      "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater/actions",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "existing_adapter",
+      "confirmation": "legacy_request_poll"
+    },
+    "mbb.climate.stop": {
+      "family": "mbb",
+      "method": "POST",
+      "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater/actions",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "existing_adapter",
+      "confirmation": "legacy_request_poll"
+    },
+    "cariad.status.access": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=access",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "access.accessStatus.value.doorLockStatus",
+        "access"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.activeVentilation": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=activeVentilation",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "activeVentilation"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.auxiliaryHeating": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=auxiliaryHeating",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "auxiliaryHeating"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.batteryChargingCare": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=batteryChargingCare",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "batteryChargingCare"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.batterySupport": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=batterySupport",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "batterySupport"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.charging": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=charging",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "charging.batteryStatus.value.currentSOC_pct",
+        "charging.chargingStatus.value.chargingState",
+        "charging.chargingStatus.value.chargeMode",
+        "charging.chargingStatus.value.chargePower_kW",
+        "charging.chargingStatus.value.chargeRate_kmph",
+        "charging.chargingStatus.value.chargeType",
+        "charging.chargingSettings.value.targetSOC_pct",
+        "charging.plugStatus.value.plugConnectionState",
+        "charging.chargingStatus.value.remainingChargingTimeToComplete_min",
+        "charging.plugStatus.value.plugLockState",
+        "charging.plugStatus.value.externalPower",
+        "charging.plugStatus.value.ledColor",
+        "charging.chargeMode.value.preferredChargeMode",
+        "charging.chargeMode.value.availableChargeModes",
+        "charging.chargingSettings.value.maxChargeCurrentAC_A",
+        "charging.chargingSettings.value.maxChargeCurrentAC",
+        "charging.chargingSettings.value.autoUnlockPlugWhenChargedAC",
+        "charging"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.chargingProfiles": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=chargingProfiles",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "chargingProfiles.chargingProfilesStatus.value.profiles",
+        "chargingProfiles"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.chargingTimers": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=chargingTimers",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "chargingTimers.chargingTimersStatus.value.timers",
+        "chargingTimers"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.climatisation": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=climatisation",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "climatisation.auxiliaryHeatingStatus.value.climatisationState",
+        "climatisation.climatisationStatus.value.climatisationState",
+        "climatisation.climatisationStatus.value.remainingClimatisationTime_min",
+        "climatisation.climatisationSettings.value.targetTemperature_C",
+        "climatisation.climatisationSettings.value.targetTemperature_F",
+        "climatisation.climatisationSettings.value.windowHeatingEnabled",
+        "climatisation.climatisationSettings.value.climatizationAtUnlock",
+        "climatisation.climatisationSettings.value.climatisationWithoutExternalPower",
+        "climatisation.climatisationSettings.value.zoneFrontLeftEnabled",
+        "climatisation.climatisationSettings.value.zoneFrontRightEnabled",
+        "climatisation.climatisationSettings.value.zoneRearLeftEnabled",
+        "climatisation.climatisationSettings.value.zoneRearRightEnabled",
+        "climatisation"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.climatisationTimers": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=climatisationTimers",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "climatisationTimers.climatisationTimersStatus.value.timers",
+        "climatisationTimers"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.departureProfiles": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=departureProfiles",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "departureProfiles"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.departureTimers": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=departureTimers",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "departureTimers"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.fuelStatus": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=fuelStatus",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "fuelStatus.rangeStatus.value.totalRange_km",
+        "fuelStatus.rangeStatus.value.carType",
+        "fuelStatus.rangeStatus.value.primaryEngine.type",
+        "fuelStatus.rangeStatus.value.primaryEngine.remainingRange_km",
+        "fuelStatus.rangeStatus.value.primaryEngine.currentSOC_pct",
+        "fuelStatus.rangeStatus.value.secondaryEngine.type",
+        "fuelStatus.rangeStatus.value.secondaryEngine.remainingRange_km",
+        "fuelStatus.rangeStatus.value.secondaryEngine.currentSOC_pct",
+        "fuelStatus"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.honkAndFlash": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=honkAndFlash",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "honkAndFlash"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.hybridCarAuxiliaryHeating": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=hybridCarAuxiliaryHeating",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "hybridCarAuxiliaryHeating"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.lvBattery": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=lvBattery",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "lvBattery"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.measurements": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=measurements",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "measurements.fuelLevelStatus.value.currentFuelLevel_pct",
+        "measurements.odometerStatus.value.odometer",
+        "measurements.rangeStatus.value.adBlueRange",
+        "measurements"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.oilLevel": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=oilLevel",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "oilLevel.oilLevelStatus.value.value",
+        "oilLevel"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.readiness": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=readiness",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "readiness.readinessStatus.value.connectionState.isOnline",
+        "readiness.readinessStatus.value.connectionState.isActive",
+        "readiness"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.userCapabilities": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=userCapabilities",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "userCapabilities.capabilitiesStatus.value",
+        "userCapabilities"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.vehicleHealthInspection": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=vehicleHealthInspection",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_days",
+        "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_km",
+        "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_days",
+        "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_km",
+        "vehicleHealthInspection"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.vehicleHealthWarnings": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=vehicleHealthWarnings",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "vehicleHealthWarnings"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "cariad.status.vehicleLights": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=vehicleLights",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "vehicleLights.lightsStatus.value.lights",
+        "vehicleLights"
+      ],
+      "notes": "V2 reference job; verify per vehicle before activation"
+    },
+    "mbb.charging.status.charger": {
+      "family": "mbb",
+      "method": "GET",
+      "path": "/fs-car/bs/batterycharge/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/charger",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "charger.status.batteryStatusData.stateOfCharge.content",
+        "charger.status.chargingStatusData.chargingState.content"
+      ],
+      "notes": "Historical V2 GET route; legacy-auth only"
+    },
+    "mbb.climate.status.climater": {
+      "family": "mbb",
+      "method": "GET",
+      "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "climater.status.climatisationStatusData.climatisationState.content",
+        "climater.status.climatisationStatusData.remainingClimatisationTime.content"
+      ],
+      "notes": "Historical V2 GET route; legacy-auth only"
+    },
+    "mbb.climate.status.preheater": {
+      "family": "mbb",
+      "method": "GET",
+      "path": "/fs-car/bs/rs/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/status",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "status",
+        "data"
+      ],
+      "notes": "Historical V2 GET route; legacy-auth only"
+    },
+    "mbb.charging.status.departure_timer": {
+      "family": "mbb",
+      "method": "GET",
+      "path": "/fs-car/bs/departuretimer/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/timer",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "timer",
+        "timers"
+      ],
+      "notes": "Historical V2 GET route; legacy-auth only"
+    },
+    "mbb.vehicle_status.status.vehicle_data": {
+      "family": "mbb",
+      "method": "GET",
+      "path": "/fs-car/vehicleMgmt/vehicledata/v2/{TYPE}/{COUNTRY}/vehicles/{VIN}/",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "vehicleData",
+        "data"
+      ],
+      "notes": "Historical V2 GET route; legacy-auth only"
+    }
+  },
+  "source": "v2_historical_catalog_plus_climate_pilot",
+  "catalog_scope": "global_historical",
+  "controls_reference": [
+    {
+      "id": "start_climate_control",
+      "capability": "climate",
+      "api_family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/climatisation/start",
+      "verification": "not_migrated"
+    },
+    {
+      "id": "stop_climatisation",
+      "capability": "climate",
+      "api_family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/climatisation/stop",
+      "verification": "not_migrated"
+    },
+    {
+      "id": "start_window_heating",
+      "capability": "climate",
+      "api_family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/windowheating/start",
+      "verification": "not_migrated"
+    },
+    {
+      "id": "stop_window_heating",
+      "capability": "climate",
+      "api_family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/windowheating/stop",
+      "verification": "not_migrated"
+    },
+    {
+      "id": "start_charging",
+      "capability": "charging",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "stop_charging",
+      "capability": "charging",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "set_target_state_of_charge",
+      "capability": "charging",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "set_location_charge_target",
+      "capability": "charging",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "set_charge_mode",
+      "capability": "charging",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "set_climatisation_setting",
+      "capability": "climate",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "trigger_vehicle_wakeup",
+      "capability": "remote",
+      "api_family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/vehiclewakeuptrigger",
+      "verification": "not_migrated"
+    },
+    {
+      "id": "flash_lights",
+      "capability": "remote",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "lock",
+      "capability": "remote",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "unlock",
+      "capability": "remote",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "start_auxiliary_heating",
+      "capability": "climate",
+      "api_family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/auxiliaryheating/start",
+      "verification": "not_migrated"
+    },
+    {
+      "id": "stop_auxiliary_heating",
+      "capability": "climate",
+      "api_family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/auxiliaryheating/stop",
+      "verification": "not_migrated"
+    },
+    {
+      "id": "start_preheater",
+      "capability": "climate",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "stop_preheater",
+      "capability": "climate",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "start_engine",
+      "capability": "remote",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "stop_engine",
+      "capability": "remote",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    },
+    {
+      "id": "refresh_vehicle_data",
+      "capability": "vehicle_status",
+      "api_family": null,
+      "path": null,
+      "verification": "not_migrated"
+    }
+  ]
+}
