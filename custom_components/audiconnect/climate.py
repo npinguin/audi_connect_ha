@@ -49,16 +49,23 @@ async def async_setup_entry(
     entities = []
     for config_vehicle in runtime_data.account.config_vehicles:
         vehicle = config_vehicle.vehicle
-        if not should_create_entity(
-            hass, "climate", "climatisation", vehicle, _ATTR_KEY
-        ):
-            continue
-        # Same account, coordinator and existing climate unique ID. Legacy
-        # cars stay on V2 until their V3 paths have been tested.
-        if (
+        modern_v3 = (
             runtime_data.v3 is not None
             and context_for(vehicle, config_entry).auth == "auth0"
+        )
+        if not should_create_entity(
+            hass,
+            "climate",
+            "climatisation",
+            vehicle,
+            _ATTR_KEY,
+            "climatisation" if modern_v3 else None,
         ):
+            continue
+        # V3 uses the existing unique ID. A positive car capability is enough
+        # to create control-only climate even if this poll omitted its state.
+        # Explicit "unsupported" blocks new V3 entities; legacy keeps V2.
+        if modern_v3:
             entities.append(
                 AudiV3Climate(runtime_data.coordinator, vehicle, runtime_data.v3)
             )

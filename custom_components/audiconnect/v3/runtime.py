@@ -106,6 +106,18 @@ class V3Runtime:
                 # Existing cached state is not evidence of a fresh car poll.
                 evidence.cached_present += 1
                 evidence.last_result = "cached_value_present_freshness_unverified"
+                # The existing Audi adapter has an allowlisted, non-payload
+                # observation for jobs that once returned usable data. Record
+                # it as *historic readable*, never as new physical telemetry.
+                service = getattr(vehicle, "_audi_service", None)
+                observed = getattr(service, "_cariad_observed_jobs", {})
+                if (
+                    context_for(vehicle, self.config_entry).auth == "auth0"
+                    and isinstance(observed, dict)
+                    and "climatisation" in observed.get(vehicle.vin.upper(), ())
+                ):
+                    evidence.readable = max(evidence.readable, 1)
+                    evidence.last_result = "job_previously_readable_timestamp_unverified"
 
     def diagnostics(self, vehicles: list[Any]) -> list[dict[str, Any]]:
         """Bounded redacted results; no VIN/model string/API response payload."""

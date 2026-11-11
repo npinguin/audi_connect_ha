@@ -111,3 +111,12 @@ feature-branch build: HACS normally installs released versions or the
 repository default branch. Do not move fork main/master to V3 just to make
 this candidate appear. Publish a GitHub prerelease/tag for the exact tested
 SHA only after release gates pass.
+
+
+A known positive CARIAD `userCapabilities` verdict may enable the V3
+climate entity even if the current status field is absent (control-only
+mode); it will display an unknown state rather than falsely claiming
+OFF. An explicit negative verdict suppresses a newly created V3 climate
+control. The existing V2 engine's previously readable allowlisted
+`climatisation` job flag is represented as historical evidence only,
+not as a new fresh telemetry timestamp or proof of actuation.

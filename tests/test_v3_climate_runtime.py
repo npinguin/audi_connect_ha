@@ -205,3 +205,16 @@ def test_changed_cloud_state_does_not_claim_physical_confirmation_without_timest
     assert entity.extra_state_attributes["v3_last_command_outcome"] == (
         "accepted_unconfirmed"
     )
+
+
+
+def test_existing_cariad_readable_job_is_evidence_not_fresh_vehicle_state():
+    entity, _, runtime, car, _ = build()
+    car._audi_service._cariad_observed_jobs = {VIN.upper(): frozenset({"climatisation"})}
+    runtime.observe([NS(vehicle=car)])
+    evidence = runtime.diagnostics([car])[0]["read_evidence"][
+        "cariad.climate.status.batch"
+    ]
+    assert evidence["readable_observations"] == 1
+    assert evidence["cached_present"] == 1
+    assert evidence["last_result"] == "job_previously_readable_timestamp_unverified"
