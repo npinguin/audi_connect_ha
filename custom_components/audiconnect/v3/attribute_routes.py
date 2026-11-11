@@ -12,7 +12,7 @@ from .api_value_mappings import transform_for, validate_attribute_transform
 
 _BASE = "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}"
 _ID = re.compile(r"^user\.read\.[a-z][a-z0-9_]{0,40}$")
-_PATH = re.compile(r"^(?:[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*|/(?:[^/~]|~[01])*(?:/(?:[^/~]|~[01])*)*)$")
+_PATH = re.compile(r"^(?:[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*|/(?:[^/~]|~[01])*(?:/(?:[^/~]|~[01])*)*)$")
 
 
 def validate_custom_read_route(value: Mapping[str, Any]) -> dict[str, Any]:
