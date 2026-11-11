@@ -41,4 +41,4 @@ def test_lock_routes_require_secret_not_stored_in_catalog():
     model=CapabilityRegistry.from_json_file(catalog_path())
     for op in ("cariad.access.lock","cariad.access.unlock"):
         assert model.operations[op]["request_mode"]=="secure_spin"
-        assert "request_body" not in model.operations[op]
+        assert model.operations[op]["request_body"] == {"spin": "{SPIN}"}

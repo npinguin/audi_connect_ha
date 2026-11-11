@@ -680,7 +680,11 @@
       "delivery": "manual",
       "priority": 10,
       "confirmation": "physical_vehicle_readback",
-      "request_mode": "secure_spin"
+      "request_mode": "secure_spin",
+      "request_body": {
+        "spin": "{SPIN}"
+      },
+      "notes": "S-PIN is resolved from the Audi account at execution. No credential is persisted or displayed."
     },
     "cariad.access.unlock": {
       "family": "cariad",
@@ -689,7 +693,11 @@
       "delivery": "manual",
       "priority": 10,
       "confirmation": "physical_vehicle_readback",
-      "request_mode": "secure_spin"
+      "request_mode": "secure_spin",
+      "request_body": {
+        "spin": "{SPIN}"
+      },
+      "notes": "S-PIN is resolved from the Audi account at execution. No credential is persisted or displayed."
     },
     "cariad.climate.window_heating_start": {
       "family": "cariad",

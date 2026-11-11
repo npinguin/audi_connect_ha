@@ -17,10 +17,10 @@ from urllib.parse import quote
 from .action_discovery import DiscoveryError, GuidedActionDiscovery
 from .registry import CapabilityRegistry, RegistryError, VehicleContext
 
-_ID = re.compile(r"^user\.climate\.(?:status|start|stop)\.[a-z][a-z0-9_]{0,31}$")
+_ID = re.compile(r"^user\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}$")
 _VAR = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
 _TYPE = {"string", "integer", "number", "boolean"}
-_SYSTEM = {"VIN", "COUNTRY", "TYPE", "JOBS"}
+_SYSTEM = {"VIN", "COUNTRY", "TYPE", "JOBS", "SPIN"}  # SPIN: secure body only
 _SCOPES = {"auth", "region", "vehicle_type", "model_family"}
 
 
@@ -68,7 +68,8 @@ def _check_template(value: Any, allowed: set[str], *, depth: int = 0) -> None:
 
 
 def _validated_route(
-    data: Mapping[str, Any], known_families: Mapping[str, Any]
+    data: Mapping[str, Any], known_families: Mapping[str, Any],
+    known_capabilities: Mapping[str, Any],
 ) -> dict[str, Any]:
     if not isinstance(data, Mapping) or set(data) - {
         "id", "capability", "aspect", "family", "method", "path",
@@ -79,8 +80,12 @@ def _validated_route(
     if not isinstance(operation_id, str) or not _ID.fullmatch(operation_id):
         raise DevelopmentProfileError("Invalid namespaced user operation ID")
     capability, aspect = data.get("capability"), data.get("aspect")
-    if capability != "climate" or aspect not in ("status", "start", "stop"):
-        raise DevelopmentProfileError("V3 pilot only models climate status/start/stop")
+    node = known_capabilities.get(capability) if isinstance(capability, str) else None
+    if not isinstance(node, dict) or not isinstance(aspect, str) or not (
+        (aspect == "status" and node.get("status"))
+        or aspect in (node.get("control") or {})
+    ):
+        raise DevelopmentProfileError("Unknown capability or unsupported control aspect")
     if not operation_id.startswith(f"user.{capability}.{aspect}."):
         raise DevelopmentProfileError("Operation ID must match its capability and aspect")
     family = data.get("family")
@@ -111,12 +116,39 @@ def _validated_route(
     ):
         raise DevelopmentProfileError("Invalid typed parameter declarations")
     allowed = set(variables) | _SYSTEM
-    if not _placeholders(path) <= allowed:
+    path_fields = _placeholders(path)
+    if "SPIN" in path_fields:
+        raise DevelopmentProfileError("S-PIN can never appear in an API URL")
+    if not path_fields <= allowed:
         raise DevelopmentProfileError("Undeclared API path placeholder")
     body = deepcopy(data.get("body"))
     if aspect == "status" and body is not None:
         raise DevelopmentProfileError("GET status never carries a request body")
     _check_template(body, allowed)
+    # The S-PIN is a reserved runtime credential, not a user parameter.
+    # Audi's reviewed Auth0 door controls accept it ONLY as body.spin.
+    def has_secure_field(value: Any) -> bool:
+        if isinstance(value, str):
+            return "SPIN" in _placeholders(value)
+        if isinstance(value, dict):
+            return any(
+                key.lower().replace("-", "_") in ("spin", "s_pin")
+                or has_secure_field(item)
+                for key, item in value.items()
+            )
+        if isinstance(value, list):
+            return any(has_secure_field(item) for item in value)
+        return False
+
+    if has_secure_field(body) and not (
+        capability == "access" and aspect in ("lock", "unlock")
+        and family == "cariad" and method == "POST"
+        and path == f"/vehicle/v1/vehicles/{{VIN}}/access/{aspect}"
+        and body == {"spin": "{SPIN}"}
+    ):
+        raise DevelopmentProfileError(
+            "S-PIN may only be injected as body.spin on the approved CARIAD lock/unlock route"
+        )
     response_paths = data.get("response_paths", [])
     if not isinstance(response_paths, list) or (
         aspect == "status" and not response_paths
@@ -222,7 +254,7 @@ class DevelopmentProfile:
 
     def add(self, operation: Mapping[str, Any]) -> str:
         """Add a user-authored operation, purely as a development definition."""
-        data = _validated_route(operation, self._base["api_families"])
+        data = _validated_route(operation, self._base["api_families"], self._base["capabilities"])
         ident = data["id"]
         if ident in self.registry.operations:
             raise DevelopmentProfileError("Operation ID already exists")
@@ -242,10 +274,10 @@ class DevelopmentProfile:
             if row["method"] == "GET":
                 op["response_paths"] = row["response_paths"]
             overlay["operations"][row_id] = op
+            definition = overlay["capabilities"][row["capability"]]
             target = (
-                overlay["capabilities"]["climate"]["status"]
-                if row["aspect"] == "status" else
-                overlay["capabilities"]["climate"]["control"][row["aspect"]]
+                definition["status"] if row["aspect"] == "status"
+                else definition["control"][row["aspect"]]
             )
             target["operations"].append(row_id)
         try:
@@ -381,14 +413,18 @@ class DevelopmentProfile:
         self, operation: str, *, vehicle_values: Mapping[str, str],
         user_values: Mapping[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Render a local request preview; never send it or export the VIN."""
+        """Render the route without resolving secrets; S-PIN stays a marker."""
         if operation not in self.custom:
             raise DevelopmentProfileError("Only custom routes may be previewed here")
         data = self.custom[operation]
         values: dict[str, Any] = {}
-        for key in _SYSTEM:
+        for key in _SYSTEM - {"SPIN"}:
             if key in vehicle_values:
                 values[key] = vehicle_values[key]
+        # Deliberately unresolved. The private engine resolves this marker
+        # inside an approved command immediately before dispatch; previews
+        # and persisted custom route definitions never contain the credential.
+        values["SPIN"] = "{SPIN}"
         for key, kind in data["variables"].items():
             if key not in (user_values or {}):
                 raise DevelopmentProfileError("Missing custom request parameter")

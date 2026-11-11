@@ -106,6 +106,37 @@ class V3Engine:
         self.vehicles.update(known)
         self._known_vehicle_inventory = True
 
+    def _resolve_secure_body(
+        self, vehicle: V3Vehicle, ident: str, family: str,
+        method: str, path: str, body: Any,
+    ) -> Any:
+        """Resolve credentials last, exclusively for reviewed door controls.
+
+        Secret values are never part of route definitions, local profiles,
+        response previews or WebSocket payloads. No URL substitutions.
+        """
+        if "{SPIN}" not in str(body):
+            return body
+        profile = self.profiles[vehicle.vin.lower()]
+        built_in = ident in ("cariad.access.lock", "cariad.access.unlock")
+        custom = profile.custom.get(ident)
+        is_reviewed = built_in or (
+            custom is not None
+            and custom["capability"] == "access"
+            and custom["aspect"] in ("lock", "unlock")
+        )
+        allowed_paths = {
+            f"/vehicle/v1/vehicles/{vehicle.vin}/access/lock",
+            f"/vehicle/v1/vehicles/{vehicle.vin}/access/unlock",
+        }
+        if (not is_reviewed or family != "cariad" or method != "POST"
+                or path not in allowed_paths or body != {"spin": "{SPIN}"}):
+            raise ValueError("Secure S-PIN template is not permitted for this command")
+        spin = getattr(getattr(self.auth, "service", None), "_spin", None)
+        if not isinstance(spin, str) or not spin:
+            raise ValueError("Configure an Audi S-PIN to use remote door controls")
+        return {"spin": spin}
+
     def _operation_request(
         self, vehicle: V3Vehicle, ident: str,
         params: dict[str, Any] | None = None,
@@ -120,7 +151,10 @@ class V3Engine:
             )
             return (
                 preview["family"], preview["method"],
-                preview["relative_path"], preview["json_body"],
+                preview["relative_path"], self._resolve_secure_body(
+                    vehicle, ident, preview["family"], preview["method"],
+                    preview["relative_path"], preview["json_body"],
+                ),
             )
         op = profile.registry.operations[ident]
         # This historical CARIAD variant is a read-modify-write settings
@@ -136,14 +170,11 @@ class V3Engine:
             TYPE="Audi", JOBS=",".join(planned_jobs(vehicle, profile)),
         )
         body = op.get("request_body")
-        if op["method"] == "POST" and op.get("request_mode") == "secure_spin":
-            if op["family"] != "cariad" or ident not in ("cariad.access.lock", "cariad.access.unlock"):
-                raise ValueError("Unreviewed credential-bearing control")
-            spin = getattr(getattr(self.auth, "service", None), "_spin", None)
-            if not isinstance(spin, str) or not spin:
-                raise ValueError("Audi S-PIN must be configured for remote door controls")
-            body = {"spin": spin}  # Never persist or display S-PIN.
-        return op["family"], op["method"], path, body
+        if op.get("request_mode") == "secure_spin" and body is None:
+            body = {"spin": "{SPIN}"}  # Support older immutable catalogs.
+        return op["family"], op["method"], path, self._resolve_secure_body(
+            vehicle, ident, op["family"], op["method"], path, body
+        )
 
     def _api_record(self, profile: DevelopmentProfile, operation: str,
                     family: str, method: str, response: V3Response | None,
