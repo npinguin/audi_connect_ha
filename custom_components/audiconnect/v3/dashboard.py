@@ -216,7 +216,6 @@ async def async_setup_dashboard(hass) -> None:
         sidebar_icon="mdi:car-cog",
         require_admin=True,
         embed_iframe=False,
-        config_panel_domain=DOMAIN,
     )
     hass.data[_READY_KEY] = True
 

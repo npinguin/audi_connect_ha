@@ -13,10 +13,10 @@ V3 = AUDI / "v3"
 def test_beta_manifest_version_and_hacs_metadata_are_consistent():
     manifest = json.loads((AUDI / "manifest.json").read_text())
     hacs = json.loads((ROOT / "hacs.json").read_text())
-    notes = (ROOT / "docs/V3_RELEASE_NOTES_3.0.0b1.md").read_text()
+    notes = (ROOT / "docs/V3_RELEASE_NOTES_3.0.0b2.md").read_text()
     assert manifest["domain"] == "audiconnect"  # no second config entry
-    assert manifest["version"] == "3.0.0b1"
-    assert "3.0.0b1" in notes
+    assert manifest["version"] == "3.0.0b2"
+    assert "3.0.0b2" in notes
     assert hacs["homeassistant"] == "2026.7.0"
     assert "npinguin/audi_connect_ha" in manifest["documentation"]
     assert manifest["issue_tracker"].endswith("npinguin/audi_connect_ha/issues")
@@ -48,24 +48,26 @@ def test_runtime_selection_is_in_options_and_single_setup_owner():
     ):
         assert option in flow
         assert option in translations["options"]["step"]["init"]["data"]
-    assert "coordinator_class = AudiV3Coordinator if v3 is not None else AudiDataUpdateCoordinator" in init
+    assert "coordinator = V3CleanCoordinator(hass, engine, config_entry)" in init
+    assert "account=None, coordinator=coordinator, v3=engine" in init
     assert "config_entry.runtime_data = AudiRuntimeData(" in init
 
 
 def test_clean_capability_owner_and_in_place_entity_id():
     entry = (AUDI / "climate.py").read_text()
-    modern = (V3 / "climate.py").read_text()
-    runtime = (V3 / "runtime.py").read_text()
-    assert "AudiV3Climate(" in entry
-    assert 'entity_unique_id(vehicle, "climate", "climatisation")' in modern
-    assert "def control_verdict(" in runtime
-    assert "self.runtime.control_verdict(" in modern
-    assert "no_user_token" not in modern  # no independent token plumbing
+    modern = (V3 / "entities.py").read_text()
+    engine = (V3 / "engine.py").read_text()
+    assert "V3ClimateEntity(" in entry
+    assert 'vehicle.vin.lower()}_climate_climatisation' in modern
+    assert "def control_enabled(" in engine
+    assert "async_refresh_data" not in engine
+    assert "AudiAccount" not in engine
 
 
 def test_no_auto_wake_and_v3_device_registry_cleanup_disabled():
     init = (AUDI / "__init__.py").read_text()
-    modern = (V3 / "coordinator.py").read_text()
+    modern = (V3 / "coordinator_clean.py").read_text()
     assert "if runtime_data.v3 is not None:" in init
-    assert "class AudiV3Coordinator(AudiDataUpdateCoordinator)" in modern
+    assert "class V3CleanCoordinator(DataUpdateCoordinator" in modern
+    assert "AudiDataUpdateCoordinator" not in modern
     assert "trigger_vehicle_wakeup" not in modern
