@@ -384,7 +384,7 @@ class V3Engine:
                 "sequence": attempt.sequence, "operation": operation,
                 "transport": attempt.transport,
                 "status": response.status if response else None,
-                "response_preview": safe_response_preview(
+                "response_preview": None if capability == "access" else safe_response_preview(
                     response.data if response else None,
                     vehicle_vin=vehicle.vin,
                 ),

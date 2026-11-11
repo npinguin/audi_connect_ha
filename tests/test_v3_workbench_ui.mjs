@@ -139,5 +139,5 @@ test("Wake, lock and climate are independently selectable for guarded physical t
   assert.equal(p.controlAction,"wake");
   assert.equal(p.step,3);
   assert.match(p.shadowRoot.innerHTML,/Send one test command/);
-  assert.match(p.shadowRoot.innerHTML,/Verified working/);
+  assert.match(p.shadowRoot.innerHTML,/Physical verification/);
 });

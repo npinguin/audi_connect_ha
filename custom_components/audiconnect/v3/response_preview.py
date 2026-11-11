@@ -9,7 +9,7 @@ import re
 from typing import Any
 
 _SENSITIVE = re.compile(
-    r"vin|authorization|password|access.?token|refresh.?token|bearer|"
+    r"vin|authorization|password|access.?token|refresh.?token|bearer|spin|s.?pin|"
     r"secret|email|phone|location|latitude|longitude|position|"
     r"coordinates|street|address|request.?id|session.?id",
     re.IGNORECASE,
