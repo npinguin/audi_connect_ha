@@ -128,7 +128,8 @@ def restore_profile(
     profile.job_probe_attempts.update(probed_jobs)
     disabled = discovery.get("disabled_controls", [])
     if not isinstance(disabled, list) or any(
-        item not in ("climate.start", "climate.stop") for item in disabled
+        item not in {f"{c}.{a}" for c, d in catalog.capabilities.items()
+                     for a in (d.get("control") or {})} for item in disabled
     ):
         raise DevelopmentProfileError("Malformed disabled actions")
     profile.discovery.disabled = set(disabled)
@@ -145,8 +146,8 @@ def restore_profile(
             raise DevelopmentProfileError("Malformed action fields") from err
         if (
             type(attempt.sequence) is not int or attempt.sequence <= prev
-            or attempt.capability != "climate"
-            or attempt.action not in ("start", "stop")
+            or attempt.capability not in catalog.capabilities
+            or attempt.action not in (catalog.capabilities.get(attempt.capability, {}).get("control") or {})
             or attempt.operation not in profile.registry.operations
             or profile.registry.operations[attempt.operation]["method"] != "POST"
             or attempt.result not in (
@@ -173,14 +174,16 @@ def restore_profile(
     if not isinstance(drafts, dict):
         raise DevelopmentProfileError("Invalid draft route selections")
     for key, operation in drafts.items():
-        if key not in ("climate.status", "climate.start", "climate.stop"):
+        if "." not in key:
             raise DevelopmentProfileError("Unknown draft capability")
-        profile.save_candidate("climate", key.split(".")[1], operation)
+        capability, action = key.split(".", 1)
+        profile.save_candidate(capability, action, operation)
     for key, operation in active.items():
-        if key not in ("climate.status", "climate.start", "climate.stop"):
+        if "." not in key:
             raise DevelopmentProfileError("Unexpected active capability")
-        profile.choose_working("climate", key.split(".")[1], operation)
-        if key != "climate.status":
+        capability, action = key.split(".", 1)
+        profile.choose_working(capability, action, operation)
+        if action != "status":
             profile.discovery.preferred[key] = operation
     return profile
 

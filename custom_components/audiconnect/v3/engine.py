@@ -132,7 +132,15 @@ class V3Engine:
             VIN=vehicle.vin, COUNTRY=vehicle.country,
             TYPE="Audi", JOBS=",".join(planned_jobs(vehicle, profile)),
         )
-        return op["family"], op["method"], path, None
+        body = op.get("request_body")
+        if op["method"] == "POST" and op.get("request_mode") == "secure_spin":
+            if op["family"] != "cariad" or ident not in ("cariad.access.lock", "cariad.access.unlock"):
+                raise ValueError("Unreviewed credential-bearing control")
+            spin = getattr(getattr(self.auth, "service", None), "_spin", None)
+            if not isinstance(spin, str) or not spin:
+                raise ValueError("Audi S-PIN must be configured for remote door controls")
+            body = {"spin": spin}  # Never persist or display S-PIN.
+        return op["family"], op["method"], path, body
 
     async def poll(self) -> list[V3Vehicle]:
         self.last_cloud_poll_attempt = datetime.now(UTC)
@@ -299,27 +307,31 @@ class V3Engine:
             raise ValueError("Vehicle is not part of this account")
         return vehicle
 
-    def control_enabled(self, vin: str, aspect: str) -> bool:
+    def control_enabled(self, vin: str, aspect: str, capability: str = "climate") -> bool:
         self.require_vehicle(vin)
         p = self.profiles[vin.lower()]
         return (
-            f"climate.{aspect}" not in p.discovery.disabled
-            and p.active.get(f"climate.{aspect}") is not None
-            and p.control_results.get(p.active[f"climate.{aspect}"]) == "worked"
-            and not p.custom.get(p.active[f"climate.{aspect}"], {}).get("variables")
+            f"{capability}.{aspect}" not in p.discovery.disabled
+            and p.active.get(f"{capability}.{aspect}") is not None
+            and p.control_results.get(p.active[f"{capability}.{aspect}"]) == "worked"
+            and not p.custom.get(p.active[f"{capability}.{aspect}"], {}).get("variables")
         )
 
     async def test_action(
         self, vin: str, aspect: str, operation: str,
-        *, params: dict[str, Any] | None = None,
+        *, params: dict[str, Any] | None = None, capability: str = "climate",
     ) -> dict[str, Any]:
-        """One user-triggered request; cannot automatically test next POST."""
+        """One user-triggered control request, never automatic POST discovery."""
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vin.lower()]
-        if aspect not in ("start", "stop"):
-            raise ValueError("Unsupported climate control")
         if not self.auth.uses_auth0:
-            raise ValueError("V3 climate actions need Auth0")
+            raise ValueError("CARIAD vehicle controls need Auth0")
+        if operation not in profile.registry.resolve(
+            capability, aspect, vehicle.context
+        )["available_operations"]:
+            raise ValueError("Control not applicable to this car")
+        if profile.registry.operations[operation]["method"] != "POST":
+            raise ValueError("Read-only operation cannot be a control")
         async with self._actions:
             # Reject invalid templates/parameters BEFORE reserving a pending
             # physical action, otherwise a mere validation error locks the car.
@@ -327,7 +339,7 @@ class V3Engine:
                 vehicle, operation, params
             )
             attempt = profile.begin_test(
-                "climate", aspect, operation, now=time.time()
+                capability, aspect, operation, now=time.time()
             )
             await self.storage.async_save(self.profiles)
             try:
@@ -366,7 +378,7 @@ class V3Engine:
             attempt = profile.discovery.history[-1]
             if not profile.custom.get(attempt.operation, {}).get("variables"):
                 profile.choose_working(
-                    "climate", attempt.action, attempt.operation
+                    attempt.capability, attempt.action, attempt.operation
                 )
         await self.storage.async_save(self.profiles)
         return {"confirmed": outcome, "active": dict(profile.active)}

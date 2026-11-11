@@ -81,8 +81,8 @@ class GuidedActionDiscovery:
 
     def candidates(self, capability: str, action: str) -> list[dict[str, str]]:
         """Show alternatives ordered by evidence, but never send a request."""
-        if action not in ("start", "stop"):
-            raise DiscoveryError("Only reviewed vehicle controls are supported")
+        if not self.registry.operations_for(capability, action):
+            raise DiscoveryError("No reviewed control routes are available")
         refs = self.registry.resolve(capability, action, self.context)
         works = self.preferred.get(f"{capability}.{action}")
         previously_failed = {
@@ -197,8 +197,8 @@ class GuidedActionDiscovery:
 
     def disable(self, capability: str, action: str) -> None:
         """A user may disable an unwanted action independently of status."""
-        if action not in ("start", "stop"):
-            raise DiscoveryError("Only control actions are user-disableable here")
+        if not self.registry.operations_for(capability, action):
+            raise DiscoveryError("Only defined controls may be disabled")
         if self._active is not None:
             raise DiscoveryError("Resolve in-flight test before disabling controls")
         self.registry.operations_for(capability, action)

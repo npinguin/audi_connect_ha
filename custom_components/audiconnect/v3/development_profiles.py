@@ -322,8 +322,8 @@ class DevelopmentProfile:
 
     def save_candidate(self, capability: str, action: str, operation: str) -> None:
         """Remember an untested route without claiming or enabling success."""
-        if action not in ("status", "start", "stop"):
-            raise DevelopmentProfileError("Unknown capability aspect")
+        if action != "status" and not self.registry.operations_for(capability, action):
+            raise DevelopmentProfileError("Unknown control aspect")
         if operation not in self.registry.resolve(
             capability, action, self.discovery.context
         )["available_operations"]:

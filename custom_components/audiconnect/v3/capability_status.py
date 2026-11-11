@@ -62,7 +62,7 @@ def build_status_report(
     rows: list[dict[str, Any]] = []
     seen_paths: set[tuple[str, str]] = set()
     for capability, definition in profile.registry.capabilities.items():
-        for aspect in ("status", "start", "stop"):
+        for aspect in ("status", *(definition.get("control") or {})):
             ids = profile.registry.operations_for(capability, aspect)
             applicable = set(profile.registry.resolve(
                 capability, aspect, vehicle.context

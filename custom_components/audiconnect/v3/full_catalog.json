@@ -43,6 +43,16 @@
             "cariad.climate.stop",
             "mbb.climate.stop"
           ]
+        },
+        "window_heating_start": {
+          "operations": [
+            "cariad.climate.window_heating_start"
+          ]
+        },
+        "window_heating_stop": {
+          "operations": [
+            "cariad.climate.window_heating_stop"
+          ]
         }
       }
     },
@@ -73,6 +83,18 @@
         "operations": [
           "cariad.status.access"
         ]
+      },
+      "control": {
+        "lock": {
+          "operations": [
+            "cariad.access.lock"
+          ]
+        },
+        "unlock": {
+          "operations": [
+            "cariad.access.unlock"
+          ]
+        }
       }
     },
     "charging": {
@@ -88,6 +110,20 @@
           "mbb.charging.status.charger",
           "mbb.charging.status.departure_timer"
         ]
+      },
+      "control": {
+        "start": {
+          "operations": [
+            "cariad.charging.start",
+            "cariad.charging.start.combined"
+          ]
+        },
+        "stop": {
+          "operations": [
+            "cariad.charging.stop",
+            "cariad.charging.stop.combined"
+          ]
+        }
       }
     },
     "mobility": {
@@ -103,6 +139,13 @@
         "operations": [
           "cariad.status.honkAndFlash"
         ]
+      },
+      "control": {
+        "wake": {
+          "operations": [
+            "cariad.remote.wake"
+          ]
+        }
       }
     }
   },
@@ -577,6 +620,98 @@
         "tripStatistics"
       ],
       "notes": "Historical V2 trip statistics: explicitly tested only"
+    },
+    "cariad.remote.wake": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/vehiclewakeuptrigger",
+      "delivery": "manual",
+      "priority": 10,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "json",
+      "request_body": {}
+    },
+    "cariad.charging.start": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/start",
+      "delivery": "manual",
+      "priority": 10,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "json",
+      "request_body": {}
+    },
+    "cariad.charging.stop": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/stop",
+      "delivery": "manual",
+      "priority": 10,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "json",
+      "request_body": {}
+    },
+    "cariad.charging.start.combined": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/start-stop",
+      "delivery": "manual",
+      "priority": 100,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "json",
+      "request_body": {
+        "action": "start"
+      }
+    },
+    "cariad.charging.stop.combined": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/start-stop",
+      "delivery": "manual",
+      "priority": 100,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "json",
+      "request_body": {
+        "action": "stop"
+      }
+    },
+    "cariad.access.lock": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/access/lock",
+      "delivery": "manual",
+      "priority": 10,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "secure_spin"
+    },
+    "cariad.access.unlock": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/access/unlock",
+      "delivery": "manual",
+      "priority": 10,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "secure_spin"
+    },
+    "cariad.climate.window_heating_start": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/windowheating/start",
+      "delivery": "manual",
+      "priority": 10,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "json",
+      "request_body": {}
+    },
+    "cariad.climate.window_heating_stop": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/windowheating/stop",
+      "delivery": "manual",
+      "priority": 10,
+      "confirmation": "physical_vehicle_readback",
+      "request_mode": "json",
+      "request_body": {}
     }
   },
   "source": "v2_historical_catalog_plus_climate_pilot",
@@ -657,7 +792,8 @@
       "capability": "remote",
       "api_family": "cariad",
       "path": "/vehicle/v1/vehicles/{VIN}/vehiclewakeuptrigger",
-      "verification": "not_migrated"
+      "verification": "requires_manual_test",
+      "operation": "cariad.remote.wake"
     },
     {
       "id": "flash_lights",
@@ -668,14 +804,14 @@
     },
     {
       "id": "lock",
-      "capability": "remote",
+      "capability": "access",
       "api_family": null,
       "path": null,
       "verification": "not_migrated"
     },
     {
       "id": "unlock",
-      "capability": "remote",
+      "capability": "access",
       "api_family": null,
       "path": null,
       "verification": "not_migrated"
