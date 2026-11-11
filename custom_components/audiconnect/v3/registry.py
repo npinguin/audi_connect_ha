@@ -64,13 +64,17 @@ class RouteEvidence:
         return now < self.suspended_until
 
 
-def _check_path(path: Any) -> None:
+def _check_path(path: Any, extra_fields: frozenset[str] = frozenset()) -> None:
     if not isinstance(path, str) or not path.startswith("/"):
         raise RegistryError("API paths must be relative to approved family hosts")
     if "://" in path or "//" in path or ".." in path or "\\" in path or "#" in path:
         raise RegistryError("Unsafe API path")
-    for _, field_name, _, conversion in Formatter().parse(path):
-        if field_name is not None and (field_name not in _ALLOWED_FIELDS or conversion):
+    allowed = _ALLOWED_FIELDS | extra_fields
+    for _, field_name, format_spec, conversion in Formatter().parse(path):
+        if (
+            field_name is not None
+            and (field_name not in allowed or conversion or format_spec)
+        ):
             raise RegistryError("Unknown or unsafe path template variable")
 
 
@@ -97,7 +101,17 @@ class CapabilityRegistry:
                 raise RegistryError("Unknown API family or auth")
             if op.get("method") not in _ALLOWED_METHODS:
                 raise RegistryError("Method not supported by V3 pilot")
-            _check_path(op.get("path"))
+            variables = op.get("request_variables", {})
+            if not isinstance(variables, dict) or len(variables) > 12 or any(
+                not isinstance(name, str)
+                or not name.isidentifier()
+                or not name.isupper()
+                or name in _ALLOWED_FIELDS
+                or kind not in ("string", "integer", "number", "boolean")
+                for name, kind in variables.items()
+            ):
+                raise RegistryError("Unrecognized or unsafe declared API variables")
+            _check_path(op.get("path"), frozenset(variables))
             scope = op.get("scope", {})
             if not isinstance(scope, dict) or set(scope) - _ALLOWED_SCOPE:
                 raise RegistryError("Invalid context refinement")

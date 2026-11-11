@@ -258,12 +258,17 @@ class DevelopmentProfile:
         self, sequence: int, *, worked: bool | None,
         inspected_vehicle: bool, now: float
     ) -> None:
-        self.discovery.review(
+        attempted = self.discovery.review(
             sequence,
             result="uncertain" if worked is None else "worked" if worked else "failed",
             inspected_vehicle=inspected_vehicle,
             now=now,
         )
+        key = f"{attempted.capability}.{attempted.action}"
+        if attempted.result != "worked" and self.active.get(key) == attempted.operation:
+            # A later failure/uncertainty invalidates this vehicle's active
+            # mapping. Never keep advertising a known-broken command.
+            self.active.pop(key)
 
     def choose_working(self, capability: str, action: str, operation: str) -> None:
         """Configuration can activate ONLY a confirmed working variant."""
@@ -274,12 +279,13 @@ class DevelopmentProfile:
             capability, action, self.discovery.context
         )["available_operations"]:
             raise DevelopmentProfileError("Route is not applicable")
-        if not any(
-            row.capability == capability and row.action == action
-            and row.operation == operation and row.result == "worked"
-            for row in self.discovery.history
-        ):
-            raise DevelopmentProfileError("A real vehicle test must confirm this route")
+        results = [
+            row.result for row in self.discovery.history
+            if row.capability == capability and row.action == action
+            and row.operation == operation
+        ]
+        if not results or results[-1] != "worked":
+            raise DevelopmentProfileError("Latest real vehicle test must confirm this route")
         self.active[key] = operation
 
     def disable(self, capability: str, action: str) -> None:

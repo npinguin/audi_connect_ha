@@ -176,3 +176,27 @@ def test_user_operation_never_overwrites_existing_id():
     p.add(custom_start())
     with pytest.raises(DevelopmentProfileError, match="already exists"):
         p.add(custom_start())
+
+
+
+def test_latest_failed_result_withdraws_previously_active_route():
+    profile = workspace()
+    op = profile.add(custom_start())
+    first = profile.begin_test("climate", "start", op, now=1)
+    profile.confirm(first.sequence, worked=True, inspected_vehicle=True, now=2)
+    profile.choose_working("climate", "start", op)
+    failed = profile.begin_test("climate", "start", op, now=3)
+    profile.confirm(failed.sequence, worked=False, inspected_vehicle=True, now=4)
+    assert profile.snapshot()["active"] == {}
+    with pytest.raises(DevelopmentProfileError, match="Latest"):
+        profile.choose_working("climate", "start", op)
+
+
+def test_nested_or_format_modified_path_placeholders_are_blocked():
+    profile = workspace()
+    with pytest.raises(DevelopmentProfileError):
+        profile.add(custom_start(path="/vehicles/{VIN.__class__}/start"))
+    with pytest.raises(DevelopmentProfileError):
+        profile.add(custom_start(path="/vehicles/{VIN!r}/start"))
+    with pytest.raises(DevelopmentProfileError):
+        profile.add(custom_start(path="/vehicles/{VIN:40}/start"))
