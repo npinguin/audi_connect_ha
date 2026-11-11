@@ -32,12 +32,12 @@ def test_v3_dashboard_exists_in_package_not_only_in_repo_documentation():
         assert action in script
 
 
-def test_only_three_platforms_forwarded_in_v3():
+def test_required_v3_platforms_forwarded_in_v3():
     init = (
         Path(__file__).resolve().parents[1]
         / "custom_components/audiconnect/__init__.py"
     ).read_text()
-    assert "Platform.CLIMATE, Platform.SENSOR, Platform.BUTTON" in init
+    assert "Platform.CLIMATE, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON" in init
     assert "AudiDataUpdateCoordinator.from_entry" in init
     assert "coordinator = V3CleanCoordinator(hass, engine, config_entry)" in init
     assert "account=None, coordinator=coordinator, v3=engine" in init

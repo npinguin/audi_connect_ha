@@ -144,6 +144,7 @@ class V3Engine:
                 routes.remove(chosen)
                 routes.insert(0, chosen)
             attempted_paths: set[str] = set()
+            attempted_operations: set[str] = set()
             # Bounded GET discovery, no auto wake and no repeated duplicate URL.
             for ident in routes[:3]:
                 # A custom route with user parameters has no safe background
@@ -154,9 +155,17 @@ class V3Engine:
                 if op["method"] != "GET" or op["family"] != "cariad":
                     continue
                 family, method, path, _body = self._operation_request(vehicle, ident)
+                # The default targeted climate probe repeats a job already
+                # included in the shared batch. Do not double-poll it merely
+                # because the URL spells the same job list differently.
+                if (ident == "cariad.climate.status.probe"
+                    and op["path"].endswith("?jobs=climatisation")
+                    and "cariad.climate.status.batch" in attempted_operations):
+                    continue
                 if path in attempted_paths:
                     continue
                 attempted_paths.add(path)
+                attempted_operations.add(ident)
                 try:
                     response = await self.transport.request(family, method, path)
                 except (TimeoutError, OSError, RuntimeError):
