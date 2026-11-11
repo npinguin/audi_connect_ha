@@ -656,6 +656,12 @@ class V3Engine:
         coordinator = getattr(getattr(self.entry, "runtime_data", None), "coordinator", None)
         if coordinator is not None and hasattr(coordinator, "async_set_updated_data"):
             coordinator.async_set_updated_data(list(self.vehicles.values()))
+        if coordinator is not None and hasattr(self.hass, "async_create_task"):
+            from .registry_lifecycle import async_apply_v3_entity_visibility
+            self.hass.async_create_task(
+                async_apply_v3_entity_visibility(self.hass, self.entry, True),
+                eager_start=False,
+            )
 
     async def activate_attribute_route(self, vin: str, attribute: str, route: str) -> None:
         car = self.require_vehicle(vin)

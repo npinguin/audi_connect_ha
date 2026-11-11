@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.lock import LockEntity
+from homeassistant.components.switch import SwitchEntity
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
@@ -338,3 +340,144 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
             "vehicle_captured": reading.get("captured"),
             "verification": reading.get("status", "unknown"),
         }
+
+
+# Native HA controls are created only for personally verified route mappings.
+# The workbench always shows unverified candidates without injecting unusable
+# lock/button/switch entities into a customer's HA device.
+CONTROL_BUTTONS = (
+    ("wake_vehicle_modern", "Wake vehicle", "mdi:car-connected", "remote", "wake"),
+    ("start_charging_modern", "Start charging", "mdi:ev-station", "charging", "start"),
+    ("stop_charging_modern", "Stop charging", "mdi:ev-station", "charging", "stop"),
+    ("start_window_heating_modern", "Start window heating", "mdi:car-defrost-rear", "climate", "window_heating_start"),
+    ("stop_window_heating_modern", "Stop window heating", "mdi:car-defrost-rear", "climate", "window_heating_stop"),
+)
+
+
+class V3ControlButton(V3BaseEntity, ButtonEntity):
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle,
+                 descriptor: tuple[str, str, str, str, str]):
+        super().__init__(coordinator, vehicle)
+        self.key, self._attr_name, self._attr_icon, self.capability, self.action = descriptor
+        self._attr_unique_id = f"{vehicle.vin.lower()}_button_{self.key}"
+
+    @property
+    def available(self) -> bool:
+        return (
+            self.coordinator.last_update_success and
+            self.coordinator.engine.control_enabled(
+                self.vehicle.vin, self.action, self.capability
+            )
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        profile = self.coordinator.engine.profiles.get(self.vehicle.vin.lower())
+        return {
+            "v3_capability": self.capability,
+            "api_route": profile.active.get(f"{self.capability}.{self.action}") if profile else None,
+            "confirmation": "manual_vehicle_test",
+            "last_command": self.vehicle.last_command_result,
+        }
+
+    async def async_press(self) -> None:
+        if not self.available:
+            raise HomeAssistantError("Control must be tested and activated in Audi V3 first")
+        try:
+            await self.coordinator.engine.send_control(
+                self.vehicle.vin, self.action, self.capability
+            )
+        except (ValueError, RuntimeError) as err:
+            raise HomeAssistantError(str(err)) from err
+        self.async_write_ha_state()
+
+
+class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
+    _attr_name = "Climatisation ON/OFF"
+    _attr_icon = "mdi:car-air-conditioner"
+
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_switch_climate_quick_control"
+
+    @property
+    def is_on(self) -> bool | None:
+        state = self.vehicle.climate_state
+        age = self.vehicle.capture_age_minutes
+        if state is None or age is None or age > 60:
+            return None
+        return state not in ("off", "inactive", "stopped")
+
+    @property
+    def available(self) -> bool:
+        engine = self.coordinator.engine
+        return (self.coordinator.last_update_success and self.is_on is not None and
+                engine.control_enabled(self.vehicle.vin, "start") and
+                engine.control_enabled(self.vehicle.vin, "stop"))
+
+    async def async_turn_on(self, **kwargs) -> None:
+        if not self.available:
+            raise HomeAssistantError("Climate ON/OFF requires fresh state and verified controls")
+        if self.is_on is not True:
+            await self.coordinator.engine.send_control(self.vehicle.vin, "start")
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs) -> None:
+        if not self.available:
+            raise HomeAssistantError("Climate ON/OFF requires fresh state and verified controls")
+        if self.is_on is not False:
+            await self.coordinator.engine.send_control(self.vehicle.vin, "stop")
+        self.async_write_ha_state()
+
+
+class V3LockEntity(V3BaseEntity, LockEntity):
+    _attr_name = "Door lock"
+    _attr_icon = "mdi:car-door-lock"
+
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_lock_lock"
+
+    @property
+    def is_locked(self) -> bool | None:
+        # No silent assumption that an unavailable lock status means unlocked.
+        row = self.vehicle.readings.get("doorLockStatus")
+        if not _reading_available(row):
+            return None
+        raw = row.get("value")
+        if not isinstance(raw, str):
+            return None
+        value = raw.strip().lower()
+        if value == "locked":
+            return True
+        if value == "unlocked":
+            return False
+        return None
+
+    @property
+    def available(self) -> bool:
+        engine = self.coordinator.engine
+        pin = getattr(getattr(engine.auth, "service", None), "_spin", None)
+        return (self.coordinator.last_update_success and self.is_locked is not None
+                and bool(pin) and (
+                    engine.control_enabled(self.vehicle.vin, "lock", "access") or
+                    engine.control_enabled(self.vehicle.vin, "unlock", "access")
+                ))
+
+    async def async_lock(self, **kwargs) -> None:
+        if not self.available or not self.coordinator.engine.control_enabled(
+            self.vehicle.vin, "lock", "access"
+        ):
+            raise HomeAssistantError("Lock route or current door status not verified")
+        if self.is_locked is not True:
+            await self.coordinator.engine.send_control(self.vehicle.vin, "lock", "access")
+        self.async_write_ha_state()
+
+    async def async_unlock(self, **kwargs) -> None:
+        if not self.available or not self.coordinator.engine.control_enabled(
+            self.vehicle.vin, "unlock", "access"
+        ):
+            raise HomeAssistantError("Unlock route or current door status not verified")
+        if self.is_locked is not False:
+            await self.coordinator.engine.send_control(self.vehicle.vin, "unlock", "access")
+        self.async_write_ha_state()

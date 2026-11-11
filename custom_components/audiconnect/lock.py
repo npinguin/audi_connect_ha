@@ -39,6 +39,26 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
+    from .v3.engine import V3Engine
+    if isinstance(runtime_data.v3, V3Engine):
+        from .v3.entities import V3LockEntity
+        engine = runtime_data.v3
+        seen: set[str] = set()
+        def add_discovered() -> None:
+            entities = []
+            for vehicle in engine.vehicles.values():
+                key = vehicle.vin.lower()
+                if key in seen:
+                    continue
+                if (engine.control_enabled(vehicle.vin, "lock", "access") or
+                    engine.control_enabled(vehicle.vin, "unlock", "access")):
+                    seen.add(key)
+                    entities.append(V3LockEntity(runtime_data.coordinator, vehicle))
+            if entities:
+                async_add_entities(entities)
+        add_discovered()
+        config_entry.async_on_unload(runtime_data.coordinator.async_add_listener(add_discovered))
+        return
     entities = [
         AudiLock(runtime_data.coordinator, config_vehicle.vehicle)
         for config_vehicle in runtime_data.account.config_vehicles
