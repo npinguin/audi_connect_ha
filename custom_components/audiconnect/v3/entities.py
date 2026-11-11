@@ -229,9 +229,16 @@ def _reading_age_minutes(captured: str | None) -> float | None:
     return max(0.0, (datetime.now(UTC) - point.astimezone(UTC)).total_seconds() / 60)
 
 
-def _reading_available(reading: dict[str, Any] | None) -> bool:
-    if not reading:
+def _reading_available(
+    reading: dict[str, Any] | None, *, allow_last_known: bool = False,
+) -> bool:
+    if not reading or reading.get("value") is None:
         return False
+    if allow_last_known:
+        # V2 compatibility: retain passive vehicle readings from a sleeping
+        # car. Their *actual* capture age is exposed separately. Safety-critical
+        # binary statuses and controls still require timely vehicle evidence.
+        return reading.get("status") in ("verified", "readable_but_stale")
     captured_age = _reading_age_minutes(reading.get("captured"))
     if captured_age is not None:
         return captured_age <= 60
@@ -266,7 +273,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     @property
     def available(self) -> bool:
         reading = self.vehicle.readings.get(self.attribute["id"])
-        return _reading_available(reading)
+        return _reading_available(reading, allow_last_known=True)
 
     @property
     def native_value(self):
@@ -277,11 +284,17 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         reading = self.vehicle.readings.get(self.attribute["id"]) or {}
+        captured_age = _reading_age_minutes(reading.get("captured"))
+        freshness = (
+            "unknown" if captured_age is None
+            else "fresh" if captured_age <= 60
+            else "stale_last_known"
+        )
         return {
             "v3_capability": self.attribute["capability"],
             "v2_attribute": self.attribute["id"],
             "api_family": reading.get("family", "cariad"),
-            "vehicle_freshness": "unknown" if not reading.get("captured") else reading.get("status"),
+            "vehicle_freshness": freshness,
             "cloud_age_minutes": _reading_age_minutes(reading.get("observed")),
             "response_mapping": reading.get("path"),
             "vehicle_captured": reading.get("captured"),
