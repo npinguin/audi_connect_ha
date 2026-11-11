@@ -44,8 +44,7 @@ test("Save candidate survives route selection and rerender", async () => {
   await panel._routes();
   await panel._change({target: {id: "route", value: routes[1].id}});
   panel.render();
-  assert.match(panel.shadowRoot.innerHTML,
-    /value="cariad\.climate\.status\.probe" selected/);
+  assert.equal(panel.routeChoice, routes[1].id);
   panel.shadowRoot.getElementById = id => ({
     value: id === "route" ? panel.routeChoice : "{}",
   });
@@ -125,7 +124,7 @@ test("Wake, lock and climate are independently selectable for guarded physical t
   ]};
   p.render();
   assert.match(p.shadowRoot.innerHTML,/wake/);
-  assert.match(p.shadowRoot.innerHTML,/Configure control/);
+  assert.match(p.shadowRoot.innerHTML,/Routes & test/);
   p.api=async (name,args) => {
     assert.equal(name,"control_routes");
     assert.equal(args.capability,"remote");
@@ -140,4 +139,34 @@ test("Wake, lock and climate are independently selectable for guarded physical t
   assert.equal(p.step,3);
   assert.match(p.shadowRoot.innerHTML,/Send one test command/);
   assert.match(p.shadowRoot.innerHTML,/Physical verification/);
+});
+
+test("Step 3 shows one unified test workflow and saved responses, no Climate-only editor", () => {
+  const p=new Panel();p.step=3;p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  p.apiHistory=[{operation:"cariad.discovery.full",family:"cariad",method:"GET",
+    at:"2026-11-11T20:00:00+00:00",http_status:200,result:"http_ok",preview:{soc:97}}];
+  p.render();
+  assert.match(p.shadowRoot.innerHTML,/Test read-only API family/);
+  assert.match(p.shadowRoot.innerHTML,/Last result and response by API route/);
+  assert.match(p.shadowRoot.innerHTML,/2026-11-11T20:00:00/);
+  assert.doesNotMatch(p.shadowRoot.innerHTML,/Climate \(guided controls\)/);
+  assert.doesNotMatch(p.shadowRoot.innerHTML,/Control migration pending/);
+});
+
+test("Manual scan sends GET-family command only", async () => {
+  const p=new Panel();p.step=3;p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  const commands=[];
+  p.api=async (name,data)=>{
+    commands.push(name);
+    if(name==="test_family_reads"){assert.equal(data.family,"cariad");return {family:"cariad",request_count:1};}
+    if(name==="routes")return {routes:[],history:[]};
+    if(name==="status")return {counts:{},rows:[]};
+    if(name==="list")return {integrations:p.entries};
+    if(name==="api_results")return {records:[]};
+    throw Error("Unexpected command "+name);
+  };
+  await p._click({target:{closest:()=>({dataset:{action:"family-test"}})}});
+  assert.deepEqual(commands.filter(x=>x.includes("test")),["test_family_reads"]);
 });

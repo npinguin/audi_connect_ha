@@ -23,7 +23,8 @@ class AudiConnectV3Panel extends HTMLElement {
     this.controlRoutes = [];
     this.controlChoice = "";
     this.controlRequirement = "";
-    this.inventoryFilter = "available";
+    this.inventoryFilter = "all";
+    this.apiHistory = [];
     this.apiFamily = "vehicle";
     this.readRoutes = [];
     this.readChoice = "";
@@ -76,6 +77,7 @@ class AudiConnectV3Panel extends HTMLElement {
       await this._loadCapabilityStatus();
       await this._readRoutes();
       await this._controlRoutes();
+      await this._apiResults();
       this.error = "";
     } catch (err) {
       this.error = String(err.message || err);
@@ -90,6 +92,12 @@ class AudiConnectV3Panel extends HTMLElement {
       return;
     }
     this.capabilityStatus = await this.api("status", this.selection);
+  }
+
+  async _apiResults() {
+    if (!this.selected || !this.vin) { this.apiHistory = []; return; }
+    const response = await this.api("api_results", this.selection);
+    this.apiHistory = response.records || [];
   }
 
   async _readRoutes() {
@@ -158,10 +166,12 @@ class AudiConnectV3Panel extends HTMLElement {
     } else if (e.target.id === "category") {
       this.category = e.target.value;
       this.attribute = "";
+      this.controlAction = "";
       this.readRoutes = [];
       this.render();
     } else if (e.target.id === "attribute") {
       this.attribute = e.target.value;
+      this.controlAction = "";
       this.step = 3;
       await this._readRoutes();
       this.render();
@@ -262,6 +272,12 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("disable", {
           ...this.selection, aspect: this.aspect
         });
+      } else if (action === "family-test") {
+        const car = this.entries.find(e=>e.entry_id===this.selected)
+          ?.vehicles.find(v=>v.vin===this.vin);
+        const family = this.apiFamily === "vehicle" || this.apiFamily === "all"
+          ? car?.api_family || "cariad" : this.apiFamily;
+        this.lastResult = await this.api("test_family_reads", {...this.selection, family});
       } else if (action === "control-test") {
         this.lastResult = await this.api("control_test", {
           ...this.selection, capability: this.controlCapability,
@@ -303,6 +319,9 @@ class AudiConnectV3Panel extends HTMLElement {
       await this._loadCapabilityStatus();
       await this._readRoutes();
       await this._controlRoutes();
+      if (["test","read-test","control-test","family-test"].includes(action)) {
+        await this._apiResults();
+      }
       const list = await this.api("list");
       this.entries = list.integrations || [];
     } catch (err) {
@@ -364,6 +383,12 @@ class AudiConnectV3Panel extends HTMLElement {
     const visibleAttributes = attributes.filter(r => r.capability === this.category &&
       (this.inventoryFilter !== "available" || ["verified","readable_but_stale"].includes(r.status)));
     const chosen = this.readRoutes.find(r => r.id === this.readChoice);
+    const activeRoute = this.controlAction ? this.controlChoice :
+      this.attribute ? this.readChoice : "";
+    const records = (this.apiHistory || []).filter(r =>
+      family === "all" || r.family === family);
+    const lastSelectedResult = records.find(r=>r.operation===activeRoute);
+    const applicableFamily = family === "all" || family === vehicleFamily;
     const canActivateRead = chosen?.result === "verified" ||
       (chosen?.family === "mbb" && chosen?.result === "readable_but_stale");
     const bg = "var(--primary-background-color, #f8fafc)";
@@ -371,7 +396,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host {display:block; min-height:100%; background:${bg}; color:${body};
-          font-family:var(--ha-font-family-body,Roboto,Noto,sans-serif);font-size:var(--ha-font-size-m,14px);line-height:var(--ha-line-height-normal,1.6);}
+          font-family:var(--ha-font-family-body,Roboto,Noto,sans-serif);font-size:var(--ha-font-size-m,16px);line-height:var(--ha-line-height-normal,1.6);}
         *{box-sizing:border-box}
         main{max-width:1240px;margin:auto;padding:28px 24px 48px}
         .eyebrow{letter-spacing:.12em;text-transform:uppercase;font-weight:700;
@@ -420,7 +445,7 @@ class AudiConnectV3Panel extends HTMLElement {
         .callout{background:var(--secondary-background-color,#f8fafc);padding:15px;border-radius:9px}
         .attribute-row{display:flex;justify-content:space-between;align-items:center;gap:16px;
           border-top:1px solid var(--divider-color,#e2e8f0);padding:11px 0}
-        .attribute-row button{text-align:left;flex:1;overflow-wrap:anywhere}
+        .attribute-row button{text-align:center;flex:0 0 auto;overflow-wrap:anywhere}
         .helper{font-size:var(--ha-font-size-m,14px);margin:9px 0;color:var(--secondary-text-color,#64748b)}
         .coverage-table{max-height:400px;overflow:auto}
         table{width:100%;border-collapse:collapse;font-size:var(--ha-font-size-m,14px)}
@@ -428,13 +453,17 @@ class AudiConnectV3Panel extends HTMLElement {
           padding:11px 10px;position:sticky;top:0;background:var(--card-background-color,white);
           border-bottom:1px solid var(--divider-color,#d1d5db)}
         td{padding:11px 10px;vertical-align:top;border-bottom:1px solid var(--divider-color,#e2e8f0)}
-        .subline{font-size:var(--ha-font-size-s,12px);opacity:.8;margin-top:4px}
+        .subline{font-size:var(--ha-font-size-m,14px);color:var(--secondary-text-color);margin-top:5px;line-height:1.5}
         .coverage-note{font-size:var(--ha-font-size-m,14px);margin:10px 0 0}
         .family-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}
         .family-toolbar select{width:auto;min-width:240px}
         .discovery-summary{padding:16px;border-radius:12px;background:var(--secondary-background-color,#f3f6f9);margin:14px 0 18px}
         .family-hint{color:var(--secondary-text-color);font-size:var(--ha-font-size-m,14px)}
         button:focus-visible,select:focus-visible{outline:2px solid var(--primary-color);outline-offset:2px}
+        .record{border-top:1px solid var(--divider-color);padding:12px 0}
+        .record summary{cursor:pointer;font-weight:600}
+        .family-select{width:280px;max-width:100%}
+        @media(max-width:780px){.attribute-row{align-items:stretch;flex-direction:column}.attribute-row button{width:100%}}
         @media(max-width:780px){main{padding:18px 12px}.grid,.cards,.cap-grid{grid-template-columns:1fr}h1{font-size:21px}}
       </style>
       <main>
@@ -450,6 +479,13 @@ class AudiConnectV3Panel extends HTMLElement {
           <div class="tool"><label>Vehicle</label><select id="vehicle">
             ${(item?.vehicles||[]).map((v)=>`<option value="${escapeHTML(v.vin)}" ${v.vin===this.vin?"selected":""}>${escapeHTML(v.name)} — ${escapeHTML(v.model)}</option>`).join("")}
           </select></div>
+          <div class="tool family-select"><label for="api-family">API family</label>
+            <select id="api-family">
+              <option value="vehicle" ${this.apiFamily==="vehicle"?"selected":""}>This vehicle · ${escapeHTML(vehicleFamily.toUpperCase())}</option>
+              <option value="cariad" ${this.apiFamily==="cariad"?"selected":""}>CARIAD · modern</option>
+              <option value="mbb" ${this.apiFamily==="mbb"?"selected":""}>MBB · legacy</option>
+              <option value="all" ${this.apiFamily==="all"?"selected":""}>All historical API families</option>
+            </select></div>
         </div>
         <div class="steps">
           <button data-action="step-1" class="${this.step===1?"current":""}">1 · Inventory & status</button>
@@ -458,7 +494,7 @@ class AudiConnectV3Panel extends HTMLElement {
         </div>
         ${this.error?`<div class="error">${escapeHTML(this.error)}</div>`:""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `
-          <div class="cards">
+          <div class="cards" style="display:${this.step===1?"grid":"none"}">
             <div class="card"><div class="eyebrow">Cloud polling</div>
               <div class="stat">${item.poll_success?"Connected":"Not confirmed"}</div>
               <div class="summary">${escapeHTML(item.poll_success||"No successful cloud poll")}</div></div>
@@ -471,17 +507,8 @@ class AudiConnectV3Panel extends HTMLElement {
           </div>
           <section class="card" style="margin-bottom:18px;display:${this.step===1?"block":"none"}">
             <div class="eyebrow">Step 1 / Automatic discovery</div>
-            <h2>What works on this Audi?</h2>
+            <h2>Status & inventory · what works on this Audi?</h2>
             <p>Startup uses safe read-only GET requests. Other API routes stay available for fine tuning. No vehicle action is automatically tested.</p>
-            <div class="family-toolbar">
-              <label for="api-family">API family</label>
-              <select id="api-family">
-                <option value="vehicle" ${this.apiFamily==="vehicle"?"selected":""}>This vehicle · ${escapeHTML(vehicleFamily.toUpperCase())}</option>
-                <option value="cariad" ${this.apiFamily==="cariad"?"selected":""}>CARIAD · modern</option>
-                <option value="mbb" ${this.apiFamily==="mbb"?"selected":""}>MBB · legacy</option>
-                <option value="all" ${this.apiFamily==="all"?"selected":""}>All historical API families</option>
-              </select>
-            </div>
             <div class="discovery-summary"><b>${readable.length} readable attributes</b>
               · ${readable.filter(r=>r.status==="verified").length} fresh
               · ${readable.filter(r=>r.status==="readable_but_stale").length} stale
@@ -539,8 +566,8 @@ class AudiConnectV3Panel extends HTMLElement {
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===2?"block":"none"}">
             <div class="eyebrow">Step 2 / Select</div>
-            <h2>Choose what to configure</h2>
-            <p>Select a capability and attribute. Use Step 1 to switch API family or inspect historical alternatives.</p>
+            <h2>Capabilities & API routes</h2>
+            <p>Choose a capability, read-only field or control, then inspect and test its specific route in Step 3. Use the API-family filter above to compare historical alternatives.</p>
             <label>Capability domain</label>
             <select id="category">${capabilityNames.map(c=>`<option value="${escapeHTML(c)}" ${this.category===c?"selected":""}>${escapeHTML(c.replaceAll("_"," "))}</option>`).join("")}</select>
             <div class="toolbar">
@@ -551,12 +578,12 @@ class AudiConnectV3Panel extends HTMLElement {
                 </select>
               </div>
             </div>
-            <h2>Read-only attributes</h2>
+            <h2>Read-only attributes · select a route</h2>
             ${visibleAttributes.map(r=>`<div class="attribute-row">
               <div><b>${escapeHTML(r.entity_key.replaceAll("_"," "))}</b>
                 <div class="subline">${escapeHTML(r.attribute)} · ${escapeHTML(r.status)}</div></div>
               <button data-action="select-attribute" data-capability="${escapeHTML(r.capability)}"
-                data-attribute="${escapeHTML(r.attribute)}">Configure routes</button>
+                data-attribute="${escapeHTML(r.attribute)}">Routes & test</button>
             </div>`).join("") || '<p>No observed attributes in this domain. Change the filter to show the complete historical catalog.</p>'}
             <h2 style="margin-top:20px">Vehicle controls · physical verification required</h2>
             <p>Wake-up, Climate ON/OFF, Lock/Unlock, charging and other vehicle actions are NEVER automatically tested. Select a control to test one API route while at the car.</p>
@@ -564,7 +591,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <div><b>${escapeHTML(r.action.replaceAll("_"," "))}</b>
                 <div class="subline">${escapeHTML(r.api_family)} · ${escapeHTML(r.status)} · ${r.candidate_count} candidate routes</div></div>
               <button data-action="select-control" data-capability="${escapeHTML(r.capability)}"
-                data-control="${escapeHTML(r.action)}" ${!r.candidate_count?"disabled":""}>Configure control</button>
+                data-control="${escapeHTML(r.action)}" ${!r.candidate_count?"disabled":""}>Routes & test</button>
             </div>`).join("")||'<p>No supported control routes for this vehicle API family.</p>'}
             <details><summary>Historical controls not yet migrated</summary>
             ${controls.filter(r=>r.capability===this.category).map(r=>`<div class="attribute-row">
@@ -574,7 +601,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>`).join("") || '<p>No additional historical control references in this domain.</p>'}</details>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===3&&this.attribute?"block":"none"}">
-            <div class="eyebrow">Step 3 / Read-only discovery</div>
+            <div class="eyebrow">Step 3 / Configure & test · GET route</div>
             <h2>${escapeHTML(this.attribute || "Choose an attribute in Step 2")}</h2>
             <p>Compare API routes for this specific attribute. A saved candidate is not enabled. Only a tested route returning a valid, recent vehicle value can drive regular polling.</p>
             <label>API route</label>
@@ -595,11 +622,14 @@ class AudiConnectV3Panel extends HTMLElement {
               <textarea id="read-definition" rows="9">${escapeHTML(this.initialReadRoute)}</textarea>
               <button data-action="read-add" ${this.loading?"disabled":""}>Add custom read route</button>
             </details>
-            <h2 style="margin-top:20px">Last test result</h2>
-            <pre>${escapeHTML(JSON.stringify(this.lastResult??{"message":"No test yet"},null,2))}</pre>
+            <div class="callout" style="margin-top:18px">
+              <b>Latest saved response for this route</b>
+              <div>${escapeHTML(lastSelectedResult?.at||"Never executed")} · HTTP ${escapeHTML(lastSelectedResult?.http_status??"-")} · ${escapeHTML(lastSelectedResult?.result||"not tested")}</div>
+              <details><summary>Redacted response preview</summary><pre>${escapeHTML(JSON.stringify(lastSelectedResult?.preview??"No recorded response",null,2))}</pre></details>
+            </div>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===3&&this.controlAction?"block":"none"}">
-            <div class="eyebrow">Step 3 / Guided control test</div>
+            <div class="eyebrow">Step 3 / Configure & test · POST control</div>
             <h2>${escapeHTML(this.controlCapability.replaceAll("_"," "))} · ${escapeHTML(this.controlAction.replaceAll("_"," "))}</h2>
             <p>Send only one explicitly selected CARIAD command. HTTP 200/202 is not confirmation that the car acted. Never auto-retry with another variant.</p>
             <div class="warn">Before testing: be physically present, understand the action, and verify the result on the vehicle or myAudi. ${escapeHTML(this.controlRequirement)}</div>
@@ -622,64 +652,37 @@ class AudiConnectV3Panel extends HTMLElement {
                 <button data-action="confirm-uncertain">Not sure</button>
               </div>
             </div>` : ""}
-            <h2 style="margin-top:20px">Last test evidence</h2>
-            <pre>${escapeHTML(JSON.stringify(this.lastResult??{"message":"No control test yet"},null,2))}</pre>
+            <div class="callout" style="margin-top:18px">
+              <b>Last control execution</b>
+              <div>${escapeHTML(lastSelectedResult?.at||"Never executed")} · HTTP ${escapeHTML(lastSelectedResult?.http_status??"-")} · ${escapeHTML(lastSelectedResult?.result||"not tested")}</div>
+              <p>Control response bodies are withheld. HTTP acceptance does not confirm the vehicle acted.</p>
+            </div>
           </section>
-          <div class="grid" style="display:${this.step===3&&!this.attribute&&!this.controlAction&&this.category==="climate"?"grid":"none"}>
-            <section class="card">
-              <div class="eyebrow">Control discovery</div>
-              <h2>Climate (guided controls)</h2>
-              <label>Optional aspect</label>
-              <select id="aspect">
-                ${["status","start","stop"].map((v)=>`<option value="${v}" ${this.aspect===v?"selected":""}>${v==="status"?"Status (GET)":v==="start"?"Control · Start":"Control · Stop"}</option>`).join("")}
-              </select>
-              <p>Select a known API path or add your own, scoped to this vehicle.</p>
-              <div style="margin-top:20px"><label>API candidate</label>
-                <select id="route">${this.routes.map((r)=>`<option value="${escapeHTML(r.id)}" ${r.id===selectedRoute?"selected":""}>${escapeHTML(r.id)} [${escapeHTML(r.outcome)}]</option>`).join("")}</select>
-              </div>
-              <div style="margin-top:16px">
-                ${this.routes.map((r)=>`<div class="route">
-                  <div><b>${escapeHTML(r.id)}</b><div><code>${escapeHTML(r.method)} ${escapeHTML(r.path)}</code></div></div>
-                  <span class="badge">${r.selected?"ACTIVE":escapeHTML(r.outcome)}</span>
-                </div>`).join("")||"<p>No applicable routes found.</p>"}
-              </div>
-              <label style="margin-top:22px">Request parameters (JSON)</label>
-              <textarea id="parameters" rows="3">{}</textarea>
-              <p style="font-size:var(--ha-font-size-m,14px)">Save candidate remembers your choice without enabling an untested API.
-                Activation requires a confirmed working result.</p>
-              <div class="actions">
-                <button class="primary" data-action="test" ${!selectedRoute||this.loading||this.pending?"disabled":""}>
-                  ${this.aspect==="status"?"Test GET":"Test selected action"}
-                </button>
-                <button data-action="save" ${!selectedRoute||this.loading?"disabled":""}>Save candidate</button>
-                <button data-action="select" ${!routeVerified||this.loading?"disabled":""}>Activate verified path</button>
-                ${this.aspect!=="status"?`<button data-action="disable" ${this.loading?"disabled":""}>Disable control</button>`:""}
-              </div>
-              ${this.pending ? `
-                <div class="warn" style="margin-top:20px">
-                  <b>Physical action not yet confirmed.</b>
-                  <p>Inspect the car or myAudi. Do not test another API path until this result is known.</p>
-                  <div class="actions">
-                    <button data-action="confirm-worked">Worked</button>
-                    <button data-action="confirm-failed">Failed</button>
-                    <button data-action="confirm-uncertain">Not sure</button>
-                  </div>
-                </div>` : ""}
-            </section>
-            <section class="card">
-              <div class="eyebrow">02 / Developer tools</div>
-              <h2>Advanced · Custom API path</h2>
-              <p>Relative paths only. Auth and host remain owned by the Audi integration. {VIN} and typed parameters are supported.</p>
-              <label>API definition (JSON)</label>
-              <textarea id="definition" rows="13">${escapeHTML(this.initialRoute)}</textarea>
-              <div class="actions"><button data-action="add" class="primary">Add experimental route</button></div>
-              <div class="eyebrow" style="margin-top:28px">03 / Last experiment</div>
-              <pre>${escapeHTML(JSON.stringify(this.lastResult??{"message":"No test yet"}, null, 2))}</pre>
-            </section>
-          </div>
-          ${this.step===3&&!this.attribute&&this.category!=="climate"?`<section class="card"><h2>Control migration pending</h2><p>Historical ${escapeHTML(this.category)} controls remain in the V2 catalog until their own safe route, payload and physical confirmation workflow is implemented. No unverified POST is enabled.</p></section>`:""}
+          <section class="card" style="margin-bottom:18px;display:${this.step===3?"block":"none"}">
+            <div class="eyebrow">Step 3 / Read-only API family</div>
+            <h2>Test all applicable GET functions · ${escapeHTML(family==="all"?vehicleFamily.toUpperCase():family.toUpperCase())}</h2>
+            <p>Up to three safe CARIAD GET requests (one batch and two targeted probes), or two MBB legacy GETs. No POST commands, no wake-up, no automatic fallback, and no repeated route spraying.</p>
+            ${!applicableFamily?'<div class="warn">This API family does not apply to the selected vehicle.</div>':""}
+            <div class="actions"><button data-action="family-test" class="primary"
+              ${this.loading||!applicableFamily?"disabled":""}>Test read-only API family</button></div>
+            <div class="helper">${escapeHTML(this.lastResult?.family?JSON.stringify(this.lastResult):"No manual family test in this session")}</div>
+          </section>
+          ${this.step===3&&!this.attribute&&!this.controlAction?`<section class="card" style="margin-bottom:18px">
+            <h2>Choose an individual API path</h2>
+            <p>Open Step 2 to select a capability and one GET attribute or POST control. Alternatively, test the applicable GET family above.</p>
+          </section>`:""}
+          <section class="card" style="margin-bottom:18px;display:${this.step===3?"block":"none"}">
+            <div class="eyebrow">Diagnostics / Persisted API evidence</div>
+            <h2>Last result and response by API route</h2>
+            <p>Timestamp · API family · HTTP status · bounded redacted GET response. Only the latest result per route is kept per vehicle, including after a Home Assistant restart.</p>
+            ${records.map(r=>`<details class="record">
+              <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · ${escapeHTML(r.at)}</summary>
+              <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b> · ${escapeHTML(r.result)}</div>
+              <pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre>
+            </details>`).join("")||'<p>No saved API results yet.</p>'}
+          </section>
           <p class="foot">Experimental mode. HTTP 200/202 confirms gateway acceptance, not vehicle action.
-          Custom paths and results stay in private local HA storage. V2 remains available for rollback.</p>`}
+          Only bounded redacted response previews stay in private local HA storage. V2 remains available for rollback.</p>`}
       </main>`;
   }
 }
