@@ -14,6 +14,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.selected = "";
     this.vin = "";
     this.aspect = "status";
+    this.routeChoice = "";
     this.routes = [];
     this.pending = null;
     this.lastResult = null;
@@ -72,6 +73,11 @@ class AudiConnectV3Panel extends HTMLElement {
       ...this.selection, aspect: this.aspect
     });
     this.routes = data.routes || [];
+    this.routeChoice = (
+      data.draft_candidate && this.routes.some((r) => r.id === data.draft_candidate)
+        ? data.draft_candidate
+        : this.routes.find((r) => r.selected)?.id || this.routes[0]?.id || ""
+    );
     this.disabled = data.disabled;
     const waiting = (data.history || []).filter((a) =>
       a.result === "uncertain_pending_review" ||
@@ -86,10 +92,15 @@ class AudiConnectV3Panel extends HTMLElement {
       await this._load();
     } else if (e.target.id === "vehicle") {
       this.vin = e.target.value;
+      this.routeChoice = "";
       this.error = ""; await this._reloadRoutes();
     } else if (e.target.id === "aspect") {
       this.aspect = e.target.value;
+      this.routeChoice = "";
       this.error = ""; await this._reloadRoutes();
+    } else if (e.target.id === "route") {
+      this.routeChoice = e.target.value;
+      // Keep edited parameters and JSON definitions in place.
     }
   }
 
@@ -123,6 +134,10 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("test", {
           ...this.selection, aspect: this.aspect,
           operation: route, parameters
+        });
+      } else if (action === "save") {
+        this.lastResult = await this.api("save_candidate", {
+          ...this.selection, aspect: this.aspect, operation: route
         });
       } else if (action === "select") {
         this.lastResult = await this.api("select", {
@@ -174,7 +189,11 @@ class AudiConnectV3Panel extends HTMLElement {
   render() {
     const item = this.entries.find((entry) => entry.entry_id === this.selected);
     const car = item?.vehicles?.find((v) => v.vin === this.vin);
-    const selectedRoute = this.routes.find((r) => r.selected)?.id || this.routes[0]?.id || "";
+    const selectedRoute = this.routes.some((r) => r.id === this.routeChoice)
+      ? this.routeChoice : this.routes.find((r) => r.selected)?.id || this.routes[0]?.id || "";
+    const routeVerified = this.routes.some((r) =>
+      r.id === selectedRoute && r.outcome === "worked"
+    );
     const status = car?.climate_state ?? "unknown";
     const bg = "var(--primary-background-color, #f8fafc)";
     const body = "var(--primary-text-color, #111827)";
@@ -268,11 +287,14 @@ class AudiConnectV3Panel extends HTMLElement {
               </div>
               <label style="margin-top:22px">Request parameters (JSON)</label>
               <textarea id="parameters" rows="3">{}</textarea>
+              <p style="font-size:12px">Save candidate remembers your choice without enabling an untested API.
+                Activation requires a confirmed working result.</p>
               <div class="actions">
                 <button class="primary" data-action="test" ${!selectedRoute||this.loading||this.pending?"disabled":""}>
                   ${this.aspect==="status"?"Test GET":"Test selected action"}
                 </button>
-                <button data-action="select" ${!selectedRoute||this.loading?"disabled":""}>Activate verified path</button>
+                <button data-action="save" ${!selectedRoute||this.loading?"disabled":""}>Save candidate</button>
+                <button data-action="select" ${!routeVerified||this.loading?"disabled":""}>Activate verified path</button>
                 ${this.aspect!=="status"?`<button data-action="disable" ${this.loading?"disabled":""}>Disable control</button>`:""}
               </div>
               ${this.pending ? `
