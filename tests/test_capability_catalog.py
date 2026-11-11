@@ -23,3 +23,22 @@ def test_empty_capabilities_are_unknown():
              has_capability=lambda c: None)
     data = m.snapshot_capabilities(car)
     assert data["groups"]["charging"]["charging"] == "unknown"
+
+
+
+def test_vehicle_context_hints_never_authorize_remote_actions():
+    car = NS(car_type="hybrid", model="Audi Q8 TFSI e", model_source="audi_long_name")
+    profile = m.describe_vehicle_context(car, uses_auth0=True)
+    assert profile["vehicle_type_hint"] == "hybrid_unspecified"
+    assert profile["model_family_hint"] == "q8"
+    assert profile["api_generation_hint"] == "auth0_cariad"
+    assert profile["model_inference_authorizes_commands"] is False
+    assert profile["wake_policy"] == "manual_opt_in_only"
+    assert "TFSI" not in str(profile)
+
+
+def test_nickname_is_not_a_verified_model_family():
+    car = NS(car_type=None, model="Q8", model_source="nickname_fallback")
+    profile = m.describe_vehicle_context(car, uses_auth0=False)
+    assert profile["vehicle_type_hint"] == "unknown"
+    assert profile["model_family_hint"] == "unverified"

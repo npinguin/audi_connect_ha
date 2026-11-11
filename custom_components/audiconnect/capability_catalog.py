@@ -40,3 +40,39 @@ def snapshot_capabilities(vehicle: Any) -> dict[str, Any]:
         "groups": groups,
         "command_authorization_confirmed": False,
     }
+
+
+
+def describe_vehicle_context(vehicle: Any, uses_auth0: bool) -> dict[str, Any]:
+    """Non-authorizing hints about vehicle type, model family and API generation.
+
+    Never trust nicknames or model assumptions to authorize an actuator.
+    No raw model name, identifiers or source measurements are exported.
+    """
+    kind = getattr(vehicle, "car_type", None)
+    kind = kind.strip().lower() if isinstance(kind, str) else ""
+    if kind in ("electric", "bev", "battery electric"):
+        vehicle_type = "battery_electric"
+    elif kind in ("phev", "plug-in hybrid", "plug_in_hybrid"):
+        vehicle_type = "plug_in_hybrid"
+    elif kind == "hybrid":
+        vehicle_type = "hybrid_unspecified"
+    elif kind in ("diesel", "gasoline", "petrol"):
+        vehicle_type = "combustion"
+    else:
+        vehicle_type = "unknown"
+
+    model_source = getattr(vehicle, "model_source", None)
+    model_name = getattr(vehicle, "model", None)
+    model_name = model_name.strip().lower() if isinstance(model_name, str) else ""
+    trusted_model = model_source in ("audi_long_name", "audi_short_name")
+    is_q8 = trusted_model and (
+        model_name.startswith("q8") or model_name.startswith("audi q8")
+    )
+    return {
+        "api_generation_hint": "auth0_cariad" if uses_auth0 else "legacy_or_other",
+        "vehicle_type_hint": vehicle_type,
+        "model_family_hint": "q8" if is_q8 else "unverified",
+        "model_inference_authorizes_commands": False,
+        "wake_policy": "manual_opt_in_only",
+    }

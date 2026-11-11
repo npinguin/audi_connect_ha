@@ -14,7 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from .capability_catalog import snapshot_capabilities
+from .capability_catalog import describe_vehicle_context, snapshot_capabilities
 from .freshness import vehicle_age_minutes, vehicle_freshness
 from .const import (
     CONF_API_LEVEL,
@@ -106,6 +106,7 @@ def _vehicle_snapshot(vehicle: Any, index: int, uses_auth0: bool) -> dict[str, A
             "last_trip": isinstance(state.get("last_trip"), dict),
         },
         "capability_inventory": snapshot_capabilities(vehicle),
+        "vehicle_context_hints": describe_vehicle_context(vehicle, uses_auth0),
         "vehicle_data_age_minutes": vehicle_age_minutes(
             getattr(vehicle, "last_update_time", None)
         ),
@@ -209,6 +210,12 @@ async def async_get_config_entry_diagnostics(
             if callable(
                 handler := getattr(connection, "get_auth0_trip_report", None)
             )
+            if (report := handler(vehicle.vin)) is not None
+        ],
+        "manual_wake_requests": [
+            {"vehicle_slot": index, "report": report}
+            for index, vehicle in enumerate(vehicles[:10], 1)
+            if callable(handler := getattr(connection, "get_manual_wake_report", None))
             if (report := handler(vehicle.vin)) is not None
         ],
         "read_only_api_probes": [

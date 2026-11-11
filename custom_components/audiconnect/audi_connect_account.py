@@ -31,6 +31,11 @@ MAX_LOGIN_RETRY_DELAY = 60
 # a bounded cooldown on normal polls; no additional Audi requests are scheduled.
 POSITION_404_MAX_BACKOFF_SECONDS = 3600
 
+# Explicit wake requests can consume parked-vehicle energy.
+MANUAL_WAKE_COOLDOWN_SECONDS = 1800
+MANUAL_WAKE_MAX_ATTEMPTS_24H = 4
+MANUAL_WAKE_API_CALL_RESERVE = 12
+
 ACTION_LOCK = "lock"
 ACTION_CLIMATISATION = "climatisation"
 ACTION_CHARGER = "charger"
@@ -112,6 +117,11 @@ class AudiConnectAccount:
         self._readonly_probe_attempted: dict[str, float] = {}
         self._readonly_probe_lock = asyncio.Lock()
         self._modern_trip_reports: dict[str, dict[str, Any]] = {}
+
+        # Transient per-vehicle manual wake budget, never used by background polls.
+        self._manual_wake_attempted: dict[str, list[float]] = {}
+        self._manual_wake_reports: dict[str, dict[str, Any]] = {}
+        self._manual_wake_lock = asyncio.Lock()
 
     async def probe_read_only_api(
         self, vin: str, *, extended: bool = False, restore: bool = False,
@@ -890,20 +900,73 @@ class AudiConnectAccount:
                     "Cloud refresh failed after charger action for %s: %s", vin, ex
                 )
 
+    def get_manual_wake_report(self, vin: str) -> dict[str, Any] | None:
+        """Only return a transient VIN-free outcome for HA diagnostics."""
+        report = self._manual_wake_reports.get(vin.lower())
+        return dict(report) if _active_diagnostic_report(report) else None
+
     async def trigger_vehicle_wakeup(self, vin: str) -> bool:
-        """User-initiated wake request, not background polling or confirmation."""
+        """Bound deliberate wake requests without initiating follow-up polling.
+
+        HTTP 2xx/204 is gateway acceptance only, not proof of physical wake.
+        """
         if not self._loggedin:
             await self.login()
         if not self._loggedin:
             return False
-        try:
-            await self._audi_service.trigger_vehicle_wakeup(vin)
-            return True
-        except Exception:
-            _LOGGER.warning(
-                "Audi wake-up request failed (no VIN or authentication details logged)"
-            )
+
+        key = vin.lower()
+        if not any(v.vin.lower() == key for v in self._vehicles):
             return False
+        if not getattr(self._audi_service, "uses_auth0", False):
+            return False
+
+        async with self._manual_wake_lock:
+            now = time.monotonic()
+            attempts = [
+                t for t in self._manual_wake_attempted.get(key, [])
+                if 0 <= now - t < 86400
+            ]
+            self._manual_wake_attempted[key] = attempts
+
+            def record(outcome: str, retry_seconds: int = 0) -> None:
+                self._manual_wake_reports[key] = {
+                    "ran_at": datetime.now(UTC).isoformat(),
+                    "outcome": outcome,
+                    "attempts_24h": len(attempts),
+                    "retry_after_seconds": retry_seconds,
+                    "physical_vehicle_wake_verified": False,
+                }
+
+            if attempts and now - attempts[-1] < MANUAL_WAKE_COOLDOWN_SECONDS:
+                retry = ceil(MANUAL_WAKE_COOLDOWN_SECONDS - (now - attempts[-1]))
+                record("cooldown_blocked", retry)
+                return False
+            if len(attempts) >= MANUAL_WAKE_MAX_ATTEMPTS_24H:
+                retry = ceil(86400 - (now - attempts[0]))
+                record("daily_budget_blocked", retry)
+                return False
+            remaining = getattr(self._api, "vcf_remaining_calls", None)
+            if (
+                isinstance(remaining, (int, float))
+                and not isinstance(remaining, bool)
+                and remaining <= MANUAL_WAKE_API_CALL_RESERVE
+            ):
+                record("api_budget_blocked")
+                return False
+
+            # Count attempts before dispatch, including failed requests, to
+            # prevent repetitive waking and unnecessary battery/API usage.
+            attempts.append(now)
+            try:
+                await self._audi_service.trigger_vehicle_wakeup(vin)
+            except Exception:
+                record("request_failed_or_rejected")
+                _LOGGER.warning("Audi manual wake request failed; no retry sent")
+                return False
+
+            record("gateway_acknowledged_unconfirmed")
+            return True
 
     async def set_vehicle_window_heating(self, vin: str, activate: bool):
         if not self._loggedin:
