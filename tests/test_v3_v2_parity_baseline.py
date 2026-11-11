@@ -57,7 +57,7 @@ def test_all_seven_v2_switch_controls_including_generated_settings():
     expected = generated | _source_keys("switch.py")
     assert len(expected) == 7
     assert expected <= _rows("switch")
-    assert len([x for x in BASE["entities"] if x["platform"] == "switch"]) == 8  # plus V2 quick switch
+    assert len([x for x in BASE["entities"] if x["platform"] == "switch"]) == 7
 
 
 def test_full_v2_platform_and_dynamic_number_inventory():
@@ -120,4 +120,4 @@ def test_parity_matrix_never_promotes_candidates_to_proven_controls():
     assert gate["full_release_allowed"] is False
     assert not any(row["q8_v3_verified"] for row in BASE["entities"])
     ids = [row["id"] for row in BASE["entities"]]
-    assert len(ids) == len(set(ids)) == BASE["counts"]["entity_rows"] == 110
+    assert len(ids) == len(set(ids)) == BASE["counts"]["entity_rows"] == 109
