@@ -57,6 +57,7 @@ from .local_extensions import DEALER_FIELDS, update_local_dealer_options
 from .v3.coordinator import AudiV3Coordinator
 from .v3.coordinator_clean import V3CleanCoordinator
 from .v3.engine import V3Engine
+from .v3.service_commands import execute as v3_execute_action
 from .v3.registry import CapabilityRegistry
 from .v3.runtime import (
     V3_DEFAULT, V3_ENABLED, V3_RUNTIME_OPTION, V3Runtime, catalog_path,
@@ -247,48 +248,6 @@ async def _async_update_listener(
     await hass.config_entries.async_reload(config_entry.entry_id)
 
 
-_V3_EXECUTE_ACTIONS: dict[str, tuple[str, str]] = {
-    "lock": ("access", "lock"),
-    "unlock": ("access", "unlock"),
-    "start_climatisation": ("climate", "start"),
-    "stop_climatisation": ("climate", "stop"),
-    "start_charger": ("charging", "start"),
-    "stop_charger": ("charging", "stop"),
-    "start_window_heating": ("climate", "window_heating_start"),
-    "stop_window_heating": ("climate", "window_heating_stop"),
-}
-
-
-async def _v3_service_command(
-    engine: V3Engine, vin: str, action: str, data: dict[str, Any] | None = None
-) -> None:
-    """Dispatch existing V2 service names safely into the selected V3 engine.
-
-    A registered service is NOT permission to try unverified OEM POST routes.
-    Unsupported parameters and absent mappings fail loudly, never silently
-    act on V2's API client or change the car's settings.
-    """
-    if action == "start_climatisation":
-        fields = set(data or {}) - {CONF_DEVICE_ID, "action"}
-        if fields:
-            raise HomeAssistantError(
-                "V3 climate settings are not migrated; use V2 for parameterized start"
-            )
-    mapped = _V3_EXECUTE_ACTIONS.get(action)
-    if mapped is None:
-        raise HomeAssistantError(
-            f"Audi action '{action}' is not yet V3-verified; "
-            "switch to V2 to use the existing action safely"
-        )
-    capability, aspect = mapped
-    try:
-        await engine.send_control(vin, aspect, capability)
-    except (RuntimeError, ValueError) as err:
-        raise HomeAssistantError(
-            f"Audi {action}: {err}"
-        ) from err
-
-
 def _async_register_services(hass: HomeAssistant) -> None:
     """Register global services once (multi-account safe via device lookup)."""
 
@@ -347,7 +306,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(
+            await v3_execute_action(
                 account, vin, str(service.data.get("action", "")), dict(service.data)
             )
         else:
@@ -359,7 +318,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(
+            await v3_execute_action(
                 account, vin, "start_climatisation", dict(service.data)
             )
         else:
@@ -371,7 +330,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(account, vin, "start_auxiliary_heating")
+            await v3_execute_action(account, vin, "start_auxiliary_heating")
         else:
             await account.start_auxiliary_heating(vin, service)
 
@@ -381,7 +340,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(account, vin, "set_location_charge_target")
+            await v3_execute_action(account, vin, "set_location_charge_target")
         else:
             await account.set_location_charge_target(vin, service)
 
@@ -391,7 +350,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(account, vin, "set_charge_mode")
+            await v3_execute_action(account, vin, "set_charge_mode")
         else:
             await account.set_charge_mode(vin, service)
 
@@ -401,7 +360,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(account, vin, "set_target_soc")
+            await v3_execute_action(account, vin, "set_target_soc")
         else:
             await account.set_target_soc(vin, service)
 
@@ -411,7 +370,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(account, vin, "start_engine")
+            await v3_execute_action(account, vin, "start_engine")
         else:
             await account.start_engine(vin)
 
@@ -421,7 +380,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await _v3_service_command(account, vin, "stop_engine")
+            await v3_execute_action(account, vin, "stop_engine")
         else:
             await account.stop_engine(vin)
 
