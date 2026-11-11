@@ -49,6 +49,9 @@ jobs:
           print(f"Manifest / catalog / documentation: {expected}")
           PY
 
+      - name: Compile all integration code and tests
+        run: python -m compileall -q custom_components/audiconnect tests
+
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
