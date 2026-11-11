@@ -247,6 +247,109 @@ async def ws_disable(hass, connection, msg):
         connection.send_error(msg["id"], "v3_disable_failed", str(exc))
 
 
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/attribute_routes",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("attribute"): str,
+})
+@websocket_api.async_response
+async def ws_attribute_routes(hass, connection, msg):
+    try:
+        result = _engine(hass, msg["entry_id"]).attribute_routes_for(
+            msg["vin"], msg["attribute"]
+        )
+        connection.send_result(msg["id"], result)
+    except (ValueError, KeyError) as exc:
+        connection.send_error(msg["id"], "v3_attribute_routes_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/attribute_add",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("definition"): dict,
+})
+@websocket_api.async_response
+async def ws_attribute_add(hass, connection, msg):
+    try:
+        ident = await _engine(hass, msg["entry_id"]).add_attribute_route(
+            msg["vin"], msg["definition"]
+        )
+        connection.send_result(msg["id"], {"saved": ident, "activated": False})
+    except (ValueError, KeyError, TypeError) as exc:
+        connection.send_error(msg["id"], "v3_attribute_add_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/attribute_test",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("attribute"): str, vol.Required("operation"): str,
+})
+@websocket_api.async_response
+async def ws_attribute_test(hass, connection, msg):
+    try:
+        result = await _engine(hass, msg["entry_id"]).test_attribute_route(
+            msg["vin"], msg["attribute"], msg["operation"]
+        )
+        connection.send_result(msg["id"], result)
+    except (ValueError, RuntimeError, KeyError, TimeoutError, OSError) as exc:
+        connection.send_error(msg["id"], "v3_attribute_test_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/attribute_save",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("attribute"): str, vol.Required("operation"): str,
+})
+@websocket_api.async_response
+async def ws_attribute_save(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).save_attribute_candidate(
+            msg["vin"], msg["attribute"], msg["operation"]
+        )
+        connection.send_result(msg["id"], {"saved": msg["operation"], "activated": False})
+    except (ValueError, RuntimeError, KeyError) as exc:
+        connection.send_error(msg["id"], "v3_attribute_save_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/attribute_activate",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("attribute"): str, vol.Required("operation"): str,
+})
+@websocket_api.async_response
+async def ws_attribute_activate(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).activate_attribute_route(
+            msg["vin"], msg["attribute"], msg["operation"]
+        )
+        connection.send_result(msg["id"], {"active": msg["operation"]})
+    except (ValueError, RuntimeError, KeyError) as exc:
+        connection.send_error(msg["id"], "v3_attribute_activation_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/attribute_disable",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("attribute"): str,
+})
+@websocket_api.async_response
+async def ws_attribute_disable(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).disable_attribute_route(
+            msg["vin"], msg["attribute"]
+        )
+        connection.send_result(msg["id"], {"disabled": msg["attribute"]})
+    except (ValueError, RuntimeError, KeyError) as exc:
+        connection.send_error(msg["id"], "v3_attribute_disable_failed", str(exc))
+
+
 async def async_setup_dashboard(hass) -> None:
     if hass.data.get(_READY_KEY):
         return
@@ -260,6 +363,8 @@ async def async_setup_dashboard(hass) -> None:
         for handler in (
             ws_list, ws_status, ws_routes, ws_add_route, ws_test,
             ws_review, ws_select, ws_save_candidate, ws_disable,
+            ws_attribute_routes, ws_attribute_add, ws_attribute_test,
+            ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True

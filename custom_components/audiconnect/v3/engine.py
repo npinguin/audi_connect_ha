@@ -528,6 +528,11 @@ class V3Engine:
         profile.attribute_drafts[attribute] = route
         await self.storage.async_save(self.profiles)
 
+    def _notify_discovery_change(self) -> None:
+        coordinator = getattr(getattr(self.entry, "runtime_data", None), "coordinator", None)
+        if coordinator is not None and hasattr(coordinator, "async_set_updated_data"):
+            coordinator.async_set_updated_data(list(self.vehicles.values()))
+
     async def activate_attribute_route(self, vin: str, attribute: str, route: str) -> None:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
@@ -538,6 +543,16 @@ class V3Engine:
         profile.attribute_routes[attribute] = route
         profile.attribute_drafts[attribute] = route
         await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
+
+    async def disable_attribute_route(self, vin: str, attribute: str) -> None:
+        car = self.require_vehicle(vin)
+        if attribute not in ATTRIBUTES:
+            raise ValueError("Unknown historical attribute")
+        profile = self.profiles[car.vin.lower()]
+        profile.attribute_routes.pop(attribute, None)
+        await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
 
     def diagnostics(self) -> dict[str, Any]:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
