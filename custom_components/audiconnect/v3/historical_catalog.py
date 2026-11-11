@@ -111,7 +111,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "vehicle_status",
       "v2_state": "TOTAL_RANGE",
       "job": "fuelStatus",
-      "entity_key": "total_range",
+      "entity_key": "range",
       "platform": "sensor",
       "paths": [
         "fuelStatus.rangeStatus.value.totalRange_km"
@@ -124,7 +124,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "vehicle_status",
       "v2_state": "TANK_LEVEL_IN_PERCENTAGE",
       "job": "measurements",
-      "entity_key": "tank_level_in_percentage",
+      "entity_key": "tank_level",
       "platform": "sensor",
       "paths": [
         "measurements.fuelLevelStatus.value.currentFuelLevel_pct"
@@ -137,7 +137,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "vehicle_status",
       "v2_state": "UTC_TIME_AND_KILOMETER_STATUS",
       "job": "measurements",
-      "entity_key": "utc_time_and_kilometer_status",
+      "entity_key": "mileage",
       "platform": "sensor",
       "paths": [
         "measurements.odometerStatus.value.odometer"
@@ -150,7 +150,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "service",
       "v2_state": "MAINTENANCE_INTERVAL_TIME_TO_INSPECTION",
       "job": "vehicleHealthInspection",
-      "entity_key": "maintenance_interval_time_to_inspection",
+      "entity_key": "service_inspection_time",
       "platform": "sensor",
       "paths": [
         "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_days"
@@ -163,7 +163,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "service",
       "v2_state": "MAINTENANCE_INTERVAL_DISTANCE_TO_INSPECTION",
       "job": "vehicleHealthInspection",
-      "entity_key": "maintenance_interval_distance_to_inspection",
+      "entity_key": "service_inspection_distance",
       "platform": "sensor",
       "paths": [
         "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_km"
@@ -176,7 +176,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "service",
       "v2_state": "MAINTENANCE_INTERVAL_TIME_TO_OIL_CHANGE",
       "job": "vehicleHealthInspection",
-      "entity_key": "maintenance_interval_time_to_oil_change",
+      "entity_key": "oil_change_time",
       "platform": "sensor",
       "paths": [
         "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_days"
@@ -189,7 +189,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "service",
       "v2_state": "MAINTENANCE_INTERVAL_DISTANCE_TO_OIL_CHANGE",
       "job": "vehicleHealthInspection",
-      "entity_key": "maintenance_interval_distance_to_oil_change",
+      "entity_key": "oil_change_distance",
       "platform": "sensor",
       "paths": [
         "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_km"
@@ -202,7 +202,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "vehicle_status",
       "v2_state": "OIL_LEVEL_DIPSTICKS_PERCENTAGE",
       "job": "oilLevel",
-      "entity_key": "oil_level_dipsticks_percentage",
+      "entity_key": "oil_level",
       "platform": "sensor",
       "paths": [
         "oilLevel.oilLevelStatus.value.value"
@@ -215,7 +215,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "vehicle_status",
       "v2_state": "ADBLUE_RANGE",
       "job": "measurements",
-      "entity_key": "adblue_range",
+      "entity_key": "service_adblue_distance",
       "platform": "sensor",
       "paths": [
         "measurements.rangeStatus.value.adBlueRange"
@@ -228,7 +228,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "vehicle_status",
       "v2_state": "LIGHT_STATUS",
       "job": "vehicleLights",
-      "entity_key": "light_status",
+      "entity_key": "vehicle_lights",
       "platform": "sensor",
       "paths": [
         "vehicleLights.lightsStatus.value.lights"
@@ -241,8 +241,8 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "capability": "access",
       "v2_state": "doorLockStatus",
       "job": "access",
-      "entity_key": "any_door_unlocked",
-      "platform": "binary_sensor",
+      "entity_key": "door_lock_status",
+      "platform": "sensor",
       "paths": [
         "access.accessStatus.value.doorLockStatus"
       ],
@@ -555,7 +555,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "v2_state": "availableChargeModes",
       "job": "charging",
       "entity_key": "charging_mode",
-      "platform": "sensor",
+      "platform": "diagnostic_only",
       "paths": [
         "charging.chargeMode.value.availableChargeModes"
       ],
@@ -750,7 +750,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "v2_state": "chargingProfiles",
       "job": "chargingProfiles",
       "entity_key": "charging_profiles",
-      "platform": "sensor",
+      "platform": "diagnostic_only",
       "paths": [
         "chargingProfiles.chargingProfilesStatus.value.profiles"
       ],
@@ -763,7 +763,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "v2_state": "chargingTimers",
       "job": "chargingTimers",
       "entity_key": "charging_timers",
-      "platform": "sensor",
+      "platform": "diagnostic_only",
       "paths": [
         "chargingTimers.chargingTimersStatus.value.timers"
       ],
@@ -776,7 +776,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "v2_state": "climatisationTimers",
       "job": "climatisationTimers",
       "entity_key": "climatisation_timers",
-      "platform": "sensor",
+      "platform": "diagnostic_only",
       "paths": [
         "climatisationTimers.climatisationTimersStatus.value.timers"
       ],
@@ -789,7 +789,7 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "v2_state": "userCapabilities",
       "job": "userCapabilities",
       "entity_key": "user_capabilities",
-      "platform": "sensor",
+      "platform": "diagnostic_only",
       "paths": [
         "userCapabilities.capabilitiesStatus.value"
       ],

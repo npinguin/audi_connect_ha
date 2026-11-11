@@ -494,7 +494,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         config_entry.runtime_data = AudiRuntimeData(
             account=None, coordinator=coordinator, v3=engine,
             loaded_platforms=[
-                Platform.CLIMATE, Platform.SENSOR, Platform.BUTTON,
+                Platform.CLIMATE, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON,
             ],
             options_snapshot=dict(config_entry.options),
             data_snapshot=_reloadable_data(config_entry),

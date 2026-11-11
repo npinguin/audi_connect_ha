@@ -37,8 +37,22 @@ async def async_apply_v3_entity_visibility(
         await store.async_save({"entity_ids": []})
         return
 
+    # V3 may recover historical V2 unique IDs after per-vehicle discovery.
+    # Keep only identifiers with verified read-only evidence; never expose unknowns.
+    active_ids: set[str] = set()
+    engine = getattr(getattr(entry, "runtime_data", None), "v3", None)
+    if engine is not None and hasattr(engine, "profiles"):
+        from .historical_catalog import ATTRIBUTES
+        for vin, profile in engine.profiles.items():
+            vehicle = engine.vehicles.get(vin)
+            for ident in profile.attribute_routes:
+                descriptor = ATTRIBUTES.get(ident)
+                if vehicle is None or ident not in vehicle.readings or not descriptor:
+                    continue
+                if descriptor["platform"] in ("sensor", "binary_sensor"):
+                    active_ids.add(f'{vin}_{descriptor["platform"]}_{descriptor["entity_key"]}')
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
-        if any(entity.unique_id.endswith(suffix) for suffix in _KEEP):
+        if entity.unique_id in active_ids or any(entity.unique_id.endswith(suffix) for suffix in _KEEP):
             # Previously hidden by this V3 migration? Restore only that.
             if entity.entity_id in recorded and entity.disabled_by == er.RegistryEntryDisabler.INTEGRATION:
                 registry.async_update_entity(entity.entity_id, disabled_by=None)

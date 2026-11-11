@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from typing import Any
 
 from homeassistant.components.button import ButtonEntity
@@ -212,3 +213,101 @@ class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):
     async def async_press(self) -> None:
         # GET refresh; not a vehicle-wake POST. Polling budget stays enforced.
         await self.coordinator.async_request_refresh()
+
+def _reading_age_minutes(captured: str | None) -> float | None:
+    if not captured:
+        return None
+    try:
+        point = datetime.fromisoformat(captured.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if point.tzinfo is None:
+        return None
+    return max(0.0, (datetime.now(UTC) - point.astimezone(UTC)).total_seconds() / 60)
+
+
+class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
+    """Read-only V3 entity reusing a historical V2 unique ID where mapped."""
+
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle, attribute: dict[str, Any]):
+        super().__init__(coordinator, vehicle)
+        self.attribute = attribute
+        self._attr_unique_id = f'{vehicle.vin.lower()}_sensor_{attribute["entity_key"]}'
+        self._attr_name = attribute["entity_key"].replace("_", " ").capitalize()
+
+    @property
+    def available(self) -> bool:
+        reading = self.vehicle.readings.get(self.attribute["id"])
+        return bool(reading and _reading_age_minutes(reading.get("captured")) is not None
+                    and _reading_age_minutes(reading.get("captured")) <= 60)
+
+    @property
+    def native_value(self):
+        reading = self.vehicle.readings.get(self.attribute["id"])
+        value = reading.get("value") if reading else None
+        return value if isinstance(value, (str, int, float, bool)) else None
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        name = self.attribute["entity_key"]
+        if name in ("state_of_charge", "target_state_of_charge", "tank_level"):
+            return "%"
+        if name in ("range", "hybrid_range", "mileage", "service_inspection_distance",
+                    "oil_change_distance", "service_adblue_distance"):
+            return "km"
+        if name in ("remaining_charging_time", "remaining_climatisation_time",
+                    "service_inspection_time", "oil_change_time"):
+            return "min" if name.startswith("remaining_") else "d"
+        if name == "charging_power":
+            return "kW"
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        reading = self.vehicle.readings.get(self.attribute["id"]) or {}
+        return {
+            "v3_capability": self.attribute["capability"],
+            "v2_attribute": self.attribute["id"],
+            "api_family": "cariad",
+            "response_mapping": reading.get("path"),
+            "vehicle_captured": reading.get("captured"),
+            "age_minutes": _reading_age_minutes(reading.get("captured")),
+            "verification": reading.get("status", "unknown"),
+        }
+
+
+class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
+    """Mirror V2's binary conversion for fields with an actual known mapping."""
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle, attribute: dict[str, Any]):
+        super().__init__(coordinator, vehicle)
+        self.attribute = attribute
+        self._attr_unique_id = f'{vehicle.vin.lower()}_binary_sensor_{attribute["entity_key"]}'
+        self._attr_name = attribute["entity_key"].replace("_", " ").capitalize()
+
+    @property
+    def available(self) -> bool:
+        reading = self.vehicle.readings.get(self.attribute["id"])
+        age = _reading_age_minutes(reading.get("captured")) if reading else None
+        return age is not None and age <= 60
+
+    @property
+    def is_on(self) -> bool | None:
+        reading = self.vehicle.readings.get(self.attribute["id"])
+        if not reading:
+            return None
+        value = reading.get("value")
+        if isinstance(value, (bool, list)):
+            return bool(value)
+        if isinstance(value, str):
+            return value != "Normal"
+        return value if isinstance(value, (int, float)) else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        reading = self.vehicle.readings.get(self.attribute["id"]) or {}
+        return {
+            "v3_capability": self.attribute["capability"],
+            "response_mapping": reading.get("path"),
+            "vehicle_captured": reading.get("captured"),
+            "verification": reading.get("status", "unknown"),
+        }
