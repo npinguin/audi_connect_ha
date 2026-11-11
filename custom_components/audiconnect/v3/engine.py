@@ -139,6 +139,10 @@ class V3Engine:
         if not self._known_vehicle_inventory or self._poll_cycles % 24 == 0:
             await self.discover()
         cloud_reachable = False
+        # Reuse identical GET responses across capabilities on the same car.
+        # API family + VIN + exact path is the request identity; a route change
+        # must never trigger a second call for a response already in this poll.
+        polled_responses: dict[tuple[str, str, str], V3Response] = {}
         for key, vehicle in self.vehicles.items():
             profile = self.profiles[key]
             routes = profile.registry.resolve(
@@ -180,6 +184,7 @@ class V3Engine:
                     response = await self.transport.request(family, method, path)
                 except (TimeoutError, OSError, RuntimeError, ValueError):
                     break  # Auth/transport failure is not proof of unsupported vehicle
+                polled_responses[(key, family, path)] = response
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     if ident == 'cariad.climate.status.batch':
@@ -234,10 +239,13 @@ class V3Engine:
             for (family, path), selected in list(unique.items())[:4]:
                 if family not in ("cariad", "mbb"):
                     continue
-                try:
-                    response = await self.transport.request(family, "GET", path)
-                except (TimeoutError, OSError, RuntimeError):
-                    break
+                response = polled_responses.get((key, family, path))
+                if response is None:
+                    try:
+                        response = await self.transport.request(family, "GET", path)
+                    except (TimeoutError, OSError, RuntimeError, ValueError):
+                        break
+                    polled_responses[(key, family, path)] = response
                 for ident, route, mappings in selected:
                     self._record_attribute_response(car, profile, ident, route, mappings, response)
                 if 200 <= response.status < 300:

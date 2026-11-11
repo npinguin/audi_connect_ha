@@ -57,3 +57,34 @@ async def test_legacy_context_selects_only_mbb_route_in_engine_poll():
     assert "/fs-car/bs/climatisation/" in called[0][2]
     assert legacy.climate_state=="off"
     assert legacy.climate_captured is None
+
+@pytest.mark.asyncio
+async def test_shared_mbb_climater_get_is_reused_for_selected_attribute():
+    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    legacy=V3Vehicle(vin="WAUZZZ4M0MD123456",name="Audi",model="Audi A4",
+                     model_family="",country="DE",auth_family="legacy")
+    catalog=CapabilityRegistry.from_json_file(catalog_path())
+    calls=[]
+    class FakeTransport:
+        request_count=0
+        remaining_calls=100
+        async def request(self, family, method, path, **kw):
+            calls.append((family,method,path))
+            return V3Response(200,{"climater":{"status":{"climatisationStatusData":{
+                "climatisationState":{"content":"off"}}}}},datetime.now(UTC))
+    class FakeStore:
+        async def async_save(self, profiles): return None
+    engine=V3Engine(None,SimpleNamespace(entry_id="test-audi",data={},options={}),
+                    catalog, auth=SimpleNamespace(country="DE",uses_auth0=False),
+                    transport=FakeTransport(),storage=FakeStore())
+    engine.vehicles[legacy.vin.lower()]=legacy
+    profile=DevelopmentProfile(catalog,legacy.context)
+    profile.attribute_routes["climatisationState"]="mbb.climater.readonly"
+    engine.profiles[legacy.vin.lower()]=profile
+    engine._known_vehicle_inventory=True
+    await engine.poll()
+    assert len(calls)==1
+    assert legacy.readings["climatisationState"]["value"]=="off"
+    assert legacy.readings["climatisationState"]["family"]=="mbb"
+    assert profile.attribute_evidence["climatisationState"]["source"]=="mbb.legacy"
