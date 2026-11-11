@@ -44,7 +44,8 @@ jobs:
           full = json.loads(Path("custom_components/audiconnect/v3/full_catalog.json").read_text())
           assert full["schema_version"] == 1
           assert {"climate", "charging", "vehicle_status", "access", "service", "mobility"} <= set(full["capabilities"])
-          assert {"cariad", "mbb", "graphql"} <= set(full["api_families"])
+          assert {"cariad", "mbb"} <= set(full["api_families"])
+          assert "class GraphQLExecutor:" in Path("custom_components/audiconnect/v3/family_executors.py").read_text()
           assert Path("docs/V3_ARCHITECTURE.md").is_file()
           assert Path("docs/V3_CONFIGURATION.md").is_file()
           assert Path("docs/V3_TEST_MATRIX.md").is_file()
