@@ -2,7 +2,7 @@
   "domain": "audiconnect",
   "name": "Audi Connect",
   "codeowners": [
-    "@audiconnect"
+    "@npinguin"
   ],
   "config_flow": true,
   "documentation": "https://github.com/npinguin/audi_connect_ha/blob/feature/v3-climate-pilot/docs/V3_CONFIGURATION.md",
