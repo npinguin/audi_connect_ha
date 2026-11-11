@@ -3,7 +3,7 @@
 No V2 runtime imports, no automatic vehicle commands or position requests.
 """
 from __future__ import annotations
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from .freshness import timestamp_is_fresh
 from .historical_catalog import ATTRIBUTES, V2_JOBS, advertised_capabilities, extract_attributes
@@ -21,8 +21,37 @@ def planned_jobs(vehicle: Any, profile: Any) -> tuple[str, ...]:
     active.update(ATTRIBUTES[name]["job"] for name, evidence in profile.attribute_evidence.items()
                   if name in ATTRIBUTES and ATTRIBUTES[name]["job"] and
                   evidence.get("status") == "readable_but_stale")
+    # A previously readable job can legitimately provide no *fresh* values when
+    # the car is parked.  V2 keeps such jobs in subsequent selective-status
+    # requests; dropping them makes existing HA sensors disappear.
+    active.update(
+        job for job, result in getattr(profile, "job_discovery", {}).items()
+        if result == "observed"
+    )
     active.update(("climatisation", "userCapabilities"))
     return tuple(job for job in V2_JOBS if job in active)
+
+
+def _capture_in_utc(value: Any) -> datetime | None:
+    """Parse a vehicle capture time without treating cloud receipt as capture."""
+    if not isinstance(value, str):
+        return None
+    try:
+        stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return stamp.astimezone(UTC) if stamp.tzinfo is not None else None
+
+
+def _accept_observation(previous: dict[str, Any] | None, captured: Any) -> bool:
+    """Never replace a newer car reading with an older cached API value."""
+    if previous is None:
+        return True
+    prior = _capture_in_utc(previous.get("captured"))
+    incoming = _capture_in_utc(captured)
+    if prior is None:
+        return True
+    return incoming is not None and incoming >= prior
 
 
 def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: datetime) -> dict[str, int]:
@@ -48,20 +77,24 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
             continue
         fresh = timestamp_is_fresh(row["captured"], observed_at)
         previous = vehicle.readings.get(ident)
-        if previous is None or fresh or not previous.get("fresh"):
-            vehicle.readings[ident] = {
-                "value": value, "captured": row["captured"],
-                "observed": observed_at.isoformat(), "fresh": fresh,
-                "path": row["path"], "job": row["job"],
-                "status": "verified" if fresh else "readable_but_stale",
-            }
+        if not _accept_observation(previous, row["captured"]):
+            continue
+        vehicle.readings[ident] = {
+            "value": value, "captured": row["captured"],
+            "observed": observed_at.isoformat(), "fresh": fresh,
+            "path": row["path"], "job": row["job"],
+            "status": "verified" if fresh else "readable_but_stale",
+        }
         profile.attribute_evidence[ident] = {
             "status": "verified" if fresh else "readable_but_stale",
             "path": row["path"], "job": row["job"],
             "source": "cariad.selectivestatus",
             "timestamp_present": bool(row["captured"]),
         }
-        if fresh and ident not in profile.attribute_routes:
+        # A proven V2 response field is *readable* even if the vehicle's
+        # capture time is older than 60 minutes.  Activation exposes a clearly
+        # marked last-known sensor, not a fresh control or lock reading.
+        if ident not in profile.attribute_routes:
             profile.attribute_routes[ident] = "cariad.selectivestatus.batch"
         mapped += 1
         fresh_count += int(fresh)
