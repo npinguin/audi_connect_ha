@@ -17,6 +17,7 @@ from .engine import V3Engine
 
 _PANEL = "audiconnect-v3"
 _READY_KEY = "audiconnect_v3_dashboard_registered"
+_HANDLERS_KEY = "audiconnect_v3_dashboard_commands_registered"
 
 
 def _engine(hass: Any, entry_id: str) -> V3Engine:
@@ -249,15 +250,19 @@ async def ws_disable(hass, connection, msg):
 async def async_setup_dashboard(hass) -> None:
     if hass.data.get(_READY_KEY):
         return
-    frontend_dir = Path(__file__).parent / "frontend"
-    await hass.http.async_register_static_paths([
-        StaticPathConfig("/audiconnect_v3", str(frontend_dir), False)
-    ])
-    for handler in (
-        ws_list, ws_status, ws_routes, ws_add_route, ws_test,
-        ws_review, ws_select, ws_save_candidate, ws_disable,
-    ):
-        websocket_api.async_register_command(hass, handler)
+    # HA websocket commands and static paths live for the HA process.
+    # Removing/readding the optional sidebar must not register duplicates.
+    if not hass.data.get(_HANDLERS_KEY):
+        frontend_dir = Path(__file__).parent / "frontend"
+        await hass.http.async_register_static_paths([
+            StaticPathConfig("/audiconnect_v3", str(frontend_dir), False)
+        ])
+        for handler in (
+            ws_list, ws_status, ws_routes, ws_add_route, ws_test,
+            ws_review, ws_select, ws_save_candidate, ws_disable,
+        ):
+            websocket_api.async_register_command(hass, handler)
+        hass.data[_HANDLERS_KEY] = True
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name="audiconnect-v3-panel",
