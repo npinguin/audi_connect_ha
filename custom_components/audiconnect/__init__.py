@@ -548,9 +548,7 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
         coordinator = V3CleanCoordinator(hass, engine, config_entry)
         config_entry.runtime_data = AudiRuntimeData(
             account=account, coordinator=coordinator, v3=engine,
-            loaded_platforms=[
-                Platform.CLIMATE, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SWITCH, Platform.LOCK,
-            ],
+            loaded_platforms=list(PLATFORMS),  # Same 9 HA platforms; V3 owns implementation.
             options_snapshot=dict(config_entry.options),
             data_snapshot=_reloadable_data(config_entry),
         )
