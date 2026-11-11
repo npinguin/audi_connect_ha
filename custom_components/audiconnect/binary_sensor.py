@@ -67,7 +67,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[AudiBinarySensorEntityDescription, ...] = (
         name="Parking light",
         device_class=BinarySensorDeviceClass.SAFETY,
         icon="mdi:lightbulb",
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="any_window_open",
@@ -110,56 +110,56 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[AudiBinarySensorEntityDescription, ...] = (
         attr_key="left_front_door_open",
         name="Left front door",
         device_class=BinarySensorDeviceClass.DOOR,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="right_front_door_open",
         attr_key="right_front_door_open",
         name="Right front door",
         device_class=BinarySensorDeviceClass.DOOR,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="left_rear_door_open",
         attr_key="left_rear_door_open",
         name="Left rear door",
         device_class=BinarySensorDeviceClass.DOOR,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="right_rear_door_open",
         attr_key="right_rear_door_open",
         name="Right rear door",
         device_class=BinarySensorDeviceClass.DOOR,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="left_front_window_open",
         attr_key="left_front_window_open",
         name="Left front window",
         device_class=BinarySensorDeviceClass.WINDOW,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="right_front_window_open",
         attr_key="right_front_window_open",
         name="Right front window",
         device_class=BinarySensorDeviceClass.WINDOW,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="left_rear_window_open",
         attr_key="left_rear_window_open",
         name="Left rear window",
         device_class=BinarySensorDeviceClass.WINDOW,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="right_rear_window_open",
         attr_key="right_rear_window_open",
         name="Right rear window",
         device_class=BinarySensorDeviceClass.WINDOW,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="braking_status",
@@ -174,7 +174,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[AudiBinarySensorEntityDescription, ...] = (
         name="Oil Level Binary",
         icon="mdi:oil",
         device_class=BinarySensorDeviceClass.PROBLEM,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     AudiBinarySensorEntityDescription(
         key="is_moving",
@@ -182,7 +182,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[AudiBinarySensorEntityDescription, ...] = (
         name="Is moving",
         icon="mdi:motion-outline",
         device_class=BinarySensorDeviceClass.MOVING,
-
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
 )
 
