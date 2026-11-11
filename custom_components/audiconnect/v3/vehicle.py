@@ -27,6 +27,7 @@ class V3Vehicle:
     climate_http_status: int | None = None
     last_command_result: str | None = None
     readings: dict[str, dict[str, Any]] = field(default_factory=dict)
+    position: dict[str, Any] | None = None  # V3-owned, in-memory parked GPS
     advertised_capabilities: set[str] = field(default_factory=set)
     impaired_capabilities: set[str] = field(default_factory=set)
     v2_initial_discovery_completed: bool = False
