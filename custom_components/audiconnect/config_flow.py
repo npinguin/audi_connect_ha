@@ -608,9 +608,29 @@ class OptionsFlowHandler(OptionsFlow):
             user_input.setdefault("v3_climate_status_route", "auto")
             user_input.setdefault("v3_climate_experimental_unknown", False)
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
-            user_input[CONF_SCAN_INTERVAL] = max(
-                int(user_input[CONF_SCAN_INTERVAL]), MIN_UPDATE_INTERVAL
+            # On runtime switch, some HA clients submit only the changed
+            # fields. Never let an absent interval prevent saving the choice.
+            interval = user_input.get(
+                CONF_SCAN_INTERVAL,
+                self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL,
+                    self.config_entry.data.get(
+                        CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
+                    ),
+                ),
             )
+            try:
+                user_input[CONF_SCAN_INTERVAL] = max(
+                    int(interval), MIN_UPDATE_INTERVAL
+                )
+            except (TypeError, ValueError):
+                # Re-display an actionable form error instead of a silent
+                # failure while the modal stays on the previous runtime.
+                return self.async_show_form(
+                    step_id="init",
+                    errors={"base": "invalid_scan_interval"},
+                    data_schema=self._options_schema(user_input),
+                )
             # OptionsFlow replaces all options; preserve per-vehicle metadata.
             if "local_dealers" in self.config_entry.options:
                 user_input["local_dealers"] = self.config_entry.options["local_dealers"]
@@ -621,10 +641,18 @@ class OptionsFlowHandler(OptionsFlow):
 
         # V3 owns API routes and experimental actions in its development
         # dashboard, never inside this account configuration wizard.
+        return self.async_show_form(
+            step_id="init", data_schema=self._options_schema(
+                self.config_entry.options
+            )
+        )
+
+    def _options_schema(self, values: dict[str, Any]) -> vol.Schema:
+        """Build the form from the persisted mode, preserving legacy V2 UX."""
         schema = {
             vol.Required(
                 "runtime_version",
-                default=self.config_entry.options.get("runtime_version", "v2"),
+                default=values.get("runtime_version", "v2"),
             ): vol.In(("v2", "v3_climate")),
             vol.Required(
                 CONF_SCAN_INITIAL,
@@ -650,7 +678,7 @@ class OptionsFlowHandler(OptionsFlow):
             ): TextSelector(),
         }
 
-        if self.config_entry.options.get("runtime_version", "v2") == "v3_climate":
+        if values.get("runtime_version", "v2") == "v3_climate":
             schema[vol.Required(
                 "v3_development_workbench",
                 default=self.config_entry.options.get(
@@ -679,9 +707,7 @@ class OptionsFlowHandler(OptionsFlow):
                     default=self.config_entry.options.get(CONF_UPDATE_SLEEP, UPDATE_SLEEP),
                 ): NumberSelector(NumberSelectorConfig(min=0, mode="box")),
             })
-        return self.async_show_form(
-            step_id="init", data_schema=vol.Schema(schema)
-        )
+        return vol.Schema(schema)
 
 
 __all__ = ["AudiConfigFlow", "OptionsFlowHandler"]
