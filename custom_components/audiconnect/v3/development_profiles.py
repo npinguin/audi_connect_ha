@@ -203,6 +203,7 @@ class DevelopmentProfile:
         # Last classified status-GET outcome per operation. This is transport
         # evidence, never physical action evidence.
         self.read_results: dict[str, dict[str, Any]] = {}
+        self.control_results: dict[str, str] = {}
         self.registry = CapabilityRegistry(deepcopy(self._base))
         self.discovery = GuidedActionDiscovery(
             self.registry, context, cooldown_seconds=cooldown_seconds
@@ -269,6 +270,8 @@ class DevelopmentProfile:
             now=now,
         )
         key = f"{attempted.capability}.{attempted.action}"
+        if attempted.result in ("worked", "failed"):
+            self.control_results[attempted.operation] = attempted.result
         if attempted.result != "worked" and self.active.get(key) == attempted.operation:
             # A later failure/uncertainty invalidates this vehicle's active
             # mapping. Never keep advertising a known-broken command.
@@ -322,12 +325,7 @@ class DevelopmentProfile:
                     "Latest GET must prove valid, fresh status data"
                 )
         else:
-            results = [
-                row.result for row in self.discovery.history
-                if row.capability == capability and row.action == action
-                and row.operation == operation
-            ]
-            if not results or results[-1] != "worked":
+            if self.control_results.get(operation) != "worked":
                 raise DevelopmentProfileError(
                     "Latest real vehicle test must confirm this route"
                 )
@@ -344,6 +342,7 @@ class DevelopmentProfile:
             "custom_routes": deepcopy(list(self.custom.values())),
             "active": dict(self.active),
             "read_evidence": deepcopy(self.read_results),
+            "control_evidence": dict(self.control_results),
             "discovery": self.discovery.snapshot(),
         }
 
