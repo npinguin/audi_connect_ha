@@ -51,3 +51,18 @@ Extend the capability inventory using historic V2 job and researched API paths. 
   are created only after human verification. Door Lock additionally requires
   a readable current door state, so unknown must not mean unlocked.
 - V2 rollback, legacy MBB and still-unmapped V2 controls remain separate tests.
+\n## 3.0.0b7 — declarative API metadata & upstream command parity
+- Sensor units, HA device classes, state classes and precision come from
+  `v3/attribute_contracts.json`, transcribed from stable V2 descriptors.
+- The API layer owns source conversion through `v3/api_value_mappings.json`
+  and safe per-route conversion declarations; HA's standard unit converters
+  handle units. Unverified source units are not guessed.
+- GET extraction uses RFC 6901 JSON Pointer and preserves legacy V2 dotted
+  paths. A numeric zero and Boolean false must survive.
+- A route cannot map SoC into a distance unit or run arbitrary expressions.
+- Regression tests assert the exact CARIAD HTTP method, path and JSON body
+  for Climate Start (none), Climate Stop (none) and Wake-up (empty JSON).
+- POSTs still require an explicitly selected control, one request, physical
+  confirmation and no automatic retry.
+- API responses stored in private profiles remain bounded and redacted.
+- Known outstanding gaps are tracked in `V3_FEATURE_GAPS_3.0.0b7.md`.
