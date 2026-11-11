@@ -382,6 +382,37 @@ class V3Engine:
                     "stop_enabled": self.control_enabled(car.vin, "stop") if p else False,
                     "candidate_count": len(p.registry.operations_for("climate", "status"))
                     if p else 0,
+                    # Operation IDs are stable for built-ins; user-authored
+                    # names and literal custom URL templates are private and
+                    # replaced with generic identifiers for diagnostics.
+                    "read_route_evidence": [
+                        {
+                            "operation": ident if ident in self.registry.operations
+                            else "custom_status_variant",
+                            "outcome": evidence.get("outcome", "untested"),
+                            "http_class": (
+                                f"{evidence['http_status'] // 100}xx"
+                                if type(evidence.get("http_status")) is int
+                                else "unknown"
+                            ),
+                            "schema_valid": evidence.get("schema_valid", False),
+                            "timestamp_present": evidence.get("fresh", False),
+                        }
+                        for ident, evidence in (
+                            p.read_results.items() if p else ()
+                        )
+                    ][:15],
+                    "control_route_evidence": [
+                        {
+                            "operation": ident if ident in self.registry.operations
+                            else "custom_control_variant",
+                            "outcome": outcome,
+                        }
+                        for ident, outcome in (
+                            p.control_results.items() if p else ()
+                        )
+                    ][:15],
+                    "disabled_controls": sorted(p.discovery.disabled) if p else [],
                 },
             })
         return {
