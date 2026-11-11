@@ -1,5 +1,17 @@
 # Audi Connect Integration for Home Assistant
 
+> [!WARNING]
+> **Audi Connect V3 3.0.0b1 is an experimental climate-only beta on the fork's V3 development branch.**
+> V2 remains the default and is the rollback path. V3 uses one climate entity
+> (ON/OFF only on supported Auth0 vehicles), the existing OAuth session and
+> one coordinator; it does **not** provide the planned dynamic API Workbench.
+> Read the [V3 configuration / rollback guide](docs/V3_CONFIGURATION.md),
+> [architecture — Why / What / How](docs/V3_ARCHITECTURE.md),
+> [test matrix](docs/V3_TEST_MATRIX.md), and
+> [prerelease notes](docs/V3_RELEASE_NOTES_3.0.0b1.md) before testing.
+> HACS release publication remains gated on CI and fork metadata validation.
+
+
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)
 [![Code Style][blackbadge]][black]

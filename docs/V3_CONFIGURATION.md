@@ -65,3 +65,16 @@ First switch the runtime back to V2 using Options. If the installed package itse
 ### Debug evidence to submit
 
 Submit an anonymized report of firmware/model family (coarse), country/auth family, operation ID, HTTP code class, response schema/path presence, source freshness, actual user-observed actuation result, package version and option selection. **Never post VIN, user credentials, refresh tokens, exact location, raw trip data or full cloud response bodies publicly.**
+
+
+### Minimum test environment and fork prerequisites
+
+The V3 HACS candidate declares **Home Assistant 2026.7.0+** in
+`hacs.json`; the Python test workflow uses Python 3.14. Test with a
+compatible and backed-up HA instance. Because this is a fork, the experimental
+manifest points to the fork's issues and configuration guide rather than
+encouraging beta bug reports in upstream's stable support queue.
+
+GitHub **Settings → General → Features → Issues** must be enabled in the
+fork (currently disabled), then the HACS validation workflow rerun. A version
+bump or draft PR alone does not make a valid installable HACS prerelease.

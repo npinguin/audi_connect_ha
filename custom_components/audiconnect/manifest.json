@@ -5,10 +5,10 @@
     "@audiconnect"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/audiconnect/audi_connect_ha",
+  "documentation": "https://github.com/npinguin/audi_connect_ha/blob/feature/v3-climate-pilot/docs/V3_CONFIGURATION.md",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/audiconnect/audi_connect_ha/issues",
+  "issue_tracker": "https://github.com/npinguin/audi_connect_ha/issues",
   "loggers": [
     "audiconnect"
   ],

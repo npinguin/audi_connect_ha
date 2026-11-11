@@ -15,3 +15,9 @@
 **Testing:** see [configuration](V3_CONFIGURATION.md), [architecture](V3_ARCHITECTURE.md), and [acceptance matrix](V3_TEST_MATRIX.md).
 
 **Release gate:** package may be published as a GitHub prerelease only after the complete pytest/hassfest/HACS gates pass for the exact SHA. A beta tag does not substitute for live car verification.
+
+
+**Compatibility baseline:** HACS advertises Home Assistant 2026.7.0+.
+The beta documentation and issue tracker point to `npinguin/audi_connect_ha`
+rather than upstream, so experimental issue reports stay in the development fork.
+The fork's Issues feature must be enabled before HACS validation can pass.
