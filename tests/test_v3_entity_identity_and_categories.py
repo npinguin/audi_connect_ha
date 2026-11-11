@@ -103,20 +103,17 @@ def test_ha_entity_ids_survive_v2_to_v3_for_same_vehicle():
         assert entity.unique_id == entity_unique_id(car, "sensor", entity_key)
 
 
-def test_vehicle_telemetry_not_classified_as_integration_diagnostics():
+def test_v2_source_remains_unmodified_and_v3_owns_categories():
+    """V2 upstream keeps its own HA metadata; presentation change is V3-only."""
     root = Path(__file__).resolve().parents[1] / "custom_components" / "audiconnect"
     sensor = (root / "sensor.py").read_text().split("async def async_setup_entry", 1)[0]
     binary = (root / "binary_sensor.py").read_text().split("async def async_setup_entry", 1)[0]
-    assert "entity_category=EntityCategory.DIAGNOSTIC" not in sensor
-    assert "entity_category=EntityCategory.DIAGNOSTIC" not in binary
-    assert "_attr_entity_category = EntityCategory.DIAGNOSTIC" in (
-        root / "v3" / "entities.py"
-    ).read_text()
+    assert "entity_category=EntityCategory.DIAGNOSTIC" in sensor
+    assert "entity_category=EntityCategory.DIAGNOSTIC" in binary
     for key in ("mileage", "service_inspection_time", "service_inspection_distance",
                 "oil_change_time", "oil_change_distance", "car_type",
                 "active_charging_profile_name", "charging_timer_enabled_count"):
         assert contract_for(key).get("category") != "diagnostic"
-    # Technical quota info remains in the HA Diagnostics section.
-    assert "_attr_entity_category = EntityCategory.DIAGNOSTIC" in (
-        root / "sensor.py"
-    ).read_text()
+    v3 = (root / "v3" / "entities.py").read_text()
+    assert "_attr_entity_category = EntityCategory.DIAGNOSTIC" in v3
+    assert 'if contract.get("category") == "diagnostic"' in v3
