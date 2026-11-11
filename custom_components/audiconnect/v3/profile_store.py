@@ -11,6 +11,7 @@ from typing import Any
 from .action_discovery import ActionAttempt
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
+from .historical_catalog import ATTRIBUTES
 
 
 def restore_profile(
@@ -57,6 +58,25 @@ def restore_profile(
         ):
             raise DevelopmentProfileError("Malformed action evidence")
         profile.control_results[operation] = result
+    # Historical attribute evidence is optional for profiles saved by b4.
+    ar = saved.get("attribute_routes", {})
+    ae = saved.get("attribute_evidence", {})
+    if not isinstance(ar, dict) or not isinstance(ae, dict) or len(ar) > len(ATTRIBUTES) or len(ae) > len(ATTRIBUTES):
+        raise DevelopmentProfileError("Invalid attribute profile")
+    for ident, detail in ae.items():
+        if ident not in ATTRIBUTES or not isinstance(detail, dict) or set(detail) != {"status", "path", "job", "source", "timestamp_present"}:
+            raise DevelopmentProfileError("Invalid attribute evidence")
+        if (detail["status"] not in ("verified", "readable_but_stale")
+            or detail["path"] not in ATTRIBUTES[ident]["paths"]
+            or detail["job"] != ATTRIBUTES[ident]["job"]
+            or detail["source"] != "cariad.selectivestatus"
+            or type(detail["timestamp_present"]) is not bool):
+            raise DevelopmentProfileError("Untrusted attribute evidence")
+        profile.attribute_evidence[ident] = dict(detail)
+    for ident, route in ar.items():
+        if ident not in ATTRIBUTES or route != "cariad.selectivestatus.batch" or ident not in ae:
+            raise DevelopmentProfileError("Unverified active attribute")
+        profile.attribute_routes[ident] = route
     disabled = discovery.get("disabled_controls", [])
     if not isinstance(disabled, list) or any(
         item not in ("climate.start", "climate.stop") for item in disabled

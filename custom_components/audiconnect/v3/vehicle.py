@@ -1,7 +1,7 @@
 """Simple V3 vehicle state, without importing the historical V2 models."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -25,6 +25,10 @@ class V3Vehicle:
     climate_field: str | None = None
     climate_http_status: int | None = None
     last_command_result: str | None = None
+    readings: dict[str, dict[str, Any]] = field(default_factory=dict)
+    advertised_capabilities: set[str] = field(default_factory=set)
+    impaired_capabilities: set[str] = field(default_factory=set)
+    v2_initial_discovery_completed: bool = False
 
     @classmethod
     def from_graphql(cls, item: dict[str, Any], country: str) -> "V3Vehicle":

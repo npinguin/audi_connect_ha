@@ -18,6 +18,8 @@ from .registry import CapabilityRegistry
 from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
+from .attribute_runtime import planned_jobs, observe_read_only
+from ..const import CONF_FILTER_VINS
 
 
 def _captured(data: Any, path: str | None) -> str | None:
@@ -57,18 +59,29 @@ class V3Engine:
         self._actions = asyncio.Lock()
         self._normal_action_at: dict[str, float] = {}
         self._known_vehicle_inventory = False
+        self._poll_cycles = 0
 
     async def discover(self) -> None:
         """Own vehicle discovery. No V2 vehicle updates or extra poll task."""
         found = await self.transport.discover_vehicles()
+        options = getattr(self.entry, "options", {})
+        data = getattr(self.entry, "data", {})
+        excluded = {x.strip().lower() for x in str(options.get(
+            CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
+        )).split(",") if x.strip()}
         known: dict[str, V3Vehicle] = {}
         for item in found:
             try:
                 parsed = V3Vehicle.from_graphql(item, self.auth.country)
             except ValueError:
                 continue
+            if parsed.vin.lower() in excluded:
+                continue
             known[parsed.vin.lower()] = self.vehicles.get(parsed.vin.lower(), parsed)
         if not known:
+            if found and excluded:
+                self._known_vehicle_inventory = True
+                return
             # Empty response might be a cloud bug or loss of scopes. Never
             # delete HA devices or learned API profiles based on an empty poll.
             if not self._known_vehicle_inventory:
@@ -111,13 +124,14 @@ class V3Engine:
             )
         path = op["path"].format(
             VIN=vehicle.vin, COUNTRY=vehicle.country,
-            TYPE="Audi", JOBS="climatisation",
+            TYPE="Audi", JOBS=",".join(planned_jobs(vehicle, profile)),
         )
         return op["family"], op["method"], path, None
 
     async def poll(self) -> list[V3Vehicle]:
         self.last_cloud_poll_attempt = datetime.now(UTC)
-        if not self._known_vehicle_inventory:
+        self._poll_cycles += 1
+        if not self._known_vehicle_inventory or self._poll_cycles % 24 == 0:
             await self.discover()
         cloud_reachable = False
         for key, vehicle in self.vehicles.items():
@@ -149,6 +163,8 @@ class V3Engine:
                     break  # Network outage is not evidence of unsupported capability
                 if 200 <= response.status < 300:
                     cloud_reachable = True
+                    if ident == 'cariad.climate.status.batch':
+                        observe_read_only(vehicle, profile, response.data, response.observed_at)
                 value, field = profile.registry.extract(ident, response.data)
                 captured = _captured(response.data, field)
                 valid = (

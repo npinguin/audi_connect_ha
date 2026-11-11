@@ -206,6 +206,8 @@ class DevelopmentProfile:
         # evidence, never physical action evidence.
         self.read_results: dict[str, dict[str, Any]] = {}
         self.control_results: dict[str, str] = {}
+        self.attribute_routes: dict[str, str] = {}
+        self.attribute_evidence: dict[str, dict[str, Any]] = {}
         self.registry = CapabilityRegistry(deepcopy(self._base))
         self.discovery = GuidedActionDiscovery(
             self.registry, context, cooldown_seconds=cooldown_seconds
@@ -357,6 +359,8 @@ class DevelopmentProfile:
             "draft_selected": dict(self.draft_selected),
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),
+            "attribute_routes": dict(self.attribute_routes),
+            "attribute_evidence": deepcopy(self.attribute_evidence),
             "discovery": self.discovery.snapshot(),
         }
 

@@ -13,6 +13,7 @@ from typing import Any
 
 from .development_profiles import DevelopmentProfile
 from .vehicle import V3Vehicle
+from .historical_catalog import INVENTORY
 
 # Source: V2 capability_jobs.BASE_SELECTIVE_JOBS and api_probe.py.
 # This is a migration backlog, not 24 proven V3 capabilities.
@@ -150,8 +151,38 @@ def build_status_report(
             "context_applicable": None,
         })
 
+    for attr in INVENTORY["attributes"]:
+        evidence = profile.attribute_evidence.get(attr["id"], {})
+        selected = profile.attribute_routes.get(attr["id"])
+        rows.append({
+            "capability": attr["capability"], "aspect": "status",
+            "attribute": attr["id"], "entity_key": attr["entity_key"],
+            "api_family": "cariad" if attr["paths"] else "unknown",
+            "operation": selected or ("v2.attribute." + attr["id"]),
+            "method": "GET" if attr["paths"] else "-",
+            "path": evidence.get("path") or (attr["paths"][0] if attr["paths"] else "-"),
+            "status": evidence.get("status", "not_tested" if attr["paths"] else "mapping_pending"),
+            "route_result": evidence.get("status", "not_tested"),
+            "source": "v3_live_evidence" if evidence else "v2_attribute_reference",
+            "selected": selected is not None, "saved_candidate": False,
+            "custom": False, "context_applicable": None, "job": attr["job"],
+        })
+    for control in INVENTORY["controls"]:
+        rows.append({
+            "capability": control["capability"], "aspect": "control",
+            "attribute": control["id"], "api_family": control["api_family"] or "unknown",
+            "operation": "v2.control." + control["id"],
+            "method": "POST" if control["path"] else "-", "path": control["path"] or "-",
+            "status": "migration_pending", "route_result": "migration_pending",
+            "source": "v2_control_reference", "selected": False,
+            "saved_candidate": False, "custom": False, "context_applicable": None,
+        })
     counts = {
         "total": len(rows),
+        "v2_attribute_inventory": len(INVENTORY["attributes"]),
+        "v2_control_inventory": len(INVENTORY["controls"]),
+        "v3_verified_attributes": sum(r["source"] == "v3_live_evidence" and r["status"] == "verified" for r in rows),
+        "v2_unmapped_attributes": sum(r["status"] == "mapping_pending" for r in rows),
         "verified_working": sum(x["status"] == "worked" for x in rows),
         "reported_failed": sum(x["status"] in ("failed", "previously_failed") for x in rows),
         "stale": sum(x["status"] == "readable_but_stale" for x in rows),
