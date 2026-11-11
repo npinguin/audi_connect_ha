@@ -14,8 +14,10 @@ def test_v3_vehicle_context_represents_real_auth_family():
     car=V3Vehicle(vin="WAUZZZ4M0MD123456", name="Audi", model="Audi A4",
                   model_family="", country="DE", auth_family="legacy")
     assert car.context.auth == "legacy"
-    assert CapabilityRegistry.from_json_file(catalog_path()).resolve(
-        "climate", "status", car.context)["available_operations"] == ["mbb.climate.status"]
+    routes = CapabilityRegistry.from_json_file(catalog_path()).resolve(
+        "climate", "status", car.context)["available_operations"]
+    assert "mbb.climate.status" in routes
+    assert all(route.startswith("mbb.") for route in routes)
 
 
 def test_v3_full_catalog_uses_mbb_executor_metadata_and_keeps_location_manual():

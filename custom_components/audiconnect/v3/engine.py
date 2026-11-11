@@ -158,6 +158,11 @@ class V3Engine:
                 op = profile.registry.operations[ident]
                 if op["method"] != "GET" or op["family"] not in ("cariad", "mbb"):
                     continue
+                # MBB legacy variants have distinct semantics and may cost a
+                # request each. Never try manual-only endpoints on every poll.
+                if (op["family"] == "mbb" and op.get("delivery") == "manual"
+                    and profile.active.get("climate.status") != ident):
+                    continue
                 family, method, path, _body = self._operation_request(vehicle, ident)
                 # The default targeted climate probe repeats a job already
                 # included in the shared batch. Do not double-poll it merely
