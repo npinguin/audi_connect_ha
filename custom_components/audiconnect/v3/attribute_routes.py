@@ -7,6 +7,7 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 from .historical_catalog import ATTRIBUTES
+from .legacy_read_mappings import variant_for
 
 _BASE = "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}"
 _ID = re.compile(r"^user\.read\.[a-z][a-z0-9_]{0,40}$")
@@ -48,6 +49,9 @@ def read_variants(attribute: str, custom: Mapping[str, dict[str, Any]]) -> list[
              "path": _BASE.replace("{JOBS}", field["job"]),
              "response_paths": field["paths"], "kind": "targeted_job"},
         ))
+    legacy = variant_for(attribute)
+    if legacy is not None:
+        variants.append(legacy)
     for ident, value in custom.items():
         if value.get("attribute") == attribute:
             variants.append({"id": ident, "family": value["family"],

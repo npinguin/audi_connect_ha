@@ -12,7 +12,7 @@ from .action_discovery import ActionAttempt
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
 from .historical_catalog import ATTRIBUTES
-from .attribute_routes import validate_custom_read_route, get_read_variant
+from .attribute_routes import validate_custom_read_route, get_read_variant, read_variants
 
 
 def restore_profile(
@@ -91,9 +91,17 @@ def restore_profile(
         if ident not in ATTRIBUTES or not isinstance(detail, dict) or set(detail) != {"status", "path", "job", "source", "timestamp_present"}:
             raise DevelopmentProfileError("Invalid attribute evidence")
         if (detail["status"] not in ("verified", "readable_but_stale")
-            or detail["path"] not in ATTRIBUTES[ident]["paths"]
+            or detail["path"] not in {
+                p for variant in read_variants(ident, profile.attribute_custom)
+                for p in variant["response_paths"]
+            }
             or detail["job"] != ATTRIBUTES[ident]["job"]
-            or detail["source"] != "cariad.selectivestatus"
+            or detail["source"] not in ("cariad.selectivestatus", "mbb.legacy")
+            or (detail["source"] == "mbb.legacy"
+                and detail["path"] not in {
+                    p for variant in read_variants(ident, profile.attribute_custom)
+                    if variant["family"] == "mbb" for p in variant["response_paths"]
+                })
             or type(detail["timestamp_present"]) is not bool):
             raise DevelopmentProfileError("Untrusted attribute evidence")
         profile.attribute_evidence[ident] = dict(detail)

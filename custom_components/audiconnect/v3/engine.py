@@ -21,6 +21,7 @@ from .freshness import timestamp_is_fresh
 from .attribute_runtime import planned_jobs, observe_read_only
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
+from .legacy_read_mappings import FIELDS as MBB_FIELDS
 from ..const import CONF_FILTER_VINS
 
 
@@ -183,6 +184,15 @@ class V3Engine:
                     cloud_reachable = True
                     if ident == 'cariad.climate.status.batch':
                         observe_read_only(vehicle, profile, response.data, response.observed_at)
+                    elif ident == 'mbb.climate.status':
+                        # Parse only proven V2 paths; per-attribute activation
+                        # remains explicit because MBB timestamps may be absent.
+                        for attr, (kind, _field) in MBB_FIELDS.items():
+                            if kind == "climater":
+                                self._record_attribute_response(
+                                    vehicle, profile, attr, "mbb.climater.readonly",
+                                    [_field], response,
+                                )
                 value, field = profile.registry.extract(ident, response.data)
                 captured = _captured(response.data, field)
                 valid = (
@@ -222,7 +232,7 @@ class V3Engine:
                 unique.setdefault((family, path), []).append((ident, route, mappings))
             # Refuse an unbounded per-attribute request explosion.
             for (family, path), selected in list(unique.items())[:4]:
-                if family != "cariad":
+                if family not in ("cariad", "mbb"):
                     continue
                 try:
                     response = await self.transport.request(family, "GET", path)
@@ -446,7 +456,8 @@ class V3Engine:
     def attribute_routes_for(self, vin: str, attribute: str) -> dict[str, Any]:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
-        alternatives = read_variants(attribute, profile.attribute_custom)
+        alternatives = [r for r in read_variants(attribute, profile.attribute_custom)
+                        if r["family"] == ("mbb" if car.context.auth == "legacy" else "cariad")]
         for variant in alternatives:
             evidence = profile.attribute_route_evidence.get(attribute, {}).get(variant["id"], {})
             variant["result"] = evidence.get("outcome", "not_tested")
@@ -472,7 +483,8 @@ class V3Engine:
     def _attribute_request(self, car: V3Vehicle, profile: DevelopmentProfile,
                            attribute: str, operation: str) -> tuple[str, str, list[str]]:
         route = get_read_variant(attribute, operation, profile.attribute_custom)
-        path = route["path"].replace("{VIN}", car.vin)
+        path = (route["path"].replace("{VIN}", car.vin)
+                .replace("{TYPE}", "Audi").replace("{COUNTRY}", car.country))
         if "{JOBS}" in path:
             jobs = list(planned_jobs(car, profile))
             required = ATTRIBUTES[attribute]["job"]
@@ -491,6 +503,7 @@ class V3Engine:
              if read_path(response.data, path) is not None), None
         )
         field, value = matched if matched is not None else (mappings[0], None)
+        family = get_read_variant(attribute, operation, profile.attribute_custom)["family"]
         captured = capture_time(response.data, field) if value is not None else None
         fresh = timestamp_is_fresh(captured, response.observed_at)
         if not 200 <= response.status < 300:
@@ -509,12 +522,12 @@ class V3Engine:
                     "value": value, "captured": captured,
                     "observed": response.observed_at.isoformat(),
                     "fresh": fresh, "path": field, "job": ATTRIBUTES[attribute]["job"],
-                    "status": outcome,
+                    "status": outcome, "family": family,
                 }
             profile.attribute_evidence[attribute] = {
                 "status": outcome, "path": field,
                 "job": ATTRIBUTES[attribute]["job"],
-                "source": "cariad.selectivestatus",
+                "source": "mbb.legacy" if family == "mbb" else "cariad.selectivestatus",
                 "timestamp_present": bool(captured),
             }
         return {
@@ -527,8 +540,8 @@ class V3Engine:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
         family, path, mappings = self._attribute_request(car, profile, attribute, route)
-        if family != "cariad":
-            raise ValueError("This API family has not been implemented in the clean V3 transport")
+        if family != ("mbb" if car.context.auth == "legacy" else "cariad"):
+            raise ValueError("Read route is not applicable to this vehicle API family")
         response = await self.transport.request(family, "GET", path)
         result = self._record_attribute_response(car, profile, attribute, route, mappings, response)
         await self.storage.async_save(self.profiles)
@@ -549,10 +562,14 @@ class V3Engine:
     async def activate_attribute_route(self, vin: str, attribute: str, route: str) -> None:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
-        get_read_variant(attribute, route, profile.attribute_custom)
+        choice = get_read_variant(attribute, route, profile.attribute_custom)
+        if choice["family"] != ("mbb" if car.context.auth == "legacy" else "cariad"):
+            raise ValueError("Route does not match the vehicle API family")
         result = profile.attribute_route_evidence.get(attribute, {}).get(route, {})
-        if result.get("outcome") != "verified":
-            raise ValueError("Test the route and verify fresh vehicle data before activation")
+        if result.get("outcome") != "verified" and not (
+            choice["family"] == "mbb" and result.get("outcome") == "readable_but_stale"
+        ):
+            raise ValueError("Test the route and verify vehicle data before activation")
         profile.attribute_routes[attribute] = route
         profile.attribute_drafts[attribute] = route
         await self.storage.async_save(self.profiles)
@@ -575,7 +592,7 @@ class V3Engine:
             vehicles.append({
                 "vehicle_slot": index,
                 "context": {
-                    "auth": "auth0" if self.auth.uses_auth0 else "legacy",
+                    "auth": car.context.auth,
                     "region": car.country, "model_family": car.model_family,
                 },
                 "climate": {

@@ -8,7 +8,9 @@ from custom_components.audiconnect.v3.attribute_routes import (
 
 def test_read_attribute_has_shared_and_targeted_variants():
     choices=read_variants("stateOfCharge", {})
-    assert {r["id"] for r in choices} == {"cariad.selectivestatus.batch", "cariad.selectivestatus.targeted"}
+    assert {r["id"] for r in choices} == {
+        "cariad.selectivestatus.batch", "cariad.selectivestatus.targeted", "mbb.charger.readonly"
+    }
     assert choices[1]["path"].endswith("jobs=charging")
     assert get_read_variant("stateOfCharge", choices[0]["id"], {})["kind"]=="shared_batch"
 
@@ -26,5 +28,5 @@ def test_safe_new_mapping_can_be_added_without_updating_python_implementation():
     validated=validate_custom_read_route(data)
     assert validated == data
     choices=read_variants("stateOfCharge",{data["id"]:validated})
-    assert len(choices)==3
+    assert len(choices)==4
     assert choices[-1]["response_paths"]==[data["response_path"]]

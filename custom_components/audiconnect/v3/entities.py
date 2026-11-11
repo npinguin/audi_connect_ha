@@ -226,6 +226,21 @@ def _reading_age_minutes(captured: str | None) -> float | None:
     return max(0.0, (datetime.now(UTC) - point.astimezone(UTC)).total_seconds() / 60)
 
 
+def _reading_available(reading: dict[str, Any] | None) -> bool:
+    if not reading:
+        return False
+    captured_age = _reading_age_minutes(reading.get("captured"))
+    if captured_age is not None:
+        return captured_age <= 60
+    # MBB legacy responses may not include a vehicle capture timestamp.
+    # Expose only *recently observed cloud values*, with explicitly unknown
+    # vehicle freshness; never call them verified-fresh vehicle data.
+    observed_age = _reading_age_minutes(reading.get("observed"))
+    return bool(reading.get("family") == "mbb"
+                and reading.get("status") == "readable_but_stale"
+                and observed_age is not None and observed_age <= 60)
+
+
 class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     """Read-only V3 entity reusing a historical V2 unique ID where mapped."""
 
@@ -238,8 +253,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     @property
     def available(self) -> bool:
         reading = self.vehicle.readings.get(self.attribute["id"])
-        return bool(reading and _reading_age_minutes(reading.get("captured")) is not None
-                    and _reading_age_minutes(reading.get("captured")) <= 60)
+        return _reading_available(reading)
 
     @property
     def native_value(self):
@@ -268,7 +282,9 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         return {
             "v3_capability": self.attribute["capability"],
             "v2_attribute": self.attribute["id"],
-            "api_family": "cariad",
+            "api_family": reading.get("family", "cariad"),
+            "vehicle_freshness": "unknown" if not reading.get("captured") else reading.get("status"),
+            "cloud_age_minutes": _reading_age_minutes(reading.get("observed")),
             "response_mapping": reading.get("path"),
             "vehicle_captured": reading.get("captured"),
             "age_minutes": _reading_age_minutes(reading.get("captured")),
@@ -287,8 +303,7 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
     @property
     def available(self) -> bool:
         reading = self.vehicle.readings.get(self.attribute["id"])
-        age = _reading_age_minutes(reading.get("captured")) if reading else None
-        return age is not None and age <= 60
+        return _reading_available(reading)
 
     @property
     def is_on(self) -> bool | None:

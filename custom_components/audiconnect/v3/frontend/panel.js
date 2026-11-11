@@ -306,7 +306,8 @@ class AudiConnectV3Panel extends HTMLElement {
     const visibleAttributes = attributes.filter(r => r.capability === this.category &&
       (this.inventoryFilter !== "available" || ["verified","readable_but_stale"].includes(r.status)));
     const chosen = this.readRoutes.find(r => r.id === this.readChoice);
-    const canActivateRead = chosen?.result === "verified";
+    const canActivateRead = chosen?.result === "verified" ||
+      (chosen?.family === "mbb" && chosen?.result === "readable_but_stale");
     const bg = "var(--primary-background-color, #f8fafc)";
     const body = "var(--primary-text-color, #111827)";
     this.shadowRoot.innerHTML = `
