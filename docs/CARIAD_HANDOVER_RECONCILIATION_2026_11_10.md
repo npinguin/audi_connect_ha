@@ -50,7 +50,9 @@ silently omit usable oil data. In addition, a reduced job list or incomplete
 non-error response could replace the entire cached field dictionary.
 
 - Targeted review: [fork draft PR #17](https://github.com/npinguin/audi_connect_ha/pull/17),
-  branched from our upstream PR #915, **not merged into #915**.
+  branched from our upstream PR #915, then integrated into the upstream
+  contribution following Kolbi's 11 November review. The feature branch
+  separately includes the compatibility fixes.
 - Explicit one-way `oilLevelStatus -> oilLevel` alias; no unsupported
   assumptions that `tripStatistics` is a selectivestatus job or that
   `parkingPosition` is anything other than its separate resource.
@@ -97,8 +99,8 @@ just because a third-party application lists them as new capabilities.
 
 ### Next gates
 
-1. Resolve PR #17 review and merge into upstream-contribution PR #915 only
-   after engineering acceptance; protect the same job planning in the fork.
+1. The PR #17 regression correction is now included in upstream PR #915;
+   keep the same job-retention behavior in this feature branch.
 2. Test live sequential Q8 polls to demonstrate oil-level retention and safe
    freshness under incomplete jobs; unit tests alone do not prove car behavior.
 3. Implement warning-light triggers, plug lock, auxiliary heater and S-PIN

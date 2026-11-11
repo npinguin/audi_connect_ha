@@ -69,3 +69,54 @@ This engineering plan follows the project-supplied **Audi Connect — API gap an
 VW Group Connect is AGPL-3.0 whereas this Audi Connect integration is MIT. **Do not copy AGPL implementation source** into this integration without resolving licensing compatibility. Study endpoint patterns and use independently written code and synthetic tests.
 
 This branch is not an accepted HACS release and must not be merged or submitted upstream as a claim of restored functionality before real API evidence is available.
+
+
+## 11 November 2026 — upstream review sync and wake / capability roadmap
+
+**Upstream review:** the feature branch now includes the focused regression
+corrections from upstream contribution PR #915: identical lock/unlock command
+outcome handling, legacy-only remote-engine compatibility fallback and a
+fail-closed charge-target update when unknown settings could be overwritten.
+The existing selective-status planner already retains previously readable
+jobs and is not replaced. This does **not** establish restored Q8 trip schema
+or imply that all controls work on every model.
+
+**Q8 climate:** the tested Auth0 Q8 PHEV uses a separate CARIAD climate
+ON/OFF command with settings read from the vehicle. The original temperature
+control did not work on that vehicle. Preserve the separate modern ON/OFF and
+legacy temperature interfaces; do not invent or overwrite target temperatures.
+
+**Vehicle-aware capability vision:** the diagnostics report a coarse vehicle
+type, trusted model-family hint and auth generation, without exporting raw
+vehicle metadata. These are **research hints only**, never authorization.
+Longer-term decisions must combine actual vehicle capabilities, observed
+readable jobs, authenticated API generation, and real model-specific outcomes.
+A model name is not permission and an incomplete capability list is not proof
+that previously functioning sensors must disappear.
+
+**Experimental wake and energy:** the existing Wake Vehicle button remains
+opt-in and manual. Per vehicle, in-memory guards restrict requests to one
+every **30 minutes**, at most **four attempts per rolling 24 hours**, and
+preserve **12 API calls** if Audi reports a remaining quota. Failed requests
+count too. These are initial conservative test values, not a measured battery
+budget. They reset after HA integration restart. An HTTP acknowledgement
+is marked **gateway accepted, physical wake unconfirmed**; the code never
+automatically calls another GET or retries the mutation. Diagnostics expose
+only timestamp, attempt count, outcome and wait time in an anonymous vehicle
+slot, not VIN, battery readings or personal trip data.
+
+**Candidate future trigger design, not yet implemented:** (1) normal passive
+cloud refresh, (2) explicit user wake or a verified charging-session/EVSE
+transition, (3) check if critical cloud charge/sleep readings are still stale,
+(4) one guarded wake after a per-vehicle sleep/energy budget decision,
+(5) delayed bounded readback and freshness comparison, and (6) backoff for
+429/5xx or inactive parking. Avoid waking merely because a scheduled poll
+returned unavailable or the vehicle was parked. Never infer physical wake,
+charging resumed, or low battery from one status code.
+
+**Live acceptance needed:** compare normal and post-wake charge/sleep status
+at known Q8 sessions, record time to fresh car data and actual 12V/traction
+battery impact, and verify budget behavior across restart. Keep generic
+model-specific actions and automated wake disabled until evidence warrants
+them. This branch remains a draft, distinct from upstream PR #915 and
+stable fork main.
