@@ -74,15 +74,13 @@ class V3Engine:
             if not self._known_vehicle_inventory:
                 raise RuntimeError("V3 did not receive a usable vehicle inventory")
             return
-        if not self.profiles:
-            self.profiles = await self.storage.async_load(
-                self.registry, {vin: vehicle.context for vin, vehicle in known.items()}
+        # Returning/new cars must restore saved evidence, not start blank.
+        missing = {vin: car.context for vin, car in known.items()
+                   if vin not in self.profiles}
+        if missing:
+            self.profiles.update(
+                await self.storage.async_load(self.registry, missing)
             )
-        else:
-            for vin, car in known.items():
-                self.profiles.setdefault(
-                    vin, DevelopmentProfile(self.registry, car.context)
-                )
         self.vehicles.update(known)
         self._known_vehicle_inventory = True
 
@@ -169,7 +167,9 @@ class V3Engine:
                     )
                     if fresh:
                         profile.choose_working("climate", "status", ident)
-                    break
+                        break
+                    # A stale value can lead to another distinct bounded GET.
+                    continue
                 profile.record_status(
                     "climate", ident, http_status=response.status,
                     schema_valid=False, fresh=False,

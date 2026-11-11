@@ -1,6 +1,6 @@
 # Audi Connect V3 — release acceptance matrix and migration gates
 
-## 3.0.0b3 code gates
+## 3.0.0b4 code gates
 
 | Gate | Automated criterion | Live criterion |
 |---|---|---|
@@ -30,3 +30,7 @@ The current historic backlog, in intended order: charging telemetry,
 charging controls, vehicle core/health, lock/access, trips/consumption,
 other actuators and legacy market adapters. Reuse the same V3 branch/PR
 and release independently verified vertical slices as subsequent betas.
+
+## Next engineer: read-only discovery
+
+Extend the capability inventory using historic V2 job and researched API paths. Record attribute, family, method, route, response mapping, capture time, freshness and tested outcome per vehicle. V2 references are not proof of V3 support. Maintain the single-package V2/V3 switch.

@@ -267,7 +267,7 @@ async def async_setup_dashboard(hass) -> None:
         hass,
         webcomponent_name="audiconnect-v3-panel",
         frontend_url_path=_PANEL,
-        module_url="/audiconnect_v3/panel.js?v=3.0.0b3",
+        module_url="/audiconnect_v3/panel.js?v=3.0.0b4",
         sidebar_title="Audi V3 Development",
         sidebar_icon="mdi:car-cog",
         require_admin=True,

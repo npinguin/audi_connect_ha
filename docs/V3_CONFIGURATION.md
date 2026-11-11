@@ -1,4 +1,4 @@
-# Audi Connect V3 — installation and configuration (3.0.0b3)
+# Audi Connect V3 — installation and configuration (3.0.0b4)
 
 ## Upgrade in place
 
@@ -6,7 +6,7 @@ Keep the current Audi Connect integration. Back up Home Assistant and make
 note of existing V2 climate/charging automations. **Do not add a second Audi
 Connect entry or delete the old entity registry.**
 
-1. In HACS select the experimental `3.0.0b3` release from
+1. In HACS select the experimental `3.0.0b4` release from
    `npinguin/audi_connect_ha` and restart HA.
 2. Open **Settings → Devices & Services → Audi Connect → Configure**.
    Choose `v3_climate` as Runtime generation and retain your cloud scan

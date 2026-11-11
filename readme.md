@@ -1,7 +1,7 @@
 # Audi Connect Integration for Home Assistant
 
 > [!WARNING]
-> **Audi V3 3.0.0b3 is an experimental, in-place HACS prerelease.**
+> **Audi V3 3.0.0b4 is an experimental, in-place HACS prerelease.**
 > V2 remains the default and the rollback choice. V3 now uses its OWN
 > cloud API, polling and Climate capability engine (only Audi login and
 > integration config are shared), with an administrator-only
@@ -10,7 +10,7 @@
 > See [architecture](docs/V3_ARCHITECTURE.md),
 > [configuration](docs/V3_CONFIGURATION.md),
 > [test matrix](docs/V3_TEST_MATRIX.md) and
-> [3.0.0b3 release notes](docs/V3_RELEASE_NOTES_3.0.0b3.md).
+> [3.0.0b4 release notes](docs/V3_RELEASE_NOTES_3.0.0b4.md).
 
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)
@@ -492,13 +492,17 @@ The card uses the following code in `ui-lovelace.yaml` (or wherever your Dashboa
 
 ## V3 experimental climate development
 
-The clean V3 climate pilot is developed on
-[`feature/v3-climate-pilot`](https://github.com/npinguin/audi_connect_ha/tree/feature/v3-climate-pilot),
-reviewed in [fork PR #19](https://github.com/npinguin/audi_connect_ha/pull/19).
-It does **not** replace the default V2 installation or upstream PR #915.
-V3 uses the same integration account and a single V3 coordinator that
-delegates existing Audi API adapters during incremental migration. Only
-climate is owned by V3; other capabilities remain on the existing code.
+V2 and V3 are delivered in the SAME HACS package and config entry.
+V2 stays the default/rollback runtime. V3 owns independent API transport,
+vehicle discovery, polling, capabilities, entities and profile storage.
+Only integration configuration and Audi authentication are shared.
+V2 and V3 never poll simultaneously.
+
+The Climate example and optional, administrator-only Development Workbench
+live in [PR #20](https://github.com/npinguin/audi_connect_ha/pull/20).
+Workbench appears only in V3 after explicit opt-in. Save candidate is
+separate from Activate verified route. The capability dashboard labels
+historical V2 paths as reference-only until independently tested in V3.
 
 After installing a separately tested V3 candidate, open Audi Connect
 Options and choose `runtime_version = v3_climate` (default `v2`).
@@ -506,4 +510,4 @@ This keeps the current climate unique ID, removes the duplicated quick
 ON/OFF switch in the V3 runtime, and offers ON/OFF without an unsupported
 temperature slider on the tested Q8. Check automations that use the old
 quick-switch ID before opting into V3. V2 is a reversible option.
-See [V3 engineering and release gates](docs/V3_CLIMATE_PILOT.md).
+See [current architecture](docs/V3_ARCHITECTURE.md), [configuration](docs/V3_CONFIGURATION.md) and [test matrix](docs/V3_TEST_MATRIX.md).

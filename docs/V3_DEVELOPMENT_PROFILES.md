@@ -3,7 +3,7 @@
 **Architecture decision:** only shared HA integration configuration and Audi
 authentication belong to both V2 and V3. API engines, discovery, polling,
 capability models, control dispatch, diagnostics and devices are V3-owned.
-This is new clean-development code, **not** a released HACS dashboard.
+V3 development has an opt-in Workbench in experimental HACS prereleases; this does not imply stable real-vehicle acceptance.
 
 ## Development phase (NOW): explicit API experimentation
 
@@ -32,11 +32,8 @@ as arbitrary request headers.
 `v3/development_profiles.py` is a **pure configuration model** with
 `add()`, `preview_request()`, `begin_test()`, `observe_http()`,
 `confirm()`, `choose_working()`, `disable()` and `snapshot()`.
-It does not execute a request or persist secrets. A native Home Assistant
-Development Dashboard and HA local-storage adapter must connect these
-methods to authorized controls. Selected routes and evidence must persist
-per vehicle and V3 capability; this library provides serialization-compatible
-snapshots but does **not** yet claim reload persistence.
+It does not execute a request or persist secrets. The clean V3 runtime now connects this model to a native opt-in Workbench and
+HA storage, preserving candidate choices and evidence separately from controls.
 
 ### Example development route
 
@@ -92,7 +89,7 @@ is disabled and diagnostics expose the tested options and results.
 5. Per-vehicle activation into the V3 entity without changing other vehicles;
 6. HACS/pytest/hassfest + real Q8 acceptance before publishing another release.
 
-**Do not treat this model-only branch as a working HACS test release.**
+**Do not infer physical vehicle acceptance from green synthetic CI.**
 
 
 ## GET evidence and active route selection
@@ -108,9 +105,8 @@ selection is withdrawn until a new confirmed result.
 All operation evidence is represented in the local `snapshot()` structure.
 `v3/profile_store.py` now provides a V3-owned private Home Assistant Store
 adapter and validated restore operation. Partial vehicle inventories must not
-erase other cars' profiles. The adapter is **not yet wired into a running V3
-dashboard/runtime**; the published 3.0.0b1 release still uses the previous
-architecture. This representation must never be mistaken for a sanitized
+erase other cars' profiles. The adapter is wired into the current clean V3 runtime. 3.0.0b1 used a
+historically different runtime architecture. This representation must never be mistaken for a sanitized
 community export: custom user-authored descriptions and relative routes may
 contain their own sensitive literals and require privacy filtering.
 

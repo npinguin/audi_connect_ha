@@ -13,7 +13,7 @@ on:
         default: do-not-publish
         options:
           - do-not-publish
-          - publish-v3-3.0.0b3
+          - publish-v3-3.0.0b4
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/feature/v3-clean-discovery' && (github.event_name == 'push' || inputs.confirmation == 'publish-v3-3.0.0b3')
+    if: github.ref == 'refs/heads/feature/v3-clean-discovery' && (github.event_name == 'push' || inputs.confirmation == 'publish-v3-3.0.0b4')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -36,7 +36,7 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          expected = "3.0.0b3"
+          expected = "3.0.0b4"
           manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
           model = json.loads(Path("custom_components/audiconnect/v3/climate.json").read_text())
           assert manifest["domain"] == "audiconnect"
@@ -64,8 +64,10 @@ jobs:
       - name: All regression tests
         run: pytest -q
 
-      - name: Development Dashboard JavaScript syntax
-        run: node --check custom_components/audiconnect/v3/frontend/panel.js
+      - name: Development Workbench UI selection regression
+        run: |
+          node --check custom_components/audiconnect/v3/frontend/panel.js
+          node --test tests/test_v3_workbench_ui.mjs
 
       - name: Home Assistant hassfest
         uses: home-assistant/actions/hassfest@master
@@ -78,15 +80,18 @@ jobs:
       - name: Package only the HA integration
         run: |
           cd custom_components
-          zip -qr "../audi_connect_v3_3.0.0b3.zip" audiconnect
+          zip -qr "../audi_connect_v3_3.0.0b4.zip" audiconnect
           cd ..
-          test -s audi_connect_v3_3.0.0b3.zip
+          test -s audi_connect_v3_3.0.0b4.zip
+          sha256sum audi_connect_v3_3.0.0b4.zip > SHA256SUMS_V3_3.0.0b4.txt
 
       - name: Upload manual-install test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: audi-connect-v3-3.0.0b3-validated
-          path: audi_connect_v3_3.0.0b3.zip
+          name: audi-connect-v3-3.0.0b4-validated
+          path: |
+            audi_connect_v3_3.0.0b4.zip
+            SHA256SUMS_V3_3.0.0b4.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -102,19 +107,19 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: audi-connect-v3-3.0.0b3-validated
+          name: audi-connect-v3-3.0.0b4-validated
 
       - name: Refuse to replace an existing beta tag or release
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/3.0.0b3" >/dev/null 2>&1; then
-            echo "Tag 3.0.0b3 exists: no silent replacement." >&2
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/3.0.0b4" >/dev/null 2>&1; then
+            echo "Tag 3.0.0b4 exists: no silent replacement." >&2
             exit 1
           fi
-          if gh release view 3.0.0b3 >/dev/null 2>&1; then
-            echo "Release 3.0.0b3 exists: no silent replacement." >&2
+          if gh release view 3.0.0b4 >/dev/null 2>&1; then
+            echo "Release 3.0.0b4 exists: no silent replacement." >&2
             exit 1
           fi
 
@@ -122,8 +127,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create 3.0.0b3 audi_connect_v3_3.0.0b3.zip \
+          gh release create 3.0.0b4 audi_connect_v3_3.0.0b4.zip SHA256SUMS_V3_3.0.0b4.txt \
             --target "${GITHUB_SHA}" \
-            --title "Audi Connect 3.0.0b3 — Independent V3 (experimental)" \
-            --notes-file docs/V3_RELEASE_NOTES_3.0.0b3.md \
+            --title "Audi Connect 3.0.0b4 — Independent V3 (experimental)" \
+            --notes-file docs/V3_RELEASE_NOTES_3.0.0b4.md \
             --prerelease

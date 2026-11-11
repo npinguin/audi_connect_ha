@@ -73,6 +73,8 @@ class V3Vehicle:
         self.climate_state = value.strip().lower()
         self.climate_source = route
         self.last_status_observed = observed_at
+        # Never inherit the prior value's timestamp for a new sample.
+        self.climate_captured = None
         if isinstance(captured, str):
             try:
                 candidate = datetime.fromisoformat(captured.replace("Z", "+00:00"))

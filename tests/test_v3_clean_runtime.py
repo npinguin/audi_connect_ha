@@ -15,8 +15,9 @@ from custom_components.audiconnect.coordinator import AudiDataUpdateCoordinator
 from custom_components.audiconnect.v3.coordinator_clean import V3CleanCoordinator
 from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
 from custom_components.audiconnect.v3.engine import V3Engine
-from custom_components.audiconnect.v3.registry import CapabilityRegistry
+from custom_components.audiconnect.v3.registry import CapabilityRegistry, VehicleContext
 from custom_components.audiconnect.v3.transport import V3Response
+from custom_components.audiconnect.v3.profile_store import restore_profile
 from custom_components.audiconnect.v3.vehicle import V3Vehicle
 
 CATALOG = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3/climate.json"
@@ -56,18 +57,22 @@ class FakeStore:
     def __init__(self):
         self.writes = []
         self.loads = 0
+        self.records = {}
 
     async def async_load(self, catalog, contexts):
         self.loads += 1
         return {
-            vin: DevelopmentProfile(catalog, context, cooldown_seconds=0)
+            vin: (restore_profile(catalog, context, self.records[vin],
+                                  cooldown_seconds=0)
+                  if vin in self.records else
+                  DevelopmentProfile(catalog, context, cooldown_seconds=0))
             for vin, context in contexts.items()
         }
 
     async def async_save(self, profiles):
-        self.writes.append({
-            key: val.snapshot() for key, val in profiles.items()
-        })
+        snapshot = {key: val.snapshot() for key, val in profiles.items()}
+        self.writes.append(snapshot)
+        self.records.update(snapshot)
 
 
 def engine_for(*response_list):
@@ -191,3 +196,38 @@ def test_nickname_cannot_spoof_manufacturer_q8_context():
     }, "DE")
     assert car.model_family == ""
     assert car.climate_supported is None
+
+
+@pytest.mark.asyncio
+async def test_later_vehicle_restores_saved_candidate():
+    engine, transport, store = engine_for(status())
+    await engine.poll()
+    late = "WAUZZZ4M0MD123457"
+    old = DevelopmentProfile(engine.registry, VehicleContext(
+        auth="auth0", region="DE", vehicle_type="phev", model_family="q8",
+    ), cooldown_seconds=0)
+    old.save_candidate("climate", "start", "cariad.climate.start.stored")
+    store.records[late.lower()] = old.snapshot()
+    async def later():
+        return [{"vin": late, "vehicle": {
+            "media": {"longName": "Audi Q8 TFSI e"},
+            "classification": {"driveTrain": "PHEV"},
+        }}]
+    transport.discover_vehicles = later
+    await engine.discover()
+    assert engine.profiles[late.lower()].draft_selected["climate.start"] == (
+        "cariad.climate.start.stored"
+    )
+
+
+@pytest.mark.asyncio
+async def test_stale_status_can_try_distinct_get_candidate():
+    engine, transport, _ = engine_for(
+        status(captured=False), status(value="heating"),
+    )
+    engine.registry.operations["cariad.climate.status.probe"]["path"] += "&detail=1"
+    await engine.poll()
+    assert len([c for c in transport.calls if len(c) > 1]) == 2
+    assert engine.profiles[VIN.lower()].active["climate.status"] == (
+        "cariad.climate.status.probe"
+    )

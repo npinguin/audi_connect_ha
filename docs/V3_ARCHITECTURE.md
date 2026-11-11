@@ -1,4 +1,4 @@
-# Audi Connect V3 — Why / What / How (3.0.0b3)
+# Audi Connect V3 — Why / What / How (3.0.0b4)
 
 **One Audi Connect integration, one config entry, one active runtime.**
 V2 is the rollback choice. **Only login/token handling and integration
@@ -70,7 +70,7 @@ attempts remain blocked across a restart. Control alternatives cannot be
 blindly retried on timeout. Per-vehicle Start and Stop can be disabled
 independently of Status.
 
-## Active HA surface in beta b2
+## Active HA surface in beta b4
 
 In V3 mode the integration forwards only the Climate, Sensor and Button
 platforms with V3-specific setup. A single vehicle presents:
@@ -124,7 +124,7 @@ in **V2** until individually migrated; they do not leak into V3.
 
 ## Release acceptance
 
-`3.0.0b3` is an **experimental HACS prerelease**, not a production migration
+`3.0.0b4` is an **experimental HACS prerelease**, not a production migration
 claim. Exact-SHA Python/hassfest/HACS checks gate publication. Real car
 acceptance remains separate: verify login, Q8 discovery, cloud timestamps,
 climate GET, one guided start/stop, physical readback, HA entity count,
@@ -147,3 +147,7 @@ diagnostics; do not publish full raw Audi responses or VINs.
 - Vehicle capture timestamps must be no more than 60 minutes old and no
   more than five minutes in the future to count as fresh. Cloud reachability
   and vehicle data freshness remain separate.
+
+## b4 reference closure
+
+Missing new sample timestamps invalidate the previous capture timestamp. Stale GET values may lead to distinct bounded GET alternatives. Returning cars recover saved candidate profiles. Workbench Save candidate is covered by a UI-level test. V2 and V3 stay switchable in ONE HACS package. Real Q8 proof remains pending.

@@ -82,10 +82,8 @@ timeouts and sleeping vehicles do not mean unsupported. Avoid proactive wake.
 `v3/action_discovery.py` implements a **pure**, non-network guided-action
 state machine. It supports explicit attempt lifecycle, HTTP observation,
 human confirmation, per-vehicle choice, cooldown, disablement and redacted
-result snapshots. It **does not yet dispatch commands, persist profiles or
-render a HA dashboard**. The persistence and frontend belong to the V3
-runtime/application boundary; do not write these responsibilities into the
-climate entity.
+result snapshots. Later clean V3 beta releases connect this pure state machine to a V3-owned
+dispatcher, HA profile storage and the optional administrator Workbench.
 
 Implementation sequence:
 1. New V3 auth facade reading shared HA credentials;

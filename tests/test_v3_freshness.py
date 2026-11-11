@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from custom_components.audiconnect.v3.freshness import timestamp_is_fresh
+from custom_components.audiconnect.v3.vehicle import V3Vehicle
 
 
 def test_four_hour_old_capture_is_not_fresh():
@@ -16,3 +17,18 @@ def test_no_or_invalid_timestamp_cannot_confirm_state():
     assert not timestamp_is_fresh("yesterday", now)
     assert not timestamp_is_fresh("2026-11-11T15:00:00", now)
     assert not timestamp_is_fresh((now + timedelta(minutes=6)).isoformat(), now)
+
+def test_new_sample_without_capture_does_not_inherit_timestamp():
+    now = datetime.now(UTC)
+    car = V3Vehicle(vin="WAUZZZ4M0MD123456", name="Test",
+                    model="Audi Q8", model_family="q8", country="DE")
+    assert car.set_climate("off", now.isoformat(), route="a",
+                           observed_at=now, http_status=200)
+    assert car.climate_captured == now
+    assert car.set_climate("heating", None, route="b",
+                           observed_at=now, http_status=200)
+    assert car.climate_captured is None
+    assert car.capture_age_minutes is None
+    assert car.set_climate("off", "not-a-timestamp", route="c",
+                           observed_at=now, http_status=200)
+    assert car.climate_captured is None
