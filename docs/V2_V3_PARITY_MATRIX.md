@@ -40,7 +40,7 @@ V2 metadata evidence: downloaded diagnostic `mode: v2`, `disabled_per_platform: 
 | `lock` | 1 | partial: guarded native lock; not physically verified | same unique ID, S-PIN, request-ID completion, real vehicle readback |
 | `number` | 3 | absent: not forwarded by V3 | two base SoC sliders + dynamic per-location target slider; bounds 20–100, step 5 |
 | `select` | 1 | absent: not forwarded by V3 | preferred charge mode select with reported options + safe manual/timer fallback |
-| `switch` | 8 | partial: only V3 climate quick switch, six V2 climate settings and preheater absent | 7 V2 switch declarations + climate quick contract |
+| `switch` | 7 | partial: only V3 climate quick switch, six V2 climate settings and preheater absent | 7 V2 switch declarations + climate quick contract |
 
 ## V2 control-action and writable-setting parity — all control workstreams
 
@@ -104,7 +104,7 @@ V3's `MBBLegacyExecutor` is GET-only. Restore the V2 legacy per-region home endp
 
 ## Canonical V2 entity rows (source-derived)
 
-The following rows are exhaustive source declarations, not the number of currently active Q8 entities. V2 has runtime/capability filtering and dynamic charging profiles. The `historical_paths` count describes schema inventory, **not live success**. The separate 110 historical field references at the end can include aliases and duplicated entity keys; their count is coincidentally equal to the 110 entity slots in this baseline.
+The following rows are exhaustive source declarations, not the number of currently active Q8 entities. V2 has runtime/capability filtering and dynamic charging profiles. The `historical_paths` count describes schema inventory, **not live success**. The 110 historical field references at the end include aliases and duplicated entity keys. There are **109 V2 source entity slots**, plus a separately recorded V3-only climate quick switch.
 
 ### sensor
 
@@ -227,7 +227,7 @@ The following rows are exhaustive source declarations, not the number of current
 | `climatisation_zone_front_right` | missing | 0 | — | P1 |
 | `climatisation_zone_rear_left` | missing | 0 | — | P1 |
 | `climatisation_zone_rear_right` | missing | 0 | — | P1 |
-| `climate_quick_control` | partial | 0 | — | P1 |
+
 
 ### number
 
@@ -423,5 +423,5 @@ HA displayed 13 *'no longer has a state class'* repairs after V3 activation. The
 | P1-C | MBB/legacy control and read-only parity, GPS/device tracker and dealer metadata | Per-family Q8 + legacy acceptance |
 | Gate | Restore all 9 platforms, full diff on Q8 and rollback | Only then resume Media, Trips expansion and roadmap |
 
-Machine-readable baseline: [`docs/V2_V3_PARITY_BASELINE.json`](V2_V3_PARITY_BASELINE.json). It contains every static entity slot, 110 historical source field references, V2 service IDs/action choices, V3 catalog operation inventory and current parity classifications. No VIN, token or GPS values are recorded.
+Machine-readable baseline: [`docs/V2_V3_PARITY_BASELINE.json`](V2_V3_PARITY_BASELINE.json). It contains all 109 source-defined V2 entity slots, 110 historical field references, V2 service IDs/action choices, V3 catalog operation inventory and current parity classifications. No VIN, token or GPS values are recorded.
 
