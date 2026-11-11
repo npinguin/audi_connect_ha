@@ -1,8 +1,8 @@
 # Audi Connect 3.0.0b8 — V2-compatible identity & parked-car telemetry (experimental)
 
-**Release class:** HACS/GitHub prerelease for controlled testing. **NOT full V2 parity.**
+**Release class:** PREPARATION ONLY: not approved for publication until V2 parity is complete. **NOT full V2 parity.**
 
-This package uses the **existing Audi Connect config entry** and keeps V2 available through the runtime selector. No second integration or account setup is required. Switching V2↔V3 still reloads the HA config entry; it is not a no-downtime process.
+This package uses the **existing Audi Connect config entry** and keeps V2 available through the runtime selector. Upstream V2 business code is unchanged; V3 is a separate implementation, sharing only bootstrap/authentication and configuration. No second integration or account setup is required. Switching V2↔V3 still reloads the HA config entry; it is not a no-downtime process.
 
 ## Fixed since b7
 
@@ -10,7 +10,7 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 - **Parked vehicle telemetry:** previously observed CARIAD read jobs remain polled after discovery; out-of-order captured timestamps no longer overwrite newer vehicle values. Readings such as SoC, range, mileage and maintenance may show **last-known stale** values, while charging, climate activity and safety statuses require recent evidence.
 - **One Audi account owner:** when V3 is selected the existing `AudiAccount` authentication/service instance owns the refresh token and OAuth tokens. V3 continues to own **independent** vehicle discovery, GET/POST execution, response parsing and the one active data coordinator. No V2 business poll runs in parallel.
 - **HA services:** all existing `audiconnect.*` service identifiers are registered in both runtimes. V3 routes the currently verified climate, charging, access and window-heating actions through its own guarded engine. **Unmigrated options/actions return a clear Home Assistant error**, never a hidden V2 operation or speculative OEM POST. Vehicle wake, cloud refresh and data read are intentionally distinct.
-- **Device presentation:** 15 vehicle telemetry sensors and 11 car-status binary sensors move out of HA Diagnostics into normal Sensors/Binary Sensors without any entity/unique-ID rename. Technical API, synchronization and quota health remains in Diagnostics.
+- **V3 device presentation:** 15 historical V2 sensor contracts that were tagged diagnostic are displayed under ordinary Sensors **in V3 only**. Upstream V2's existing platform metadata is not modified. Technical integration health remains in Diagnostics.
 - **Governance:** new exhaustive V2/V3 source parity matrix and machine-readable baseline: 109 historical V2 source entity slots across nine HA platforms, 110 source field references, 72 sensor metadata contracts, 12 HA service IDs and 20 control workstreams; CI tests detect drift.
 
 ## Still missing before full V2 parity
