@@ -156,7 +156,6 @@ async def async_setup_entry(
         for description in BUTTON_DESCRIPTIONS
         if (
             not description.experimental
-            or config_entry.options.get("experimental_commands", False)
         )
         and description.supported_fn(vehicle := config_vehicle.vehicle)
     ]

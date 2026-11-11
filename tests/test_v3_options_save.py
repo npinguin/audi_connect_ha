@@ -86,3 +86,5 @@ def test_form_can_render_v3_workbench_option_when_mode_is_v3():
     fields = [key.schema for key in schema.schema]
     assert "v3_development_workbench" in fields
     assert "climate_quick_start" not in fields
+    assert "experimental_commands" not in fields
+    assert "edit_local_dealer" in fields

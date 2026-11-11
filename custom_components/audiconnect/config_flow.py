@@ -508,6 +508,11 @@ class OptionsFlowHandler(OptionsFlow):
                 or "Audi"
             )
             items.append((vin, f"{name} (…{vin[-4:]})"))
+        # V3 owns its own vehicle inventory and no longer creates AudiAccount.
+        if not items:
+            v3 = getattr(runtime, "v3", None)
+            for vehicle in getattr(v3, "vehicles", {}).values():
+                items.append((vehicle.vin, f"{vehicle.name} (…{vehicle.vin[-4:]})"))
         return items
 
     async def async_step_dealer_vehicle(
@@ -604,9 +609,6 @@ class OptionsFlowHandler(OptionsFlow):
                 user_input["v3_development_workbench"] = False
             else:
                 user_input.setdefault("v3_development_workbench", False)
-            user_input.setdefault("v3_climate_start_route", "auto")
-            user_input.setdefault("v3_climate_status_route", "auto")
-            user_input.setdefault("v3_climate_experimental_unknown", False)
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
             # On runtime switch, some HA clients submit only the changed
             # fields. Never let an absent interval prevent saving the choice.
@@ -653,7 +655,7 @@ class OptionsFlowHandler(OptionsFlow):
             vol.Required(
                 "runtime_version",
                 default=values.get("runtime_version", "v2"),
-            ): vol.In(("v2", "v3_climate")),
+            ): vol.In({"v2": "V2 — Stable", "v3_climate": "V3 — Experimental"}),
             vol.Required(
                 CONF_SCAN_INITIAL,
                 default=self.config_entry.options.get(CONF_SCAN_INITIAL, True),
@@ -679,6 +681,7 @@ class OptionsFlowHandler(OptionsFlow):
         }
 
         if values.get("runtime_version", "v2") == "v3_climate":
+            schema[vol.Optional("edit_local_dealer", default=False)] = bool
             schema[vol.Required(
                 "v3_development_workbench",
                 default=self.config_entry.options.get(
@@ -689,15 +692,6 @@ class OptionsFlowHandler(OptionsFlow):
             # Preserve every historical V2 option and user metadata.
             # API route editing is reserved for the opt-in V3 Workbench.
             schema.update({
-                vol.Optional("edit_local_dealer", default=False): bool,
-                vol.Required(
-                    "climate_quick_start",
-                    default=self.config_entry.options.get("climate_quick_start", False),
-                ): bool,
-                vol.Required(
-                    "experimental_commands",
-                    default=self.config_entry.options.get("experimental_commands", False),
-                ): bool,
                 vol.Required(
                     CONF_REFRESH_AFTER_ACTION,
                     default=self.config_entry.options.get(CONF_REFRESH_AFTER_ACTION, False),
