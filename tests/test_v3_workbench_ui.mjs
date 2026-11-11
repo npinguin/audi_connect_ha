@@ -170,3 +170,45 @@ test("Manual scan sends GET-family command only", async () => {
   await p._click({target:{closest:()=>({dataset:{action:"family-test"}})}});
   assert.deepEqual(commands.filter(x=>x.includes("test")),["test_family_reads"]);
 });
+
+test("Alternative access command template exposes only reserved runtime placeholders", () => {
+  const p=new Panel();p.step=3;p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",api_family:"cariad",name:"Audi",model:"Q8"}]}];
+  p.controlCapability="access";p.controlAction="unlock";
+  p.controlRoutes=[{id:"cariad.access.unlock",family:"cariad",path:"/vehicle/v1/vehicles/{VIN}/access/unlock",status:"not_tested"}];
+  p.controlChoice="cariad.access.unlock";
+  const template=JSON.parse(p.initialControlRoute);
+  assert.equal(template.path,"/vehicle/v1/vehicles/{VIN}/access/unlock");
+  assert.deepEqual(JSON.parse(JSON.stringify(template.body)),{spin:"{SPIN}"});
+  assert.deepEqual(JSON.parse(JSON.stringify(template.variables)),{});
+  p.render();
+  assert.match(p.shadowRoot.innerHTML,/Advanced · Add an alternative command template/);
+  assert.match(p.shadowRoot.innerHTML,/Do not enter or save a real S-PIN/);
+  assert.doesNotMatch(p.shadowRoot.innerHTML,/9876/);
+});
+
+test("Saving an access command template does not send a POST or require PIN input", async () => {
+  const p=new Panel();p.step=3;p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",api_family:"cariad",name:"Audi",model:"Q8"}]}];
+  p.controlCapability="access";p.controlAction="lock";
+  const data=p.initialControlRoute;
+  const calls=[];
+  p.shadowRoot.getElementById = id=>({value:id==="control-definition"?data:"{}"});
+  p.api=async (name, args)=>{
+    calls.push(name);
+    if(name==="add_route"){
+      assert.equal(args.route.body.spin,"{SPIN}");
+      assert.equal(args.route.path,"/vehicle/v1/vehicles/{VIN}/access/lock");
+      return {operation:"user.access.lock.alternative"};
+    }
+    if(name==="routes")return {routes:[],history:[]};
+    if(name==="status")return {counts:{},rows:[]};
+    if(name==="attribute_routes")return {routes:[]};
+    if(name==="control_routes")return {routes:[{id:"user.access.lock.alternative",family:"cariad",method:"POST",path:"/vehicle/v1/vehicles/{VIN}/access/lock",status:"not_tested"}]};
+    if(name==="list")return {integrations:p.entries};
+    throw Error("Unexpected command "+name);
+  };
+  await p._click({target:{closest:()=>({dataset:{action:"control-add"}})}});
+  assert.deepEqual(calls.filter(x=>/test|control_test/.test(x)),[]);
+  assert.equal(p.controlChoice,"user.access.lock.alternative");
+});

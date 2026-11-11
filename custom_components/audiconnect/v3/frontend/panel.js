@@ -123,7 +123,8 @@ class AudiConnectV3Panel extends HTMLElement {
     this.controlRoutes = value.routes || [];
     this.controlRequirement = value.requires || "";
     this.controlChoice = value.active && this.controlRoutes.some(r=>r.id===value.active)
-      ? value.active : this.controlRoutes[0]?.id || "";
+      ? value.active : this.controlRoutes.some(r=>r.id===this.controlChoice)
+        ? this.controlChoice : this.controlRoutes[0]?.id || "";
     this.pending = value.pending || null;
   }
 
@@ -243,6 +244,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const readRoute = this.shadowRoot.getElementById("read-route")?.value || this.readChoice;
     const controlRoute = this.shadowRoot.getElementById("control-route")?.value || this.controlChoice;
     const rawReadDefinition = this.shadowRoot.getElementById("read-definition")?.value || "";
+    const rawControlDefinition = this.shadowRoot.getElementById("control-definition")?.value || "";
     const route = this.shadowRoot.getElementById("route")?.value;
     // Capture edits BEFORE re-render: otherwise the textarea is reset and a
     // custom request silently loses its parameters or entire definition.
@@ -278,6 +280,11 @@ class AudiConnectV3Panel extends HTMLElement {
         const family = this.apiFamily === "vehicle" || this.apiFamily === "all"
           ? car?.api_family || "cariad" : this.apiFamily;
         this.lastResult = await this.api("test_family_reads", {...this.selection, family});
+      } else if (action === "control-add") {
+        this.lastResult = await this.api("add_route", {
+          ...this.selection, route: JSON.parse(rawControlDefinition)
+        });
+        this.controlChoice = this.lastResult.operation || this.controlChoice;
       } else if (action === "control-test") {
         this.lastResult = await this.api("control_test", {
           ...this.selection, capability: this.controlCapability,
@@ -346,6 +353,22 @@ class AudiConnectV3Panel extends HTMLElement {
         ["climatisation.climatisationStatus.value.climatisationState"] : [],
       description: "Experimental route"
     }, null, 2);
+  }
+
+  get initialControlRoute() {
+    const capability = this.controlCapability || "access";
+    const action = this.controlAction || "lock";
+    const selected = this.controlRoutes.find(r=>r.id===this.controlChoice);
+    const body = capability==="access" && ["lock","unlock"].includes(action)
+      ? {spin:"{SPIN}"}
+      : ["remote","charging"].includes(capability) ? {} : null;
+    return JSON.stringify({
+      id:"user."+capability+"."+action+".alternative",
+      capability, aspect:action, family:"cariad", method:"POST",
+      path:selected?.path || "/vehicle/v1/vehicles/{VIN}/"+capability+"/"+action,
+      variables:{}, body,
+      description:"Reviewed experimental command template"
+    },null,2);
   }
 
   get initialReadRoute() {
@@ -652,6 +675,13 @@ class AudiConnectV3Panel extends HTMLElement {
                 <button data-action="confirm-uncertain">Not sure</button>
               </div>
             </div>` : ""}
+            <details style="margin-top:18px">
+              <summary>Advanced · Add an alternative command template</summary>
+              <p>System variables: <code>{VIN}</code> is filled from this car. <code>{SPIN}</code> is filled securely from the configured Audi account, only for Access Lock/Unlock using <code>{"spin":"{SPIN}"}</code>. Do not enter or save a real S-PIN.</p>
+              <label for="control-definition">Control template (JSON)</label>
+              <textarea id="control-definition" rows="12">${escapeHTML(this.initialControlRoute)}</textarea>
+              <div class="actions"><button data-action="control-add" ${this.loading||this.pending?"disabled":""}>Save alternative route · no command sent</button></div>
+            </details>
             <div class="callout" style="margin-top:18px">
               <b>Last control execution</b>
               <div>${escapeHTML(lastSelectedResult?.at||"Never executed")} · HTTP ${escapeHTML(lastSelectedResult?.http_status??"-")} · ${escapeHTML(lastSelectedResult?.result||"not tested")}</div>
