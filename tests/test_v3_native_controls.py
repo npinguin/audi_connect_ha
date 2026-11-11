@@ -11,9 +11,10 @@ def test_control_button_keys_retain_historical_ids():
     ids={item[0] for item in CONTROL_BUTTONS}
     assert ids >= {"wake_vehicle_modern","start_charging_modern","stop_charging_modern",
                    "start_window_heating_modern","stop_window_heating_modern"}
-    assert "V3ControlButton" in (ROOT/"button.py").read_text()
-    assert "V3LockEntity" in (ROOT/"lock.py").read_text()
-    assert "V3ClimateQuickSwitch" in (ROOT/"switch.py").read_text()
+    platforms = (ROOT/"v3"/"ha_platforms.py").read_text()
+    assert "V3ControlButton" in platforms
+    assert "V3LockEntity" in platforms
+    assert "V3ClimateQuickSwitch" in platforms
 
 def test_lock_and_switch_entity_unique_ids_match_v2():
     car=V3Vehicle(vin="WAUZZZ4M0MD123456",name="Audi",model="Audi Q8",model_family="q8",country="DE")
