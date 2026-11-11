@@ -9,7 +9,13 @@ from custom_components.audiconnect.config_flow import OptionsFlowHandler
 @pytest.mark.asyncio
 async def test_switch_v2_to_v3_saves_mode_and_preserves_legacy_options():
     flow = OptionsFlowHandler()
-    flow.config_entry = SimpleNamespace(
+    flow.handler = "test-audi-entry"
+    flow.hass = SimpleNamespace(
+        config_entries=SimpleNamespace(
+            async_get_known_entry=lambda _id: flow._test_entry
+        )
+    )
+    flow._test_entry = SimpleNamespace(
         data={"scan_interval": 15},
         options={
             "runtime_version": "v2",
@@ -36,7 +42,13 @@ async def test_switch_v2_to_v3_saves_mode_and_preserves_legacy_options():
 @pytest.mark.asyncio
 async def test_switch_back_to_v2_preserves_legacy_configuration():
     flow = OptionsFlowHandler()
-    flow.config_entry = SimpleNamespace(
+    flow.handler = "test-audi-entry"
+    flow.hass = SimpleNamespace(
+        config_entries=SimpleNamespace(
+            async_get_known_entry=lambda _id: flow._test_entry
+        )
+    )
+    flow._test_entry = SimpleNamespace(
         data={"scan_interval": 15},
         options={
             "runtime_version": "v3_climate",
@@ -58,7 +70,13 @@ async def test_switch_back_to_v2_preserves_legacy_configuration():
 
 def test_form_can_render_v3_workbench_option_when_mode_is_v3():
     flow = OptionsFlowHandler()
-    flow.config_entry = SimpleNamespace(
+    flow.handler = "test-audi-entry"
+    flow.hass = SimpleNamespace(
+        config_entries=SimpleNamespace(
+            async_get_known_entry=lambda _id: flow._test_entry
+        )
+    )
+    flow._test_entry = SimpleNamespace(
         data={"scan_interval": 15}, options={"runtime_version": "v2"},
     )
     schema = flow._options_schema({
