@@ -21,3 +21,9 @@
 The beta documentation and issue tracker point to `npinguin/audi_connect_ha`
 rather than upstream, so experimental issue reports stay in the development fork.
 The fork's Issues feature must be enabled before HACS validation can pass.
+
+
+**This is a test prerelease, not an accepted stable vehicle implementation.**
+The release can be packaged after CI/HACS technical validation; end-to-end
+Q8 climate behavior and in-place migration are beta tests to perform
+*after installation*, before any stable promotion.

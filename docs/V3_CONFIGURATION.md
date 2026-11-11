@@ -78,3 +78,12 @@ encouraging beta bug reports in upstream's stable support queue.
 GitHub **Settings → General → Features → Issues** must be enabled in the
 fork (currently disabled), then the HACS validation workflow rerun. A version
 bump or draft PR alone does not make a valid installable HACS prerelease.
+
+
+### Test-release versus stable rollout
+
+After CI/HACS validation, a GitHub **prerelease** may be published for
+controlled HACS evaluation. Install it on backed-up HA, then execute the
+real Q8 test steps above. No physical result is assumed or certified at the
+time the beta package becomes installable. Revert using the existing
+integration Options first, then downgrade the package if needed.

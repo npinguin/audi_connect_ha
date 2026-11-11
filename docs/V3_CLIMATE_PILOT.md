@@ -133,3 +133,11 @@ default. Explicit negative or impaired advertised support still blocks
 control. Current model parser does not populate the `model_family` field:
 the registry derives the Q8 hint only from verified Audi long/short model
 metadata. User-defined nicknames are never authorizing evidence.
+
+
+## Packaging gate versus beta acceptance
+
+A HACS **test prerelease** is published only after pytest, hassfest and
+HACS validation pass on its exact commit. Real Q8 operation and HA
+V2→V3→V2 migration are *the purpose of that beta*, and remain acceptance
+gates for stable promotion—not prerequisites to obtaining a test package.

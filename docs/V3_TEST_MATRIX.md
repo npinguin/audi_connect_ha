@@ -1,6 +1,6 @@
 # Audi Connect V3 — Release acceptance and future expansion
 
-## Gates before shipping 3.0.0b1
+## Beta packaging gates vs real-vehicle acceptance
 
 | Gate | Evidence required | State before release |
 |---|---|---|
@@ -40,3 +40,15 @@ The beta does **not** claim those later capabilities or a generalized live templ
 **Migration guard:** verify a V3-mode reload skips the legacy orphan-device
 cleanup entirely, and an empty initial V2 inventory never removes registered
 HA devices. A missing initial vehicle scan is **not** a delete signal.
+
+
+## Phase separation (prevents release-test deadlock)
+
+To publish an **experimental HACS prerelease for user testing**, first pass
+pytest, hassfest, HACS validation, source/manifest-version checks and privacy
+review on the exact head SHA. Enable fork Issues before the HACS check.
+The actual V2→V3→V2 Home Assistant smoke test, Q8 real vehicle ON/OFF,
+physical confirmation, battery/API rate observations and automation review
+are **post-prerelease beta acceptance**, required before calling V3
+production-ready, merging or recommending it as stable. Do not claim those
+were validated simply because the prerelease tag exists.
