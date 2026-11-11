@@ -15,6 +15,7 @@ _SENSITIVE = re.compile(
     re.IGNORECASE,
 )
 _VIN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b", re.IGNORECASE)
+_EMAIL = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 
 
 def safe_response_preview(
@@ -45,7 +46,7 @@ def safe_response_preview(
         if isinstance(value, str):
             if vehicle_vin:
                 value = re.sub(re.escape(vehicle_vin), "[redacted]", value, flags=re.I)
-            return _VIN.sub("[redacted]", value[:240])
+            return _EMAIL.sub("[redacted]", _VIN.sub("[redacted]", value[:240]))
         if value is None or type(value) in (bool, int, float):
             return value
         return "[unsupported value type]"

@@ -186,7 +186,9 @@ class CapabilityRegistry:
             op = self.operations[ident]
             family = self.families[op["family"]]
             scope = {**op.get("scope", {}), "auth": family["auth"]}
-            if any(getattr(context, k, None) != v for k, v in scope.items()):
+            if op.get("implementation") == "not_implemented":
+                excluded.append({"operation": ident, "reason": "adapter_not_implemented"})
+            elif any(getattr(context, k, None) != v for k, v in scope.items()):
                 excluded.append({"operation": ident, "reason": "context_mismatch"})
             elif aspect == "status" and evidence.get(
                 ident, RouteEvidence()

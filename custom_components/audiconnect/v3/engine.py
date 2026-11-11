@@ -14,6 +14,7 @@ from .auth import V3Auth
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
 from .response_preview import safe_response_preview
+from .api_observations import record_for, save_record
 from .registry import CapabilityRegistry
 from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
@@ -142,6 +143,27 @@ class V3Engine:
             body = {"spin": spin}  # Never persist or display S-PIN.
         return op["family"], op["method"], path, body
 
+    def _api_record(self, profile: DevelopmentProfile, operation: str,
+                    family: str, method: str, response: V3Response | None,
+                    vin: str) -> None:
+        save_record(profile, operation, record_for(
+            family=family, method=method,
+            http_status=response.status if response else None,
+            payload=response.data if response else None, vin=vin,
+            at=response.observed_at if response else None,
+        ))
+
+    def api_results_for(self, vin: str, family: str = "all") -> list[dict[str, Any]]:
+        car = self.require_vehicle(vin)
+        if family not in ("all", "cariad", "mbb", "graphql"):
+            raise ValueError("Unknown API family")
+        profile = self.profiles[car.vin.lower()]
+        return [
+            {"operation": ident, **record}
+            for ident, record in reversed(list(profile.api_observations.items()))
+            if family == "all" or record["family"] == family
+        ]
+
     async def poll(self) -> list[V3Vehicle]:
         self.last_cloud_poll_attempt = datetime.now(UTC)
         self._poll_cycles += 1
@@ -195,6 +217,7 @@ class V3Engine:
                 except (TimeoutError, OSError, RuntimeError, ValueError):
                     break  # Auth/transport failure is not proof of unsupported vehicle
                 polled_responses[(key, family, path)] = response
+                self._api_record(profile, ident, family, method, response, vehicle.vin)
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     if ident == 'cariad.climate.status.batch':
@@ -263,6 +286,8 @@ class V3Engine:
                     record_jobs(profile, jobs, status=response.status, payload=response.data)
                     break
                 reserve_group(profile, jobs)
+                self._api_record(profile, "cariad.discovery." + "_".join(jobs),
+                                 "cariad", "GET", response, car.vin)
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     observe_read_only(car, profile, response.data, response.observed_at)
@@ -290,6 +315,8 @@ class V3Engine:
                     except (TimeoutError, OSError, RuntimeError, ValueError):
                         break
                     polled_responses[(key, family, path)] = response
+                for ident, route, mappings in selected:
+                    self._api_record(profile, route, family, "GET", response, car.vin)
                 for ident, route, mappings in selected:
                     self._record_attribute_response(car, profile, ident, route, mappings, response)
                 if 200 <= response.status < 300:
@@ -376,9 +403,11 @@ class V3Engine:
                     family, method, path, body=body, explicit_action=True,
                 )
                 profile.observe_http(attempt.sequence, response.status)
+                self._api_record(profile, operation, family, method, response, vehicle.vin)
             except (TimeoutError, OSError, RuntimeError):
                 profile.observe_http(attempt.sequence, None)
                 response = None
+                self._api_record(profile, operation, family, method, None, vehicle.vin)
             await self.storage.async_save(self.profiles)
             return {
                 "sequence": attempt.sequence, "operation": operation,
@@ -437,6 +466,7 @@ class V3Engine:
         if method != "GET" or family != "cariad" or body is not None:
             raise ValueError("Only reviewed CARIAD GET discovery is available")
         response = await self.transport.request(family, method, path)
+        self._api_record(p, operation, family, "GET", response, car.vin)
         field_value, field = p.registry.extract(operation, response.data)
         timestamp = _captured(response.data, field)
         valid = (
@@ -525,10 +555,14 @@ class V3Engine:
                     family, method, path, body=body, explicit_action=True
                 )
             except (TimeoutError, OSError, RuntimeError) as err:
+                self._api_record(p, ident, family, method, None, car.vin)
+                await self.storage.async_save(self.profiles)
                 car.last_command_result = "transport_uncertain"
                 raise RuntimeError(
                     "Audi command outcome uncertain; check the car"
                 ) from err
+            self._api_record(p, ident, family, method, response, car.vin)
+            await self.storage.async_save(self.profiles)
             car.last_command_result = (
                 "accepted_unconfirmed" if 200 <= response.status < 300
                 else f"request_failed_{response.status}"
@@ -641,6 +675,7 @@ class V3Engine:
         if family != ("mbb" if car.context.auth == "legacy" else "cariad"):
             raise ValueError("Read route is not applicable to this vehicle API family")
         response = await self.transport.request(family, "GET", path)
+        self._api_record(profile, route, family, "GET", response, car.vin)
         result = self._record_attribute_response(car, profile, attribute, route, mappings, response)
         await self.storage.async_save(self.profiles)
         return result
@@ -741,6 +776,11 @@ class V3Engine:
                     ][:15],
                     "disabled_controls": sorted(p.discovery.disabled) if p else [],
                     "automatic_read_discovery": discovery_summary(p) if p else {},
+                    "last_api_results": [
+                        {"operation": ident if ident in self.registry.operations
+                         else "custom_or_discovery_route", **entry}
+                        for ident, entry in reversed(list(p.api_observations.items()))
+                    ][:24] if p else [],
                 },
             })
         return {

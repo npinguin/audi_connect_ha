@@ -190,10 +190,7 @@
       "priority": 0,
       "request_mode": "bodyless",
       "confirmation": "vehicle_readback",
-      "notes": "Q8-model scoped default using vehicle-stored climate settings. Never automatically retry with another route.",
-      "scope": {
-        "model_family": "q8"
-      }
+      "notes": "Manual test only: bodyless climate start; no auto execution or retries. Actual vehicle support must be confirmed."
     },
     "cariad.climate.start.vehicle_settings": {
       "family": "cariad",
@@ -203,7 +200,8 @@
       "priority": 10,
       "request_mode": "verified_vehicle_target",
       "confirmation": "vehicle_readback",
-      "notes": "Opt-in: only vehicle-reported target temp, existing safe settings read-modify-write."
+      "notes": "Opt-in: only vehicle-reported target temp, existing safe settings read-modify-write.",
+      "implementation": "not_implemented"
     },
     "cariad.climate.stop": {
       "family": "cariad",

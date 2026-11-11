@@ -12,6 +12,7 @@ from .action_discovery import ActionAttempt
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
 from .historical_catalog import ATTRIBUTES, V2_JOBS
+from .api_observations import validate_record, MAX_ROUTES
 from .attribute_routes import validate_custom_read_route, get_read_variant, read_variants
 
 
@@ -126,6 +127,17 @@ def restore_profile(
             raise DevelopmentProfileError("Untrusted read-only probe count")
     profile.job_discovery.update(observed_jobs)
     profile.job_probe_attempts.update(probed_jobs)
+    observations = saved.get("api_observations", {})
+    if not isinstance(observations, dict) or len(observations) > MAX_ROUTES:
+        raise DevelopmentProfileError("Invalid saved API observations")
+    for ident, item in observations.items():
+        if not isinstance(ident, str) or not 1 <= len(ident) <= 120:
+            raise DevelopmentProfileError("Invalid API route ID")
+        try:
+            validate_record(item)
+        except ValueError as exc:
+            raise DevelopmentProfileError("Invalid saved API evidence") from exc
+        profile.api_observations[ident] = dict(item)
     disabled = discovery.get("disabled_controls", [])
     if not isinstance(disabled, list) or any(
         item not in {f"{c}.{a}" for c, d in catalog.capabilities.items()
