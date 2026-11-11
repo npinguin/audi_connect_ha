@@ -105,8 +105,11 @@ A 429, authorization failure or cloud outage is inconclusive, not a
 permanent capability denial. If a selected route later fails, its
 selection is withdrawn until a new confirmed result.
 
-All operation evidence is represented in the local `snapshot()` structure,
-but only the application-layer HA Store integration will make it persistent
-across restarts. This representation must never be mistaken for a sanitized
+All operation evidence is represented in the local `snapshot()` structure.
+`v3/profile_store.py` now provides a V3-owned private Home Assistant Store
+adapter and validated restore operation. Partial vehicle inventories must not
+erase other cars' profiles. The adapter is **not yet wired into a running V3
+dashboard/runtime**; the published 3.0.0b1 release still uses the previous
+architecture. This representation must never be mistaken for a sanitized
 community export: custom user-authored descriptions and relative routes may
 contain their own sensitive literals and require privacy filtering.
