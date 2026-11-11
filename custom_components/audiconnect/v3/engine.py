@@ -170,6 +170,7 @@ class V3Engine:
             f"climate.{aspect}" not in p.discovery.disabled
             and p.active.get(f"climate.{aspect}") is not None
             and p.control_results.get(p.active[f"climate.{aspect}"]) == "worked"
+            and not p.custom.get(p.active[f"climate.{aspect}"], {}).get("variables")
         )
 
     async def test_action(
@@ -184,13 +185,15 @@ class V3Engine:
         if not self.auth.uses_auth0:
             raise ValueError("V3 climate actions need Auth0")
         async with self._actions:
+            # Reject invalid templates/parameters BEFORE reserving a pending
+            # physical action, otherwise a mere validation error locks the car.
+            family, method, path, body = self._operation_request(
+                vehicle, operation, params
+            )
             attempt = profile.begin_test(
                 "climate", aspect, operation, now=time.monotonic()
             )
             await self.storage.async_save(self.profiles)
-            family, method, path, body = self._operation_request(
-                vehicle, operation, params
-            )
             try:
                 response = await self.transport.request(
                     family, method, path, body=body, explicit_action=True,
@@ -230,6 +233,52 @@ class V3Engine:
         op = profile.add(route)
         await self.storage.async_save(self.profiles)
         return op
+
+
+    async def test_status_route(self, vin: str, operation: str) -> dict[str, Any]:
+        """On-demand read-only GET test, with explicit response classification."""
+        car = self.require_vehicle(vin)
+        p = self.profiles[car.vin.lower()]
+        allowed = p.registry.resolve(
+            "climate", "status", car.context
+        )["available_operations"]
+        if operation not in allowed:
+            raise ValueError("Status route not applicable to selected vehicle")
+        family, method, path, body = self._operation_request(car, operation)
+        if method != "GET" or family != "cariad" or body is not None:
+            raise ValueError("Only reviewed CARIAD GET discovery is available")
+        response = await self.transport.request(family, method, path)
+        field_value, field = p.registry.extract(operation, response.data)
+        timestamp = _captured(response.data, field)
+        valid = car.set_climate(
+            field_value, timestamp, route=operation,
+            observed_at=response.observed_at, http_status=response.status,
+        )
+        fresh = bool(timestamp and valid)
+        verdict = p.record_status(
+            "climate", operation, http_status=response.status,
+            schema_valid=valid, fresh=fresh,
+        )
+        if verdict == "worked":
+            p.choose_working("climate", "status", operation)
+        await self.storage.async_save(self.profiles)
+        return {
+            "http_status": response.status,
+            "field": field,
+            "value": car.climate_state if valid else None,
+            "captured": car.climate_captured.isoformat()
+            if car.climate_captured and timestamp else None,
+            "result": verdict,
+            "schema_keys": sorted(response.data.keys())[:20]
+            if isinstance(response.data, dict) else [],
+        }
+
+    async def select_working(self, vin: str, aspect: str, operation: str) -> None:
+        """Admin selects another previously verified route; no request."""
+        car = self.require_vehicle(vin)
+        p = self.profiles[car.vin.lower()]
+        p.choose_working("climate", aspect, operation)
+        await self.storage.async_save(self.profiles)
 
     async def disable_action(self, vin: str, aspect: str) -> None:
         p = self.profiles[self.require_vehicle(vin).vin.lower()]
