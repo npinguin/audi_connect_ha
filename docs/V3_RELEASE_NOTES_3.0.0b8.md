@@ -15,16 +15,16 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 
 ## Still missing before full V2 parity
 
-- Three HA platforms are not yet implemented in independent V3: native `number`, `select`, and `device_tracker`. V3 has limited read-only/derived sensor coverage. An entity may remain `unavailable` if V3 cannot yet provide its underlying value.
+- All nine HA platforms are now forwarded into independent V3 code. Native `number`, `select` and parked `device_tracker` identities exist, but charge-target/profile writes and real Q8 tracker readback are not yet functionally accepted. Most derived sensor parity remains outstanding; an entity may remain `unavailable`.
 - The Q8's climate status was observed as `invalid` and no successful physical climate/start/stop/wake/lock end-to-end result has been established.
 - Global and location-specific charge targets, charge mode, timers, preheater/auxiliary heating, remote flash and engine controls need safe V3 routing, metadata and vehicle-specific confirmation. Their old HA service names exist; they **must not be considered functional in V3** yet.
-- V3 request-ID/pendingrequests tracking and physical readback, legacy MBB control parity, all 13 Recorder metadata repairs, vehicle-specific dynamic entities, and V2→V3→V2 rollback on a live HA installation remain open.
+- V3 has bounded CARIAD request-ID/pendingrequests **backend** tracking, but physical vehicle state readback is not proven. Legacy MBB controls, all 13 Recorder metadata repairs, vehicle-specific dynamic entities, and V2→V3→V2 rollback on a live HA installation remain open.
 - New Media / Trips API expansion remains out of scope until V2 parity is accepted.
 
 ## Installation / safe test
 
 1. Keep the existing working **V2** selected unless testing V3 intentionally.
-2. Install this **prerelease** using HACS beta/prerelease selection where available, or download the integration-only ZIP and copy `audiconnect/` into `custom_components/`. Restart HA.
+2. **Do not install a b8 prerelease yet:** this is an unreleased draft and publishing is blocked until the V2 parity sign-off. Continue using the already working V2.
 3. Confirm the **same Audi device and existing entity IDs** remain in HA before and after switching the runtime option.
 4. In V3, observe SoC, range, mileage and maintenance data while parked for over 60 minutes. Check `vehicle_freshness`/`stale_last_known` and avoid interpreting old active status as live.
 5. Do not test physical lock, climate, wake or charging commands unless present at the vehicle and the V3 Workbench route has been explicitly verified. An HTTP 2xx means **accepted, not physically completed**.
@@ -32,6 +32,6 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 
 ## Engineering quality gate
 
-Prerelease publication is controlled by `.github/workflows/v3-beta-release.yml`. It compiles, runs Python and Workbench regression tests, hassfest and HACS validation, and packages `custom_components/audiconnect` only. The tag and ZIP are immutable and use the exact tested SHA.
+Prerelease publication is blocked by `.github/workflows/v3-beta-release.yml` until an explicit manual dispatch and the four V2-parity sign-off flags are true. Routine pushes can run tests but cannot publish a tag or overwrite an existing ZIP.
 
 **No real-car acceptance is implied by CI.** Compare [V2/V3 parity matrix](V2_V3_PARITY_MATRIX.md), [machine-readable baseline](V2_V3_PARITY_BASELINE.json), and [shared account & HA identity ADR](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md).
