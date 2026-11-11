@@ -593,7 +593,10 @@ class OptionsFlowHandler(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            user_input = dict(user_input)
+            # Keep historical V2 options while the clean V3 form only
+            # exposes integration-level runtime, interval and vehicle filter.
+            # A switch back to V2 must recover those V2 preferences.
+            user_input = {**self.config_entry.options, **user_input}
             user_input.setdefault("runtime_version", "v2")
             user_input.setdefault("v3_climate_start_route", "auto")
             user_input.setdefault("v3_climate_status_route", "auto")
@@ -610,85 +613,60 @@ class OptionsFlowHandler(OptionsFlow):
                 return await self.async_step_dealer_vehicle()
             return self.async_create_entry(title="", data=user_input)
 
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional("edit_local_dealer", default=False): bool,
-                    vol.Required(
-                        "runtime_version",
-                        default=self.config_entry.options.get("runtime_version", "v2"),
-                    ): vol.In(("v2", "v3_climate")),
-                    vol.Required(
-                        "v3_climate_start_route",
-                        default=self.config_entry.options.get(
-                            "v3_climate_start_route", "auto"
-                        ),
-                    ): vol.In((
-                        "auto",
-                        "cariad.climate.start.stored",
-                        "cariad.climate.start.vehicle_settings",
-                    )),
-                    vol.Required(
-                        "v3_climate_experimental_unknown",
-                        default=self.config_entry.options.get(
-                            "v3_climate_experimental_unknown", False
-                        ),
-                    ): bool,
-                    vol.Required(
-                        "v3_climate_status_route",
-                        default=self.config_entry.options.get(
-                            "v3_climate_status_route", "auto"
-                        ),
-                    ): vol.In(("auto", "cariad.climate.status.batch")),
-                    vol.Required(
-                        CONF_SCAN_INITIAL,
-                        default=self.config_entry.options.get(CONF_SCAN_INITIAL, True),
-                    ): bool,
-                    vol.Required(
-                        "climate_quick_start",
-                        default=self.config_entry.options.get(
-                            "climate_quick_start", False
-                        ),
-                    ): bool,
-                    vol.Required(
-                        "experimental_commands",
-                        default=self.config_entry.options.get(
-                            "experimental_commands", False
-                        ),
-                    ): bool,
-                    vol.Required(
-                        CONF_REFRESH_AFTER_ACTION,
-                        default=self.config_entry.options.get(
-                            CONF_REFRESH_AFTER_ACTION, False
-                        ),
-                    ): bool,
-                    vol.Required(
-                        CONF_UPDATE_SLEEP,
-                        default=self.config_entry.options.get(
-                            CONF_UPDATE_SLEEP, UPDATE_SLEEP
-                        ),
-                    ): NumberSelector(NumberSelectorConfig(min=0, mode="box")),
-                    vol.Required(
-                        CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_SCAN_INTERVAL,
-                            self.config_entry.data.get(
-                                CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
-                            ),
-                        ),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=MIN_UPDATE_INTERVAL, mode="box")
+        # V3 owns API routes and experimental actions in its development
+        # dashboard, never inside this account configuration wizard.
+        schema = {
+            vol.Required(
+                "runtime_version",
+                default=self.config_entry.options.get("runtime_version", "v2"),
+            ): vol.In(("v2", "v3_climate")),
+            vol.Required(
+                CONF_SCAN_INITIAL,
+                default=self.config_entry.options.get(CONF_SCAN_INITIAL, True),
+            ): bool,
+            vol.Required(
+                CONF_SCAN_INTERVAL,
+                default=self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL,
+                    self.config_entry.data.get(
+                        CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
                     ),
-                    vol.Optional(
-                        CONF_FILTER_VINS,
-                        default=self.config_entry.options.get(
-                            CONF_FILTER_VINS,
-                            self.config_entry.data.get(CONF_FILTER_VINS, ""),
-                        ),
-                    ): TextSelector(),
-                }
+                ),
+            ): NumberSelector(
+                NumberSelectorConfig(min=MIN_UPDATE_INTERVAL, mode="box")
             ),
+            vol.Optional(
+                CONF_FILTER_VINS,
+                default=self.config_entry.options.get(
+                    CONF_FILTER_VINS,
+                    self.config_entry.data.get(CONF_FILTER_VINS, ""),
+                ),
+            ): TextSelector(),
+        }
+
+        if self.config_entry.options.get("runtime_version", "v2") == "v2":
+            # Keep the original V2 control options only when running V2.
+            schema.update({
+                vol.Optional("edit_local_dealer", default=False): bool,
+                vol.Required(
+                    "climate_quick_start",
+                    default=self.config_entry.options.get("climate_quick_start", False),
+                ): bool,
+                vol.Required(
+                    "experimental_commands",
+                    default=self.config_entry.options.get("experimental_commands", False),
+                ): bool,
+                vol.Required(
+                    CONF_REFRESH_AFTER_ACTION,
+                    default=self.config_entry.options.get(CONF_REFRESH_AFTER_ACTION, False),
+                ): bool,
+                vol.Required(
+                    CONF_UPDATE_SLEEP,
+                    default=self.config_entry.options.get(CONF_UPDATE_SLEEP, UPDATE_SLEEP),
+                ): NumberSelector(NumberSelectorConfig(min=0, mode="box")),
+            })
+        return self.async_show_form(
+            step_id="init", data_schema=vol.Schema(schema)
         )
 
 
