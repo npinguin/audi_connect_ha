@@ -1,89 +1,83 @@
-# Audi Connect V3 — Configuration, Testing & Rollback
+# Audi Connect V3 — installation and configuration (3.0.0b2)
 
-## Before you start
+## Upgrade in place
 
-This is an **experimental, in-place climate pilot**. Back up Home Assistant, note the existing Audi config entry and review automations that use `switch.climate_quick_control`. The V3 beta does not add a second Audi integration or request a new Audi login. **Do not uninstall/re-add the Audi integration to switch mode.** The package must be installed over the same `custom_components/audiconnect` directory, followed by a Home Assistant restart if files changed.
+Keep the current Audi Connect integration. Back up Home Assistant and make
+note of existing V2 climate/charging automations. **Do not add a second Audi
+Connect entry or delete the old entity registry.**
 
-### Configuration via Home Assistant
+1. In HACS select the experimental `3.0.0b2` release from
+   `npinguin/audi_connect_ha` and restart HA.
+2. Open **Settings → Devices & Services → Audi Connect → Configure**.
+   Choose `v3_climate` as Runtime generation and retain your cloud scan
+   interval (minimum 15 minutes). Other V2 preferences are preserved for
+   rollback but not used by V3.
+3. The Audi vehicle device should show one climate entity, cloud last poll,
+   vehicle age, V3 polling status, climate capability, and cloud refresh.
+   Registered historical V2 entities may be listed as **disabled**; do not
+   delete them.
+4. Open the **Audi V3 Development** item in the HA sidebar (administrator).
+   Select your existing Audi config entry and vehicle. Work with Climate
+   Status / Start / Stop separately.
+5. For Status click **Test GET**. The result includes the HTTP status,
+   recognized field, vehicle capture timestamp and whether the mapping was
+   usable. Accepted, valid, fresh reads may become the selected poll route.
+6. For Control choose an existing CARIAD candidate or **Add experimental
+   route** with a relative API path. Click **Test selected action** only when
+   physically ready. Read the outcome and inspect the car/myAudi; click
+   **Worked**, **Failed** or **Not sure**. V3 activates only a confirmed
+   working route. Not sure keeps control testing blocked.
+7. Once Start and/or Stop is confirmed, the primary climate entity exposes
+   those controls. Unsupported features can be disabled independently.
+8. Download Audi diagnostics for a privacy-safe view of which route works,
+   cloud polling and capability status.
 
-**Settings → Devices & Services → Audi Connect → Configure / Options:**
+### Configuration location
 
-| Setting | Default | Effect |
-|---|---|---|
-| Runtime generation | `v2` | Keeps original behavior; `v3_climate` activates one V3 climate entity per eligible Auth0 vehicle |
-| V3 Climate start route | `auto` | Q8 trusted family → bodyless `cariad.climate.start.stored`; other Auth0 → settings adapter; explicit alternatives constrained by auth/model |
-| V3 Climate status route | `auto` | Uses already scheduled selective-status batch; no separate periodic read |
-| V3 Climate test when capability unknown | `false` | Manual action only when Audi inventory is missing; never bypass explicit denial/impaired |
-| Scan interval | Existing value | One account-level polling coordinator |
-| Refresh after action | Existing value | Existing request behavior; observe daily API limits |
-| Climate quick start | Existing V2 setting | Relevant to V2 only; V3 has one reviewed start-path owner |
+- Integration Options: **runtime mode**, cloud polling interval, basic
+  account/vehicle selection. No API route or body JSON fields in this wizard.
+- Sidebar Workbench: **per-vehicle operation list**, relative URL, typed
+  variables, JSON request body, response field mapping, test history and
+  verified active selection. Changes are stored in HA `.storage` and do
+  **not** require a code redeployment.
+- Core code: approved authentication/host families and execution policy,
+  version-controlled; changing a trusted host/security boundary requires
+  a reviewed release, not a user template.
 
-Settings are per integration entry and apply across that Audi account. Context scope is evaluated per vehicle, not stored as a duplicate vehicle profile. The private VIN stays inside the account.
+### Supported testing
 
-### Example climate routing
+CARIAD/Auth0 climate status is the first supported independent V3 poll.
+The historical `vehicle_settings` climate start is not yet ported as a
+safe V3 read-modify-write adapter; the old entry is shown as a candidate
+but execution fails closed. The bodyless Start is restricted to trusted Q8
+metadata. Other vehicle/API variants can be tested using explicit user
+routes and controlled JSON bodies after inspecting their documentation.
 
-```text
-Audi Q8 PHEV + Europe + Auth0 + trusted Audi model
-  STATUS: existing CARIAD selectivestatus batch
-  START:  CARIAD bodyless start (vehicle-stored settings)
-  STOP:   CARIAD bodyless stop
-  TEMP:   no target-temperature feature advertised in V3
+**Important:** a cloud command accepted with HTTP 2xx is not a car
+operation confirmed. Do not automatically try alternative climate
+Start/Stop POSTs on timeout or uncertain feedback. V3 never wakes a parked
+vehicle just to discover APIs.
 
-Another Auth0 model without Q8 proof
-  STATUS: existing CARIAD batch
-  START:  existing CARIAD settings adapter (only safe vehicle-reported target)
-  STOP:   existing CARIAD stop
-  TEMP:   no target-temperature control advertised in V3
+### If V3 cannot sign in or discover the vehicle
 
-Legacy MBB account
-  Uses V2 climate for now. Do not silently route Auth0 commands with MBB tokens.
-```
+Use the existing Audi credentials and Auth0 token. Verify V3 diagnostics
+first; old V2 data should not suddenly appear under the V3 owner. Legacy
+MBB is not yet migrated to the independent V3 engine. For any issue choose
+`v2` in Options and reload. V2 will restore its previously disabled
+historical entities. If setup itself fails, restore the previous known
+working HACS package from the HA backup without deleting the Audi
+configuration entry.
 
-### How to test on the real car
+### Known beta limitations
 
-1. Record vehicle state and myAudi status before the test. Avoid starting a test during a charging transition or while a previous command remains pending.
-2. Start with V2 to record baseline ON/OFF, cloud request count, state capture time and any error. Do not blindly repeat unsuccessful car commands.
-3. Select V3 Climate. Confirm there is **only one primary climate entity** with the same unique ID, no new duplicate quick switch, and no target temperature slider.
-4. Run **one** explicit ON action only if the car supports it or you deliberately enabled the unknown-inventory experimental policy. Check myAudi and vehicle state separately. An acknowledged request alone is not proof of success.
-5. After an appropriate normal cloud update, compare the climate status and source timestamps. Repeat for one OFF action after confirming the prior operation finished.
-6. Download Audi Connect Diagnostics; inspect `runtime.v3` for chosen operations, context, local read evidence and rejection reasons. Check diagnostics contains no raw VIN or tokens.
-7. Inspect the normal 15-minute (or configured) scan cycle: no extra polling or automatic wake. Verify legacy sensors and charger controls remain unaffected.
-8. Roll back `Runtime generation` to `v2` via Options and verify climate works in its prior mode.
+- V3-only history currently covers Climate and cloud/core. Charging, trips,
+  locks, mileage, oil and preheater remain accessible through V2 rollback.
+- Self-configure mode with *automatic sequential control tests* is a later
+  assisted feature, after user authorization and proven safe stop rules.
+- The dashboard's route editor accepts a JSON definition for advanced users;
+  a visual route-builder and shared community anonymized compatibility data
+  are planned, not shipped in b2.
+- No physical Q8 test is implied by green CI. The first tester must record
+  actual action completion, source freshness and API call budget.
 
-If no climate entity appears, check the Audi userCapabilities report, V3 diagnostics and old entity registry (do **not** immediately delete entities or re-add the account). If the status is stale or unsupported, the UI should say unknown/unavailable rather than claiming OFF.
-
-### HACS/test distribution
-
-HACS supports installing published GitHub releases and the repository default branch, not arbitrary feature branches as a guaranteed version selector. This beta must be **packaged as a GitHub prerelease at the exact tested commit**, with a tag that matches the `manifest.json` version (`3.0.0b1`), before it is advertised as a HACS version. The fork's Issues setting must be enabled for the HACS validation to pass. **Do not move the stable fork default branch to V3 to force distribution.**
-
-Before a GitHub Release is published, advanced reviewers can manually copy only the tested branch's complete `custom_components/audiconnect` folder into their HA custom_components path, but that is **manual test installation**, not a HACS release.
-
-### Rollback
-
-First switch the runtime back to V2 using Options. If the installed package itself causes an integration startup failure, restore the previous V2 file package / HACS version from backup, restart Home Assistant and retain the original config entry. Do not delete device or entity registries. Record both package version and runtime mode in any bug report.
-
-### Debug evidence to submit
-
-Submit an anonymized report of firmware/model family (coarse), country/auth family, operation ID, HTTP code class, response schema/path presence, source freshness, actual user-observed actuation result, package version and option selection. **Never post VIN, user credentials, refresh tokens, exact location, raw trip data or full cloud response bodies publicly.**
-
-
-### Minimum test environment and fork prerequisites
-
-The V3 HACS candidate declares **Home Assistant 2026.7.0+** in
-`hacs.json`; the Python test workflow uses Python 3.14. Test with a
-compatible and backed-up HA instance. Because this is a fork, the experimental
-manifest points to the fork's issues and configuration guide rather than
-encouraging beta bug reports in upstream's stable support queue.
-
-GitHub **Settings → General → Features → Issues** must be enabled in the
-fork (currently disabled), then the HACS validation workflow rerun. A version
-bump or draft PR alone does not make a valid installable HACS prerelease.
-
-
-### Test-release versus stable rollout
-
-After CI/HACS validation, a GitHub **prerelease** may be published for
-controlled HACS evaluation. Install it on backed-up HA, then execute the
-real Q8 test steps above. No physical result is assumed or certified at the
-time the beta package becomes installable. Revert using the existing
-integration Options first, then downgrade the package if needed.
+**No extra accounts, no entity deletions and no automatic actuator retries.**

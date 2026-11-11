@@ -1,9 +1,9 @@
 # Audi Connect V3 — ADR 001: Independent Discovery & Assisted Actions
 
-Status: **Accepted architectural direction, framework in development.** This
-document supersedes the shared-V2-runtime assumptions in the 3.0.0b1 beta.
-The published beta remains unchanged. No separate V3 runtime or dashboard
-has been shipped from this new branch yet.
+Status: **Implemented in V3 3.0.0b2 source; real-vehicle acceptance pending.**
+This ADR supersedes the old shared-V2-polling architecture. See
+[V3_ARCHITECTURE.md](V3_ARCHITECTURE.md) for the current code and support
+scope. The published 3.0.0b1 remains historically unchanged.
 
 ## WHY
 

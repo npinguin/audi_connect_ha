@@ -1,16 +1,16 @@
 # Audi Connect Integration for Home Assistant
 
 > [!WARNING]
-> **Audi Connect V3 3.0.0b1 is an experimental climate-only beta on the fork's V3 development branch.**
-> V2 remains the default and is the rollback path. V3 uses one climate entity
-> (ON/OFF only on supported Auth0 vehicles), the existing OAuth session and
-> one coordinator; it does **not** provide the planned dynamic API Workbench.
-> Read the [V3 configuration / rollback guide](docs/V3_CONFIGURATION.md),
-> [architecture — Why / What / How](docs/V3_ARCHITECTURE.md),
-> [test matrix](docs/V3_TEST_MATRIX.md), and
-> [prerelease notes](docs/V3_RELEASE_NOTES_3.0.0b1.md) before testing.
-> HACS release publication remains gated on CI and fork metadata validation.
-
+> **Audi V3 3.0.0b2 is an experimental, in-place HACS prerelease.**
+> V2 remains the default and the rollback choice. V3 now uses its OWN
+> cloud API, polling and Climate capability engine (only Audi login and
+> integration config are shared), with an administrator-only
+> **Audi V3 Development** dashboard. Historical capabilities are migrated
+> incrementally, not copied into V3 as 82 old entities.
+> See [architecture](docs/V3_ARCHITECTURE.md),
+> [configuration](docs/V3_CONFIGURATION.md),
+> [test matrix](docs/V3_TEST_MATRIX.md) and
+> [3.0.0b2 release notes](docs/V3_RELEASE_NOTES_3.0.0b2.md).
 
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)

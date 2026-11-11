@@ -1,112 +1,132 @@
-# Audi Connect V3 — Architecture baseline
+# Audi Connect V3 — Why / What / How (3.0.0b2)
 
-**Status:** V3 climate beta candidate. **Scope:** one vehicle capability (`climate`) with optional status/control. **Branch:** `feature/v3-climate-pilot`.
-**Architecture rule:** The same integration, login, account, vehicle registry and HA entities continue to exist. V3 replaces responsibility by vertical slice, **not** by parallel connector.
+**One Audi Connect integration, one config entry, one active runtime.**
+V2 is the rollback choice. **Only login/token handling and integration
+configuration are shared.** V3 has its own transport, polling, vehicle state,
+capability catalog, profile store, entities, diagnostics and Development UI.
 
-## WHY — from historical spaghetti to a maintained product
+## WHY
 
-Audi Connect historically accumulates one-off changes for legacy MBB and newer CARIAD APIs: different URL templates, settings bodies, vehicle properties, platform entities and retry strategies. On one Q8 three UIs ended up addressing the same climate operation. The technical symptom is ownership drift: a control in `climate.py`, a duplicate quick switch, and services routing through independent conditions. A cloud 2xx may incorrectly appear as verified physical success, and a partial status poll can make a functional vehicle look unsupported.
+Earlier versions evolved through model-specific fixes and overlapping V2
+climate controls. Our first V3 beta (3.0.0b1) made a new climate entity but
+still loaded V2 polling and roughly 82 registered entities. This is not the
+desired product architecture. The new V3 must be clean, lean, evidence-based
+and expandable without redeployment of every experimental route.
 
-V3 creates one supported concept (`Vehicle → Capability → [Status] + [Control]`) and a registry of context-specific API operations. The catalog and route selection are pure code, separate from HTTP, OAuth, HA coordinator and UX. V2 is retained as an **adapter / fallback** during an incremental migration. This is intentionally a small architectural seam, NOT a second vehicle product, scheduler or login stack.
+## WHAT — ownership table
 
-## WHAT — the canonical owned objects
-
-| Object | Canonical owner | One responsibility |
+| Single owner | Responsible for | Source |
 |---|---|---|
-| Vehicle | Existing Audi Account / vehicle source | Identity, trusted metadata, authentication context; VIN never leaves local authenticated runtime |
-| Capability | `v3/climate.json` | Stable semantic capability ID, optional status and optional control |
-| API Family | `v3/climate.json`, executed by existing AudiService | Auth family and trusted region host policy, never arbitrary user URL |
-| API Operation | `v3/climate.json` | Stable operation ID, HTTP method, relative route, response paths, optional context scope |
-| Route selection | `v3/registry.py` | Resolve and explain applicable operations for one context |
-| Runtime & evidence | `v3/runtime.py` | Single config-entry owner, per-vehicle local evidence, sanitized diagnostics |
-| Polling / refresh | `v3/coordinator.py` → existing coordinator | Exactly one polling job and existing refresh callback |
-| Control execution | `v3/climate.py` → existing account adapter | One user intent, exactly one known command, no auto retry |
-| HA entity | `v3/climate.py` | One primary `climate.climatisation` with the existing unique ID |
+| Integration (shared) | HA entry, region, scan interval, Audi refresh token | `config_flow.py`, `v3/auth.py` |
+| V3 Auth Facade | invoke existing Audi OAuth token exchange only | `v3/auth.py` |
+| V3 API Transport | approved CARIAD/GraphQL hosts, HTTP request, quota guard | `v3/transport.py` |
+| Vehicle inventory | GraphQL discovery and trusted manufacturer model hint | `v3/vehicle.py` |
+| Capability Catalog | Climate → Status? + Control.Start? + Control.Stop? | `v3/climate.json`, `v3/registry.py` |
+| API Discovery & Poll | GET path selection, schema, freshness, observed evidence | `v3/engine.py`, `v3/coordinator_clean.py` |
+| Action Evidence | human-initiated tests, response, physical outcome, disabled path | `v3/action_discovery.py` |
+| Profiles & Store | per vehicle custom routes, verified active choices, rollback | `v3/development_profiles.py`, `v3/profile_store.py` |
+| HA Entity Projection | one climate + cloud/age/capability/poll sensors + refresh button | `v3/entities.py` |
+| Development UX | route editor and assisted test/selection, administrator only | `v3/dashboard.py`, `v3/frontend/panel.js` |
+| HA registry migration | non-destructive reversible disable of old entities | `v3/registry_lifecycle.py` |
 
-A capability can be **status only**, **control only**, both, or (if neither applies) absent. Status/readability does **not** authorize a command. A model-name hint does **not** authorize a command.
+The legacy modules remain in the package for V2 rollback; **V3 never calls
+`AudiAccount.async_refresh_data()`**, V2 platform logic, V2 vehicle command
+dispatch or the V2 data coordinator. The existing OAuth code is deliberately
+reused as the shared authentication boundary rather than rewriting PKCE and
+token rotation independently. V3 transport uses its own HTTP flow.
 
-## HOW — runtime ownership and zero-drift boundaries
-
-1. The original HA Audi Connect config entry still owns the Audi credentials, device mapping and scan interval.
-2. `runtime_version=v2` is the default. `v3_climate` selects the V3 coordinator **instead of** the old one, never alongside it.
-3. The V3 coordinator uses the same `AudiAccount` adapter, including token refresh, rate limits, cloud fetching, post-action notify and all V2-only capabilities. It adds metadata processing on the returned data; no additional scheduled requests are issued.
-4. V3 creates the **same** climate entity unique ID. It withholds an unverified target temperature slider and supports ON/OFF when a vehicle capability permits it. The overlapping quick switch is not created in V3; its historical registry entry is not deleted. Services are retained for backward compatibility; automation authors should migrate to the primary climate entity.
-5. CARIAD status is the existing `selectivestatus` batch. Legacy MBB users remain on the original climate entity for now.
-6. Commands use the reviewed V2 adapters but **V3 owns the selection policy**. For a trusted Q8 model, bodyless CARIAD start is the default. On other Auth0 vehicles, the existing vehicle-settings path is selected and refuses to submit a missing/unsafe stored temperature. A failed/unknown command is NEVER retried with another API variant.
-7. A runtime option `v3_climate_experimental_unknown` may be enabled deliberately when Audi did not publish a capability inventory. Explicit negative and impaired capability verdicts remain blocked.
-8. `V3Runtime.diagnostics` shows selected/rejected routes and evidence for anonymous local vehicle slots, never VIN, bearer tokens, coordinates or raw responses.
-
-## Configuration hierarchy (simple by default)
+## HOW — simple model, optional refinement
 
 ```text
-Audi integration (one account, one runtime mode)
-  └── Brand catalog: Audi
-       └── Capability: climate (status? + control?)
-            └── Operations (MBB / CARIAD)
-                 └── Optional scope: auth → region → vehicle_type → trusted model_family
+Audi account (shared auth + config)
+  └─ V3 vehicle (trusted Audi metadata / Auth0 / region)
+      ├─ Cloud / Refresh (own budget and scheduler)
+      └─ Capability: Climate
+          ├─ Status (optional)
+          │   └─ GET operation alternatives, schema, car timestamp
+          └─ Control (optional)
+              ├─ Start → candidate POST paths
+              └─ Stop  → candidate POST paths
 ```
 
-No required per-model profile zoo. A vehicle receives the generic catalog by default. An optional, explicit scope restricts only the operation that needs it. A local vehicle can override selection via reviewed integration options without changing the shared definition. Unknown scope remains unknown: never infer a Q8 from a nickname.
+The brand catalog provides generic operations. An operation can optionally
+be scoped by authentication family, region, vehicle type or verified model.
+One car with an unknown model does not require an invented Q8 profile.
+Custom development operations can be added to the selected car's private
+overlay, referencing the known API family. A user cannot provide an
+arbitrary external host, Authorization token or executable template.
 
-The JSON catalog lives in the installed package. **V3 beta does not yet support live editing of arbitrary API templates**. Options already permit a known API variant; a future local Development Workbench may edit safe GET templates with schema validation, access control, and no mandatory HA redeployment.
+A status GET may be tested automatically and the working path selected
+when the HTTP response, expected field and freshness evidence are valid.
+A 404 may justify trying a different GET; 401/403/429/5xx are inconclusive
+cloud/auth/rate errors, not definitive missing capabilities. In normal polls
+V3 never sends proactive wake or sends parallel V2 requests.
 
-## Learning — what is genuinely available in beta
+A control POST is **different**: the user explicitly chooses Test and a
+single candidate, reviews the response, then confirms whether the physical
+vehicle actually did something. Only a confirmed working route can be
+activated. HTTP 200/202 is merely `accepted_unconfirmed`. Uncertain
+attempts remain blocked across a restart. Control alternatives cannot be
+blindly retried on timeout. Per-vehicle Start and Stop can be disabled
+independently of Status.
 
-- Existing normalized climate state may be a cached value; presence is recorded as `cached_present`, not as freshly measured.
-- Existing previously readable allowlisted CARIAD jobs may be carried as *historical readable* evidence (never physical command success).
-- `RouteEvidence` supports a 24-hour route quarantine after three consecutive **verified** 404/410 results. This beta has **not** yet connected request-specific HTTP status evidence to that classifier, so automatic route quarantine is **not active** in normal polling.
-- 401, 403, 429, 5xx, stale timestamps and empty responses do not automatically label an Audi capability unsupported.
-- Runtime safeguards may make unsupported commands unavailable. The historical climate entity remains in HA registry. Never delete user automations/history because a poll is incomplete.
-- All local runtime evidence is transient. Community compatibility upload and per-model confidence aggregation are **not implemented**; the planned export will be privacy reviewed, explicitly opt-in, and limited to anonymized operation IDs, coarse context, outcomes and versions.
+## Active HA surface in beta b2
 
-## Migration and backward compatibility
+In V3 mode the integration forwards only the Climate, Sensor and Button
+platforms with V3-specific setup. A single vehicle presents:
+- one existing-identity `climate.climatisation` (no unverified temperature slider);
+- Cloud last successful poll (existing identity);
+- Vehicle data age (existing identity);
+- V3 cloud polling (new);
+- Climate capability state (new);
+- Refresh Audi cloud button (new, read-only GET, not a vehicle wake command).
 
-V2 → V3 Climate is an **integration option**, not an entity migration or new Audi account. V2 APIs and sensors continue to run. The same climate unique ID persists. Some old automations targeting `switch.climate_quick_control` will be unavailable in V3 and should be migrated to `climate.climatisation` **before** enabling it. Changing V3 → V2 causes the ordinary options listener to reload the integration and restores the historical V2 entity implementations. Historical Home Assistant entity/device IDs must not be renamed, re-registered or deleted.
+Historical V2 registry entries are **disabled by the integration** and tracked
+in private HA storage, not deleted. Only entries disabled by this migration
+are re-enabled when switching back to V2. No guessing based on an incomplete
+vehicle inventory. V3 keeps the historical climate unique ID and car device
+identifier. Registered counts may still include disabled historical entries;
+the actively loaded entity list is minimal.
 
-The legacy temperature service and historical actions remain compatibility APIs for now; do not remove them in the V3 beta. New climate UI has no target temperature control on the Q8 until a target-write implementation has verified physical readback and full regression coverage.
+## Architecture safeguards
 
-## Extension contract — add a capability without growing spaghetti
+1. Exactly one V2 or V3 coordinator per HA entry.
+2. A single canonical selection and evidence store per capability/vehicle.
+3. No control command retries or automatic wake.
+4. A cloud HTTP 2xx is not a fresh car timestamp or physical confirmation.
+5. Read-modify-write operations must have independently proven body
+   preservation before enabling. The old settings climate start is not
+   silently treated as bodyless; user can add a reviewed custom POST.
+6. V2 entity unique IDs and historical user-disabled state are preserved.
+7. No tokens, VINs, raw bodies or locations in exported V3 diagnostics.
+   The local admin Workbench uses its own authenticated vehicle IDs.
+8. Non-Q8 and legacy MBB contexts are not assumed to share Q8 actions.
+9. Full regression CI + hassfest + HACS packaging for every prerelease.
 
-Every next feature should be one new catalog capability, with optional status and control. It must declare:
-- A stable semantic capability ID, value contract and owner;
-- Reviewed operation IDs, **relative** URL templates, API family and optional scope;
-- Response field/type/unit/timestamp, missing/partial/207 semantics, and error classification;
-- Explicit read/passive polling owner; **no duplicate GET or poller**;
-- User intent/authorization and confirmation policy for controls; no speculative retries;
-- Entity unique-ID preservation, a V2 rollback path, and a contract test;
-- Evidence criteria: readable HTTP != valid schema != fresh vehicle measurement != physical actuation;
-- Minimal sanitized diagnostics and a community compatibility contribution format only after privacy review.
+## Historical capabilities — progressive migration in ONE PR
 
-**Promotion gates:** Experimental → Candidate requires synthetic tests and live vehicle evidence. Candidate → Stable requires multiple API contexts, no extra polling, HA entity/service compatibility, failure-path coverage, HACS/hassfest/pytest checks, privacy audit and rollback. One model should not silently impose a route on every Audi.
+1. **b2:** independent Vehicle/Cloud + Climate status/control pilot + API
+   Development Workbench. Validate against Q8 with realistic state/readback.
+2. **Next:** charging telemetry (SOC, charging state/mode/rate/plug) from
+   selected CARIAD jobs with existing HA unique IDs.
+3. **Then:** verified charging controls with clear start/stop/target SOC
+   semantics, no destructive partial settings writes.
+4. **Then:** vehicle access & health (lock, doors, windows, range, mileage,
+   service, oil) with optional status/control capabilities.
+5. **Then:** short/long/last trip and consumption data with OEM schema
+   checks, timestamps, units and unchanged IDs.
+6. **Finally:** region-specific legacy MBB support, wake and miscellaneous
+   historical functions only after independent safety/evidence gates.
 
-## Explicit non-goals for beta
+No duplicate V3 branches or PRs per capability. Subsequent commits go to
+`feature/v3-clean-discovery` / PR #20. Historical functions stay available
+in **V2** until individually migrated; they do not leak into V3.
 
-No generic dynamic HTTP executor; no arbitrary host/Authorization override; no auto-wake; no auto POST/PUT; no new trip, charge or health sensors; no wholesale V2 removal; no extra cloud polling; no central telemetry upload; no claim that request acceptance verifies car action.
+## Release acceptance
 
-## Engineering review checklist
-
-Check the source of truth remains singular: no duplicated entity unique IDs; no new duplicate background jobs; exactly one account/session; no copied OAuth secrets in config; no undocumented fallback; errors and unavailable state are distinct; all fallback paths are real and tested; config options preserve user settings; docs/tests/manifest agree on version. PR review must reject drift rather than patch around it.
-
-
-## One control-eligibility owner
-
-`V3Runtime.control_verdict(vehicle)` is canonical for reported/impaired/unknown,
-reviewed route selection and safe target preconditions. The HA climate entity
-and diagnostics both use that decision, avoiding drift. In a mixed-vehicle
-account, a globally selected Q8 operation not applicable to a second car
-resolves to its context-appropriate reviewed default and records the reason.
-This is **selection**, never a second command or a retry. Unavailable
-vehicle-stored temperature makes settings-based control unavailable rather
-than advertising a button that can only fail.
-
-
-## Device-registry safety at V2→V3 configuration changes
-
-The existing V2 helper `_async_cleanup_orphaned_devices` used to compare
-registered devices with the current **in-memory** inventory. During a
-disabled/failed first scan this can be empty and is not authoritative evidence
-that the user removed every car. V3 therefore **never executes destructive
-startup device cleanup**: registry removal is deferred until a separately
-reviewed authoritative-inventory workflow is built. The V2 helper also
-returns early when no active vehicles are known. Switching runtime modes
-must not delete devices, history or automations.
+`3.0.0b2` is an **experimental HACS prerelease**, not a production migration
+claim. Exact-SHA Python/hassfest/HACS checks gate publication. Real car
+acceptance remains separate: verify login, Q8 discovery, cloud timestamps,
+climate GET, one guided start/stop, physical readback, HA entity count,
+V2→V3→V2 rollback and cloud budget. Report failures with privacy-safe
+diagnostics; do not publish full raw Audi responses or VINs.
