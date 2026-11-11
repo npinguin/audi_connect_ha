@@ -26,7 +26,7 @@
       "device_class": "distance",
       "state_class": "total_increasing",
       "precision": 0,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "service_inspection_time": {
@@ -35,7 +35,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "service_inspection_distance": {
@@ -44,7 +44,7 @@
       "device_class": "distance",
       "state_class": null,
       "precision": 0,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "oil_change_time": {
@@ -53,7 +53,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "oil_change_distance": {
@@ -62,7 +62,7 @@
       "device_class": "distance",
       "state_class": null,
       "precision": 0,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "oil_level": {
@@ -107,7 +107,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "engine_type_first_engine": {
@@ -496,7 +496,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "secondary_engine_type": {
@@ -505,7 +505,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "charging_complete_time": {
@@ -523,7 +523,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": false
     },
     "doors_trunk_status": {
@@ -559,7 +559,7 @@
       "device_class": "timestamp",
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": false
     },
     "preheater_duration": {
@@ -595,7 +595,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "active_charging_profile_min_soc": {
@@ -604,7 +604,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "preferred_charging_time_start": {
@@ -613,7 +613,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "preferred_charging_time_end": {
@@ -622,7 +622,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     },
     "climatisation_timer_enabled_count": {
@@ -649,9 +649,10 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true
     }
   },
-  "description": "display_last_known is an attribute-contract presentation policy, never an API freshness override. Active/safety states require recent vehicle capture."
+  "description": "display_last_known is an attribute-contract presentation policy, never an API freshness override. Active/safety states require recent vehicle capture.",
+  "presentation_rule": "All vehicle readings/settings (including odometer, service and charging profiles) are normal HA entities; EntityCategory.DIAGNOSTIC is reserved for cloud/integration health. Keep platform and unique_id unchanged."
 }
