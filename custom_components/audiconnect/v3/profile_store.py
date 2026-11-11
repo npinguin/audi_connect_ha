@@ -12,6 +12,7 @@ from .action_discovery import ActionAttempt
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
 from .historical_catalog import ATTRIBUTES
+from .attribute_routes import validate_custom_read_route, get_read_variant
 
 
 def restore_profile(
@@ -61,6 +62,29 @@ def restore_profile(
     # Historical attribute evidence is optional for profiles saved by b4.
     ar = saved.get("attribute_routes", {})
     ae = saved.get("attribute_evidence", {})
+    ac = saved.get("attribute_custom", {})
+    ad = saved.get("attribute_drafts", {})
+    are = saved.get("attribute_route_evidence", {})
+    if any(not isinstance(q, dict) for q in (ac, ad, are)) or len(ac) > 50 or len(ad) > len(ATTRIBUTES) or len(are) > len(ATTRIBUTES):
+        raise DevelopmentProfileError("Invalid custom read route storage")
+    for ident, value in ac.items():
+        route = validate_custom_read_route(value)
+        if ident != route["id"]:
+            raise DevelopmentProfileError("Custom route ID mismatch")
+        profile.attribute_custom[ident] = route
+    for ident, variants in are.items():
+        if ident not in ATTRIBUTES or not isinstance(variants, dict) or len(variants) > 25:
+            raise DevelopmentProfileError("Invalid read route evidence")
+        for route, data in variants.items():
+            get_read_variant(ident, route, profile.attribute_custom)
+            if not isinstance(data, dict) or set(data) != {"outcome", "path", "http_status"}:
+                raise DevelopmentProfileError("Untrusted route evidence")
+            if data["outcome"] not in ("verified", "readable_but_stale", "mapping_missing", "api_error") or data["path"] not in get_read_variant(ident, route, profile.attribute_custom)["response_paths"] or type(data["http_status"]) is not int:
+                raise DevelopmentProfileError("Invalid route evidence values")
+            profile.attribute_route_evidence.setdefault(ident, {})[route] = dict(data)
+    for ident, route in ad.items():
+        get_read_variant(ident, route, profile.attribute_custom)
+        profile.attribute_drafts[ident] = route
     if not isinstance(ar, dict) or not isinstance(ae, dict) or len(ar) > len(ATTRIBUTES) or len(ae) > len(ATTRIBUTES):
         raise DevelopmentProfileError("Invalid attribute profile")
     for ident, detail in ae.items():
@@ -74,8 +98,11 @@ def restore_profile(
             raise DevelopmentProfileError("Untrusted attribute evidence")
         profile.attribute_evidence[ident] = dict(detail)
     for ident, route in ar.items():
-        if ident not in ATTRIBUTES or route != "cariad.selectivestatus.batch" or ident not in ae:
+        if ident not in ATTRIBUTES or ident not in ae:
             raise DevelopmentProfileError("Unverified active attribute")
+        get_read_variant(ident, route, profile.attribute_custom)
+        if route != "cariad.selectivestatus.batch" and profile.attribute_route_evidence.get(ident, {}).get(route, {}).get("outcome") not in ("verified", "readable_but_stale"):
+            raise DevelopmentProfileError("Unverified active route selection")
         profile.attribute_routes[ident] = route
     disabled = discovery.get("disabled_controls", [])
     if not isinstance(disabled, list) or any(

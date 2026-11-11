@@ -19,6 +19,8 @@ from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
 from .attribute_runtime import planned_jobs, observe_read_only
+from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
+from .historical_catalog import ATTRIBUTES, capture_time, read_path
 from ..const import CONF_FILTER_VINS
 
 
@@ -201,6 +203,28 @@ class V3Engine:
                 )
                 if response.status in (401, 403, 429) or response.status >= 500:
                     break
+        # Explicitly selected targeted/custom GET routes are executed separately
+        # from the default shared batch, deduplicated across attributes.
+        for key, car in self.vehicles.items():
+            profile = self.profiles[key]
+            unique: dict[tuple[str, str], list[tuple[str, str, list[str]]]] = {}
+            for ident, route in profile.attribute_routes.items():
+                if route == "cariad.selectivestatus.batch":
+                    continue
+                family, path, mappings = self._attribute_request(car, profile, ident, route)
+                unique.setdefault((family, path), []).append((ident, route, mappings))
+            # Refuse an unbounded per-attribute request explosion.
+            for (family, path), selected in list(unique.items())[:4]:
+                if family != "cariad":
+                    continue
+                try:
+                    response = await self.transport.request(family, "GET", path)
+                except (TimeoutError, OSError, RuntimeError):
+                    break
+                for ident, route, mappings in selected:
+                    self._record_attribute_response(car, profile, ident, route, mappings, response)
+                if 200 <= response.status < 300:
+                    cloud_reachable = True
         if cloud_reachable:
             self.last_cloud_poll_success = datetime.now(UTC)
         # One local write per scheduled discovery cycle; keep learned routes
@@ -410,6 +434,110 @@ class V3Engine:
                 raise RuntimeError(
                     "Audi rejected the selected climate command"
                 )
+
+
+    def attribute_routes_for(self, vin: str, attribute: str) -> dict[str, Any]:
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        alternatives = read_variants(attribute, profile.attribute_custom)
+        for variant in alternatives:
+            evidence = profile.attribute_route_evidence.get(attribute, {}).get(variant["id"], {})
+            variant["result"] = evidence.get("outcome", "not_tested")
+            variant["active"] = profile.attribute_routes.get(attribute) == variant["id"]
+        return {
+            "attribute": attribute, "capability": ATTRIBUTES[attribute]["capability"],
+            "routes": alternatives, "active": profile.attribute_routes.get(attribute),
+            "draft": profile.attribute_drafts.get(attribute),
+        }
+
+    async def add_attribute_route(self, vin: str, definition: dict[str, Any]) -> str:
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        route = validate_custom_read_route(definition)
+        if route["id"] in profile.attribute_custom:
+            raise ValueError("Choose a new custom route identifier")
+        if len(profile.attribute_custom) >= 50:
+            raise ValueError("Too many custom routes")
+        profile.attribute_custom[route["id"]] = route
+        await self.storage.async_save(self.profiles)
+        return route["id"]
+
+    def _attribute_request(self, car: V3Vehicle, profile: DevelopmentProfile,
+                           attribute: str, operation: str) -> tuple[str, str, list[str]]:
+        route = get_read_variant(attribute, operation, profile.attribute_custom)
+        path = route["path"].replace("{VIN}", car.vin)
+        if "{JOBS}" in path:
+            path = path.replace("{JOBS}", ",".join(planned_jobs(car, profile)))
+        return route["family"], path, route["response_paths"]
+
+    def _record_attribute_response(self, car: V3Vehicle, profile: DevelopmentProfile,
+                                   attribute: str, operation: str, mappings: list[str],
+                                   response: V3Response) -> dict[str, Any]:
+        matched = next(
+            ((path, read_path(response.data, path)) for path in mappings
+             if read_path(response.data, path) is not None), None
+        )
+        field, value = matched if matched is not None else (mappings[0], None)
+        captured = capture_time(response.data, field) if value is not None else None
+        fresh = timestamp_is_fresh(captured, response.observed_at)
+        if not 200 <= response.status < 300:
+            outcome = "api_error"
+        elif value is None:
+            outcome = "mapping_missing"
+        else:
+            outcome = "verified" if fresh else "readable_but_stale"
+        profile.attribute_route_evidence.setdefault(attribute, {})[operation] = {
+            "outcome": outcome, "path": field, "http_status": response.status,
+        }
+        if value is not None and len(str(value)) <= 10000:
+            last = car.readings.get(attribute)
+            if not last or fresh or not last.get("fresh"):
+                car.readings[attribute] = {
+                    "value": value, "captured": captured,
+                    "observed": response.observed_at.isoformat(),
+                    "fresh": fresh, "path": field, "job": ATTRIBUTES[attribute]["job"],
+                    "status": outcome,
+                }
+            profile.attribute_evidence[attribute] = {
+                "status": outcome, "path": field,
+                "job": ATTRIBUTES[attribute]["job"],
+                "source": "cariad.selectivestatus",
+                "timestamp_present": bool(captured),
+            }
+        return {
+            "attribute": attribute, "route": operation, "result": outcome,
+            "http_status": response.status, "mapping": field,
+            "captured": captured, "value": value if isinstance(value, (str, int, float, bool)) else None,
+        }
+
+    async def test_attribute_route(self, vin: str, attribute: str, route: str) -> dict[str, Any]:
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        family, path, mappings = self._attribute_request(car, profile, attribute, route)
+        if family != "cariad":
+            raise ValueError("This API family has not been implemented in the clean V3 transport")
+        response = await self.transport.request(family, "GET", path)
+        result = self._record_attribute_response(car, profile, attribute, route, mappings, response)
+        await self.storage.async_save(self.profiles)
+        return result
+
+    async def save_attribute_candidate(self, vin: str, attribute: str, route: str) -> None:
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        get_read_variant(attribute, route, profile.attribute_custom)
+        profile.attribute_drafts[attribute] = route
+        await self.storage.async_save(self.profiles)
+
+    async def activate_attribute_route(self, vin: str, attribute: str, route: str) -> None:
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        get_read_variant(attribute, route, profile.attribute_custom)
+        result = profile.attribute_route_evidence.get(attribute, {}).get(route, {})
+        if result.get("outcome") != "verified":
+            raise ValueError("Test the route and verify fresh vehicle data before activation")
+        profile.attribute_routes[attribute] = route
+        profile.attribute_drafts[attribute] = route
+        await self.storage.async_save(self.profiles)
 
     def diagnostics(self) -> dict[str, Any]:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""

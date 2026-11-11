@@ -12,8 +12,8 @@ from .historical_catalog import ATTRIBUTES, V2_JOBS, advertised_capabilities, ex
 def planned_jobs(vehicle: Any, profile: Any) -> tuple[str, ...]:
     if not getattr(vehicle, "v2_initial_discovery_completed", False):
         return V2_JOBS
-    active = {ATTRIBUTES[name]["job"] for name in profile.attribute_routes
-              if name in ATTRIBUTES and ATTRIBUTES[name]["job"]}
+    active = {ATTRIBUTES[name]["job"] for name, route in profile.attribute_routes.items()
+              if name in ATTRIBUTES and ATTRIBUTES[name]["job"] and route == "cariad.selectivestatus.batch"}
     active.update(("climatisation", "userCapabilities"))
     return tuple(job for job in V2_JOBS if job in active)
 
