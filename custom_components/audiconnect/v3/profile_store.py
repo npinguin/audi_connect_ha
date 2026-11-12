@@ -193,6 +193,19 @@ def restore_profile(
     for job, count in probed_jobs.items():
         if job not in V2_JOBS or type(count) is not int or not 0 <= count <= MAX_TARGETED_PROBE_ATTEMPTS:
             raise DevelopmentProfileError("Untrusted read-only probe count")
+    from .response_preview import validate_schema_fields
+    from .read_discovery import STANDALONE_READS
+    archived = saved.get("historical_job_schema", {})
+    # Historical schema is optional evidence. Invalid records must not prevent startup.
+    if isinstance(archived, dict) and len(archived) <= 64:
+        for key, rows in archived.items():
+            if key not in set(V2_JOBS) | set(STANDALONE_READS) | {"inventory"}:
+                continue
+            try:
+                validate_schema_fields(rows, field_limit=512, char_limit=64000)
+            except ValueError:
+                continue
+            profile.historical_job_schema[key] = rows
     profile.job_discovery.update(observed_jobs)
     profile.job_probe_attempts.update(probed_jobs)
     from .read_discovery import STANDALONE_READS, record_standalone_read

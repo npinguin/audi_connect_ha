@@ -22,7 +22,8 @@
         "parking.py",
         "status_planner.py",
         "trip_archive.py",
-        "structured_details.py"
+        "structured_details.py",
+        "access_summary.py"
       ],
       "responsibility": "read-only polling and observations"
     },
@@ -70,7 +71,8 @@
       "paths": [
         "development_profiles.py",
         "profile_store.py",
-        "api_observations.py"
+        "api_observations.py",
+        "identity_cache.py"
       ],
       "responsibility": "bindings and evidence persistence"
     },
@@ -102,7 +104,8 @@
     "diagnostics": {
       "paths": [
         "capability_status.py",
-        "response_preview.py"
+        "response_preview.py",
+        "integration_health.py"
       ],
       "responsibility": "read-only reporting and redaction"
     }

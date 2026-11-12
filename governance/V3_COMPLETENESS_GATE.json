@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "baseline": "3.0.0b12",
-  "release_policy": "No normal HACS beta while an implementation or evidence-disposition blocker is open. Live candidate acceptance is separate and required for upstream promotion. No stable gate changes. Version-specific explicitly authorized b13 and b14 experimental evidence-acquisition prereleases are recorded separately; ordinary completeness and upstream gates remain unchanged.",
+  "release_policy": "No normal HACS beta while an implementation or evidence-disposition blocker is open. Live candidate acceptance is separate and required for upstream promotion. No stable gate changes. Version-specific explicitly authorized b13, b14 and b15 experimental evidence-acquisition prereleases are recorded separately; ordinary completeness and upstream gates remain unchanged.",
   "hacs_ready": false,
   "upstream_ready": false,
   "items": [
@@ -12,7 +12,7 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Locale/inventory projection, retry, independent drivetrain classification and tests passed; actual manufacturer label on target vehicle absent in b12. Need fresh target diagnostics. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 target diagnostics now confirm manufacturer model, year and independent PHEV identity. Optional image read isolated; b14 image and restart evidence still pending."
+      "implementation_evidence": "Locale/inventory projection, retry, independent drivetrain classification and tests passed; actual manufacturer label on target vehicle absent in b12. Need fresh target diagnostics. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 target diagnostics now confirm manufacturer model, year and independent PHEV identity. Optional image read isolated; b14 image and restart evidence still pending. b14 live GraphQL 200 with null core/media/classification; b15 stores validated VIN/region-scoped last-known manufacturer label, retries inconclusive media at bounded inventory cadence. New installs cannot recover unobserved metadata."
     },
     {
       "id": "command_projection",
@@ -48,7 +48,7 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Archive merge/dedup/roundtrip tested; 10000-record bounded retention, 50 entity rows. OEM history endpoint completeness cannot be demonstrated from capped b12 response. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 target diagnostics show 391 stored trips and zero current scopes; b14 preserves VIN-scoped snapshots across restart/context, retries missing scopes at normal cadence; endpoint/backfill completeness remains unproven."
+      "implementation_evidence": "Archive merge/dedup/roundtrip tested; 10000-record bounded retention, 50 entity rows. OEM history endpoint completeness cannot be demonstrated from capped b12 response. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 target diagnostics show 391 stored trips and zero current scopes; b14 preserves VIN-scoped snapshots across restart/context, retries missing scopes at normal cadence; endpoint/backfill completeness remains unproven. b14 target: 391 records and all three snapshot scopes, parking present, all five standalone mobility routes observed; lifetime/backfill completeness and value-level validation remain pending."
     },
     {
       "id": "range_soc",
@@ -94,7 +94,7 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Warnings/campaigns and readiness from public Audi schema; low-voltage battery support enum from shared CARIAD WeConnect-python reference, not Audi vehicle proof. No unsupported voltage inferred. Fresh target response required. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 inspection fields observed, warnings envelope present without warning semantics; readiness returns retryable 4112. No inferred healthy state or voltage."
+      "implementation_evidence": "Warnings/campaigns and readiness from public Audi schema; low-voltage battery support enum from shared CARIAD WeConnect-python reference, not Audi vehicle proof. No unsupported voltage inferred. Fresh target response required. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 inspection fields observed, warnings envelope present without warning semantics; readiness returns retryable 4112. No inferred healthy state or voltage. b15 health model distinguishes nested job errors, quota and cloud state from vehicle freshness; HA diagnostic entities and read-only recovery history. Physical warning/voltage semantics remain pending."
     },
     {
       "id": "capability_details",
@@ -113,7 +113,7 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "All 23 reviewed shared jobs plus reviewed standalone GET routes scheduled without mutation consent. Explicit unsupported persists; context change resets it. Tests pass; actual complete target scan not yet captured. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 18/23 jobs assessed, 11 observed, no explicit unsupported. B14 bounded retry for retryable jobs (b8347f0), parking recovery and standalone trip polling; target completeness still pending."
+      "implementation_evidence": "All 23 reviewed shared jobs plus reviewed standalone GET routes scheduled without mutation consent. Explicit unsupported persists; context change resets it. Tests pass; actual complete target scan not yet captured. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 18/23 jobs assessed, 11 observed, no explicit unsupported. B14 bounded retry for retryable jobs (b8347f0), parking recovery and standalone trip polling; target completeness still pending. b14 16/23 jobs assessed, 21/28 read routes including standalone, retryable readiness and chargingProfiles 4112 persist. b15 preserves historical structural schemas separately from current session evidence."
     },
     {
       "id": "schema_disposition",
@@ -122,7 +122,7 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Eight formerly open observed paths mapped or sentinel excluded. Original b12 inventory remains truncated. New per-job original-type collector supports 512 rows/64000 chars, reports remaining truncation. Fresh full target schema required. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 15 non-truncated per-job schemas, 194 fields. B14 mapping fixes cover timer windows/service codes/access requests/climate group; remaining disposition and model variants still require review."
+      "implementation_evidence": "Eight formerly open observed paths mapped or sentinel excluded. Original b12 inventory remains truncated. New per-job original-type collector supports 512 rows/64000 chars, reports remaining truncation. Fresh full target schema required. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 15 non-truncated per-job schemas, 194 fields. B14 mapping fixes cover timer windows/service codes/access requests/climate group; remaining disposition and model variants still require review. b14 shortTerm schema remains truncated; b15 preserves bounded historical field union without claiming current semantic completeness."
     },
     {
       "id": "registry_lifecycle",
@@ -141,7 +141,7 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Baseline/candidate evidence matrix documented in docs/V3_COMPLETENESS_TAKEOVER.md; no physical or multi-model claim. Actual target evidence still incomplete. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 live findings recorded in b14 release notes and evidence summary; current context historical physical evidence retention and availability reasons added. No multi-model or upstream certification."
+      "implementation_evidence": "Baseline/candidate evidence matrix documented in docs/V3_COMPLETENESS_TAKEOVER.md; no physical or multi-model claim. Actual target evidence still incomplete. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194 b13 live findings recorded in b14 release notes and evidence summary; current context historical physical evidence retention and availability reasons added. No multi-model or upstream certification. b15 product contract and upstream matrix include two access summaries and three diagnostic entities, no stable or cross-model certification."
     },
     {
       "id": "live_acceptance",

@@ -6,7 +6,7 @@
 
 V3 adds a capability-driven multi-generation Audi API runtime, native HA projection, improved freshness and guarded command execution, plus an optional Engineering Dashboard. Users connect and use eligible known capabilities; explorers discover gaps; engineers configure, test and locally activate supported routes, then contribute reusable evidence. See [community how-to](V3_COMMUNITY_HOWTO.md) and [proposed upstream README](V3_UPSTREAM_README.md).
 
-Development after b12 includes a bounded private trip archive, complementary telemetry and structured details, native charging/window-heating switches, automatic reviewed read discovery and command/wake fixes. These are b13/b14 candidate changes, not a physically certified feature list. See [b14 release notes](V3_RELEASE_NOTES_3.0.0b14.md) for Q8 evidence and reliability fixes.
+Development after b12 includes a bounded private trip archive, complementary telemetry and structured details, native charging/window-heating switches, automatic reviewed read discovery and command/wake fixes. These are b13/b14 candidate changes, not a physically certified feature list. See [b15 release notes](V3_RELEASE_NOTES_3.0.0b15.md) for b14 live evidence, identity persistence, operational diagnostics and access summaries.
 
 ## 2. Remaining blockers — gate snapshot
 

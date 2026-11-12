@@ -156,11 +156,11 @@ def safe_schema_fields(payload: Any, *, vehicle_vin: str = "") -> list[dict[str,
     return safe_schema_inventory(payload, vehicle_vin=vehicle_vin)[0]
 
 
-def validate_schema_fields(rows: Any) -> None:
+def validate_schema_fields(rows: Any, *, field_limit=MAX_SCHEMA_FIELDS, char_limit=MAX_SCHEMA_CHARS) -> None:
     """Validate persisted structural evidence without trusting arbitrary paths."""
     import json
 
-    if not isinstance(rows, list) or len(rows) > MAX_SCHEMA_FIELDS:
+    if not isinstance(rows, list) or len(rows) > field_limit:
         raise ValueError("Invalid response schema inventory")
     for row in rows:
         if (not isinstance(row, dict) or set(row) != {"path", "type", "quality"}
@@ -174,7 +174,7 @@ def validate_schema_fields(rows: Any) -> None:
                 or row["quality"] not in ("observed", "null", "vendor_sentinel",
                                           "negative_duration_candidate")):
             raise ValueError("Invalid response schema field")
-    if len(json.dumps(rows, ensure_ascii=True)) > MAX_SCHEMA_CHARS:
+    if len(json.dumps(rows, ensure_ascii=True)) > char_limit:
         raise ValueError("Excessive response schema inventory")
 
 

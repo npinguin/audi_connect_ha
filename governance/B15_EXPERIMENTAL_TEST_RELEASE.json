@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "version": "3.0.0b15",
+  "classification": "experimental_hacs_test_only",
+  "authorized_by": "Explicit maintainer request: resolve b14 diagnostics findings in a new release, including door and window information (2026-11-12)",
+  "date": "2026-11-12",
+  "base_commit": "4d907bdd541b25f036cd2cac490689cfc17a418d",
+  "branch": "feature/v3-clean-discovery",
+  "release_intent": "release(test): publish 3.0.0b15 HACS prerelease",
+  "static_parity_claimed": false,
+  "stable_promotion_allowed": false,
+  "normal_release_gates_unchanged": true,
+  "scope": "One immutable b15 experimental HACS candidate for target vehicle evidence. Full CI required; no normal completeness or upstream authorization.",
+  "completeness_exception": {
+    "version": "3.0.0b15",
+    "reason": "Validate b14 live findings, manufacturer identity persistence, integration health and access summaries; normal gate remains false.",
+    "pending_hacs_gate_ids": [
+      "identity",
+      "trip_durable_history",
+      "structured_details",
+      "health_details",
+      "discovery",
+      "schema_disposition",
+      "upstream_matrix"
+    ],
+    "requires_status": "implemented_pending_validation",
+    "allows_open_implementation_blockers": false,
+    "upstream_gate_override": false
+  }
+}

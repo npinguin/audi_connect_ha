@@ -281,6 +281,7 @@ class DevelopmentProfile:
         self.job_probe_attempts: dict[str, int] = {}
         self.api_observations: dict[str, dict[str, Any]] = {}
         self.job_schema: dict[str, dict[str, Any]] = {}  # session-only structural evidence
+        self.historical_job_schema: dict[str, dict[str, Any]] = {}  # non-authorizing structural archive
         self.standalone_discovery: dict[str, int] = {}
         self.unsupported_reads: set[str] = set()
         self.engineering_responses: dict[str, dict[str, Any]] = {}
@@ -531,6 +532,7 @@ class DevelopmentProfile:
             "attribute_custom": deepcopy(self.attribute_custom),
             "attribute_route_evidence": deepcopy(self.attribute_route_evidence),
             "job_discovery": dict(self.job_discovery),
+            "historical_job_schema": deepcopy(self.historical_job_schema),
             "job_probe_attempts": dict(self.job_probe_attempts),
             "standalone_discovery": dict(self.standalone_discovery),
             "unsupported_reads": sorted(self.unsupported_reads),

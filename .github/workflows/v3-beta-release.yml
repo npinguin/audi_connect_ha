@@ -42,7 +42,7 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          expected = "3.0.0b14"
+          expected = "3.0.0b15"
           manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
           assert manifest["domain"] == "audiconnect"
           assert manifest["version"] == expected
@@ -91,18 +91,18 @@ jobs:
       - name: Package only the HA integration
         run: |
           cd custom_components
-          zip -qr "../audi_connect_v3_3.0.0b14.zip" audiconnect -x "*/__pycache__/*" "*.pyc"
+          zip -qr "../audi_connect_v3_3.0.0b15.zip" audiconnect -x "*/__pycache__/*" "*.pyc"
           cd ..
-          test -s audi_connect_v3_3.0.0b14.zip
-          sha256sum audi_connect_v3_3.0.0b14.zip > SHA256SUMS_V3_3.0.0b14.txt
+          test -s audi_connect_v3_3.0.0b15.zip
+          sha256sum audi_connect_v3_3.0.0b15.zip > SHA256SUMS_V3_3.0.0b15.txt
 
       - name: Upload manual-install test artifact
         uses: actions/upload-artifact@v4
         with:
-          name: audi-connect-v3-3.0.0b14-validated
+          name: audi-connect-v3-3.0.0b15-validated
           path: |
-            audi_connect_v3_3.0.0b14.zip
-            SHA256SUMS_V3_3.0.0b14.txt
+            audi_connect_v3_3.0.0b15.zip
+            SHA256SUMS_V3_3.0.0b15.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -113,7 +113,7 @@ jobs:
       github.repository == 'npinguin/audi_connect_ha' &&
       github.ref == 'refs/heads/feature/v3-clean-discovery' &&
       ((github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-code-complete-test') ||
-      (github.event_name == 'push' && github.event.head_commit.message == 'release(test): publish 3.0.0b14 HACS prerelease'))
+      (github.event_name == 'push' && github.event.head_commit.message == 'release(test): publish 3.0.0b15 HACS prerelease'))
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -126,7 +126,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: audi-connect-v3-3.0.0b14-validated
+          name: audi-connect-v3-3.0.0b15-validated
 
       - name: Reject test release without code-complete V2 parity
         if: github.event_name == 'workflow_dispatch'
@@ -147,12 +147,12 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          authorization = json.loads(Path("governance/B14_EXPERIMENTAL_TEST_RELEASE.json").read_text())
+          authorization = json.loads(Path("governance/B15_EXPERIMENTAL_TEST_RELEASE.json").read_text())
           manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
           gate = json.loads(Path("docs/V2_V3_PARITY_BASELINE.json").read_text())["release_gate"]
-          assert authorization["version"] == manifest["version"] == "3.0.0b14"
+          assert authorization["version"] == manifest["version"] == "3.0.0b15"
           assert authorization["classification"] == "experimental_hacs_test_only"
-          assert authorization["base_commit"] == "016b166f6e6313d63b8a2b19b25cdc0f04894f77"
+          assert authorization["base_commit"] == "4d907bdd541b25f036cd2cac490689cfc17a418d"
           assert authorization["stable_promotion_allowed"] is False
           assert authorization["static_parity_claimed"] is False
           assert gate["v3_static_parity_proven"] is False
@@ -169,19 +169,19 @@ jobs:
           assert {item["id"] for item in pending} == set(exception["pending_hacs_gate_ids"])
           assert all(item["status"] == "implemented_pending_validation" and item.get("implementation_evidence") for item in pending)
           PY
-          test "$(git rev-parse HEAD^)" = "016b166f6e6313d63b8a2b19b25cdc0f04894f77"
+          test "$(git rev-parse HEAD^)" = "4d907bdd541b25f036cd2cac490689cfc17a418d"
 
       - name: Prevent prerelease replacement
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/3.0.0b14" >/dev/null 2>&1; then
-            echo "Refusing to replace already-published 3.0.0b14." >&2
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/3.0.0b15" >/dev/null 2>&1; then
+            echo "Refusing to replace already-published 3.0.0b15." >&2
             exit 1
           fi
-          if gh release view 3.0.0b14 >/dev/null 2>&1; then
-            echo "Refusing to replace existing prerelease 3.0.0b14." >&2
+          if gh release view 3.0.0b15 >/dev/null 2>&1; then
+            echo "Refusing to replace existing prerelease 3.0.0b15." >&2
             exit 1
           fi
 
@@ -189,8 +189,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create 3.0.0b14 audi_connect_v3_3.0.0b14.zip SHA256SUMS_V3_3.0.0b14.txt \
+          gh release create 3.0.0b15 audi_connect_v3_3.0.0b15.zip SHA256SUMS_V3_3.0.0b15.txt \
             --target "${GITHUB_SHA}" \
-            --title "Audi Connect 3.0.0b14 — Data Completeness & Runtime Reliability (experimental HACS test)" \
-            --notes-file docs/V3_RELEASE_NOTES_3.0.0b14.md \
+            --title "Audi Connect 3.0.0b15 — Integration Health, Identity & Access (experimental HACS test)" \
+            --notes-file docs/V3_RELEASE_NOTES_3.0.0b15.md \
             --prerelease --latest=false

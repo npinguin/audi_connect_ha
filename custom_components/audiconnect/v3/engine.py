@@ -367,6 +367,9 @@ class V3Engine:
                     field_limit=512, char_limit=64000, secrets=tuple(known))
                 if not fields:
                     continue
+                archived = merge_schema_evidence({"fields": profile.historical_job_schema.get(job, [])}, fields, truncated,
+                    status=record["http_status"], at=record["at"], source="historical")
+                profile.historical_job_schema[job] = archived["fields"]
                 profile.job_schema[job] = merge_schema_evidence(
                     profile.job_schema.get(job), fields, truncated,
                     status=record["http_status"], at=record["at"],
@@ -903,6 +906,8 @@ class V3Engine:
                     for kind in ("door", "window")},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
+                "historical_schema_evidence": {"scope": "vin_scoped_historical_union_not_current_context_or_support",
+                    "fields_by_job": getattr(p, "historical_job_schema", {}) if p else {}},
                 "discovery_progress": self.discovery_progress(car, p) if p else {},
                 "trip_archive_evidence": {"record_count": len(car.trip_history),
                     "snapshot_scopes": sorted(car.trips),
