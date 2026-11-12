@@ -524,6 +524,68 @@ def _cockpit(vehicle, profile, rows, controls):
             findings.append({"id": "operation:" + ident + ":" + reason, "severity": "review",
                              "capability": caps[0] if caps else None,
                              "operation": ident, "reason": reason})
+    # Keep all engineering observations, but only current, actionable issues
+    # belong on Overview. Never turn a historical route test into a task.
+    from .vehicle import CLIMATE_ON_STATES, CHARGING_ON_STATES, normalize_powertrain
+    identity = {"manufacturer_model": bool(vehicle.model),
+                "model_year": bool(vehicle.model_year),
+                "oem_drivetrain": normalize_powertrain(vehicle.car_type) is not None,
+                "last_known": vehicle.identity_restored}
+    if not vehicle.model:
+        findings.append({"id": "vehicle:manufacturer_model", "severity": "review",
+                         "reason": "manufacturer_identity_missing", "capability": "vehicle_identity",
+                         "operation": INVENTORY_OPERATION})
+    elif not vehicle.model_year or not identity["oem_drivetrain"]:
+        findings.append({"id": "vehicle:identity_partial", "severity": "review",
+                         "reason": "manufacturer_identity_partial", "capability": "vehicle_identity",
+                         "operation": INVENTORY_OPERATION})
+    if not vehicle.model_family:
+        findings.append({"id": "vehicle:model_family", "severity": "review", "reason": "model_family_unknown", "capability": "vehicle_identity", "operation": INVENTORY_OPERATION})
+
+    latest_action = {(c.capability, c.action): c for c in profile.command_journal}
+    bindings = {(c["capability"], c["action"]): c for c in controls}
+    by_attribute = {row["attribute"]: row for row in attributes}
+    next_actions = []
+    for finding in findings:
+        reason = finding["reason"]
+        if finding["id"] in ("vehicle:manufacturer_model", "vehicle:identity_partial"):
+            next_actions.append(finding)
+            continue
+        attr = finding.get("attribute")
+        if attr:
+            row = by_attribute[attr]
+            reading = vehicle.readings.get(attr, {})
+            if (reason == "boolean_oil_level_use_binary" or row["status"] != "invalid_value"
+                    or not timestamp_is_fresh(reading.get("captured"), now)):
+                continue
+            if reason == "negative_duration":
+                entity = row["entity_key"]
+                if entity == "remaining_climatisation_time" and vehicle.climate_state not in CLIMATE_ON_STATES:
+                    continue
+                if entity == "remaining_charging_time" and vehicle.readings.get("chargingState", {}).get("value") not in CHARGING_ON_STATES:
+                    continue
+                if entity not in ("remaining_climatisation_time", "remaining_charging_time"):
+                    continue
+            next_actions.append(finding)
+            continue
+        command = journal.get(finding.get("operation"))
+        if not command or not reason.startswith("physical_control_"):
+            continue
+        key = (command.capability, command.action)
+        binding = bindings.get(key, {})
+        # Required safety review is always visible. A failed old route is not
+        # an action if a later attempt or another working binding superseded it.
+        if command.requires_review or (
+                latest_action.get(key) is command and command.state == "physical_failed"
+                and binding.get("candidate_count", 0) and not binding.get("enabled")
+                and binding.get("binding_status") != "user_disabled"
+                and profile.control_results.get(command.operation) == "failed"
+                and (command.operation_revision is None or command.operation_revision ==
+                     operation_revision(catalog[command.operation]) if command.operation in catalog else False)):
+            next_actions.append(finding)
+    next_actions.sort(key=lambda f: (0 if f["id"].startswith("vehicle:") else
+                    1 if f["reason"].startswith("physical_control_") else 2, f["id"]))
+
     summaries = []
     for name in sorted({r["capability"] for r in rows} | {c["capability"] for c in controls} | {"vehicle_identity"}):
         a = [r for r in attributes if r["capability"] == name]
@@ -539,13 +601,11 @@ def _cockpit(vehicle, profile, rows, controls):
                           "job_status": jobs,
                           "advertised_jobs": sorted(set(jobs) & vehicle.advertised_capabilities),
                           "impaired_jobs": sorted(set(jobs) & vehicle.impaired_capabilities),
-                          "attention": sum(r.get("capability") == name for r in findings)})
-    if not vehicle.model_family:
-        findings.append({"id": "vehicle:model_family", "severity": "review", "reason": "model_family_unknown", "capability": "vehicle_identity", "operation": INVENTORY_OPERATION})
+                          "attention": sum(r.get("capability") == name for r in next_actions)})
     from .freshness import capture_coverage
     return {"operations": operations, "capability_summary": summaries,
             "job_capture_coverage": capture_coverage(vehicle),
-            "findings": findings,
+            "findings": findings, "next_actions": next_actions, "identity_summary": identity,
             "api_job_status": {job: profile.job_discovery.get(job, "not_scanned") for job in _V2_SELECTIVE_JOBS},
             "operation_counts": {"total": len(operations), "tested": sum(r["tested"] for r in operations),
                                  "active": sum(r["active"] for r in operations),
