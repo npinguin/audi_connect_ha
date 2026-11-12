@@ -21,7 +21,8 @@
         "trips.py",
         "parking.py",
         "status_planner.py",
-        "trip_archive.py"
+        "trip_archive.py",
+        "structured_details.py"
       ],
       "responsibility": "read-only polling and observations"
     },
