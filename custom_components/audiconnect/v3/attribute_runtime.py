@@ -72,6 +72,33 @@ def record_observation(vehicle, profile, ident, value, captured, observed_at,
     return True
 
 
+def normalize_attribute_value(definition, value, conversion):
+    """Shared scalar mapping semantics for batch and selected attribute routes.
+
+    Preserve meaningful false/zero and external-power 'unavailable'. Reject
+    error envelopes and never turn missing data into a working mapping.
+    """
+    if value is None or isinstance(value, dict) and ("error" in value or not value) or isinstance(value, list) and not value:
+        return None, None
+    try:
+        value = normalize_api_value(value, conversion)
+    except ValueError:
+        return None, None
+    if definition.get("local"):
+        from .custom_attributes import normalize_local_value
+        value = normalize_local_value(value, definition)
+    issue = semantic_value_issue(definition["entity_key"], value, definition.get("contract"))
+    if issue:
+        return None, issue
+    if isinstance(value, str) and value.strip().lower() in (
+        "", "unknown", "unsupported", "invalid", "unavailable", "error", "notavailable"
+    ) and not (definition["id"] == "externalPower" and value.strip().lower() == "unavailable"):
+        return None, "unknown_charging_state" if definition["id"] == "chargingState" else None
+    if value is not None and len(str(value)) > 10000:
+        return None, None
+    return value, None
+
+
 def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: datetime) -> dict[str, int]:
     if not isinstance(payload, dict):
         return {"mapped": 0, "fresh": 0}
@@ -81,28 +108,15 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         vehicle.impaired_capabilities = impaired
     mapped = fresh_count = 0
     for row in extract_attributes(payload):
-        ident, value = row["id"], row["value"]
-        try:
-            value = normalize_api_value(value, transform_for("cariad", ident))
-        except ValueError:
-            # Misconfigured or incompatible response mapping is not a valid sensor.
-            continue
+        ident = row["id"]
         selected = profile.attribute_routes.get(ident)
         if selected and selected != "cariad.selectivestatus.batch":
             continue
-        issue = semantic_value_issue(row["entity_key"], value)
+        value, issue = normalize_attribute_value(ATTRIBUTES[ident], row["value"], transform_for("cariad", ident))
         if issue:
             record_invalid_observation(vehicle, ident, row["captured"], observed_at,
                                        row["path"], row["job"], issue)
-            continue
-        if isinstance(value, str) and value.strip().lower() in (
-            "unknown", "invalid", "unsupported", "unavailable", "error", ""
-        ) and not (ident == "externalPower" and value.strip().lower() == "unavailable"):
-            if ident == "chargingState":
-                record_invalid_observation(vehicle, ident, row["captured"], observed_at,
-                                           row["path"], row["job"], "unknown_charging_state")
-            continue
-        if len(str(value)) > 10000:
+        if value is None:
             continue
         fresh = timestamp_is_fresh(row["captured"], observed_at)
         if not record_observation(vehicle, profile, ident, value, row["captured"],

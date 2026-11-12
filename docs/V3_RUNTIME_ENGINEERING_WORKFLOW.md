@@ -102,3 +102,7 @@ Charge mode, target SoC, auxiliary duration and CARIAD/MBB climate temperature u
 ## Cleanup slice 6 — shared command preparation and transport outcome
 
 HA and Workbench reuse command preparation, including deferred OEM security proof after durable journal persistence. Both record initial HTTP outcomes using `CommandRecord.observe_http`; dashboard command rows no longer borrow HTTP status from the latest call to the same operation. Older stored records restore with unknown HTTP status. Manual physical verification and automatic HA readback remain distinct policies, not duplicated transport implementations.
+
+## Cleanup slice 7 — shared response extraction and scalar mapping
+
+Registry, historical batch mappings and targeted attribute routes now share ordered response-path extraction. Batch and targeted scalar normalization share type/unit checks, sentinel handling, empty/error-envelope rejection and size limits. False/zero and meaningful externalPower `unavailable` remain valid. Structured and legacy domain normalizers remain explicit exceptions. No new module or additional cloud call.

@@ -47,6 +47,15 @@ def read_json_path(payload: Any, path: str) -> Any:
     return node
 
 
+def extract_first(payload: Any, paths) -> tuple[Any, str | None]:
+    """One ordered response selector; false and zero are valid observations."""
+    for path in paths:
+        value = read_json_path(payload, path)
+        if value is not None:
+            return value, path
+    return None, None
+
+
 class RegistryError(ValueError):
     """Invalid V3 catalog or unsupported operation."""
 
@@ -278,8 +287,4 @@ class CapabilityRegistry:
         op = self.operations[operation]
         if op["method"] != "GET":
             raise RegistryError("Only a GET response may be extracted")
-        for path in op["response_paths"]:
-            result = read_json_path(payload, path)
-            if result is not None:
-                return result, path
-        return None, None
+        return extract_first(payload, op["response_paths"])

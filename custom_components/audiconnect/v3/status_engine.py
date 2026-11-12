@@ -10,13 +10,12 @@ from .transport import V3Response
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh, capture_field_timestamp as _captured
 from .attribute_runtime import (planned_jobs, observe_read_only, _accept_observation,
-                                record_invalid_observation, record_observation)
-from .attribute_contracts import semantic_value_issue
-from .custom_attributes import attributes_for, normalize_local_value
+                                record_invalid_observation, record_observation, normalize_attribute_value)
+from .custom_attributes import attributes_for
+from .registry import extract_first
 from .attribute_routes import get_read_variant, read_variants
 from .historical_catalog import ATTRIBUTES, capture_time, read_path, V2_JOBS
 from .legacy_read_mappings import FIELDS as MBB_FIELDS, ROUTES as MBB_ROUTES
-from .api_value_mappings import normalize_api_value
 from .read_discovery import (record_jobs, pending_groups, reserve_group,
                              MAX_EXTRA_INITIAL_REQUESTS, MAX_EXTRA_PERIODIC_REQUESTS, read_excluded)
 from .status_planner import status_groups
@@ -542,35 +541,14 @@ class StatusEngine:
     def _record_attribute_response(self, car: V3Vehicle, profile: DevelopmentProfile,
                                    attribute: str, operation: str, mappings: list[str],
                                    response: V3Response) -> dict[str, Any]:
-        matched = next(
-            ((path, read_path(response.data, path)) for path in mappings
-             if read_path(response.data, path) is not None), None
-        )
-        field, value = matched if matched is not None else (mappings[0], None)
-        # Some Audi APIs return HTTP 200/207 with an invalid or error-coded
-        # value. Never promote "unknown" to a configured or usable entity.
-        if isinstance(value, str) and value.strip().lower() in (
-            "", "unknown", "unsupported", "invalid", "unavailable", "error", "notavailable"
-        ):
-            value = None
-        if isinstance(value, dict) and (
-            "error" in value or not value
-        ):
-            value = None
-        if isinstance(value, list) and not value:
-            value = None
+        raw, matched_path = extract_first(response.data, mappings)
+        field = matched_path or mappings[0]
         variant = get_read_variant(attribute, operation, profile.attribute_custom, attributes_for(profile))
         family = variant["family"]
-        try:
-            value = normalize_api_value(value, variant.get("conversion"))
-        except ValueError:
-            value = None
         definition = attributes_for(profile)[attribute]
-        if definition.get("local"):
-            value = normalize_local_value(value, definition)
-        issue = semantic_value_issue(definition["entity_key"], value, definition.get("contract"))
+        value, issue = normalize_attribute_value(definition, raw, variant.get("conversion"))
         captured = (read_path(response.data, variant["capture_path"]) if variant.get("capture_path")
-                    else capture_time(response.data, field)) if matched is not None else None
+                    else capture_time(response.data, field)) if matched_path is not None else None
         if not isinstance(captured, str):
             captured = None
         if issue and 200 <= response.status < 300:
@@ -589,7 +567,7 @@ class StatusEngine:
         profile.attribute_route_evidence.setdefault(attribute, {})[operation] = {
             "outcome": outcome, "path": field, "http_status": response.status,
         }
-        if 200 <= response.status < 300 and value is not None and len(str(value)) <= 10000:
+        if 200 <= response.status < 300 and value is not None:
             record_observation(car, profile, attribute, value, captured,
                                response.observed_at, field, definition["job"], family,
                                fresh=fresh)

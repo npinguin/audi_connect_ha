@@ -624,3 +624,26 @@ async def test_older_targeted_read_keeps_current_attribute_and_evidence_aligned(
     assert car.readings["stateOfCharge"]["value"] == 70
     assert profile.attribute_evidence["stateOfCharge"] == original
     assert profile.attribute_route_evidence["stateOfCharge"]["cariad.selectivestatus.targeted"]["outcome"] == "readable_but_stale"
+
+
+@pytest.mark.asyncio
+async def test_targeted_external_power_uses_same_meaningful_unavailable_state_as_batch():
+    engine, transport, store = engine_for()
+    await engine.discover()
+    car = engine.require_vehicle(VIN)
+    profile = engine.profiles[VIN.lower()]
+    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
+    path = ATTRIBUTES["externalPower"]["paths"][0]
+    # Build a matching envelope from the canonical path, not a separate fixture mapping.
+    now = datetime.now(UTC)
+    payload = {}
+    node = payload
+    for name in path.split(".")[:-1]:
+        node[name] = {}
+        node = node[name]
+    node[path.split(".")[-1]] = "unavailable"
+    node["carCapturedTimestamp"] = now.isoformat()
+    result = engine._record_attribute_response(car, profile, "externalPower",
+        "cariad.selectivestatus.targeted", [path], V3Response(200, payload, now))
+    assert result["result"] == "verified"
+    assert car.readings["externalPower"]["value"] == "unavailable"

@@ -1647,7 +1647,7 @@ CANONICAL_ATTRIBUTES = {
 }
 
 
-from .registry import read_json_path as read_path
+from .registry import read_json_path as read_path, extract_first
 
 
 def capture_time(payload: Any, dotted_path: str) -> str | None:
@@ -1670,16 +1670,14 @@ def extract_attributes(payload: Any) -> list[dict[str, Any]]:
         return []
     results = []
     for item in INVENTORY["attributes"]:
-        for path in item["paths"]:
-            value = read_path(payload, path)
-            if value is not None:
-                results.append({
-                    "id": item["id"], "capability": item["capability"],
-                    "job": item["job"], "platform": item["platform"],
-                    "entity_key": item["entity_key"], "path": path,
-                    "value": value, "captured": capture_time(payload, path),
-                })
-                break
+        value, path = extract_first(payload, item["paths"])
+        if path is not None:
+            results.append({
+                "id": item["id"], "capability": item["capability"],
+                "job": item["job"], "platform": item["platform"],
+                "entity_key": item["entity_key"], "path": path,
+                "value": value, "captured": capture_time(payload, path),
+            })
     return results
 
 def advertised_capabilities(payload: Any) -> tuple[set[str], set[str]]:

@@ -114,3 +114,13 @@ def test_negative_duration_invalidates_newer_but_not_older_capture():
     observe_read_only(vehicle, profile, sample(-256, later), later)
     assert vehicle.readings["remainingClimatisationTime"]["value"] is None
     assert vehicle.readings["remainingClimatisationTime"]["reason"] == "negative_duration"
+
+
+def test_shared_scalar_mapping_preserves_meaningful_values_and_rejects_error_envelopes():
+    from custom_components.audiconnect.v3.attribute_runtime import normalize_attribute_value
+    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
+    assert normalize_attribute_value(ATTRIBUTES["stateOfCharge"], 0, None) == (0, None)
+    assert normalize_attribute_value(ATTRIBUTES["externalPower"], "unavailable", None) == ("unavailable", None)
+    assert normalize_attribute_value(ATTRIBUTES["chargingState"], "unknown", None) == (None, "unknown_charging_state")
+    for bad in ({"error": {"code": 1}}, {}, [], "notavailable"):
+        assert normalize_attribute_value(ATTRIBUTES["externalPower"], bad, None) == (None, None)
