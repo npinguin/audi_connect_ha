@@ -19,6 +19,20 @@ Two modes of the same capability and command engine, not two runtimes.
 
 Fast discovery means identifying and enabling the correct control entity automatically, NOT automatically operating a lock, charger, heater, horn, engine or wake endpoint. A GET-like operation with side effects is not a discovery read. GraphQL inventory queries may use POST transport only as a reviewed, strictly read-only query; no GraphQL mutations or generic POST exceptions.
 
+## Golden end-to-end use case — Configure → Discover → Use
+
+The primary acceptance scenario is a real Home Assistant user who configures an Audi account and uses the discovered vehicle capabilities in native HA. All engineering use cases support this outcome; Workbench is optional.
+
+| Step | Expected outcome |
+| --- | --- |
+| Configure | Standard HA authentication, vehicle selection and optional S-PIN; no API knowledge or Workbench required. |
+| Discover | One automatic read-only discovery pass continuing within the existing coordinator's bounded polling policy. Resolve eligible controls automatically without actuating. Optional guided Yes/No physical verification (OK/Not OK/Not sure where needed); expert selective mode uses the same backend and evidence. |
+| Use | Actual native HA entities provide correct states, availability, metadata and working controls; dashboards, services and automations use them directly. No manual mapping or additional setup for supported capabilities. |
+
+Recovery is part of normal use, not a mandatory fourth onboarding step. Reauthentication, temporary cloud/quota issues, restart and uncertain commands preserve valid existing configuration and evidence. Unknown or unsupported features must be explained without blocking unrelated functions.
+
+Acceptance must demonstrate the entire flow on a clean installation and after restart, including real HA entity publication and at least one explicitly initiated, safely verified control where supported. Show what remains unavailable and why. Engineering can reproduce the same journey in End-user validation and selectively investigate a failed API using the existing editor and log. A green isolated API test or discovery coverage percentage alone does not pass the golden use case. No new framework or orchestration layer is required.
+
 ## Engineering workflow
 
 1. Select VIN, capability/command and candidate operation; validate family, context, typed parameters and security classification.
