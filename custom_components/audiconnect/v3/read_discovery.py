@@ -279,7 +279,9 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
             available = registry.resolve(capability, action, car.context)["available_operations"]
             decision = control_decision(car, profile, auth, capability, action)
             physical = "worked" if any(profile.control_results.get(op) == "worked" for op in available) else (
-                "failed" if any(profile.control_results.get(op) == "failed" for op in available) else "not_tested")
+                "failed" if any(attempt.result == "failed" and attempt.operation in available
+                                and profile.control_results.get(attempt.operation) == "failed"
+                                for attempt in profile.discovery.history) else "not_tested")
             controls.append({"capability": capability, "action": action,
                 "catalog_applicable": bool(available), "eligible": bool(decision["operation"]),
                 "status": decision["status"], "reason": decision.get("reason"), "physical": physical})
@@ -366,7 +368,7 @@ def user_test_candidates(engine, car, profile, *, include_verified=False):
         definition = profile.registry.capabilities[capability].get("control", {})
         if action not in definition:
             continue
-        decision = control_decision(car, profile, engine.auth, capability, action)
+        decision = control_decision(car, profile, engine.auth, capability, action, for_discovery=True)
         operation = decision["operation"]
         if not operation or operation in profile.custom or (decision["status"] == "local_verified" and not include_verified):
             continue
