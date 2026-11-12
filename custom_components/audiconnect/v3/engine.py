@@ -307,20 +307,26 @@ class V3Engine:
             from .read_discovery import record_standalone_read
             record_standalone_read(profile, operation, record["http_status"], response.data if response else None)
         # Share structural evidence per reviewed job, not private response values.
-        if response is not None and isinstance(response.data, dict):
-            from .response_preview import safe_schema_inventory
+        if response is not None and 200 <= response.status < 300 and isinstance(response.data, (dict, list)):
+            from .response_preview import safe_schema_inventory, merge_schema_evidence
+            from .read_discovery import STANDALONE_READS
             # Structural walker redacts key names and never exports values.
             # Use original decoded types; an admin-preview cap is not a schema cap.
             payload = response.data
-            groups = {job: {job: payload[job]} for job in V2_JOBS if job in payload} if method == "GET" else {}
+            groups = {job: {job: payload[job]} for job in V2_JOBS if job in payload} if method == "GET" and isinstance(payload, dict) else {}
             if operation == INVENTORY_OPERATION:
                 groups = {"inventory": payload}
+            elif method == "GET" and operation in STANDALONE_READS:
+                groups[operation] = payload if isinstance(payload, dict) else {"response": payload}
             for job, data in groups.items():
                 fields, truncated = safe_schema_inventory(data, vehicle_vin=vin, all_items=True,
-                                                         field_limit=512, char_limit=64000)
-                profile.job_schema[job] = {"fields": fields,
-                    "truncated": truncated,
-                    "http_status": record["http_status"], "source": operation if operation in self.registry.operations or operation == INVENTORY_OPERATION else "reviewed_read"}
+                    field_limit=512, char_limit=64000, secrets=tuple(known))
+                if not fields:
+                    continue
+                profile.job_schema[job] = merge_schema_evidence(
+                    profile.job_schema.get(job), fields, truncated,
+                    status=record["http_status"], at=record["at"],
+                    source=operation if operation in self.registry.operations or operation in STANDALONE_READS or operation == INVENTORY_OPERATION else "reviewed_read")
         profile.engineering_responses.pop(operation, None)
         if detail is not None:
             profile.engineering_responses[operation] = {
@@ -820,6 +826,7 @@ class V3Engine:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
         from .capability_status import diagnostic_capability_summary, diagnostic_route_label
         from .vehicle import powertrain_identity
+        from .read_discovery import user_progress
         vehicles = []
         for index, car in enumerate(self.vehicles.values(), 1):
             p = self.profiles.get(car.vin.lower())
@@ -838,6 +845,12 @@ class V3Engine:
                                       "powertrain": powertrain_identity(car)},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
+                "discovery_progress": user_progress(car, p, self.auth, base_registry=self.registry) if p else {},
+                "trip_archive_evidence": {"record_count": len(car.trip_history),
+                    "scope": "observed_normalized_records_not_lifetime_history",
+                    "complete_odometer_interval_count": sum(
+                        row.get("startMileage") is not None and row.get("overallMileage") is not None
+                        for row in car.trip_history)},
                 "climate": {
                     "readable": car.climate_state is not None,
                     "capture_age_minutes": car.capture_age_minutes,

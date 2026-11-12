@@ -59,3 +59,8 @@ This is a proposed PR/release sequence, not a commitment from upstream. Automati
 Record candidate SHA, tag/version, CI URLs/results, HA version, model/year/powertrain, region, API/auth family, capability and operation revision, implementation result, automated test result, HTTP outcome, schema validation, capture freshness, readback, physical result, migration/rollback outcome, exclusions and reviewer. Use separate statuses for unobserved, not applicable, blocked, failed and not tested. No personally identifying vehicle or account data.
 
 **Definition of done:** both machine gates are true with linked evidence, exact-SHA checks are green, real HA/vehicle acceptance and rollback are documented, and upstream maintainers have agreed on the actual release scope. A draft PR, passing synthetic CI or HTTP success alone cannot satisfy this definition.
+
+
+## Post-b13 work
+
+[b13](https://github.com/npinguin/audi_connect_ha/releases/tag/3.0.0b13) was published as a one-time evidence-acquisition prerelease after [exact-SHA CI](https://github.com/npinguin/audi_connect_ha/actions/runs/43228317523). No pending evidence gate was closed. See [upstream reconciliation](V3_UPSTREAM_RECONCILIATION.md) for the exact dev/master comparison including already merged PRs #915/#916. New changes after b13 are development only. Expanded diagnostics capture standalone schemas, preserve multiple observed schema variants within a session, report discovery progress and bounded trip archive completeness indicators; partial trip duplicates merge only on a unique compatible odometer interval. Physical and cross-model evidence remain outstanding.

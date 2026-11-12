@@ -58,3 +58,25 @@ def test_archive_rejects_bad_and_longterm_records():
         {**rows[0], "tripType": "longTerm"}, {**rows[0], "timestamp": "invalid"},
         {"source": "mbb_legacy"}, None,
     ])) == 1
+
+
+def test_partial_odometer_duplicate_merges_only_unique_compatible_interval():
+    full = normalize_cariad_history({"data": [_row(totalFuelConsumption_L=0.5)]})[0]
+    partial = {**full, "startMileage": None, "totalFuelConsumption": None,
+               "totalElectricConsumption": 4}
+    result = merge_history([partial], [full])
+    assert len(result) == 1
+    assert result[0]["startMileage"] == 10
+    assert result[0]["totalElectricConsumption"] == 4
+    assert result[0]["totalFuelConsumption"] == 0.5
+    assert merge_history(result, result) == result
+    conflicting = {**full, "startMileage": 11}
+    assert len(merge_history([partial], [full, conflicting])) == 3
+
+
+def test_duplicate_records_in_single_response_preserve_complementary_metrics():
+    rows = normalize_cariad_history({"data": [
+        _row(totalFuelConsumption_L=0.5), _row(totalElectricConsumption_kwh=4)]})
+    assert len(rows) == 1
+    assert rows[0]["totalFuelConsumption"] == 0.5
+    assert rows[0]["totalElectricConsumption"] == 4

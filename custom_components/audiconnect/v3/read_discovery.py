@@ -211,7 +211,7 @@ def read_excluded(profile, operation):
     return operation in getattr(profile, "unsupported_reads", ())
 
 
-def user_progress(car, profile, auth):
+def user_progress(car, profile, auth, *, base_registry=None):
     """Read coverage and control evidence are independent, never proof of support."""
     from .historical_catalog import INVENTORY, CANONICAL_ATTRIBUTES
     from .control_resolution import control_decision
@@ -241,9 +241,10 @@ def user_progress(car, profile, auth):
     def assessed_http(status):
         return type(status) is int and (200 <= status < 300 or status in (400, 404, 405, 410, 422))
     controls = []
-    for capability, definition in profile.registry.capabilities.items():
+    registry = base_registry or profile.registry
+    for capability, definition in registry.capabilities.items():
         for action in definition.get("control", {}):
-            available = profile.registry.resolve(capability, action, car.context)["available_operations"]
+            available = registry.resolve(capability, action, car.context)["available_operations"]
             decision = control_decision(car, profile, auth, capability, action)
             physical = "worked" if any(profile.control_results.get(op) == "worked" for op in available) else (
                 "failed" if any(profile.control_results.get(op) == "failed" for op in available) else "not_tested")
@@ -252,7 +253,7 @@ def user_progress(car, profile, auth):
                 "status": decision["status"], "physical": physical})
     owners = {row["id"]: row["capability"] for row in INVENTORY["jobs"]}
     capabilities = {}
-    for name in profile.registry.capabilities:
+    for name in registry.capabilities:
         subset = [row for job, row in jobs.items() if owners.get(job) == name]
         actions = [row for row in controls if row["capability"] == name]
         attrs = [attr for attr in CANONICAL_ATTRIBUTES.values() if attr["capability"] == name]
@@ -287,5 +288,10 @@ def user_progress(car, profile, auth):
         "controls_catalog_applicable": len(applicable), "controls_physically_verified": verified,
         "control_verification_percent": round(100 * verified / len(applicable), 1) if applicable else None,
         "controls": controls, "capabilities": capabilities,
+        "control_evidence_scope": "stored_vehicle_context_not_current_release_physical_acceptance",
+        "standalone_schema": {operation: {"field_count": len(schema.get("fields", [])),
+            "truncated": bool(schema.get("truncated")), "http_status": schema.get("http_status")}
+            for operation in reads
+            if (schema := getattr(profile, "job_schema", {}).get(operation))},
         "excluded_reads": ["user-disabled GPS tracker (if disabled)", "custom and reference-only routes"],
         "scope": "selective-status jobs and reviewed standard trip/legacy resources; not vehicle support"}

@@ -213,3 +213,16 @@ def test_shared_cariad_battery_support_is_read_only_and_does_not_invent_voltage(
     observe_structured(other, {"lvBattery": {"lvBatteryStatus": {"value": {
         "batterySupport": "invalid", "voltage": 12.4}}}}, now, _accept_observation)
     assert not details_for(other, "low_voltage_battery_detail")
+
+
+def test_schema_union_keeps_observed_variants_and_never_leaks_configured_key():
+    from custom_components.audiconnect.v3.response_preview import merge_schema_evidence
+    a, trunc = safe_schema_inventory({"job": {"first": 1, "PrivateSecret": 2}},
+                                     all_items=True, secrets=("PrivateSecret",))
+    assert not trunc and not any("PrivateSecret" in row["path"] for row in a)
+    prior = merge_schema_evidence(None, a, True, status=207, source="batch", at="first")
+    b, trunc = safe_schema_inventory({"job": {"second": False}}, all_items=True)
+    result = merge_schema_evidence(prior, b, trunc, status=200, source="target", at="second")
+    assert {row["path"] for row in result["fields"]} >= {"job.first", "job.second"}
+    assert result["capture_truncated_seen"] and not result["latest_capture_truncated"]
+    assert result["scope"] == "session_union_structural_only"

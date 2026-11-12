@@ -466,3 +466,21 @@ async def test_direct_command_response_uses_actual_vehicle_status():
     assert entity.hvac_action.value=="cooling"
     assert entity.extra_state_attributes["state_source"]=="vehicle"
     assert profile.last_command.state=="verified"
+
+
+@pytest.mark.asyncio
+async def test_standalone_schema_evidence_and_discovery_export_without_trip_values():
+    engine, _, _ = engine_for()
+    await engine.discover()
+    profile = engine.profiles[VIN.lower()]
+    operation = "cariad.mobility.status.lastTrip"
+    engine._api_record(profile, operation, "cariad", "GET",
+        V3Response(200, {"data": {"tripEndTimestamp": "2026-01-01T00:00:00Z",
+            "mileage_km": 123.456, "tripID": "private-trip"}}, datetime.now(UTC)), VIN)
+    snapshot = engine.diagnostics()["vehicles"][0]
+    schema = snapshot["job_schema_evidence"][operation]
+    assert any(row["path"] == "data.mileage_km" for row in schema["fields"])
+    assert snapshot["discovery_progress"]["standalone_schema"][operation]["field_count"] > 0
+    assert snapshot["discovery_progress"]["control_evidence_scope"].startswith("stored_vehicle_context")
+    assert "123.456" not in json.dumps(snapshot)
+    assert "private-trip" not in json.dumps(snapshot)

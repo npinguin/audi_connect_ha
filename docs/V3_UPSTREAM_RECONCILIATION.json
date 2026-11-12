@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "scope": "shared production files excluding v3; exact blob comparison, not semantic parity",
+  "upstream_master": "d12f74c35c1c961f3b040e5cc77acbca2a5cca26",
+  "upstream_dev": "c4f095dd46a3b5c7b438633ac2db16aabffe8f28",
+  "fork_baseline": "9bd8d77b066a3c8ece1a6f4ebdcb8f31242f7300",
+  "merged_upstream_prs": [
+    {
+      "number": 915,
+      "merge_commit": "e99e95276772181a760a99e2b7b9564d0ae2e63f",
+      "base": "dev"
+    },
+    {
+      "number": 916,
+      "merge_commit": "c4f095dd46a3b5c7b438633ac2db16aabffe8f28",
+      "base": "dev"
+    }
+  ],
+  "counts": {
+    "divergent_requires_review": 17,
+    "upstream_dev_only": 1,
+    "identical_to_upstream_dev": 17,
+    "fork_only_delta": 5
+  },
+  "files": [
+    {
+      "path": "custom_components/audiconnect/__init__.py",
+      "master": "169782dbc6d492edeebc8fe6304c39df30e17eb5",
+      "dev": "83fa70fb02b0ef7df822c6f9c3bc3a8ad49c9926",
+      "fork": "96000667d97c1ef7f42c1fecb7b13e6d71b447d0",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/api_probe.py",
+      "master": null,
+      "dev": "9d870e49ca4ca5dc78f6a4db372760b4a97149a6",
+      "fork": null,
+      "classification": "upstream_dev_only"
+    },
+    {
+      "path": "custom_components/audiconnect/audi_account.py",
+      "master": "d90dee8595037f3d98ca048e6ee6dc3fe6e44a92",
+      "dev": "b7516b1e50d414a7936d3055848ebc76f8d45dcf",
+      "fork": "b7516b1e50d414a7936d3055848ebc76f8d45dcf",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/audi_api.py",
+      "master": "e1025953301173eca83eda9e3073d5c3788ca7b7",
+      "dev": "9e569a7e93500498c16cda87ca2d01c73c8582d1",
+      "fork": "2e535cb6b9617307afb3883302727325c50fa0d3",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/audi_connect_account.py",
+      "master": "2d73c7b66a8c040fb217cdddf4717cf6009c20d5",
+      "dev": "f570b2f701a1ad510459f76d0f1ed50b3be000ed",
+      "fork": "47f82e8f1f6bc9d511aa1b1446999645a47d0714",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/audi_entity.py",
+      "master": "2d92502c0b2255dde60e1bf17687a6b6150bd465",
+      "dev": "8a2b30d7d265958dce57c3649b63149e18c97e05",
+      "fork": "8a2b30d7d265958dce57c3649b63149e18c97e05",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/audi_models.py",
+      "master": "d6b45a1deec19c6e63251bbef8bb4e5bd6876605",
+      "dev": "c02252e54504e5c4fde3ed08e832eb5d3f7608cb",
+      "fork": "c02252e54504e5c4fde3ed08e832eb5d3f7608cb",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/audi_services.py",
+      "master": "4c870bec5f098b8cace5c15e2e9e79a31cbf932a",
+      "dev": "24438152f9e725c864f03f5b9f1cc4c5b1fc513c",
+      "fork": "c5bd61c437bc3ce71065821a95621bf3e4a156e2",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/binary_sensor.py",
+      "master": "9d2de563e454b98624846e3a02d80c357faeab81",
+      "dev": "9d2de563e454b98624846e3a02d80c357faeab81",
+      "fork": "9c89d24de6980a05a88909768098db37c9384dfc",
+      "classification": "fork_only_delta"
+    },
+    {
+      "path": "custom_components/audiconnect/button.py",
+      "master": "8574566ed7adbaf4063598b1c9c1b6eb25418d58",
+      "dev": "03343ae61476636602976b56407c9617a1e581a5",
+      "fork": "42e5ee69badff84bf7f9d8aa96b827a70dc55f74",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/capability_catalog.py",
+      "master": null,
+      "dev": "6f9f69edc3469610932e3c3da7f8cab39e3aa585",
+      "fork": "6f9f69edc3469610932e3c3da7f8cab39e3aa585",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/capability_jobs.py",
+      "master": null,
+      "dev": "6c0fda0654b7d8c09ca67984096d05398f08102d",
+      "fork": "6c0fda0654b7d8c09ca67984096d05398f08102d",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/climate.py",
+      "master": "07c95509a87bb2e11896f2cfc9a9bc28d47beb08",
+      "dev": "3aaa5e3921c27e394d053fc9189dfe25153bc8b6",
+      "fork": "978ad202f871a42074cfa7447c44cdaa47ef5ace",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/config_flow.py",
+      "master": "ec9a7e83149d15c91058ed6b6cdc0825a542a800",
+      "dev": "a53844c689bbca85f11f05c1f9a1727b0d828e54",
+      "fork": "1098bafa5dc95794d4aeceed6b8b0e22bc1d682e",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/const.py",
+      "master": "044c912ba16f0f725051e47df7d117f61d43ed6d",
+      "dev": "044c912ba16f0f725051e47df7d117f61d43ed6d",
+      "fork": "044c912ba16f0f725051e47df7d117f61d43ed6d",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/coordinator.py",
+      "master": "5a98a553ce6cdd0023a477dba91ddab12a0ffdf2",
+      "dev": "4ffe0233b1c868202c14608c45e131c0b6ffd601",
+      "fork": "4ffe0233b1c868202c14608c45e131c0b6ffd601",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/device_tracker.py",
+      "master": "de1d4ad342221543eab90b9c39c450d12f2910f5",
+      "dev": "d817fe9dcb4012dec5d600b7d31a6512146d3b97",
+      "fork": "ddc7974d11f5b61903c91cd899ed7a1defbabeb6",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/diagnostic_events.py",
+      "master": null,
+      "dev": "7d6b41f009b8de4266a67a901e24f4e66805c2fc",
+      "fork": "7d6b41f009b8de4266a67a901e24f4e66805c2fc",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/diagnostics.py",
+      "master": null,
+      "dev": "42b20a7edc1d7228089dc0209f29f2ce144c257f",
+      "fork": "3e51eb9c13a866baac002d20a2e4747055e6a5ab",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/freshness.py",
+      "master": null,
+      "dev": "113cf309fef6d478328ce94a6526cd44ed728cff",
+      "fork": "113cf309fef6d478328ce94a6526cd44ed728cff",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/local_extensions.py",
+      "master": null,
+      "dev": "a7ee8eb049e33ef6cddd3684f3d2aa2473e45463",
+      "fork": "a7ee8eb049e33ef6cddd3684f3d2aa2473e45463",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/lock.py",
+      "master": "41d787670a202d64dc73da012b32992b886384f0",
+      "dev": "f303eed817752e1b449df8694977d3026a73203c",
+      "fork": "6ed61d7d8709a0f47108c01626d144ad45d44e59",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/manifest.json",
+      "master": "e14c95959d9ec094693d93b45ecf9aa533d28f57",
+      "dev": "e14c95959d9ec094693d93b45ecf9aa533d28f57",
+      "fork": "76dc58f171e3b25e5a91495d27cb414e2e92b3cf",
+      "classification": "fork_only_delta"
+    },
+    {
+      "path": "custom_components/audiconnect/number.py",
+      "master": "922ae025cf16b9665b5a6d3a37885e90ef335dfd",
+      "dev": "922ae025cf16b9665b5a6d3a37885e90ef335dfd",
+      "fork": "3ace4077fe3613161a9f4e3e566cf4d4261bdda5",
+      "classification": "fork_only_delta"
+    },
+    {
+      "path": "custom_components/audiconnect/select.py",
+      "master": "d59788359a764e2dbddf273a4d16d1166012a93e",
+      "dev": "d59788359a764e2dbddf273a4d16d1166012a93e",
+      "fork": "5ae02e5d49ecf6a1f003d9a7a59384ea36c1e7f5",
+      "classification": "fork_only_delta"
+    },
+    {
+      "path": "custom_components/audiconnect/sensor.py",
+      "master": "f77f7355c0cba8a10785b068de8abf67c7ca3090",
+      "dev": "b8d0ada40cdbe4515ff8ac44e3bd3cae52004309",
+      "fork": "4a79c05a055961c068cf70e9908ec625aa540335",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/services.yaml",
+      "master": "11d13427c58c0e1afde8a423d18854c3ff72d2db",
+      "dev": "1c2629be225460d2b8ea2d2112ec9aa66957500e",
+      "fork": "af8b8108d26c06894d42c0f97cfa83049de02b6d",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/strings.json",
+      "master": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
+      "dev": "ee7cade4b7e3141848bb82a0ce70df5a40437801",
+      "fork": "a85d31dd139d744c90c57b48487708fd31912e37",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/switch.py",
+      "master": "d2cc282ad94d95f27c54ec9c3f03baa6fed037e6",
+      "dev": "bb1526ee262589bd946e0e655d89f204995e7367",
+      "fork": "9f6e8077717adc13ed3cdfa3b2c6baa257292c3e",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/system_health.py",
+      "master": "7d1dbd4ba9edc08d1bc7a6afc62ea2203fe9af55",
+      "dev": "7d1dbd4ba9edc08d1bc7a6afc62ea2203fe9af55",
+      "fork": "7d1dbd4ba9edc08d1bc7a6afc62ea2203fe9af55",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/de.json",
+      "master": "6da1ab626a1a69c0816352f594a544b051ecd8cf",
+      "dev": "5966797c9b391cb63a5304d095c6b7ae45148726",
+      "fork": "5f70b90b00115af10b4ec8033bd35c799aa3fc77",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/en.json",
+      "master": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
+      "dev": "ee7cade4b7e3141848bb82a0ce70df5a40437801",
+      "fork": "b14a36eccfbdb9b7d2f75c80e9ddb3cc56d15577",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/fi.json",
+      "master": "0f00aa81042896876b674fd96993b3a000e363f2",
+      "dev": "0f00aa81042896876b674fd96993b3a000e363f2",
+      "fork": "0f00aa81042896876b674fd96993b3a000e363f2",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/fr.json",
+      "master": "0a282e073671f34cea7d2002c5865b2a585a4855",
+      "dev": "0a282e073671f34cea7d2002c5865b2a585a4855",
+      "fork": "ca1f1a8df4f8400a5b7f9d4abfe5b732123299a6",
+      "classification": "fork_only_delta"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/nb.json",
+      "master": "256310fba66f9a08a97b26d09ba1ab4c93f7035c",
+      "dev": "256310fba66f9a08a97b26d09ba1ab4c93f7035c",
+      "fork": "256310fba66f9a08a97b26d09ba1ab4c93f7035c",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/nl.json",
+      "master": "9c5fb99514a82621a21600c05c60d1f5cd6a8f5a",
+      "dev": "125b1002d7779c52500131af5d1e1e80ced6a7f4",
+      "fork": "26cec9d765c7372649dfdbfcd931132efda429fe",
+      "classification": "divergent_requires_review"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/pt-BR.json",
+      "master": "9510edb7869e78e7bb63549c1f376a42e6e7dc88",
+      "dev": "9510edb7869e78e7bb63549c1f376a42e6e7dc88",
+      "fork": "9510edb7869e78e7bb63549c1f376a42e6e7dc88",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/translations/pt.json",
+      "master": "dab4b036fa9ab2a4eed88e0a4f1ca75d2f56732b",
+      "dev": "dab4b036fa9ab2a4eed88e0a4f1ca75d2f56732b",
+      "fork": "dab4b036fa9ab2a4eed88e0a4f1ca75d2f56732b",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/util.py",
+      "master": "36364bf53a7c8e2d335e1c86a5d092cc51e33945",
+      "dev": "36364bf53a7c8e2d335e1c86a5d092cc51e33945",
+      "fork": "36364bf53a7c8e2d335e1c86a5d092cc51e33945",
+      "classification": "identical_to_upstream_dev"
+    },
+    {
+      "path": "custom_components/audiconnect/vehicle_controls.py",
+      "master": null,
+      "dev": "5349b374beeffcbcc769ea8d6aab318849f50ddd",
+      "fork": "5349b374beeffcbcc769ea8d6aab318849f50ddd",
+      "classification": "identical_to_upstream_dev"
+    }
+  ]
+}

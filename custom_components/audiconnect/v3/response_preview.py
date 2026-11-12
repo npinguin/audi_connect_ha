@@ -63,7 +63,8 @@ _SCHEMA_TYPES = frozenset(("object", "array", "boolean", "integer", "number", "s
 
 
 def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: bool = False,
-                          field_limit: int = MAX_SCHEMA_FIELDS, char_limit: int = MAX_SCHEMA_CHARS) -> tuple[list[dict[str, str]], bool]:
+                          field_limit: int = MAX_SCHEMA_FIELDS, char_limit: int = MAX_SCHEMA_CHARS,
+                          secrets: tuple = ()) -> tuple[list[dict[str, str]], bool]:
     """Bounded structural inventory, with explicit sampling/truncation evidence."""
     from collections import deque
     from itertools import islice
@@ -104,7 +105,9 @@ def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: boo
             for key, child in islice(value.items(), 40):
                 if (not isinstance(key, str) or not _SCHEMA_KEY.fullmatch(key)
                         or (_SENSITIVE.search(key) and key != "windowLocation") or _VIN.search(key)
-                        or (vehicle_vin and vehicle_vin.lower() in key.lower())):
+                        or (vehicle_vin and vehicle_vin.lower() in key.lower())
+                        or any(isinstance(secret, str) and len(secret) >= 4
+                               and secret.casefold() in key.casefold() for secret in secrets)):
                     continue
                 queue.append((child, f"{path}.{key}" if path else key, depth + 1))
         elif isinstance(value, list) and path:
@@ -118,6 +121,31 @@ def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: boo
         result.pop()
         truncated = True
     return result, truncated
+
+
+def merge_schema_evidence(previous, fields, truncated, *, status, source, at):
+    """Bounded session union; latest empty/partial reply cannot erase known fields."""
+    import json
+    prior = previous or {}
+    rows = {(row["path"], row["type"]): row for row in prior.get("fields", [])}
+    union_truncated = bool(prior.get("union_truncated"))
+    for row in fields:
+        key = (row["path"], row["type"])
+        if key not in rows and len(rows) >= 512:
+            union_truncated = True
+            continue
+        if key not in rows or row["quality"] != "observed":
+            rows[key] = row
+    merged = list(rows.values())
+    while merged and len(json.dumps(merged, ensure_ascii=True)) > 64000:
+        merged.pop()
+        union_truncated = True
+    return {"fields": merged, "truncated": union_truncated or truncated,
+            "union_truncated": union_truncated,
+            "capture_truncated_seen": bool(prior.get("capture_truncated_seen")) or truncated,
+            "latest_capture_truncated": truncated, "latest_field_count": len(fields),
+            "http_status": status, "source": source, "observed_at": at,
+            "scope": "session_union_structural_only"}
 
 
 def safe_schema_fields(payload: Any, *, vehicle_vin: str = "") -> list[dict[str, str]]:

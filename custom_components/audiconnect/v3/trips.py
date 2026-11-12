@@ -245,7 +245,7 @@ CARIAD_TRIP_OPERATIONS = {
 
 def normalize_cariad_history(payload):
     """Normalize distinct completed trips; never combine cumulative long-term rows."""
-    rows = {}
+    rows = []
     for record in _records(payload):
         if record.get("error") is not None:
             continue
@@ -257,11 +257,11 @@ def normalize_cariad_history(payload):
         trip, _ = _normalize_record(stamp, record)
         if trip is None:
             continue
-        # Timestamp + odometer interval is sufficient for this local history.
-        # Keep no raw trip identifiers and never sum overlapping records.
-        key = (trip["timestamp"], trip["startMileage"], trip["overallMileage"])
-        rows[key] = trip
-    return sorted(rows.values(), key=lambda row: row["timestamp"], reverse=True)[:MAX_TRIP_HISTORY]
+        rows.append(trip)
+    # Use the same archive merge for duplicates within one response and across
+    # polls. A later incomplete duplicate must not erase an earlier metric.
+    from .trip_archive import merge_history
+    return merge_history(rows)
 
 
 def observe_cariad_trip(vehicle, operation, payload):

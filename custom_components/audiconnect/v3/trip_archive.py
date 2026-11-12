@@ -59,6 +59,27 @@ def merge_history(*groups):
             key = (row["timestamp"], row["startMileage"], row["overallMileage"])
             previous = records.get(key, {})
             records[key] = {**row, **previous, **{k: v for k, v in row.items() if v is not None}}
+    # A last-trip response may omit one odometer endpoint present in history.
+    # Merge only a unique compatible complete interval at the same timestamp.
+    # Never merge conflicting or ambiguous intervals, or infer missing mileage.
+    complete = {}
+    for key in records:
+        if key[1] is not None and key[2] is not None:
+            complete.setdefault(key[0], []).append(key)
+    for key, partial in list(records.items()):
+        stamp, start, end = key
+        if (start is None) == (end is None):
+            continue
+        matches = [candidate for candidate in complete.get(stamp, ())
+                   if (start is None or candidate[1] == start)
+                   and (end is None or candidate[2] == end)
+                   and (partial["mileage"] is None or records[candidate]["mileage"] is None
+                        or partial["mileage"] == records[candidate]["mileage"])]
+        if len(matches) == 1:
+            target = matches[0]
+            # Complete record wins conflicts; partial adds missing metrics only.
+            records[target] = {**partial, **{k: v for k, v in records[target].items() if v is not None}}
+            del records[key]
     return sorted(records.values(), key=lambda row: row["timestamp"], reverse=True)[:MAX_TRIP_HISTORY]
 
 
