@@ -46,11 +46,9 @@ class AudiConnectV3Panel extends HTMLElement {
     this.entries = [];
     this.selected = "";
     this.vin = "";
-    this.aspect = "status";
     this.step = 1;
     this.category = "charging";
     this.attribute = "";
-    this.controlTarget = "climate";
     this.controlCapability = "";
     this.controlAction = "";
     this.controlRoutes = [];
@@ -73,8 +71,6 @@ class AudiConnectV3Panel extends HTMLElement {
     this.readChoice = "";
     this.readDraft = "";
     this.readActive = "";
-    this.routeChoice = "";
-    this.routes = [];
     this.capabilityStatus = {counts: {}, rows: []};
     this.pending = null;
     this.lastResult = null;
@@ -121,7 +117,6 @@ class AudiConnectV3Panel extends HTMLElement {
       if (!group?.vehicles.some((v) => v.vin === this.vin)) {
         this.vin = group?.vehicles[0]?.vin || "";
       }
-      await this._routes();
       await this._loadCapabilityStatus();
       await this._readRoutes();
       await this._controlRoutes();
@@ -137,6 +132,7 @@ class AudiConnectV3Panel extends HTMLElement {
   async _loadCapabilityStatus() {
     if (!this.selected || !this.vin) {
       this.capabilityStatus = {counts: {}, rows: []};
+      this.pending = null;
       return;
     }
     this.capabilityStatus = await this.api("status", this.selection);
@@ -179,27 +175,6 @@ class AudiConnectV3Panel extends HTMLElement {
     this.pending = value.pending || null;
   }
 
-  async _routes() {
-    if (!this.selected || !this.vin) {
-      this.routes = []; this.pending = null; return;
-    }
-    const data = await this.api("routes", {
-      ...this.selection, aspect: this.aspect
-    });
-    this.routes = data.routes || [];
-    this.routeChoice = (
-      data.draft_candidate && this.routes.some((r) => r.id === data.draft_candidate)
-        ? data.draft_candidate
-        : this.routes.find((r) => r.selected)?.id || this.routes[0]?.id || ""
-    );
-    this.disabled = data.disabled;
-    const waiting = (data.history || []).filter((a) =>
-      a.result === "uncertain_pending_review" ||
-      a.result === "awaiting_user_feedback"
-    );
-    this.pending = waiting.at(-1) || null;
-  }
-
   async _change(e) {
     if (this.loading) return;
     if (e.target.id === "entry") {
@@ -208,29 +183,11 @@ class AudiConnectV3Panel extends HTMLElement {
     } else if (e.target.id === "vehicle") {
       this.vin = e.target.value; this._resetVehicleSelection();
       await this._load();
-    } else if (e.target.id === "aspect") {
-      this.aspect = e.target.value;
-      this.routeChoice = "";
-      this.error = ""; await this._reloadRoutes();
-    } else if (e.target.id === "route") {
-      this.routeChoice = e.target.value;
-      // Keep edited parameters and JSON definitions in place.
     } else if (e.target.id === "category") {
       this.category = e.target.value;
       this.attribute = "";
       this.controlAction = "";
       this.readRoutes = [];
-      this.render();
-    } else if (e.target.id === "attribute") {
-      this.attribute = e.target.value;
-      this.controlAction = "";
-      this.step = 3;
-      await this._readRoutes();
-      this.render();
-    } else if (e.target.id === "control-target") {
-      this.controlTarget = e.target.value;
-      this.attribute = "";
-      this.step = 3;
       this.render();
     } else if (e.target.id === "read-route") {
       this.readChoice = e.target.value;
@@ -268,22 +225,9 @@ class AudiConnectV3Panel extends HTMLElement {
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
-    this.apiHistory = []; this.engineeringHistory = []; this.capabilityStatus = {counts:{},rows:[]}; this.routeChoice = "";
+    this.apiHistory = []; this.engineeringHistory = []; this.capabilityStatus = {counts:{},rows:[]};
     this.step = 1; this.apiFamily = "vehicle"; this.functionMode = "all"; this.discoveryGroup = "read_only";
     this.focusOperation = ""; this.operationFilter = "all"; this.operationMethod = "all";
-  }
-
-  async _reloadRoutes() {
-    try {
-      await this._routes();
-      await this._loadCapabilityStatus();
-      await this._readRoutes();
-      await this._controlRoutes();
-      this.error = "";
-    } catch (err) {
-      this.error = String(err.message || err);
-    }
-    this.render();
   }
 
   identityTemplate(operation) {
@@ -413,15 +357,10 @@ class AudiConnectV3Panel extends HTMLElement {
     const approved = this.shadowRoot.getElementById("control-approval")?.checked === true;
     const approvalGroup = this.controlRoutes.find(r=>r.id===controlRoute)?.approval_group;
     const controlTemplate = this.initialControlRoute;
-    const route = this.shadowRoot.getElementById("route")?.value;
-    // Capture edits BEFORE re-render: otherwise the textarea is reset and a
-    // custom request silently loses its parameters or entire definition.
-    const rawParameters = this.shadowRoot.getElementById("parameters")?.value || "{}";
     if (action === "identity-submit" || action === "identity-save") {
       this.identityQuery = this.shadowRoot.getElementById("identity-query")?.value || "";
       this.identityVariables = this.shadowRoot.getElementById("identity-variables")?.value || "{}";
     }
-    const rawDefinition = this.shadowRoot.getElementById("definition")?.value || "";
     this.loading = true; this.error = ""; this.render();
     try {
       if (action === "refresh") {
@@ -431,26 +370,6 @@ class AudiConnectV3Panel extends HTMLElement {
         const command = this.unresolvedCommands().find(row=>row.command_id===button.dataset.command);
         if (!command) throw new Error("No unresolved command");
         this.lastResult = await this.api("review_normal_command", {...this.selection, command_id: command.command_id});
-      } else if (action === "test") {
-        let parameters = {};
-        parameters = JSON.parse(rawParameters);
-        if (this.aspect !== "status") throw new Error("Use the explicit control discovery workflow");
-        this.lastResult = await this.api("test", {
-          ...this.selection, aspect: this.aspect,
-          operation: route, parameters
-        });
-      } else if (action === "save") {
-        this.lastResult = await this.api("save_candidate", {
-          ...this.selection, aspect: this.aspect, operation: route
-        });
-      } else if (action === "select") {
-        this.lastResult = await this.api("select", {
-          ...this.selection, aspect: this.aspect, operation: route
-        });
-      } else if (action === "disable") {
-        this.lastResult = await this.api("disable", {
-          ...this.selection, aspect: this.aspect
-        });
       } else if (action === "identity-save") {
         this.lastResult = await this.api("save_identity_draft", {...this.selection, operation:this.identityOperation,
           query:this.identityQuery, variables:JSON.parse(this.identityVariables)});
@@ -523,11 +442,6 @@ class AudiConnectV3Panel extends HTMLElement {
             this.lastResult = await this.api("attribute_test", {...this.selection, attribute:this.attribute, operation:saved});
           }
         }
-      } else if (action === "add") {
-        const candidate = JSON.parse(rawDefinition);
-        this.lastResult = await this.api("add_route", {
-          ...this.selection, route: candidate
-        });
       } else if (action.startsWith("confirm-")) {
         if (!this.pending) throw new Error("No open action to review");
         const result = action.slice("confirm-".length);
@@ -535,11 +449,10 @@ class AudiConnectV3Panel extends HTMLElement {
           ...this.selection, sequence: this.pending.sequence, result
         });
       }
-      await this._routes();
       await this._loadCapabilityStatus();
       await this._readRoutes();
       await this._controlRoutes();
-      if (["test","read-test","control-test","family-test","family-full-test","identity-submit"].includes(action)) {
+      if (["read-test","control-test","family-test","family-full-test","identity-submit"].includes(action)) {
         await this._apiResults();
         if(action==="read-test" && this.readRoutes.some(r=>r.id===readRoute)) this.readChoice=readRoute;
         if(action==="control-test" && this.controlRoutes.some(r=>r.id===controlRoute)) this.controlChoice=controlRoute;
@@ -558,22 +471,6 @@ class AudiConnectV3Panel extends HTMLElement {
       this.loading = false;
       this.render();
     }
-  }
-
-  get initialRoute() {
-    const id = "user.climate." + this.aspect + ".new_variant";
-    return JSON.stringify({
-      id, capability: "climate", aspect: this.aspect,
-      family: "cariad",
-      method: this.aspect === "status" ? "GET" : "POST",
-      path: this.aspect === "status" ?
-        "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=climatisation" :
-        "/vehicle/v1/vehicles/{VIN}/climatisation/" + this.aspect,
-      variables: {}, body: null,
-      response_paths: this.aspect === "status" ?
-        ["climatisation.climatisationStatus.value.climatisationState"] : [],
-      description: "Experimental route"
-    }, null, 2);
   }
 
   definitionKey(id, template) {
@@ -709,11 +606,6 @@ class AudiConnectV3Panel extends HTMLElement {
   render() {
     const item = this.entries.find((entry) => entry.entry_id === this.selected);
     const car = item?.vehicles?.find((v) => v.vin === this.vin);
-    const selectedRoute = this.routes.some((r) => r.id === this.routeChoice)
-      ? this.routeChoice : this.routes.find((r) => r.selected)?.id || this.routes[0]?.id || "";
-    const routeVerified = this.routes.some((r) =>
-      r.id === selectedRoute && r.outcome === "worked"
-    );
     const status = car?.climate_state ?? "unknown";
     const coverage = this.capabilityStatus || {counts: {}, rows: []};
     const counts = coverage.counts || {};

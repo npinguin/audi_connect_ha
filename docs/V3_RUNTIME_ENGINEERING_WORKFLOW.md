@@ -114,3 +114,7 @@ Charging and climate settings updates now share a single reviewed read/validate/
 ## Cleanup slice 9 — declarative parameterized charge-mode operation
 
 The reviewed charge-mode PUT now declares its enum, binding and body in the existing operation catalog and uses the common renderer. Its code-specific payload branch is removed. Reviewed PUT aliases inherit the exact original template, not editable replacement bodies; existing custom input restrictions remain. Operation revisions change when definitions change, so prior local physical evidence is not automatically transferred.
+
+## Cleanup slice 10 — remove obsolete climate-pilot frontend workflow
+
+Removed the unused climate-only route wizard, hidden action handlers and redundant `routes` WebSocket call from the frontend. Current attribute, control and identity workflows remain. The four views are retained, and pending action state is obtained from the current status/selected control endpoints. Existing backend compatibility endpoints are not removed in this slice. Tests exercise the actual read candidate workflow rather than unreachable pilot UI.
