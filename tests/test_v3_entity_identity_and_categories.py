@@ -187,3 +187,36 @@ def test_b10_electric_sources_resolve_by_role_and_capture():
                        "secondaryEngineRangePercent": {"value": 100, "captured": "2026-11-12T10:00:00Z"}})
     assert engine_role(car, "primary") == "electric"
     assert projection_reading(car, ATTRIBUTES["stateOfCharge"])[1]["value"] == 77
+
+def test_b10_registry_migration_preserves_user_choices_and_restores_owned_changes(monkeypatch):
+    MemoryStore.state = {}
+    vin = "wauzzz4m0md123456"
+    car = NS(inventory_present=True, readings={})
+    engine = NS(vehicles={vin: car})
+    from homeassistant.const import EntityCategory
+    def row(suffix, category=None, hidden=None, disabled=None):
+        return NS(entity_id=suffix, unique_id=vin+"_"+suffix,
+                  entity_category=category, hidden_by=hidden, disabled_by=disabled)
+    door = row("binary_sensor_left_front_door_open", EntityCategory.DIAGNOSTIC)
+    quick = row("switch_climate_quick_control")
+    user = row("sensor_climatisation_state", hidden=er.RegistryEntryHider.USER)
+    disabled = row("sensor_hybrid_range", disabled=er.RegistryEntryDisabler.USER)
+    entries = {x.entity_id:x for x in (door,quick,user,disabled)}
+    def update(entity_id, **changes):
+        for key,value in changes.items():
+            setattr(entries[entity_id],key,value)
+    registry = NS(async_get=entries.get, async_update_entity=update)
+    monkeypatch.setattr(lifecycle,"Store",MemoryStore)
+    monkeypatch.setattr(lifecycle.er,"async_get",lambda _:registry)
+    monkeypatch.setattr(lifecycle.er,"async_entries_for_config_entry",lambda *_:list(entries.values()))
+    entry=NS(entry_id="abc",runtime_data=NS(v3=engine))
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,True))
+    assert door.entity_category is None
+    assert quick.hidden_by == er.RegistryEntryHider.INTEGRATION
+    assert user.hidden_by == er.RegistryEntryHider.USER
+    assert disabled.disabled_by == er.RegistryEntryDisabler.USER
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,False))
+    assert door.entity_category == EntityCategory.DIAGNOSTIC
+    assert quick.hidden_by is None
+    assert user.hidden_by == er.RegistryEntryHider.USER
+    assert disabled.disabled_by == er.RegistryEntryDisabler.USER

@@ -1,4 +1,4 @@
-"""Compare actual V2 descriptions to the V3 HA entity projection."""
+"""Protect V2 identity/device class while validating independent V3 presentation."""
 from types import SimpleNamespace
 
 from custom_components.audiconnect.binary_sensor import BINARY_SENSOR_DESCRIPTIONS
@@ -7,7 +7,7 @@ from custom_components.audiconnect.v3.entities import V3ReadOnlyBinarySensor
 from custom_components.audiconnect.v3.vehicle import V3Vehicle
 
 
-def test_all_v2_binary_sensor_metadata_matches_independent_v3_projection():
+def test_binary_identity_and_device_class_parity_with_v3_product_presentation():
     car = V3Vehicle("WAUZZZ4M0MD123456", "Audi", "Q8", "q8", "DE")
     coordinator = SimpleNamespace(async_add_listener=lambda callback: None)
     assert set(binary_contracts()) == {d.key for d in BINARY_SENSOR_DESCRIPTIONS}
@@ -20,3 +20,14 @@ def test_all_v2_binary_sensor_metadata_matches_independent_v3_projection():
         assert entity.device_class == description.device_class
         assert entity.entity_category is None
         assert entity.icon == contract["icon"]
+
+def test_vehicle_binary_properties_are_not_integration_diagnostics():
+    contracts = binary_contracts()
+    for side in ("left", "right"):
+        for position in ("front", "rear"):
+            for part in ("door", "window"):
+                key = f"{side}_{position}_{part}_open"
+                assert key in contracts
+                assert contracts[key].get("category") is None
+    for key in ("oil_level_binary", "parking_light", "is_moving"):
+        assert contracts[key].get("category") is None

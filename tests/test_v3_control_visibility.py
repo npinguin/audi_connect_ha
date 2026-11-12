@@ -23,3 +23,32 @@ def test_registry_never_hides_v2_entities_to_gate_v3_controls():
     assert "registry.async_update_entity(entity_id, disabled_by=None)" in src
     assert "retired_pilot_entity(unique_id) or duplicate_refresh" in src
     # Exact migration behaviour is exercised in test_v3_entity_identity_and_categories.
+
+def test_native_charging_settings_require_vehicle_read_and_write_evidence():
+    from types import SimpleNamespace as NS
+    from custom_components.audiconnect.v3.ha_platforms import setup
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+
+    car = V3Vehicle("WAUZZZ4M0MD123456", "Audi", "Q8", "q8", "DE")
+    allowed, listeners, offered = set(), [], []
+    engine = NS(vehicles={car.vin.lower(): car}, profiles={},
+                control_enabled=lambda vin, action, *args: action in allowed)
+    coordinator = NS(engine=engine, async_add_listener=lambda cb: listeners.append(cb))
+    entry = NS(entry_id="entry", runtime_data=NS(v3=engine, coordinator=coordinator),
+               async_on_unload=lambda cb: None)
+    setup("number", entry, offered.extend)
+    setup("select", entry, offered.extend)
+    assert not offered
+    allowed.update(("set_target_soc", "set_charge_mode"))
+    for cb in listeners:
+        cb()
+    assert not offered
+    car.readings.update(targetstateOfCharge={"value": 80},
+                        availableChargeModes={"value": ["manual"]})
+    for cb in listeners:
+        cb()
+    assert {e.unique_id for e in offered} == {
+        car.vin.lower() + "_number_target_state_of_charge",
+        car.vin.lower() + "_select_charge_mode",
+    }
+    assert all(e.entity_category.value == "config" for e in offered)

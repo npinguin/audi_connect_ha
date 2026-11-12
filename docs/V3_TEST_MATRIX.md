@@ -91,3 +91,11 @@ Static code-complete parity before beta publication; physical vehicle and rollba
 ### Explicit b8 experimental test exception
 
 One supervised HACS prerelease is authorized before static parity completion. This does not mark any acceptance row passed, change the standard code-complete beta policy, or permit stable publication. See b8 release notes and the version-bound authorization record.
+
+## b10+ test governance — current product contracts override historical presentation
+
+- Historical V2 inventory is an identity and rollback baseline, not an oracle for V3 categories, icons, visibility or duplicated functionality.
+- Test product behaviour through HA platform projection, native entity properties, registry migration and public command/status boundaries. Source-text checks are reserved for architectural/packaging boundaries, not business behaviour.
+- A changed requirement requires explicit contract and test updates together. Never change expected results merely to match a failing implementation. Preserve negative cases and add an independent behavioural assertion.
+- For entity rationalisation, require no evidence/no entity, invalid type/no numeric entity, valid zero, repeat-discovery deduplication, read/write gating, vehicle category, user registry overrides and reversible migration. Actual HA installation and rollback remain separate live acceptance.
+- The b10 release candidate failure (826 passed, two failed) is recorded in its notes. Subsequent test-only improvements are independently validated; an immutable published release is never rewritten.
