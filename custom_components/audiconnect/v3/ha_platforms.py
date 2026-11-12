@@ -15,6 +15,7 @@ from .entities import (
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
     V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
     V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor, V3OperationalSwitch, V3ModelSensor,
+    V3HealthSensor, V3IntegrationProblem, V3AccessSummary,
 )
 from .custom_attributes import attributes_for
 from .attribute_contracts import semantic_value_issue
@@ -58,12 +59,18 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 # Manufacturer identity is universal, even when the OEM label
                 # is temporarily absent. Preserve the existing model entity ID.
                 add_once(f"{vin}:model", V3ModelSensor)
+                for kind in ("integration_status", "last_error"):
+                    add_once(f"{vin}:health:{kind}", V3HealthSensor, kind)
+                for kind in ("door", "window"):
+                    add_once(f"{vin}:access:{kind}", V3AccessSummary, kind)
                 for kind in CORE_STATUS_KINDS:
                     add_once(f"{vin}:core:{kind}", V3StatusSensor, kind)
                 for kind in ("local_dealer", "service_overview"):
                     add_once(f"{vin}:local:{kind}", V3LocalServiceSensor, kind)
                 if "account:quota" not in seen:
                     add_once("account:quota", V3ApiQuotaSensor, entry.entry_id)
+            elif platform == "binary_sensor":
+                add_once(f"{vin}:health:problem", V3IntegrationProblem)
             elif platform == "climate":
                 if car.climate_state is not None or any(engine.control_enabled(car.vin, action)
                     for action in ("start", "stop", "start_with_settings")):

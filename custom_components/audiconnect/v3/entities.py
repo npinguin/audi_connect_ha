@@ -273,6 +273,87 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         self.async_write_ha_state()
 
 
+class V3HealthSensor(V3BaseEntity, SensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, vehicle, kind):
+        super().__init__(coordinator, vehicle)
+        self.kind = kind
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{kind}"
+        self._attr_name = canonical_entity_name("sensor." + kind)
+
+    @property
+    def available(self):
+        return True
+
+    @property
+    def device_class(self):
+        return SensorDeviceClass.ENUM if self.kind == "integration_status" else None
+
+    @property
+    def options(self):
+        from .integration_health import HEALTH_STATES
+        return HEALTH_STATES if self.kind == "integration_status" else None
+
+    def _health(self):
+        return self.coordinator.engine.health.snapshot(self.coordinator.engine, self.vehicle)
+
+    @property
+    def native_value(self):
+        data = self._health()
+        if self.kind == "integration_status":
+            return data["status"]
+        return data["poll_error"] or (data["last_error"] or {}).get("code") or "none"
+
+    @property
+    def extra_state_attributes(self):
+        return self._health()
+
+
+class V3IntegrationProblem(V3BaseEntity, BinarySensorEntity):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_name = canonical_entity_name("binary_sensor.integration_problem")
+
+    def __init__(self, coordinator, vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_binary_sensor_integration_problem"
+
+    @property
+    def available(self):
+        return True
+
+    @property
+    def is_on(self):
+        return self.coordinator.engine.health.snapshot(self.coordinator.engine, self.vehicle)["problem"]
+
+
+class V3AccessSummary(V3BaseEntity, SensorEntity):
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["open", "closed", "stale", "unknown_data"]
+
+    def __init__(self, coordinator, vehicle, kind):
+        super().__init__(coordinator, vehicle)
+        self.kind = kind
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{kind}_status"
+        self._attr_name = canonical_entity_name("sensor." + kind + "_status")
+
+    @property
+    def available(self):
+        return getattr(self.vehicle, "inventory_present", True)
+
+    @property
+    def native_value(self):
+        from .access_summary import access_summary
+        state, _ = access_summary(self.vehicle, self.kind)
+        return "unknown_data" if state == "unknown" else state
+
+    @property
+    def extra_state_attributes(self):
+        from .access_summary import access_summary
+        return access_summary(self.vehicle, self.kind)[1]
+
+
 class V3StatusSensor(V3BaseEntity, SensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -982,6 +1063,8 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
                 "model_family": self.vehicle.model_family or None,
                 "model_year": self.vehicle.model_year or None,
                 "model_source": self.vehicle.model_source or None,
+                "identity_restored": self.vehicle.identity_restored,
+                "identity_observed_at": self.vehicle.identity_observed_at,
                 "vehicle_image_url": self.vehicle.image_url,
                 "vehicle_image_status": self.vehicle.image_status,
                 "vehicle_type": identity["value"],

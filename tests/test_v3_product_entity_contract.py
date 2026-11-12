@@ -45,6 +45,8 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
         "sensor.shortterm_trip_zero_emission_distance",
         "sensor.longterm_trip_zero_emission_distance",
         "sensor.trip_history",
+        "sensor.integration_status", "sensor.last_error", "binary_sensor.integration_problem",
+        "sensor.door_status", "sensor.window_status",
     }
     assert all("sensor."+key not in historical for key in inventory["retired_v3_sensors"])
     for key in inventory["retired_v3_sensors"]:
@@ -112,6 +114,7 @@ def test_product_diagnostic_allowlist_is_explicit_and_vehicle_properties_are_not
     assert {k for k in keys if canonical_entity_category(k) == "diagnostic"} == {
         "sensor.discovery_coverage", "sensor.api_requests_remaining", "sensor.cloud_last_successful_poll",
         "sensor.vehicle_data_age", "sensor.vehicle_data_freshness", "button.v3_refresh_cloud",
+        "sensor.integration_status", "sensor.last_error", "binary_sensor.integration_problem",
     }
     assert canonical_entity_category("device_tracker.position") is None
     assert canonical_entity_category("button.refresh_vehicle_data") is None

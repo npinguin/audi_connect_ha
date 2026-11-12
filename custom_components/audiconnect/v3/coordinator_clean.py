@@ -41,8 +41,14 @@ class V3CleanCoordinator(DataUpdateCoordinator[list[V3Vehicle]]):
             vehicles = await self.engine.poll()
             if self.engine.last_cloud_poll_succeeded is False:
                 raise UpdateFailed("Audi cloud returned no successful status response")
+            self.engine.health.poll_error = None
             return vehicles
         except ConfigEntryAuthFailed:
+            self.engine.health.poll_error = "authentication_required"
+            raise
+        except UpdateFailed:
+            self.engine.health.poll_error = "cloud_unavailable"
             raise
         except Exception as err:
+            self.engine.health.poll_error = "cloud_unavailable" if isinstance(err, (OSError, TimeoutError)) else "error"
             raise UpdateFailed(str(err)) from err

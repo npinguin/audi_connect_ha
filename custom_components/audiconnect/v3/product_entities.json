@@ -1398,6 +1398,49 @@
       "freshness": "native_entity_contract",
       "category": "diagnostic",
       "name": "Discovery coverage"
+    },
+    "sensor.integration_status": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "name": "Integration status",
+      "category": "diagnostic"
+    },
+    "sensor.last_error": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "name": "Last error",
+      "category": "diagnostic"
+    },
+    "binary_sensor.integration_problem": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "name": "Integration problem",
+      "category": "diagnostic"
+    },
+    "sensor.door_status": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "name": "Door status"
+    },
+    "sensor.window_status": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "name": "Window status"
     }
   },
   "retired_v3_sensors": [

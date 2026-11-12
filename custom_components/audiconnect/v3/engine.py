@@ -79,6 +79,8 @@ class V3Engine:
         self._known_vehicle_inventory = False
         self._image_probe_attempted = False
         self._image_probe_count = 0
+        from .integration_health import IntegrationHealth
+        self.health = IntegrationHealth()
         self.cloud_refresh_vin: str | None = None
         self.projected_entities: dict[str, set[str]] = {}
         self.commands = CommandEngine(
@@ -314,6 +316,7 @@ class V3Engine:
     def _api_record(self, profile: DevelopmentProfile, operation: str,
                     family: str, method: str, response: V3Response | None,
                     vin: str) -> None:
+        self.health.observe(vin.lower(), operation, method, response, self.registry.operations)
         detail = None
         request = None
         if response is not None:
@@ -893,6 +896,7 @@ class V3Engine:
                                       "model_year_present": bool(car.model_year),
                                       "drive_type_present": bool(car.car_type),
                                       "powertrain": powertrain_identity(car)},
+                "integration_health": self.health.snapshot(self, car),
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
                 "discovery_progress": self.discovery_progress(car, p) if p else {},

@@ -2559,6 +2559,46 @@
       "category": "diagnostic",
       "scope": "vehicle",
       "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.integration_status",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_error",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.integration_problem",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.door_status",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.window_status",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
     }
   ],
   "observed_b12_fields": [

@@ -118,6 +118,8 @@ def entity_availability_reason(engine, uid, key, status, state_present):
     """Bounded evidence for unavailable entities; no private values or IDs."""
     if status == "projected":
         return "available"
+    if status == "projected_unknown":
+        return "state_unknown"
     if status == "disabled":
         return "registry_disabled"
     if status == "registered_not_projected":
@@ -129,6 +131,10 @@ def entity_availability_reason(engine, uid, key, status, state_present):
         return "runtime_state_unavailable"
     if not getattr(car, "inventory_present", True):
         return "vehicle_not_in_inventory"
+    if key == "sensor.model" and not car.model:
+        return "manufacturer_identity_missing"
+    if getattr(engine, "last_cloud_poll_succeeded", None) is False:
+        return "cloud_poll_failed"
     if key in ("button.flash_lights", "device_tracker.position", "sensor.park_time",
                "sensor.position_last_updated") and car.position is None:
         return "parking_position_missing"
@@ -182,9 +188,11 @@ def entity_projection_report(engine):
         offered = uid in projected
         state = engine.hass.states.get(entry.entity_id)
         state_present = state is not None
-        unavailable = state_present and state.state in ("unavailable", "unknown")
+        unavailable = state_present and state.state == "unavailable"
+        unknown = state_present and state.state == "unknown" and platform != "button"
         disabled = entry.disabled_by
         status = ("disabled" if disabled is not None else
+                  "projected_unknown" if offered and unknown else
                   "projected" if offered and state_present and not unavailable else
                   "projected_unavailable" if offered else
                   "registered_not_projected")
