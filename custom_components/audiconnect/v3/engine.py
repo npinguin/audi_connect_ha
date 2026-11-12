@@ -300,6 +300,18 @@ class V3Engine:
             at=response.observed_at if response else None,
         )
         save_record(profile, operation, record)
+        # Share structural evidence per reviewed job, not private response values.
+        if response is not None and detail is not None and isinstance(detail["payload"], dict):
+            from .response_preview import safe_schema_inventory
+            payload = detail["payload"]
+            groups = {job: {job: payload[job]} for job in V2_JOBS if job in payload} if method == "GET" else {}
+            if operation == INVENTORY_OPERATION:
+                groups = {"inventory": payload}
+            for job, data in groups.items():
+                fields, truncated = safe_schema_inventory(data, vehicle_vin=vin, all_items=True)
+                profile.job_schema[job] = {"fields": fields,
+                    "truncated": truncated or bool(detail.get("truncated")),
+                    "http_status": record["http_status"], "source": operation if operation in self.registry.operations or operation == INVENTORY_OPERATION else "reviewed_read"}
         profile.engineering_responses.pop(operation, None)
         if detail is not None:
             profile.engineering_responses[operation] = {
@@ -816,6 +828,7 @@ class V3Engine:
                                       "drive_type_present": bool(car.car_type),
                                       "powertrain": powertrain_identity(car)},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
+                "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
                 "climate": {
                     "readable": car.climate_state is not None,
                     "capture_age_minutes": car.capture_age_minutes,
