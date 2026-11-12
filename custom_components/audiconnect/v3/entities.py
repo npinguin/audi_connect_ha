@@ -279,12 +279,14 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
             "cloud": "cloud_last_successful_poll",
             "age": "vehicle_data_age",
             "freshness": "vehicle_data_freshness",
+            "discovery": "discovery_coverage",
         }
         self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{identifiers[kind]}"
         self._attr_name = {
             "cloud": canonical_entity_name("sensor.cloud_last_successful_poll"),
             "age": canonical_entity_name("sensor.vehicle_data_age"),
             "freshness": canonical_entity_name("sensor.vehicle_data_freshness"),
+            "discovery": canonical_entity_name("sensor.discovery_coverage"),
         }[kind]
 
     @property
@@ -299,6 +301,12 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
     @property
     def state_class(self):
         return SensorStateClass.MEASUREMENT if self.kind == "age" else None
+
+    def _discovery_progress(self):
+        from .read_discovery import user_progress
+        engine = self.coordinator.engine
+        profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
+        return user_progress(self.vehicle, profile, engine.auth) if profile is not None else {}
 
     def _vehicle_age(self):
         from .freshness import capture_coverage
@@ -322,7 +330,7 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
 
     @property
     def native_unit_of_measurement(self):
-        return UnitOfTime.MINUTES if self.kind == "age" else None
+        return UnitOfTime.MINUTES if self.kind == "age" else PERCENTAGE if self.kind == "discovery" else None
 
     @property
     def available(self) -> bool:
@@ -330,6 +338,8 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
 
     @property
     def native_value(self):
+        if self.kind == "discovery":
+            return self._discovery_progress().get("read_assessment_percent")
         if self.kind == "cloud":
             return self.coordinator.engine.last_cloud_poll_success
         if self.kind in ("age", "freshness"):
@@ -342,6 +352,8 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         engine = self.coordinator.engine
+        if self.kind == "discovery":
+            return self._discovery_progress()
         if self.kind == "freshness":
             from .freshness import capture_coverage
             last = self.vehicle.readings.get("last_update_time", {}).get("value")
@@ -358,6 +370,7 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
                                                         self.coordinator.last_update_success),
                 "freshness_basis": "oldest_observed_job_capture_not_unobserved_support",
                 "job_capture_coverage": capture_coverage(self.vehicle),
+                "discovery": self._discovery_progress(),
             }
         if self.kind == "cloud":
             return {
