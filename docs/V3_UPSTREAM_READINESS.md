@@ -1,18 +1,18 @@
 # V3 upstream readiness — release and PR acceptance
 
-**Decision: NO-GO for upstream release and next HACS beta.** Development branch: `feature/v3-clean-discovery`. Internal [draft PR #22](https://github.com/npinguin/audi_connect_ha/pull/22) targets `main`; it is not an upstream release PR. Published b12 stays immutable. The machine-readable [completeness gate](../governance/V3_COMPLETENESS_GATE.json) remains authoritative; this document describes the work and evidence needed, not a gate override.
+**Decision: NO-GO for upstream release and normal completeness-qualified HACS release. One-time b13 experimental evidence-acquisition prerelease explicitly authorized.** Development branch: `feature/v3-clean-discovery`. Internal [draft PR #22](https://github.com/npinguin/audi_connect_ha/pull/22) targets `main`; it is not an upstream release PR. Published b12 stays immutable; b13 must pass exact-SHA CI and the [version-specific authorization](../governance/B13_EXPERIMENTAL_TEST_RELEASE.json). The machine-readable [completeness gate](../governance/V3_COMPLETENESS_GATE.json) remains authoritative; this document describes the work and evidence needed, not a gate override.
 
 ## 1. What the upstream community gets
 
 V3 adds a capability-driven multi-generation Audi API runtime, native HA projection, improved freshness and guarded command execution, plus an optional Engineering Dashboard. Users connect and use eligible known capabilities; explorers discover gaps; engineers configure, test and locally activate supported routes, then contribute reusable evidence. See [community how-to](V3_COMMUNITY_HOWTO.md) and [proposed upstream README](V3_UPSTREAM_README.md).
 
-Development after b12 includes a bounded private trip archive, complementary telemetry and structured details, native charging/window-heating switches, automatic reviewed read discovery and command/wake fixes. These are candidate changes, not a released or physically certified feature list.
+Development after b12 includes a bounded private trip archive, complementary telemetry and structured details, native charging/window-heating switches, automatic reviewed read discovery and command/wake fixes. These are b13 candidate changes, not a physically certified feature list.
 
 ## 2. Remaining blockers — gate snapshot
 
 At review on 2026-11-12: eight items closed at the recorded implementation/test level, seven implemented pending validation and one open live acceptance item. Closed implementation gates do not establish physical acceptance. [Recorded CI run](https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194) supports the closure evidence in the gate; it is not proof of the latest PR head.
 
-| Gate ID | Remaining work / exit evidence | Next HACS | Upstream |
+| Gate ID | Remaining work / exit evidence | Normal HACS completeness | Upstream |
 | --- | --- | --- | --- |
 | identity | Capture real localized manufacturer model/inventory and independent powertrain evidence; confirm no guessed labels, stable identity on missing inventory | Blocked | Blocked |
 | trip_durable_history | Validate actual OEM endpoint coverage, overlapping/unsorted trips, deduplication, retention and restart; document limits of backfill; no lifetime-history claim | Blocked | Blocked |
@@ -47,7 +47,7 @@ The [test matrix](V3_TEST_MATRIX.md), [architecture closure](V3_ARCHITECTURE_CLO
 ## 4. Proposed delivery sequence (not release authorization)
 
 1. **Internal draft PR #22:** retain draft/NO-GO while completing implementation/evidence and exact-head CI; no merge or publication from this document.
-2. **Next immutable HACS test candidate:** only after the completeness gate permits it, with explicit scope, exact-SHA validation, versioned release artifacts and a documented physical acceptance plan. Keep V2 default/fallback until separately approved. The present gate also requires fresh target evidence before this step; use authorized development testing rather than bypassing the gate.
+2. **Next immutable HACS test candidate:** only after the completeness gate permits it, with explicit scope, exact-SHA validation, versioned release artifacts and a documented physical acceptance plan. Keep V2 default/fallback until separately approved. The normal gate requires fresh target evidence. The sole b13 exception is explicitly authorized to acquire that evidence on the improved build; no gate is marked closed and no further exception is implied.
 3. **Community acceptance:** supervised candidate tests, privacy-safe model/API compatibility matrix, migration/rollback and regression closure. No physical actions during discovery.
 4. **Upstream review:** agree scope and review strategy with maintainers. Prefer reviewable changes (shared compatibility/reliability deltas, V3 runtime/catalog and HA projection, Workbench/diagnostics, docs/tests) if they can be independently integrated without breaking dependencies; otherwise use a coherent reviewed implementation PR. Do not create persistent parallel dev branches or duplicate already merged upstream work.
 5. **Official release:** only after upstream acceptance, exact release verification and explicit maintainer release approval. Decide default-runtime policy explicitly with upstream; do not silently switch all users to V3.

@@ -15,7 +15,22 @@ def test_completeness_gate_is_explicit_and_next_beta_cannot_skip_open_blockers()
     assert gate["hacs_ready"] == all(item["status"]=="closed" for item in items if item["blocks_hacs"])
     assert gate["upstream_ready"] == all(item["status"]=="closed" for item in items if item["blocks_upstream"])
     if manifest["version"] != gate["baseline"]:
-        assert gate["hacs_ready"], "Completeness audit has open HACS blockers"
+        if not gate["hacs_ready"]:
+            # Explicit, version-specific evidence-acquisition exception only.
+            assert manifest["version"] == "3.0.0b13", "Completeness audit has open HACS blockers"
+            auth = json.loads((ROOT/"governance/B13_EXPERIMENTAL_TEST_RELEASE.json").read_text())
+            exception = auth["completeness_exception"]
+            pending = [item for item in items if item["blocks_hacs"] and item["status"] != "closed"]
+            assert auth["version"] == exception["version"] == manifest["version"]
+            assert auth["classification"] == "experimental_hacs_test_only"
+            assert auth["stable_promotion_allowed"] is False
+            assert auth["static_parity_claimed"] is False
+            assert exception["upstream_gate_override"] is False
+            assert exception["allows_open_implementation_blockers"] is False
+            assert exception["requires_status"] == "implemented_pending_validation"
+            assert {item["id"] for item in pending} == set(exception["pending_hacs_gate_ids"])
+            assert all(item["status"] == "implemented_pending_validation" and item.get("implementation_evidence") for item in pending)
+            assert gate["upstream_ready"] is False
     assert all(item.get("closure_evidence") for item in items if item["status"]=="closed")
 
 def test_b12_evidence_does_not_conflate_http_and_physical_verification():

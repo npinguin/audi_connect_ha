@@ -2,7 +2,7 @@
 
 **Use your Audi. Explore its capabilities. Build what's missing. Share what works.**
 
-This guide is based on the experimental HACS release [3.0.0b12](https://github.com/npinguin/audi_connect_ha/releases/tag/3.0.0b12), not unreleased development changes. V2 remains the default and fallback. Compatibility varies by vehicle, model year, region, connected services and authentication. See [release notes](V3_RELEASE_NOTES_3.0.0b12.md) and [known gaps](V3_COMPLETENESS_AUDIT.md).
+This guide retains the b12 baseline and describes the common workflow. For the explicitly authorized b13 evidence-acquisition candidate, see [b13 release notes](V3_RELEASE_NOTES_3.0.0b13.md). The original experimental HACS release [3.0.0b12](https://github.com/npinguin/audi_connect_ha/releases/tag/3.0.0b12), is the historical baseline. V2 remains the default and fallback. Compatibility varies by vehicle, model year, region, connected services and authentication. See [release notes](V3_RELEASE_NOTES_3.0.0b12.md) and [known gaps](V3_COMPLETENESS_AUDIT.md).
 
 ## Choose your path
 
@@ -15,13 +15,13 @@ This guide is based on the experimental HACS release [3.0.0b12](https://github.c
 ## 1. Everyday users — connect and use
 
 1. Back up Home Assistant and note the installed Audi Connect version.
-2. In HACS, add `https://github.com/npinguin/audi_connect_ha` as a custom repository (Integration). Select Audi Connect and explicitly install prerelease **3.0.0b12**. This replaces the same integration domain, not a second integration.
+2. In HACS, add `https://github.com/npinguin/audi_connect_ha` as a custom repository (Integration). Select Audi Connect and explicitly select prerelease **3.0.0b13** after publication (or **3.0.0b12** for the historical baseline). This replaces the same integration domain, not a second integration.
 3. Restart Home Assistant. For a new installation, add Audi Connect under **Settings → Devices & services → Add integration**. For an existing installation, keep your config entry, vehicle devices and entity registry.
 4. Sign in with myAudi if prompted. For Auth0, open the supplied login link, sign in, and copy the complete callback URL from your browser to the HA form. A localhost connection error after login is expected. Never share the callback URL.
 5. Open **Audi Connect → Configure → Runtime → V3 — Experimental**, save and allow the integration to reload.
 6. Open your Audi device page and use the available sensors and controls. No Engineering Dashboard or manual per-control test is required for normal use of eligible functions.
 
-Depending on your vehicle, you can monitor battery, range, fuel, charging and access, view trips and maintenance information, or control climate and locking. Example automations include departure preconditioning, unlocked-car notifications and solar-surplus charging decisions using reported SoC. Verify the actual vehicle state before relying on remote commands. In b12, cabin climate uses one primary native Climate entity; charging and window heating retain explicit buttons pending reliable switch-state evidence.
+Depending on your vehicle, you can monitor battery, range, fuel, charging and access, view trips and maintenance information, or control climate and locking. Example automations include departure preconditioning, unlocked-car notifications and solar-surplus charging decisions using reported SoC. Verify the actual vehicle state before relying on remote commands. In b12, cabin climate uses one primary native Climate entity; charging and window heating retain explicit buttons pending reliable switch-state evidence. b13 adds eligible native switches and automatic read discovery; physical confirmation remains pending.
 
 **Rollback:** select V2 in Runtime options. Do not delete the registry. Downgrading the actual HACS package is separate; restore a compatible backup if needed. Full migration and rollback validation remain open.
 

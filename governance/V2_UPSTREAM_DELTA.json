@@ -288,7 +288,7 @@
       "path": "custom_components/audiconnect/manifest.json",
       "change": "modified",
       "upstream_blob": "e14c95959d9ec094693d93b45ecf9aa533d28f57",
-      "development_blob": "b780c3a3b09fd3b45351922c78e615c56ad2c732",
+      "development_blob": "76dc58f171e3b25e5a91495d27cb414e2e92b3cf",
       "classification": "metadata",
       "owner": "integration",
       "reason": "Shared integration and package metadata.",

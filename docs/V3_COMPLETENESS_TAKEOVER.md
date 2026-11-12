@@ -167,3 +167,8 @@ discovery coverage, untruncated target schema and the candidate evidence matrix.
 Live acceptance is separately open. The manifest stays b12 until the machine
 gate permits a new version. No published b13, stable promotion or physical
 confirmation is asserted. A CI artifact is not a HACS release.
+
+
+## b13 evidence-acquisition authorization
+
+The maintainer repeated the request to proceed to a HACS release. A one-time b13 experimental prerelease is authorized, with exact-parent and full-CI checks. All seven pending evidence gates remain pending; upstream and normal completeness gates stay false. This supersedes only the previous instruction to keep the manifest at b12 while awaiting evidence. The published b12 tag remains immutable. See [authorization](../governance/B13_EXPERIMENTAL_TEST_RELEASE.json) and [b13 release notes](V3_RELEASE_NOTES_3.0.0b13.md).
