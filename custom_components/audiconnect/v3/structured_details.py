@@ -32,6 +32,16 @@ def _local_datetime(value):
     return value if stamp.tzinfo is None and "T" in value else None
 
 
+def _zoned_datetime(value):
+    if not isinstance(value, str) or len(value) > 40:
+        return None
+    try:
+        stamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return stamp.isoformat() if stamp.tzinfo is not None else None
+
+
 def _clock(value):
     return value if isinstance(value, str) and _CLOCK.fullmatch(value) else None
 
@@ -59,17 +69,29 @@ def _timer(row):
     result = _compact({"id": _id(row.get("id")), "enabled": _boolean(row.get("enabled")),
                        "climatisation": _boolean(row.get("climatisation"))})
     if isinstance(single, dict):
-        local = _local_datetime(single.get("startDateTimeLocal"))
-        if local is not None:
-            result["start_datetime_local"] = local
+        result.update(_compact({
+            "start_datetime_local": _local_datetime(single.get("startDateTimeLocal")),
+            "target_datetime_local": _local_datetime(single.get("targetDateTimeLocal")),
+            "start_datetime": _zoned_datetime(single.get("startDateTime")),
+            "target_datetime": _zoned_datetime(single.get("targetDateTime")),
+        }))
     if isinstance(recurring, dict):
         days = recurring.get("repetitionDays")
         if isinstance(days, list):
             days = [d for d in days[:7] if type(d) is int and 0 <= d <= 7 or _token(d) is not None]
         else:
             days = None
-        result.update(_compact({"departure_time_local": _clock(recurring.get("departureTimeLocal")),
-                                "repetition_days": days}))
+        recurring_on = recurring.get("recurringOn")
+        weekdays = ("mondays", "tuesdays", "wednesdays", "thursdays",
+                    "fridays", "saturdays", "sundays")
+        result.update(_compact({
+            "departure_time_local": _clock(recurring.get("departureTimeLocal")),
+            "target_time_local": _clock(recurring.get("targetTimeLocal") or recurring.get("targetTime")),
+            "start_time_local": _clock(recurring.get("startTime")),
+            "repetition_days": days,
+            "recurring_on": _compact({day: _boolean(recurring_on.get(day)) for day in weekdays})
+                if isinstance(recurring_on, dict) else None,
+        }))
     return result or None
 
 
@@ -144,6 +166,8 @@ def observe_structured(vehicle, payload, observed_at, accepts):
         ("charging_timers_detail", "chargingTimers.chargingTimersStatus.value", "timers", _timer, 30),
         ("climate_timers_detail", "climatisationTimers.climatisationTimersStatus.value", "timers", _timer, 30),
         ("ventilation_timers_detail", "climatisationTimers.activeVentilationTimersStatus.value", "timers", _timer, 30),
+        ("departure_charging_timers_detail", "departureTimers.chargingTimersStatus.value", "timers", _timer, 30),
+        ("departure_climate_timers_detail", "departureTimers.climatisationTimersStatus.value", "timers", _timer, 30),
         ("door_detail", "access.accessStatus.value", "doors", _component, 30),
         ("window_detail", "access.accessStatus.value", "windows", _component, 30),
         ("light_detail", "vehicleLights.lightsStatus.value", "lights", _component, 30),
@@ -151,7 +175,24 @@ def observe_structured(vehicle, payload, observed_at, accepts):
     ):
         block = read_json_path(payload, path)
         if isinstance(block, dict) and field in block:
-            put(key, _array(block.get(field), normalizer, limit), block.get("carCapturedTimestamp"), path)
+            data = _array(block.get(field), normalizer, limit)
+            if data is not None and normalizer is _timer:
+                data["vehicle_time"] = _zoned_datetime(block.get("timeInCar"))
+            put(key, data, block.get("carCapturedTimestamp"), path)
+    # An empty warningLights object is not a healthy-state claim.
+    warnings_path = "vehicleHealthWarnings.warningLights.value"
+    warnings = read_json_path(payload, warnings_path)
+    if isinstance(warnings, dict):
+        put("health_warning_evidence_detail", {"envelope_present": True,
+            "warning_state": "unknown", "empty_envelope": not bool(warnings)},
+            warnings.get("carCapturedTimestamp"), warnings_path)
+    for care_path in ("batteryChargingCare.chargingCareSettings.value",
+                      "charging.chargingCareSettings.value"):
+        care = read_json_path(payload, care_path)
+        if isinstance(care, dict):
+            mode = care.get("batteryCareMode")
+            if mode in ("activated", "deactivated"):
+                put("battery_care_detail", {"mode": mode}, care.get("carCapturedTimestamp"), care_path)
     block = read_json_path(payload, "access.accessStatus.value")
     if isinstance(block, dict):
         put("access_overall_detail", _token(block.get("overallStatus")),
