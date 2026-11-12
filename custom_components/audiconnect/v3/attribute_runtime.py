@@ -12,32 +12,13 @@ from .attribute_contracts import semantic_value_issue
 
 
 def planned_jobs(vehicle: Any, profile: Any) -> tuple[str, ...]:
-    if not getattr(vehicle, "v2_initial_discovery_completed", False):
-        return V2_JOBS
-    active = {ATTRIBUTES[name]["job"] for name, route in profile.attribute_routes.items()
-              if name in ATTRIBUTES and ATTRIBUTES[name]["job"] and route == "cariad.selectivestatus.batch"}
-    # A mapped but stale field is not active, yet it must keep being refreshed.
-    # Dropping it from the next batch would prevent later vehicle updates from
-    # ever recovering without a manual restart or discovery.
-    active.update(ATTRIBUTES[name]["job"] for name, evidence in profile.attribute_evidence.items()
-                  if name in ATTRIBUTES and ATTRIBUTES[name]["job"] and
-                  evidence.get("status") == "readable_but_stale")
-    # A previously readable job can legitimately provide no *fresh* values when
-    # the car is parked.  V2 keeps such jobs in subsequent selective-status
-    # requests; dropping them makes existing HA sensors disappear.
-    active.update(
-        job for job, result in getattr(profile, "job_discovery", {}).items()
-        if result == "observed"
-    )
-    # Keep explicitly advertised jobs as well as observed jobs. A partial
-    # 207/error does not erase previously learned readable capabilities.
-    reported = getattr(vehicle, "advertised_capabilities", set())
-    impaired = getattr(vehicle, "impaired_capabilities", set())
-    active.update(job for job in V2_JOBS if job in reported and job not in impaired)
-    if "oilLevelStatus" in reported and "oilLevelStatus" not in impaired:
-        active.add("oilLevel")
-    active.update(("climatisation", "userCapabilities"))
-    return tuple(job for job in V2_JOBS if job in active)
+    """Always poll every reviewed job except explicit vehicle-scoped negatives.
+
+    Missing/stale/unmapped/unadvertised data is not non-support. One shared
+    GET keeps unknown jobs under observation without extra per-job calls.
+    """
+    states = getattr(profile, "job_discovery", {})
+    return tuple(job for job in V2_JOBS if states.get(job) != "unsupported")
 
 
 def _capture_in_utc(value: Any) -> datetime | None:
