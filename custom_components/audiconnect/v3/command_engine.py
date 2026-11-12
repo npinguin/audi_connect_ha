@@ -14,7 +14,7 @@ from .command_journal import (CommandRecord, check_command_sequence, ENGINEERING
                               unresolved_normal_commands, blocking_normal_command)
 from .operation_revision import operation_revision
 from .command_parameters import map_parameters, runtime_ready, parameter_schema
-from .command_readback import configure_readback, reconcile_readback, observe_command_response
+from .command_readback import configure_readback, reconcile_readback, observe_command_response, latest_readback_command
 from .control_resolution import control_decision, resolve_control
 from .response_preview import safe_response_preview
 from .vehicle import V3Vehicle
@@ -168,17 +168,11 @@ class CommandEngine:
             # Reconcile independent commands even when a different capability
             # has subsequently been used. Never attribute a newer same-field
             # observation to a superseded accepted action.
-            latest = profile.last_command
-            seen = set()
-            for record in reversed(profile.command_journal):
-                if record.origin != "home_assistant" or not record.readback_attribute:
-                    continue
-                attribute = record.readback_attribute
-                if attribute in seen:
-                    continue
-                if record.state != "rejected":
-                    seen.add(attribute)
-                if reconcile_readback(record, car) and record is latest:
+            attributes = {record.readback_attribute for record in profile.command_journal
+                          if record.readback_attribute}
+            for attribute in attributes:
+                record = latest_readback_command(profile, attribute)
+                if record and reconcile_readback(record, car) and record is profile.last_command:
                     car.last_command_result = "verified"
 
     def refresh_bindings(self) -> None:
