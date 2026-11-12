@@ -811,3 +811,33 @@ async def test_discard_unused_read_draft_preserves_tested_definitions():
         await engine.discard_unused_route(VIN, route["id"])
     assert route["id"] in profile.attribute_custom
     assert transport.request_count == 1
+
+
+@pytest.mark.asyncio
+async def test_reviewed_identity_activation_uses_matching_fresh_oem_metadata():
+    from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3.transport import GARAGE_OPERATION
+    engine, transport, store = engine_for()
+    async def incomplete():
+        return [{"vin": VIN, "vehicle": {"core": None, "media": None}}]
+    transport.discover_vehicles = incomplete
+    transport.test_identity_query = AsyncMock(return_value=V3Response(
+        200, {"data": [{"vin": VIN, "model": "Audi Q8", "modelYear": 2022}]}, datetime.now(UTC)))
+    await engine.discover()
+    car = engine.require_vehicle(VIN)
+    profile = engine.profiles[VIN.lower()]
+    car.trips["last_trip"] = {"mileage": 42}
+    candidate = await engine.test_identity_operation(VIN, GARAGE_OPERATION)
+    assert candidate["can_activate"] and not car.model
+    result = await engine.test_identity_operation(VIN, GARAGE_OPERATION, activate=True)
+    assert result["activated"] and car.model == "Audi Q8" and car.model_year == "2022"
+    assert car.identity_operation == GARAGE_OPERATION and not car.identity_restored
+    assert car.trips["last_trip"]["mileage"] == 42
+    assert profile.manufacturer_identity["operation"] == GARAGE_OPERATION
+    assert store.records[VIN.lower()]["manufacturer_identity"]["model"] == "Audi Q8"
+    assert profile.discovery.context == car.context
+    transport.test_identity_query.return_value = V3Response(
+        200, {"data": [{"vin": "WAUZZZ4M0MD123457", "model": "Other Audi"}]}, datetime.now(UTC))
+    with pytest.raises(ValueError, match="No current matching"):
+        await engine.test_identity_operation(VIN, GARAGE_OPERATION, activate=True)
+    assert car.model == "Audi Q8"
