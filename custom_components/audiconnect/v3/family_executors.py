@@ -118,6 +118,25 @@ class CARIADExecutor:
                            headers, body)
 
 
+def _inventory_locale(auth: Any) -> str:
+    """Use the shared Audi market language, not OS/browser locale."""
+    import re
+    country = str(auth.country).upper()
+    if not re.fullmatch(r"[A-Z]{2}", country):
+        raise ValueError("Invalid Audi inventory country")
+    configured = getattr(getattr(auth, "service", None), "_language", None)
+    defaults = {"DE": "de", "AT": "de", "CH": "de", "BE": "nl", "NL": "nl",
+                "FR": "fr", "IT": "it", "ES": "es", "PT": "pt", "PL": "pl",
+                "SE": "sv", "NO": "nb", "DK": "da", "FI": "fi", "CZ": "cs",
+                "JP": "ja", "CN": "zh", "KR": "ko"}
+    language = configured.strip().replace("_", "-") if isinstance(configured, str) else ""
+    if re.fullmatch(r"[a-zA-Z]{2,3}(?:-[a-zA-Z]{2})?", language):
+        language = language.split("-")[0].lower()
+    else:
+        language = defaults.get(country, "en")
+    return f"{language}-{country}"
+
+
 class GraphQLExecutor:
     family = "graphql"
 
@@ -130,6 +149,8 @@ class GraphQLExecutor:
         host = "app-api.my.aoa.audi.com" if auth.country == "US" else "app-api.live-my.audi.com"
         headers = _headers(auth.access_token(self.family))
         headers.update({"X-User-Country": auth.country,
+                        "Accept-Language": _inventory_locale(auth),
+                        "Accept-Charset": "utf-8",
                         "Content-Type": "application/json; charset=utf-8"})
         return RequestPlan(self.family, method, f"https://{host}{path}", headers, body)
 

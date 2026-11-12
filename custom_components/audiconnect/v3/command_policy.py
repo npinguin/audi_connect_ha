@@ -27,7 +27,9 @@ def eligible_operation(car, auth, capability, aspect):
         # infer permission from an engine, region, or PIN alone.
         model = (car.model or "").strip().lower()
         family = (car.model_family or "").strip().lower()
-        if (not model or not (car.car_type or "").strip() or
+        from .vehicle import powertrain_identity
+        identity = powertrain_identity(car)
+        if (not model or not (car.car_type or "").strip() or identity["value"] != "combustion" or
                 (not auth.uses_auth0 and not car.legacy_cariad) or model.startswith(("q8", "audi q8"))
                 or family.startswith(("q8", "audi q8"))
                 or (car.car_type or "").strip().lower() in {

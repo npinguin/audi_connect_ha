@@ -782,6 +782,7 @@ class V3Engine:
     def diagnostics(self) -> dict[str, Any]:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
         from .capability_status import diagnostic_capability_summary, diagnostic_route_label
+        from .vehicle import powertrain_identity
         vehicles = []
         for index, car in enumerate(self.vehicles.values(), 1):
             p = self.profiles.get(car.vin.lower())
@@ -796,7 +797,8 @@ class V3Engine:
                 "identity_evidence": {"manufacturer_model_present": bool(car.model),
                                       "model_source": car.model_source or None,
                                       "model_year_present": bool(car.model_year),
-                                      "drive_type_present": bool(car.car_type)},
+                                      "drive_type_present": bool(car.car_type),
+                                      "powertrain": powertrain_identity(car)},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "climate": {
                     "readable": car.climate_state is not None,

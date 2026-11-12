@@ -52,6 +52,49 @@ def model_family_from_name(value):
     return "e-tron" if re.match(r"^e[- ]tron\b", label, re.I) else ""
 
 
+def normalize_powertrain(value):
+    """Normalize explicit vendor enums, never infer from a model label."""
+    if not isinstance(value, str):
+        return None
+    token = re.sub(r"[^a-z0-9]", "", value.lower())
+    groups = {
+        "phev": {"phev", "pluginhybrid", "pluginhybridelectricvehicle"},
+        "hybrid": {"hybrid", "hev", "hybridelectricvehicle", "mhev", "mildhybrid"},
+        "electric": {"electric", "bev", "batteryelectric", "batteryelectricvehicle"},
+        "combustion": {"combustion", "ice", "internalcombustion", "internalcombustionengine",
+                       "gasoline", "petrol", "diesel", "cng", "lpg"},
+    }
+    return next((key for key, values in groups.items() if token in values), None)
+
+
+def powertrain_identity(vehicle):
+    """Reconcile inventory, status and trips without granting control rights."""
+    readings = getattr(vehicle, "readings", {})
+    trips = getattr(vehicle, "trips", {})
+    sources = {}
+    def add(source, value):
+        normalized = normalize_powertrain(value)
+        if normalized is not None:
+            sources[source] = normalized
+    add("inventory", getattr(vehicle, "car_type", None))
+    for ident, source in (("carType", "range_status"), ("measuredCarType", "fuel_level_status")):
+        row = readings.get(ident, {})
+        if row.get("status") in ("verified", "readable_but_stale"):
+            add(source, row.get("value"))
+    for key in ("last_trip", "shortterm_current", "longterm_current"):
+        add(key, trips.get(key, {}).get("vehicleType"))
+    roles = {normalize_powertrain(readings.get(key, {}).get("value"))
+             for key in ("primary_engine_type", "secondary_engine_type")
+             if readings.get(key, {}).get("status") in ("verified", "readable_but_stale")}
+    if {"electric", "combustion"} <= roles:
+        sources["engine_roles"] = "hybrid"
+    families = {"hybrid" if value == "phev" else value for value in sources.values()}
+    conflict = len(families) > 1
+    value = None if conflict or not families else (
+        "phev" if "phev" in sources.values() else next(iter(families)))
+    return {"value": value, "sources": sources, "conflict": conflict}
+
+
 @dataclass
 class V3Vehicle:
     vin: str

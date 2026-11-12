@@ -91,7 +91,7 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 # Canonical entities can be backed by declared alternative sources.
                 candidates = set(car.readings)
                 if platform == "sensor":
-                    candidates.update(("stateOfCharge", "TOTAL_RANGE", "TANK_LEVEL_IN_PERCENTAGE"))
+                    candidates.update(("stateOfCharge", "TOTAL_RANGE", "TANK_LEVEL_IN_PERCENTAGE", "carType"))
                 for ident in sorted(candidates):
                     descriptor = attributes.get(ident)
                     if descriptor and descriptor.get("local") and ident not in profile.attribute_routes:
@@ -102,6 +102,11 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     if descriptor is None:
                         continue
                     _source, reading = projection_reading(car, descriptor)
+                    if platform == "sensor" and descriptor["entity_key"] == "car_type" and not descriptor.get("local"):
+                        from .vehicle import powertrain_identity
+                        if powertrain_identity(car)["value"] is not None:
+                            add_once(f"{vin}:car_type", V3ReadOnlySensor, descriptor)
+                        continue
                     if not reading or not isinstance(
                         reading.get("value"), (str, int, float, bool)
                     ):

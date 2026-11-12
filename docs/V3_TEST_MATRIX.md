@@ -117,3 +117,5 @@ Accepted-command projection tests must cover old capture, newer contradictory ca
 Modern trip regression fixtures cover the actual observed b12 fields `averageElectricConsumption`, `totalElectricConsumption_kwh` and `totalFuelConsumption_L`. Explicit total units are preserved; the unsuffixed electric average is accepted only when corroborated by distance and total. Zero is valid, boolean is not numeric, and legacy scaling must not leak into modern normalization.
 
 Trip native sensors must derive from the canonical product contract and project only numeric evidence (including zero), with real units and no per-trip accumulating state class. Keep last-trip timestamp and existing identities. Historical trip arrays are normalized and deduplicated locally; never sum an overlapping long-term aggregate with short-term trips.
+
+Inventory regression: verify market-language and country headers, missing media with usable trip/measurement powertrain, conflicting classifications, late native Vehicle type projection without duplicates, and security-sensitive commands remaining gated. Live Q8 manufacturer media remains an acceptance item, not a synthetic-test claim.

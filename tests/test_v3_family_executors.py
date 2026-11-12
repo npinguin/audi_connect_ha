@@ -61,3 +61,16 @@ def test_graphql_executor_can_only_use_fixed_audi_vehicle_list():
 def test_cariad_rejects_unsafe_paths(bad):
     with pytest.raises(ValueError):
         CARIADExecutor().plan(FakeAuth(),"GET",bad)
+
+
+@pytest.mark.parametrize("country,language,expected", [
+    ("DE", None, "de-DE"), ("BE", "fr", "fr-BE"), ("US", None, "en-US"),
+    ("DE", "de_DE", "de-DE"), ("NL", "invalid\r\n", "nl-NL")])
+def test_graphql_inventory_locale_uses_market_language_and_safe_fallback(country, language, expected):
+    auth = FakeAuth()
+    auth.country = country
+    auth.service = SimpleNamespace(_language=language)
+    plan = GraphQLExecutor().plan(auth, "POST", "/vgql/v1/graphql",
+                                 {"query": "query vehicleList { userVehicles { vin } }"})
+    assert plan.headers["Accept-Language"] == expected
+    assert plan.headers["X-User-Country"] == country

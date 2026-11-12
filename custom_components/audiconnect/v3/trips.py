@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 _TRIP_FIELDS = frozenset((
-    "tripEndTimestamp", "timestamp", "mileage_km",
+    "tripEndTimestamp", "timestamp", "vehicleType", "tripType", "mileage_km",
     "startMileage_km", "overallMileage_km", "averageSpeed_kmph",
     "travelTime", "travelTime_min", "traveltime", "averageFuelConsumption",
     "averageFuelConsumption_L_per_100km",
@@ -26,7 +26,7 @@ _MAX_CONTAINER_NODES = 30
 
 # Explicitly permitted key names, never raw JSON values or unknown keys.
 _SAFE_SCHEMA_KEYS = frozenset((
-    "tripEndTimestamp", "timestamp", "tripType", "mileage_km",
+    "tripEndTimestamp", "timestamp", "tripType", "vehicleType", "mileage_km",
     "startMileage_km", "overallMileage_km", "averageSpeed_kmph",
     "travelTime", "travelTime_min", "averageFuelConsumption",
     "averageFuelConsumption_L_per_100km",
@@ -173,8 +173,13 @@ def _normalize_record(stamp, item):
                 total_electric, total_fuel]
     if all(x is None for x in readings):
         return None, "no_unambiguous_numeric_trip_fields"
+    from .vehicle import normalize_powertrain
+    vehicle_type = normalize_powertrain(item.get("vehicleType"))
+    trip_type = item.get("tripType")
     return {
         "tripID": None,  # Never persist trip identifiers without a need.
+        "vehicleType": vehicle_type,
+        "tripType": trip_type if trip_type in ("shortTerm", "longTerm") else None,
         "timestamp": stamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "averageElectricEngineConsumption": electric,
         "averageFuelConsumption": fuel,

@@ -44,6 +44,21 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         record("charging_complete_time", (stamp + timedelta(minutes=minutes)).isoformat(),
                remaining["captured"], "charging", remaining.get("path"))
 
+    # Complementary identity fields are present even if manufacturer media is null.
+    from .vehicle import normalize_powertrain
+    fuel_level = read_json_path(payload, "measurements.fuelLevelStatus.value")
+    if isinstance(fuel_level, dict):
+        stamp = fuel_level.get("carCapturedTimestamp")
+        raw_type = fuel_level.get("carType")
+        if normalize_powertrain(raw_type) is not None:
+            record("measuredCarType", raw_type, stamp, "measurements",
+                   "measurements.fuelLevelStatus.value.carType")
+        for role in ("primary", "secondary"):
+            value = fuel_level.get(role + "EngineType")
+            if normalize_powertrain(value) in ("electric", "combustion"):
+                record(role + "_engine_type", value.strip().lower(), stamp, "measurements",
+                       "measurements.fuelLevelStatus.value." + role + "EngineType")
+
     # Explicit alternative fuel and range readings; engine SOC is not fuel by assumption.
     engines = read_json_path(payload, "fuelStatus.rangeStatus.value")
     if isinstance(engines, dict):

@@ -57,3 +57,7 @@ Modern trip data now retains OEM total electric energy (kWh) and fuel volume (L)
 ### Native trip measurements (development)
 
 Last trip and long-term trip expose distance, duration, average speed, average fuel/electric consumption and actual total liters/kWh as native sensors when present. The timestamp sensors keep all normalized attributes. No extra requests, no invented zeroes, no per-trip total-increasing meter and no claim that long-term trip totals are lifetime counters. Recorder can record state transitions prospectively. The normalized historical short-term array is retained in local session memory (up to 1000 distinct trips), sorted and deduplicated with the last-trip endpoint. Long-term aggregates are never mixed into history. Durable historical storage, pagination and historical Recorder import are not implemented.
+
+### Model identity and powertrain (development)
+
+The GraphQL inventory request sends the Audi market language and country, matching the existing upstream locale contract. This fixes a missing prerequisite for localized manufacturer media. Manufacturer model/family/year are independent of nickname. Vehicle type reconciles explicit inventory, fuel/measurement and trip enums; a compatible PHEV is more specific than hybrid, while conflicts remain unknown. No VIN decode guess, no model name invented from engine type. Status classification does not silently rebind command profiles; remote engine eligibility remains restrictive. Actual localized model retrieval requires a live test.

@@ -553,6 +553,9 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
             return False
+        if self.attribute["entity_key"] == "car_type" and not self.attribute.get("local"):
+            from .vehicle import powertrain_identity
+            return powertrain_identity(self.vehicle)["value"] is not None
         if self.attribute.get("local") and self.attribute["id"] not in self.coordinator.engine.profiles[self.vehicle.vin.lower()].attribute_routes:
             return False
         reading = projection_reading(self.vehicle, self.attribute)[1]
@@ -562,6 +565,9 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
 
     @property
     def native_value(self):
+        if self.attribute["entity_key"] == "car_type" and not self.attribute.get("local"):
+            from .vehicle import powertrain_identity
+            return powertrain_identity(self.vehicle)["value"]
         reading = projection_reading(self.vehicle, self.attribute)[1]
         value = reading.get("value") if reading else None
         if semantic_value_issue(self.attribute["entity_key"], value, self._semantic_contract):
@@ -579,6 +585,11 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        if self.attribute["entity_key"] == "car_type" and not self.attribute.get("local"):
+            from .vehicle import powertrain_identity
+            evidence = powertrain_identity(self.vehicle)
+            return {"classification_sources": evidence["sources"],
+                    "classification_conflict": evidence["conflict"]}
         source, reading = projection_reading(self.vehicle, self.attribute)
         reading = reading or {}
         captured_age = _reading_age_minutes(reading.get("captured"))
@@ -860,9 +871,14 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        from .vehicle import powertrain_identity
+        identity = powertrain_identity(self.vehicle)
         return {"model_family": self.vehicle.model_family or None,
                 "model_year": self.vehicle.model_year or None,
-                "model_source": self.vehicle.model_source or None}
+                "model_source": self.vehicle.model_source or None,
+                "vehicle_type": identity["value"],
+                "classification_sources": identity["sources"],
+                "classification_conflict": identity["conflict"]}
 
 
 class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
