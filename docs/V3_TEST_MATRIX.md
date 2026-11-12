@@ -119,3 +119,21 @@ Modern trip regression fixtures cover the actual observed b12 fields `averageEle
 Trip native sensors must derive from the canonical product contract and project only numeric evidence (including zero), with real units and no per-trip accumulating state class. Keep last-trip timestamp and existing identities. Historical trip arrays are normalized and deduplicated locally; never sum an overlapping long-term aggregate with short-term trips.
 
 Inventory regression: verify market-language and country headers, missing media with usable trip/measurement powertrain, conflicting classifications, late native Vehicle type projection without duplicates, and security-sensitive commands remaining gated. Live Q8 manufacturer media remains an acceptance item, not a synthetic-test claim.
+
+## Integrated A–Z acceptance — post-b17 development
+
+One exact candidate, one complete HA package, no per-feature installations. Keep V2 rollback and do not reset registry or private profiles. The synthetic full-catalog regression `test_golden_configure_discover_use_restart_without_workbench` exercises inventory, bounded read discovery, nine native HA platform projections, actual charging switch invocation with durable journal and fresh readback, restart and no mutation replay. Validate and Test passed on `138e63fbbd316247d680b6b4352a1bdfe798ec77` ([Validate](https://github.com/npinguin/audi_connect_ha/actions/runs/43305731344), [Test](https://github.com/npinguin/audi_connect_ha/actions/runs/43305731074)). This is not a live HA installation or OEM proof.
+
+| Sequence | Acceptance scenario | Required observed result |
+|---|---|---|
+| 1 | Install exact candidate in HA, select V3, authenticate, configure vehicle | No Workbench requirement, no duplicate device, no secrets in evidence. |
+| 2 | Cold inventory and known-source restart | Correct OEM manufacturer model/year/powertrain with provenance; missing values remain unknown, never guessed; reviewed adopted source refreshes. |
+| 3 | Unattended discovery | Native entities appear progressively; completion or unresolved/paused reason visible; no physical mutation or forced wake. |
+| 4 | Use native entities and automations | Correct actual sensor values, units, freshness and availability; one deliberate supported command, durable journal, real readback or physical review. |
+| 5 | Guided and Expert | Same candidate counts, explicit consent per action, verify/skip/finish, no blind alternative after uncertainty; expert can inspect failed operation and use editor. |
+| 6 | API error, quota and recovery | Meaningful error and pause; resume unresolved reads without deleting valid evidence; no replay or retry of ambiguous mutations. |
+| 7 | Reload, reauth and restart | Retain correct bindings, stable registry IDs, user settings and private evidence; no duplicate command or sensor. |
+| 8 | Capability completeness | Compare trips, timers/profiles, access, health, readiness and schema disposition with actual OEM evidence; record unsupported and unresolved honestly. |
+| 9 | V2 rollback and representative contexts | Preserve compatible existing IDs and registry choices; verify rollback and distinguish tested Q8 from untested markets/models. |
+
+Normal HACS publication requires existing completeness and static code-complete parity gates. Experimental version-bound exceptions are not normal release sign-off. Do not reuse b17 or promote a green build to a release without the applicable authorization and package checks.
