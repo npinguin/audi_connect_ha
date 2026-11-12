@@ -25,6 +25,7 @@ def link_entities(report, actual, inventory=None):
             if mapping.get("attribute"):
                 entry["attributes"].add(mapping["attribute"])
             entry["operations"].add(operation["operation"])
+    known_operations = {operation["operation"] for operation in report.get("operations", [])}
     for key, entry in by_key.items():
         sources = set(inventory.get(key, {}).get("source_attributes", []))
         for row in rows:
@@ -33,7 +34,7 @@ def link_entities(report, actual, inventory=None):
                 continue
             entry["attributes"].add(row["attribute"])
             entry["capabilities"].add(row["capability"])
-            if row.get("operation"):
+            if row.get("operation") in known_operations:
                 entry["operations"].add(row["operation"])
         if not entry["capabilities"] and key in {
             "sensor.vehicle_data_freshness", "sensor.vehicle_data_age",
