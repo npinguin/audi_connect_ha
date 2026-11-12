@@ -679,14 +679,17 @@ class V3TripHistorySensor(V3BaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        from .trips import MAX_TRIP_HISTORY
+        from .trips import MAX_TRIP_HISTORY, MAX_TRIP_ENTITY_ROWS
         rows = self.vehicle.trip_history
         return {"trips": [{k: v for k, v in row.items() if k not in ("tripID", "source", "units")
-                           and v is not None} for row in rows],
+                           and v is not None} for row in rows[:MAX_TRIP_ENTITY_ROWS]],
                 "units": rows[0].get("units", {}) if rows else {},
                 "newest_trip": rows[0]["timestamp"] if rows else None,
                 "oldest_trip": rows[-1]["timestamp"] if rows else None,
                 "history_limit": MAX_TRIP_HISTORY,
+                "entity_row_limit": MAX_TRIP_ENTITY_ROWS,
+                "archived_count": len(rows),
+                "additional_rows_available": len(rows) > MAX_TRIP_ENTITY_ROWS,
                 "coverage": "observed_records"}
 
 
