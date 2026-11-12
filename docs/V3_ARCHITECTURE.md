@@ -1,7 +1,6 @@
 # Audi Connect V3 — architecture and ownership
 
-**Historical architecture baseline:** 3.0.0b8 source, consolidated commit `284230a5deb3cc0e9366e26c96c87667f2d95a68`, 12 November 2026. **Target:** architecture closure, approved design direction; implementation incomplete. V2 is still the default and rollback choice. The b8 baseline is historical; b12 is a separately authorized experimental HACS test, not stable or static parity sign-off. See current implementation progress and b12 release notes.
-
+**Status:** canonical community vision and technical design; development remains incomplete. Latest published experimental HACS candidate: 3.0.0b17. V2 remains the default and rollback choice. The subsequent development branch is not an authorized release. The historical b8 baseline below is retained for provenance, not current acceptance.
 
 ## Product vision
 
@@ -89,19 +88,7 @@ The historical b8 baseline contains seven capability groups, 59 API operations (
 
 Historical b8 debt (not a current defect inventory): climate-specific polling/profile persistence, a 1,290-line engine, redundant pilot runtime and catalog, overlapping read/command schemas, parameterized custom commands not activatable, nonpersistent normal command context, quota recovery and token-refresh concurrency, incomplete multi-car lifecycle, V2 upstream deltas and stale generated inventories.
 
-## Target (TO-BE)
-
-```text
-HA entities / services / administrator Workbench
-                 |
-       V3Engine (composition & lifecycle)
-                 |
-       Vehicle / Status / Command
-                 |
-       Catalog / Profiles / API
-                 |
-       CARIAD / MBB / GraphQL
-```
+## Module ownership and dependency rules
 
 The engine is a composition root and lifecycle orchestrator, not a business logic container. Status and Command have separate execution rules and share the same typed catalog, vehicle context, bindings and transport. V2 and V3 share account authentication, config entry and HA identity only; V2 business behavior remains near-upstream. OEM legacy API families remain supported; obsolete V3 pilot implementations do not.
 
