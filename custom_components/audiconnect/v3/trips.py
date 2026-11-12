@@ -274,12 +274,9 @@ def observe_cariad_trip(vehicle, operation, payload):
     if key in ("shortterm_current", "last_trip"):
         # Retain the normalized per-trip rows received in this session. The
         # dedicated last-trip endpoint and historical array can overlap.
-        current = {(row["timestamp"], row["startMileage"], row["overallMileage"]): row
-                   for row in getattr(vehicle, "trip_history", ())}
-        for row in normalize_cariad_history(payload):
-            current[(row["timestamp"], row["startMileage"], row["overallMileage"])] = row
-        vehicle.trip_history = sorted(current.values(), key=lambda row: row["timestamp"],
-                                      reverse=True)[:MAX_TRIP_HISTORY]
+        from .trip_archive import merge_history
+        vehicle.trip_history = merge_history(getattr(vehicle, "trip_history", []),
+                                             normalize_cariad_history(payload))
     previous = _timestamp(vehicle.trips.get(key, {}).get("timestamp"))
     incoming = _timestamp(trip.get("timestamp"))
     if previous is not None and (incoming is None or incoming < previous):
