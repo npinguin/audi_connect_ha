@@ -16,7 +16,8 @@ from .attribute_routes import get_read_variant, read_variants
 from .historical_catalog import ATTRIBUTES, capture_time, read_path, V2_JOBS
 from .legacy_read_mappings import FIELDS as MBB_FIELDS, ROUTES as MBB_ROUTES
 from .api_value_mappings import normalize_api_value
-from .read_discovery import record_jobs, pending_groups, reserve_group
+from .read_discovery import (record_jobs, pending_groups, reserve_group,
+                             MAX_EXTRA_INITIAL_REQUESTS, MAX_EXTRA_PERIODIC_REQUESTS)
 from .status_planner import status_groups
 
 
@@ -293,8 +294,10 @@ class StatusEngine:
                         break
         # Automatic initial CARIAD discovery: the existing 23-job GET handles
         # most fields. If that response missed known mappings, probe at most
-        # two small job groups immediately and one group on later polls.
+        # four small job groups initially, two per later poll across the account.
         # No POST, no wake, no parking coordinates, no unbounded API probing.
+        remaining_discovery = (MAX_EXTRA_INITIAL_REQUESTS if self._poll_cycles == 1
+                               else MAX_EXTRA_PERIODIC_REQUESTS)
         for key, car in self.vehicles.items():
             if not car.inventory_present:
                 continue
@@ -303,11 +306,10 @@ class StatusEngine:
                 continue  # Pilot-only synthetic tests and legacy cars are unaffected.
             if not profile.job_discovery:
                 continue  # No successful bulk GET yet; don't spray blind requests.
-            initial = not profile.job_probe_attempts
-            if not initial and self._poll_cycles % 6 != 0:
-                continue  # Subsequent evidence refresh is deliberately slow.
-            max_extra = 2 if initial else 1
-            for jobs in pending_groups(profile, max_groups=max_extra):
+            if remaining_discovery <= 0:
+                break
+            for jobs in pending_groups(profile, max_groups=remaining_discovery):
+                remaining_discovery -= 1
                 if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
                     break
                 path = f"/vehicle/v1/vehicles/{car.vin}/selectivestatus?jobs={','.join(jobs)}"
@@ -389,7 +391,10 @@ class StatusEngine:
                         {"tripStatistics", "tripData"} &
                         (car.advertised_capabilities - car.impaired_capabilities)
                     )
-                    if len(profile.registry.capabilities) > 1 and (known_trip or capability or car.context.auth == "legacy"):
+                    # Trip discovery is a reviewed read-only capability. Fresh
+                    # installations need not already have a historical trip entity.
+                    if len(profile.registry.capabilities) > 1 and (known_trip or capability or
+                            car.context.auth in ("auth0", "legacy")):
                         await self._poll_trips(car)
         for car in self.vehicles.values():
             if not car.inventory_present:
