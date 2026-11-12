@@ -8,10 +8,10 @@
       "path": "custom_components/audiconnect/__init__.py",
       "change": "modified",
       "upstream_blob": "169782dbc6d492edeebc8fe6304c39df30e17eb5",
-      "development_blob": "7e9dcb7a87dcb43c276136acef109307b48de1d1",
+      "development_blob": "96000667d97c1ef7f42c1fecb7b13e6d71b447d0",
       "classification": "integration_seam",
       "owner": "integration",
-      "reason": "Runtime routing, HA service compatibility, local config and shared auth.",
+      "reason": "Runtime routing, HA service compatibility, local config and shared auth.; V3 private trip archive removal on explicit config-entry removal",
       "regression_tests": [
         "tests/test_v3_shared_account_service_facade.py"
       ],
@@ -176,10 +176,10 @@
       "path": "custom_components/audiconnect/config_flow.py",
       "change": "modified",
       "upstream_blob": "ec9a7e83149d15c91058ed6b6cdc0825a542a800",
-      "development_blob": "de5ca5dae54356d6cb8adde1fea33c3be97426db",
+      "development_blob": "9182f7c5c164f3d335583131527514bd0d147e77",
       "classification": "integration_seam",
       "owner": "integration",
-      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration.",
+      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration.; V3 user discovery and action-specific consent/review",
       "regression_tests": [
         "tests/test_v3_options_save.py"
       ],
@@ -358,10 +358,10 @@
       "path": "custom_components/audiconnect/strings.json",
       "change": "modified",
       "upstream_blob": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
-      "development_blob": "4810598acf7ec7bf3eb0ba5d7c83948b5eef1aac",
+      "development_blob": "a85d31dd139d744c90c57b48487708fd31912e37",
       "classification": "metadata",
       "owner": "integration",
-      "reason": "Shared config and runtime selector labels.",
+      "reason": "Shared config and runtime selector labels.; V3 discovery and consent labels",
       "regression_tests": [
         "tests/test_v3_release_contract.py"
       ],
@@ -400,10 +400,10 @@
       "path": "custom_components/audiconnect/translations/en.json",
       "change": "modified",
       "upstream_blob": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
-      "development_blob": "93d9422c83d84716db44eacdbb4590cc22f9d2b0",
+      "development_blob": "b14a36eccfbdb9b7d2f75c80e9ddb3cc56d15577",
       "classification": "metadata",
       "owner": "integration",
-      "reason": "Localized options and service labels.",
+      "reason": "Localized options and service labels.; V3 discovery and consent labels",
       "regression_tests": [
         "tests/test_v3_release_contract.py"
       ],
