@@ -118,7 +118,8 @@ class V3Engine:
             CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
         )).split(",") if x.strip()}
         from .transport import identity_rows, selected_identity_response
-        fallback = None
+        fallbacks = {}
+        alternatives = {}
         reader = getattr(self.transport, "test_identity_query", None)
         remaining = getattr(self.transport, "remaining_calls", None)
         missing_model = False
@@ -131,13 +132,36 @@ class V3Engine:
         if (reader is not None and missing_model and not self._identity_fallback_attempted
                 and (remaining is None or remaining > 20)):
             self._identity_fallback_attempted = True
-            try:
-                async with asyncio.timeout(8):
-                    fallback = await reader("graphql.inventory.extended")
-            except Exception:
-                fallback = None
-        alternatives = {str(row.get("vin", "")).lower(): row for row in identity_rows(fallback.data)
-                        if isinstance(row, dict)} if fallback is not None and 200 <= fallback.status < 300 else {}
+            for operation in ("graphql.inventory.extended", "graphql.inventory.modern"):
+                if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 20:
+                    break
+                try:
+                    async with asyncio.timeout(8):
+                        fallback = await reader(operation)
+                except Exception:
+                    continue
+                fallbacks[operation] = fallback
+                if fallback.status in (401, 403, 429):
+                    break
+                if not 200 <= fallback.status < 300:
+                    continue
+                for row in identity_rows(fallback.data):
+                    try:
+                        candidate = V3Vehicle.from_graphql(row, self.auth.country)
+                    except (ValueError, TypeError, AttributeError):
+                        continue
+                    if candidate.model and candidate.vin.lower() not in excluded:
+                        alternatives.setdefault(candidate.vin.lower(), (candidate, operation))
+                missing = []
+                for row in found:
+                    try:
+                        candidate = V3Vehicle.from_graphql(row, self.auth.country)
+                    except (ValueError, TypeError, AttributeError):
+                        continue
+                    if candidate.vin.lower() not in excluded and not candidate.model:
+                        missing.append(candidate.vin.lower())
+                if all(key in alternatives for key in missing):
+                    break
         known: dict[str, V3Vehicle] = {}
         inventory_items = {}
         complete = bool(found)
@@ -151,7 +175,8 @@ class V3Engine:
                 continue
             alternative = alternatives.get(parsed.vin.lower())
             if not parsed.model and alternative is not None:
-                candidate = V3Vehicle.from_graphql(alternative, self.auth.country)
+                candidate, operation = alternative
+                parsed.identity_operation = operation
                 if candidate.model:
                     parsed.model, parsed.model_family, parsed.model_source = candidate.model, candidate.model_family, candidate.model_source
                     parsed.model_year = parsed.model_year or candidate.model_year
@@ -167,6 +192,7 @@ class V3Engine:
             if parsed.model and not parsed.identity_restored:
                 vehicle.identity_restored = False
                 vehicle.identity_observed_at = datetime.now(UTC).isoformat()
+                vehicle.identity_operation = parsed.identity_operation or INVENTORY_OPERATION
                 vehicle.model = parsed.model
                 vehicle.model_source = parsed.model_source
                 if parsed.model_family:
@@ -178,6 +204,9 @@ class V3Engine:
             if parsed.model_year:
                 vehicle.model_year = parsed.model_year
             vehicle.country = parsed.country
+            if not vehicle.model and self.trip_archive is not None:
+                from .identity_cache import previous_registry_model
+                vehicle.registry_model = previous_registry_model(self.hass, self.entry, vehicle.vin)
             vehicle.inventory_present = True
             vehicle.inventory_misses = 0
             vehicle.name = parsed.name if parsed.name != "Audi vehicle" else vehicle.model or parsed.name
@@ -248,8 +277,8 @@ class V3Engine:
                                       metadata.observed_at, metadata.remaining_calls, metadata.request)
                 self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
                                  response, known[vin].vin)
-                if fallback is not None:
-                    self._api_record(self.profiles[vin], "graphql.inventory.extended", "graphql", "POST",
+                for operation, fallback in fallbacks.items():
+                    self._api_record(self.profiles[vin], operation, "graphql", "POST",
                                      selected_identity_response(fallback, known[vin].vin), known[vin].vin)
         # One bounded best-effort read per runtime. The image response is
         # intentionally excluded from API observations and engineering exports.
@@ -965,6 +994,8 @@ class V3Engine:
                                       "model_source": car.model_source or None,
                                       "identity_restored": car.identity_restored,
                                       "identity_observed_at": car.identity_observed_at,
+                                      "identity_operation": car.identity_operation,
+                                      "registry_model_present": bool(car.registry_model),
                                       "vehicle_image_present": bool(car.image_url),
                                       "vehicle_image_status": car.image_status,
                                       "model_year_present": bool(car.model_year),

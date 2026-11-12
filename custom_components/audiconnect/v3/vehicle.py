@@ -161,6 +161,8 @@ class V3Vehicle:
     image_status: str = "not_assessed"
     identity_restored: bool = False
     identity_observed_at: str | None = None
+    identity_operation: str | None = None
+    registry_model: str | None = None
 
     @classmethod
     def from_graphql(cls, item: dict[str, Any], country: str) -> "V3Vehicle":

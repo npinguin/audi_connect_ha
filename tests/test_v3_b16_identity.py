@@ -17,3 +17,12 @@ def test_graphql_partial_errors_are_scoped_and_safe():
     assert other not in str(selected.data) and "private-url" not in str(selected.data)
     assert "private" not in str(selected.data)
     assert len(IDENTITY_QUERIES) == 4
+
+
+def test_registry_model_does_not_become_manufacturer_or_control_context():
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    from custom_components.audiconnect.v3.identity_cache import capture_identity
+    car = V3Vehicle("WAUZZZ4M0MD123456", "Audi vehicle", "", "", "DE")
+    before = car.context
+    car.registry_model = "Q8 2022"
+    assert car.context == before and not capture_identity(car) and not car.model

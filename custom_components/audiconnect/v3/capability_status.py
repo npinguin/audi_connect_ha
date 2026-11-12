@@ -375,7 +375,7 @@ def _cockpit(vehicle, profile, rows, controls):
                       | ({command.capability} if command else set()))
         if ident in IDENTITY_QUERIES:
             caps = ["vehicle_identity"]
-            active = ident == INVENTORY_OPERATION
+            active = ident == INVENTORY_OPERATION or ident == vehicle.identity_operation
             applicable = [True]
             method = "POST"
             physical = "not_applicable"
@@ -507,7 +507,7 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
     from .control_resolution import control_decision
     report = build_status_report(vehicle, profile)
     known = base_registry.capabilities
-    summaries = [row for row in report["capability_summary"] if row["capability"] in known]
+    summaries = [row for row in report["capability_summary"] if row["capability"] in known or row["capability"] == "vehicle_identity"]
     controls = []
     for capability, definition in known.items():
         for action in definition.get("control", {}):

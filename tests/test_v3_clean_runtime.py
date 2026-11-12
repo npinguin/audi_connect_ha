@@ -388,7 +388,8 @@ async def test_diagnostics_cover_all_product_capabilities_without_private_route_
     snapshot=engine.diagnostics()["vehicles"][0]
     evidence=snapshot["capability_evidence"]
     assert {row["capability"] for row in evidence["capabilities"]} >= set(engine.registry.capabilities)
-    assert all(row["operation"] in engine.registry.operations for row in evidence["operations"])
+    from custom_components.audiconnect.v3.transport import IDENTITY_QUERIES
+    assert all(row["operation"] in engine.registry.operations or row["operation"] in IDENTITY_QUERIES for row in evidence["operations"])
     names={row["operation"] for row in snapshot["climate"]["last_api_results"]}
     assert {"cariad.discovery.full","cariad.discovery.batterySupport","custom_or_discovery_route"} <= names
     encoded=json.dumps(snapshot)

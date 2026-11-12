@@ -1048,7 +1048,7 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
 
     @property
     def native_value(self):
-        return self.vehicle.model or None
+        return self.vehicle.model or self.vehicle.registry_model or None
 
     @property
     def available(self):
@@ -1065,6 +1065,8 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
                 "model_source": self.vehicle.model_source or None,
                 "identity_restored": self.vehicle.identity_restored,
                 "identity_observed_at": self.vehicle.identity_observed_at,
+                "identity_operation": self.vehicle.identity_operation,
+                "presentation_source": "manufacturer" if self.vehicle.model else "ha_registry_last_known" if self.vehicle.registry_model else None,
                 "vehicle_image_url": self.vehicle.image_url,
                 "vehicle_image_status": self.vehicle.image_status,
                 "vehicle_type": identity["value"],
