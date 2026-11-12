@@ -1,6 +1,6 @@
 # Audi Connect V3 — configuration and discovery
 
-**Current baseline:** 3.0.0b9 is explicitly authorized as a supervised experimental HACS test prerelease, not a code-complete or stable release. Back up HA, select this beta explicitly in HACS, restart, and keep V2 as fallback. See the [b9 release notes](V3_RELEASE_NOTES_3.0.0b9.md). Older beta installation instructions are historical and should not be used as current guidance.
+**Current baseline:** 3.0.0b10 is explicitly authorized as a supervised experimental HACS test prerelease, not a code-complete or stable release. Back up HA, select this beta explicitly in HACS, restart, and keep V2 as fallback. See the [b10 release notes](V3_RELEASE_NOTES_3.0.0b10.md). Older beta installation instructions are historical and should not be used as current guidance.
 
 ## Shared setup and rollback
 

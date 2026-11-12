@@ -13,10 +13,10 @@ V3 = AUDI / "v3"
 def test_beta_manifest_version_and_hacs_metadata_are_consistent():
     manifest = json.loads((AUDI / "manifest.json").read_text())
     hacs = json.loads((ROOT / "hacs.json").read_text())
-    notes = (ROOT / "docs/V3_RELEASE_NOTES_3.0.0b9.md").read_text()
+    notes = (ROOT / "docs/V3_RELEASE_NOTES_3.0.0b10.md").read_text()
     assert manifest["domain"] == "audiconnect"  # no second config entry
-    assert manifest["version"] == "3.0.0b9"
-    assert "3.0.0b9" in notes
+    assert manifest["version"] == "3.0.0b10"
+    assert "3.0.0b10" in notes
     assert hacs["homeassistant"] == "2026.7.0"
     assert "npinguin/audi_connect_ha" in manifest["documentation"]
     assert manifest["issue_tracker"].endswith("npinguin/audi_connect_ha/issues")
@@ -95,18 +95,18 @@ def test_workbench_capability_coverage_and_draft_storage_contract():
     assert '"draft_selected": dict(self.draft_selected)' in model
 
 
-def test_b9_experimental_authorization_does_not_change_release_gates():
-    authorization = json.loads((ROOT / "governance/B9_EXPERIMENTAL_TEST_RELEASE.json").read_text())
+def test_b10_experimental_authorization_does_not_change_release_gates():
+    authorization = json.loads((ROOT / "governance/B10_EXPERIMENTAL_TEST_RELEASE.json").read_text())
     gate = json.loads((ROOT / "docs/V2_V3_PARITY_BASELINE.json").read_text())["release_gate"]
     workflow = (ROOT / ".github/workflows/v3-beta-release.yml").read_text()
-    assert authorization["version"] == "3.0.0b9"
+    assert authorization["version"] == "3.0.0b10"
     assert authorization["classification"] == "experimental_hacs_test_only"
     assert authorization["stable_promotion_allowed"] is False
     assert authorization["static_parity_claimed"] is False
     assert gate["v3_static_parity_proven"] is False
     assert gate["test_release_code_complete"] is False
     assert gate["full_release_allowed"] is False
-    assert "github.event.head_commit.message == 'release(test): publish 3.0.0b9 HACS prerelease'" in workflow
+    assert "github.event.head_commit.message == 'release(test): publish 3.0.0b10 HACS prerelease'" in workflow
     assert "publish-code-complete-test" in workflow
     assert "--prerelease --latest=false" in workflow
     assert "needs: verify" in workflow

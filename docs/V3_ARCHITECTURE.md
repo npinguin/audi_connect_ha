@@ -70,3 +70,7 @@ Quota values have a lifecycle (observation time, trustworthy reset/retry-after i
 See [Architecture Closure plan](V3_ARCHITECTURE_CLOSURE.md), [configuration](V3_CONFIGURATION.md), [development profiles](V3_DEVELOPMENT_PROFILES.md), [HA identity contract](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md), [test matrix](V3_TEST_MATRIX.md) and [parity baseline](V2_V3_PARITY_BASELINE.json).
 
 All work stays on `feature/v3-clean-discovery`. No new permanent development branches or extra runtime. Static parity and code-complete acceptance precede beta publication; physical vehicle acceptance and V2/V3 rollback precede stable promotion. Historical release notes remain historical and are not the target architecture.
+
+## b10 product projection
+
+Historical parity protects identity, not incorrect category or duplicate default presentation. The b10 product projection uses reversible compatibility hiding, explicit vehicle categories and conditional drivetrain-source resolution. See the b10 release notes for limitations.

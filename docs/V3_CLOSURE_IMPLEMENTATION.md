@@ -61,3 +61,7 @@ Retire source-proven V3-only climate capability and V3 cloud polling sensors wit
 ## b9 — Q8 semantic and evidence audit
 
 Numeric contracts reject booleans, invalid percentage ranges and invalid negative remaining durations; newer invalid captures are not overwritten by older cached data. Oil level boolean uses the existing warning binary sensor. V3 metadata correction and existing HA identities are retained. The Workbench projects capability, operation, command, attribute and HA registry evidence; bounded redacted GET field inventories identify review candidates without enabling unreviewed controls or extra requests. Historical references, HTTP acceptance and physical verification remain separate. Model-specific field semantics and actual Q8 oil warning polarity require vehicle evidence. No parity flags promoted.
+
+## b10 — product entity rationalisation and Audi Engineering Dashboard
+
+Vehicle binary properties are functional sensors, not diagnostics. Compatibility entities remain available for existing automations and are hidden by default when redundant evidence is present. Existing registry categories and integration-owned visibility changes are tracked for V2 rollback. Native climate is primary; charging controls require read/write eligibility. No physical acceptance claim.
