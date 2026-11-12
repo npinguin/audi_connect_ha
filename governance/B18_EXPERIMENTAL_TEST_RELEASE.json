@@ -4,7 +4,7 @@
   "classification": "experimental_hacs_test_only",
   "authorized_by": "Explicit maintainer request: installable integrated HACS test release for live Home Assistant testing (2026-11-12)",
   "date": "2026-11-12",
-  "base_commit": "6cbdc54cbba19e295bf71178ac9965140d37f358",
+  "base_commit": "f31c542225dc4f8962703b46801f80bb21f9b38c",
   "branch": "feature/v3-clean-discovery",
   "release_intent": "release(test): publish 3.0.0b18 HACS prerelease",
   "static_parity_claimed": false,

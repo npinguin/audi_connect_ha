@@ -152,7 +152,7 @@ jobs:
           gate = json.loads(Path("docs/V2_V3_PARITY_BASELINE.json").read_text())["release_gate"]
           assert authorization["version"] == manifest["version"] == "3.0.0b18"
           assert authorization["classification"] == "experimental_hacs_test_only"
-          assert authorization["base_commit"] == "6cbdc54cbba19e295bf71178ac9965140d37f358"
+          assert authorization["base_commit"] == "f31c542225dc4f8962703b46801f80bb21f9b38c"
           assert authorization["stable_promotion_allowed"] is False
           assert authorization["static_parity_claimed"] is False
           assert gate["v3_static_parity_proven"] is False
@@ -169,7 +169,7 @@ jobs:
           assert {item["id"] for item in pending} == set(exception["pending_hacs_gate_ids"])
           assert all(item["status"] == "implemented_pending_validation" and item.get("implementation_evidence") for item in pending)
           PY
-          test "$(git rev-parse HEAD^)" = "6cbdc54cbba19e295bf71178ac9965140d37f358"
+          test "$(git rev-parse HEAD^)" = "f31c542225dc4f8962703b46801f80bb21f9b38c"
 
       - name: Verify downloaded package integrity
         run: sha256sum -c SHA256SUMS_V3_3.0.0b18.txt
