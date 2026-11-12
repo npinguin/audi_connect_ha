@@ -719,3 +719,35 @@ async def test_queued_engineering_command_rechecks_vehicle_after_lock():
         await task
     assert transport.request_count == 1
     assert profile.discovery._active is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("origin", ["home_assistant", "workbench"])
+async def test_pre_dispatch_storage_failure_rolls_back_without_mutation(origin):
+    engine, transport, store = engine_for(
+        status(), V3Response(200, {}, datetime.now(UTC))
+    )
+    await engine.poll()
+    profile = engine.profiles[VIN.lower()]
+    route = "cariad.climate.start.stored"
+    profile.control_results[route] = "worked"
+    profile.choose_working("climate", "start", route)
+    before = profile.snapshot()
+    save = store.async_save
+
+    async def fail_save(profiles):
+        raise OSError("Storage unavailable")
+
+    async def dispatch():
+        if origin == "workbench":
+            return await engine.test_action(VIN, "start", route)
+        return await engine.send_control(VIN, "start")
+
+    store.async_save = fail_save
+    with pytest.raises(OSError, match="Storage unavailable"):
+        await dispatch()
+    assert profile.snapshot() == before
+    assert transport.request_count == 1
+    store.async_save = save
+    await dispatch()
+    assert transport.request_count == 2
