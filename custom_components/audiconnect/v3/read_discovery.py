@@ -258,8 +258,11 @@ def user_progress(car, profile, auth):
         attrs = [attr for attr in CANONICAL_ATTRIBUTES.values() if attr["capability"] == name]
         from collections import Counter
         evidence = Counter(profile.attribute_evidence.get(attr["id"], {}).get("status", "not_tested") for attr in attrs)
+        normalized = evidence["verified"] + evidence["readable_but_stale"]
         capabilities[name] = {"jobs_total": len(subset),
-            "attributes_total": len(attrs), "attribute_evidence": dict(evidence),
+            "attributes_total": len(attrs), "attributes_normalized": normalized,
+            "attribute_normalization_percent": round(100 * normalized / len(attrs), 1) if attrs else None,
+            "attribute_evidence": dict(evidence),
             "jobs_assessed": sum(row["assessed"] for row in subset),
             "jobs_observed": sum(row["status"] == "observed" for row in subset),
             "controls_catalog_applicable": sum(row["catalog_applicable"] for row in actions),
@@ -269,11 +272,16 @@ def user_progress(car, profile, auth):
     applicable = [row for row in controls if row["catalog_applicable"]]
     verified = sum(row["physical"] == "worked" for row in applicable)
     schema_captured = sum(row["schema_inventory"] == "captured" for row in jobs.values())
+    attr_total = sum(row["attributes_total"] for row in capabilities.values())
+    attr_normalized = sum(row["attributes_normalized"] for row in capabilities.values())
     return {"read_assessment_percent": round(100 * assessed / total, 1) if total else None,
         "schema_inventory_captured_jobs": schema_captured, "schema_inventory_total_jobs": len(jobs),
         "schema_inventory_percent": round(100 * schema_captured / len(jobs), 1) if jobs else None,
         "schema_inventory_scope": "current_session_untruncated_capture_not_semantic_completeness",
         "read_assessed": assessed, "read_total": total, "jobs": jobs,
+        "attributes_normalized": attr_normalized, "attributes_catalog_total": attr_total,
+        "attribute_normalization_percent": round(100 * attr_normalized / attr_total, 1) if attr_total else None,
+        "attribute_normalization_scope": "canonical_scalar_catalog; not all OEM schema leaves",
         "standalone_http": reads, "unsupported_reads": sorted(op for op in reads if read_excluded(profile, op)),
         "model_present": bool(car.model),
         "controls_catalog_applicable": len(applicable), "controls_physically_verified": verified,
