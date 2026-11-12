@@ -14,11 +14,15 @@ def test_completeness_gate_is_explicit_and_next_beta_cannot_skip_open_blockers()
                type(item["blocks_upstream"]) is bool for item in items)
     assert gate["hacs_ready"] == all(item["status"]=="closed" for item in items if item["blocks_hacs"])
     assert gate["upstream_ready"] == all(item["status"]=="closed" for item in items if item["blocks_upstream"])
-    if manifest["version"] != gate["baseline"]:
-        if not gate["hacs_ready"]:
-            # Explicit, version-specific evidence-acquisition exception only.
-            assert manifest["version"] in ("3.0.0b13", "3.0.0b14", "3.0.0b15", "3.0.0b16", "3.0.0b17", "3.0.0b18"), "Completeness audit has open HACS blockers"
-            auth = json.loads((ROOT / f"governance/B{manifest['version'].split('b')[-1]}_EXPERIMENTAL_TEST_RELEASE.json").read_text())
+    if manifest["version"] != gate["baseline"] and not gate["hacs_ready"]:
+        # Candidate builds can run CI without publication authorization.
+        # Both publication paths independently fail closed while gates are open.
+        workflow = (ROOT / ".github/workflows/v3-beta-release.yml").read_text()
+        assert "assert authorization_path.is_file()" in workflow
+        assert 'assert completeness["hacs_ready"] is True and not pending' in workflow
+        auth_path = ROOT / f"governance/B{manifest['version'].split('b')[-1]}_EXPERIMENTAL_TEST_RELEASE.json"
+        if auth_path.exists():
+            auth = json.loads(auth_path.read_text())
             exception = auth["completeness_exception"]
             pending = [item for item in items if item["blocks_hacs"] and item["status"] != "closed"]
             assert auth["version"] == exception["version"] == manifest["version"]
@@ -31,6 +35,8 @@ def test_completeness_gate_is_explicit_and_next_beta_cannot_skip_open_blockers()
             assert {item["id"] for item in pending} == set(exception["pending_hacs_gate_ids"])
             assert all(item["status"] == "implemented_pending_validation" and item.get("implementation_evidence") for item in pending)
             assert gate["upstream_ready"] is False
+        else:
+            assert f'{manifest["version"]} is an unpublished development candidate' in (ROOT / "readme.md").read_text()
     assert all(item.get("closure_evidence") for item in items if item["status"]=="closed")
 
 def test_b12_evidence_does_not_conflate_http_and_physical_verification():
