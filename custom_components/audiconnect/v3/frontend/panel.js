@@ -14,11 +14,13 @@ const friendly = value => ({
   negative_duration:"Invalid remaining duration", unmapped_response_fields_review:"Review unmapped response fields",
   response_schema_mismatch:"Response does not match mapping",
   accepted_not_physically_verified:"Command accepted; physical result not verified",
-  model_family_unknown:"Vehicle model family unknown", http_error:"API request failed"
+  model_family_unknown:"Vehicle model family unknown", manufacturer_identity_missing:"Manufacturer identity missing",
+  manufacturer_identity_partial:"Manufacturer identity incomplete", physical_control_physical_failed:"Control test failed",
+  physical_control_uncertain:"Control outcome uncertain", http_error:"API request failed"
 }[value] || String(value || "Unknown").replaceAll("_"," "));
 const domainName = value => ({access:"Access & security",charging:"Charging",climate:"Climate",
   mobility:"Trips & location",remote:"Remote actions",service:"Service & maintenance",
-  vehicle_status:"Vehicle status"}[value] || friendly(value));
+  vehicle_status:"Vehicle status",vehicle_identity:"Vehicle identity"}[value] || friendly(value));
 const actionName = (cap, action) => ({
   "climate.start":"Climate · Turn on (vehicle settings)",
   "climate.stop":"Climate · Turn off",
@@ -419,6 +421,10 @@ class AudiConnectV3Panel extends HTMLElement {
     if (action === "inspect-finding") {
       const finding = (this.capabilityStatus.findings||[])[Number(button.dataset.index)];
       if (!finding) return;
+      if (finding.id?.startsWith("vehicle:")) {
+        this.category="vehicle_identity"; this.capabilityFilter=""; this.apiFamily="all";
+        this.attribute=""; this.controlAction=""; this.entityFilter=""; this.step=2; this.render(); return;
+      }
       const row = (this.capabilityStatus.rows||[]).find(r=>r.attribute===finding.attribute && r.entity_key);
       if (row) {
         this.category = row.capability; this.attribute = row.attribute; this.controlAction = "";
@@ -890,6 +896,8 @@ class AudiConnectV3Panel extends HTMLElement {
        this.operationFilter === "historical" && o.reference_only));
     const visibleOperations = matchingOperations.filter(o => !this.focusOperation || o.operation === this.focusOperation);
     const findings = coverage.findings || [];
+    const nextActions = coverage.next_actions || [];
+    const identitySummary = coverage.identity_summary || {};
     const projection = coverage.account_entity_projection || {};
     const filteredRows = rows.filter(r => (!this.capabilityFilter || r.capability === this.capabilityFilter) && (family === "all" || r.api_family === family) && (!selectedEntity || entityMatches(r) || (!r.entity_key && selectedEntity.operations.includes(r.operation))));
     const attributes = filteredRows.filter(r => r.entity_key &&
@@ -1063,24 +1071,27 @@ class AudiConnectV3Panel extends HTMLElement {
               <div class="card"><div class="eyebrow">Cloud connection</div><div class="stat">${item.poll_success?"Connected":"Unknown"}</div><div class="summary">${escapeHTML(item.poll_success?new Date(item.poll_success).toLocaleString():"No successful poll")}</div></div>
               <div class="card"><div class="eyebrow">Readable data</div><div class="stat">${readable.length}</div><div class="summary">${freshCount} fresh · ${staleCount} last known</div></div>
               <div class="card"><div class="eyebrow">Enabled controls</div><div class="stat">${enabledCount}</div><div class="summary">${verifiedCount} locally verified</div></div>
-              <div class="card"><div class="eyebrow">Needs review</div><div class="stat">${findings.length}</div><div class="summary"><button data-action="step-4">View evidence</button></div></div>
+              <div class="card"><div class="eyebrow">Needs review</div><div class="stat">${nextActions.length}</div><div class="summary"><button data-action="step-4">View evidence</button></div></div>
             </div>
             <div class="section-head"><h2>Capabilities</h2><button data-action="step-2">Browse functions</button></div>
             <div class="cap-grid">${capabilityNames.map(cap=>{
               const ar=attributes.filter(r=>r.capability===cap);
               const rr=ar.filter(r=>["verified","readable_but_stale"].includes(r.status));
               const ca=controlActions.filter(r=>r.capability===cap);
-              const issues=findings.filter(r=>r.capability===cap).length;
+              const issues=nextActions.filter(r=>r.capability===cap).length;
+              const isIdentity=cap==="vehicle_identity";
+              const knownIdentity=["manufacturer_model","model_year","oem_drivetrain"].filter(key=>identitySummary[key]).length;
               return `<button class="cap-card card" data-action="open-capability" data-capability="${escapeHTML(cap)}">
                 <div class="eyeline"><b>${escapeHTML(domainName(cap))}</b><span>›</span></div>
-                <div class="stat">${rr.length} <span class="muted" style="font-size:13px">/ ${ar.length} readable</span></div>
-                <div class="subline">${ca.filter(r=>r.enabled).length} / ${ca.length} controls enabled</div>
+                <div class="stat">${isIdentity?knownIdentity:rr.length} <span class="muted" style="font-size:13px">/ ${isIdentity?"3 identity fields":ar.length+" readable"}</span></div>
+                <div class="subline">${isIdentity?(identitySummary.last_known?"Last-known manufacturer model":identitySummary.manufacturer_model?"Manufacturer model observed":"Manufacturer model missing"):ca.filter(r=>r.enabled).length+" / "+ca.length+" controls enabled"}</div>
                 <div class="subline">${issues?pill("mapping_pending",issues+" to review"):pill("neutral","No reported findings")}</div>
               </button>`;
             }).join("")}</div>
             <section class="card" style="margin:18px 0">
               <div class="section-head"><h2>Next actions</h2><button data-action="step-4">All findings</button></div>
-              ${findings.slice(0,3).map((f,i)=>`<div class="finding"><div><b>${escapeHTML(friendly(f.reason))}</b><div class="subline">${escapeHTML(f.capability?domainName(f.capability):"Vehicle")}</div></div><button data-action="inspect-finding" data-index="${i}">Review</button></div>`).join("")||"<p>No findings reported in this snapshot.</p>"}
+              ${nextActions.slice(0,3).map(f=>`<div class="finding"><div><b>${escapeHTML(friendly(f.reason))}</b><div class="subline">${escapeHTML(f.capability?domainName(f.capability):"Vehicle")}</div></div><button data-action="inspect-finding" data-index="${findings.findIndex(x=>x.id===f.id)}">Review</button></div>`).join("")||"<p>No current action required.</p>"}
+              <p class="muted">Historical tests and mapping observations remain in API Log.</p>
             </section>
             <section class="card compact"><div class="section-head"><h2>Home Assistant</h2><button data-action="step-4">Details</button></div><div>${escapeHTML(projection.registered??"—")} registered · ${escapeHTML(projection.projected??"—")} projected <span class="muted">· account scope</span></div></section>
           </section>
