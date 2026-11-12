@@ -283,9 +283,11 @@ def restore_profile(
             or attempt.operation not in profile.registry.operations
             or profile.registry.operations[attempt.operation]["method"] not in ("POST", "PUT")
             or attempt.result not in (
-                "worked", "failed", "uncertain_pending_review",
+                "worked", "failed", "rejected", "uncertain_pending_review",
                 "awaiting_user_feedback"
             )
+            or (attempt.result == "rejected" and (attempt.http_status not in (405, 410)
+                or attempt.transport != "http_rejected_or_error"))
             or type(attempt.started_at) not in (int, float)
             or attempt.started_at < 0
         ):
