@@ -94,6 +94,7 @@ class AudiConnectV3Panel extends HTMLElement {
       return;
     }
     this.capabilityStatus = await this.api("status", this.selection);
+    this.pending = this.capabilityStatus.pending_control || null;
   }
 
   async _apiResults() {
@@ -543,6 +544,16 @@ class AudiConnectV3Panel extends HTMLElement {
           <button data-action="step-3" class="${this.step===3?"current":""}">3 · Configure & test</button>
         </div>
         ${this.error?`<div class="error">${escapeHTML(this.error)}</div>`:""}
+        ${car&&this.pending&&!this.controlAction?`<section class="card" style="margin-bottom:18px">
+          <div class="warn"><b>Pending vehicle control: ${escapeHTML(this.pending.capability)} · ${escapeHTML(this.pending.action)}</b>
+            <p>Review the physical result before starting another discovery action.</p>
+            <div class="actions">
+              <button data-action="confirm-worked">Verified working</button>
+              <button data-action="confirm-failed">Did not work</button>
+              <button data-action="confirm-uncertain">Not sure</button>
+            </div>
+          </div>
+        </section>`:""}
         ${car?`<section class="card" style="margin-bottom:18px">
           <h2>Discovery mode</h2>
           <div class="actions">

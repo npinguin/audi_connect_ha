@@ -256,6 +256,7 @@ def build_status_report(
         },
         "counts": counts,
         "control_actions": controls_for_vehicle,
+        "pending_control": profile.discovery._active.public() if profile.discovery._active else None,
         "rows": rows,
         "notes": (
             "V2 reference paths are only migration candidates: not discovered "

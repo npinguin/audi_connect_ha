@@ -613,7 +613,7 @@ class V3Engine:
                 "method": profile.registry.operations[op]["method"],
                 "path": profile.registry.operations[op]["path"],
                 "approval_group": approval_group(capability, action, profile.registry.operations[op]),
-                "parameters_required": profile.registry.operations[op].get("request_mode") in (
+                "parameters_required": bool(profile.registry.operations[op].get("request_variables")) or profile.registry.operations[op].get("request_mode") in (
                     "charge_mode", "charging_settings_update", "charging_profile_update",
                     "climate_settings_update", "climate_start_settings"
                 ),
