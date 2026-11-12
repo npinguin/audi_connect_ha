@@ -479,13 +479,13 @@ class AudiConnectV3Panel extends HTMLElement {
       } else if (action === "identity-save") {
         this.lastResult = await this.api("save_identity_draft", {...this.selection, operation:this.identityOperation,
           ...this.definitionValue("identity",identityDefinition)});
-      } else if (action === "identity-submit") {
-        const args = {...this.selection, operation:this.identityOperation};
+      } else if (action === "identity-submit" || action === "identity-activate") {
+        const args = {...this.selection, operation:this.identityOperation, ...(action==="identity-activate"?{activate:true}:{})};
         if (this.identityOperation.startsWith("graphql.")) {
           Object.assign(args,this.definitionValue("identity",identityDefinition));
         }
         const result = await this.api("test_identity_operation", args);
-        this.identityExecution = result.execution || result;
+        this.identityExecution = result.execution ? {...result.execution,can_activate:result.can_activate,activated:result.activated} : result;
         this.lastResult = result; this.step = 3;
       } else if (action === "family-test" || action === "family-full-test") {
         const car = this.entries.find(e=>e.entry_id===this.selected)
@@ -565,7 +565,7 @@ class AudiConnectV3Panel extends HTMLElement {
       await this._loadCapabilityStatus();
       await this._readRoutes();
       await this._controlRoutes();
-      if (["read-test","control-test","family-test","family-full-test","identity-submit"].includes(action)) {
+      if (["read-test","control-test","family-test","family-full-test","identity-submit","identity-activate"].includes(action)) {
         await this._apiResults();
         if(action==="read-test" && this.readRoutes.some(r=>r.id===readRoute)) this.readChoice=readRoute;
         if(action==="control-test" && this.controlRoutes.some(r=>r.id===controlRoute)) this.controlChoice=controlRoute;
@@ -1239,7 +1239,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <label>Vehicle Identity · API operation<select id="identity-operation"><option value="">Choose a source</option>${identityOps.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.identityOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
             ${this.identityOperation?`<p><b>${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.method)} ${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.path)}</b> · Read-only</p>
               ${this.identityOperation.startsWith("graphql.")?`${this.definitionFields("identity",this.identityDefinition)}${this.capabilityStatus.identity_fixed_parameters?.[this.identityOperation]? `<p>myAudi web document tested using native Audi bearer authentication; not a web session replay.</p>`:""}`:"<p>Fixed read-only garage inventory GET.</p>"}
-              <div class="actions"><button class="primary" data-action="identity-submit" ${this.loading?"disabled":""}>Submit</button>${this.identityOperation.startsWith("graphql.")?`<button data-action="identity-save" ${this.loading?"disabled":""}>Save local draft</button>`:""}<button data-action="identity-reset">Reset template</button><button data-action="identity-evidence" data-operation="${escapeHTML(this.identityOperation)}">API Log</button></div>
+              <div class="actions"><button class="primary" data-action="identity-submit" ${this.loading?"disabled":""}>Submit</button>${this.identityOperation.startsWith("graphql.")?`<button data-action="identity-save" ${this.loading?"disabled":""}>Save local draft</button>`:""}${this.identityExecution?.can_activate&&!this.identityExecution?.activated?`<button data-action="identity-activate" ${this.loading?"disabled":""}>Use verified OEM identity</button>`:""}<button data-action="identity-reset">Reset template</button><button data-action="identity-evidence" data-operation="${escapeHTML(this.identityOperation)}">API Log</button></div>
               <p class="helper">Experiments do not change active mappings. Edited GraphQL supports one userVehicles selection with vin, orderBy and renderPictures mediaTypes. No mutations, arbitrary hosts or directives.</p>
               ${this.identityExecution?this.responseInspector(this.identityOperation,this.identityExecution):this.responseInspector(this.identityOperation)}
               ${this.identityExecution?.fields?.length?`<details open><summary>Discovered fields · ${this.identityExecution.fields.length}</summary>${this.identityExecution.fields.map(f=>`<div class="subline"><code>${escapeHTML(f.path)}</code> · ${escapeHTML(f.type)}</div>`).join("")}</details>`:""}
