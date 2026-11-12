@@ -280,14 +280,17 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
             controls.append({"capability": capability, "action": action,
                 "catalog_applicable": bool(available), "eligible": bool(decision["operation"]),
                 "status": decision["status"], "reason": decision.get("reason"), "physical": physical})
+    from collections import Counter
+    from datetime import UTC, datetime
+    from .capability_status import attribute_status
+    now = datetime.now(UTC)
     owners = {row["id"]: row["capability"] for row in INVENTORY["jobs"]}
     capabilities = {}
     for name in registry.capabilities:
         subset = [row for job, row in jobs.items() if owners.get(job) == name]
         actions = [row for row in controls if row["capability"] == name]
         attrs = [attr for attr in CANONICAL_ATTRIBUTES.values() if attr["capability"] == name]
-        from collections import Counter
-        evidence = Counter(profile.attribute_evidence.get(attr["id"], {}).get("status", "not_tested") for attr in attrs)
+        evidence = Counter(attribute_status(car, profile, attr, now)[0] for attr in attrs)
         normalized = evidence["verified"] + evidence["readable_but_stale"]
         capabilities[name] = {"jobs_total": len(subset),
             "attributes_total": len(attrs), "attributes_normalized": normalized,

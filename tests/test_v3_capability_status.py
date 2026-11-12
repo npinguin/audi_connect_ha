@@ -115,3 +115,21 @@ def test_diagnostic_jobs_follow_canonical_capability_ownership():
     assert _V2_SELECTIVE_JOBS == {row["id"]: row["capability"] for row in INVENTORY["jobs"]}
     assert _V2_SELECTIVE_JOBS["access"] == "access"
     assert _V2_SELECTIVE_JOBS["vehicleHealthInspection"] == "service"
+
+
+def test_discovery_coverage_matches_dashboard_for_derived_and_invalid_attributes():
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from custom_components.audiconnect.v3.read_discovery import user_progress
+    car, profile = _fixture()
+    now = datetime.now(UTC).isoformat()
+    # Runtime-derived data need not have a separate persisted GET observation.
+    car.readings["stateOfCharge"] = {"value": 75, "captured": now}
+    profile.attribute_evidence["stateOfCharge"] = {"status": "readable_but_stale"}
+    car.readings["remainingClimatisationTime"] = {"value": -1, "captured": now}
+    report = build_status_report(car, profile)
+    auth = SimpleNamespace(uses_auth0=True, service=SimpleNamespace(_spin=None))
+    progress = user_progress(car, profile, auth)
+    summary = next(row for row in report["capability_summary"] if row["capability"] == "climate")
+    assert progress["capabilities"]["climate"]["attribute_evidence"] == summary["read_status"]
+    assert next(row for row in report["rows"] if row.get("attribute") == "stateOfCharge")["status"] == "verified"

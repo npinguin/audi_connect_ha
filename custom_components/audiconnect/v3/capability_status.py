@@ -53,6 +53,34 @@ _V2_ADDITIONAL_GET = {
 }
 
 
+def attribute_status(vehicle, profile, definition, now):
+    """Canonical attribute status shared by coverage and detailed projections."""
+    ident = definition["id"]
+    evidence = profile.attribute_evidence.get(ident, {})
+    reading = vehicle.readings.get(ident, {})
+    legacy = legacy_variant_for(ident) if vehicle.context.auth == "legacy" else None
+    known = bool(definition["paths"] or legacy)
+    fallback = ("not_tested" if definition.get("local") else
+                "not_observed" if known and definition["paths"] and
+                profile.job_discovery.get(definition["job"]) == "not_observed" else
+                "not_tested" if known else "mapping_pending")
+    status = evidence.get("status", fallback)
+    key = definition["entity_key"]
+    contract = definition.get("contract") or (
+        binary_contract_for(key) if definition.get("platform") == "binary_sensor"
+        else contract_for(key))
+    issue = reading.get("reason")
+    value = reading.get("value")
+    if reading:
+        issue = issue or semantic_value_issue(key, value, contract)
+        if reading.get("status") == "invalid_value" or issue:
+            status = "invalid_value"
+        elif value is not None:
+            status = ("verified" if timestamp_is_fresh(reading.get("captured"), now)
+                      else "readable_but_stale")
+    return status, issue, contract
+
+
 def build_status_report(
     vehicle: V3Vehicle, profile: DevelopmentProfile,
 ) -> dict[str, Any]:
@@ -307,21 +335,10 @@ def _cockpit(vehicle, profile, rows, controls):
         ident = row["attribute"]
         reading = vehicle.readings.get(ident, {})
         definition = definitions.get(ident, {})
-        contract = (binary_contract_for(row["entity_key"])
-                    if definition.get("platform") == "binary_sensor"
-                    else contract_for(row["entity_key"]))
-        contract = definition.get("contract") or contract
-        issue = reading.get("reason")
+        status, issue, contract = attribute_status(vehicle, profile, definition, now)
+        row["status"] = status
         value = reading.get("value")
-        if not issue and reading:
-            issue = semantic_value_issue(row["entity_key"], value, contract)
         if reading:
-            # Derived values can exist without a separately persisted GET route.
-            if reading.get("status") == "invalid_value" or issue:
-                row["status"] = "invalid_value"
-            elif value is not None:
-                row["status"] = ("verified" if timestamp_is_fresh(reading.get("captured"), now)
-                                 else "readable_but_stale")
             row["path"] = reading.get("path") or row["path"]
             row["source"] = "v3_live_evidence"
             row["api_family"] = reading.get("family") or row["api_family"]
