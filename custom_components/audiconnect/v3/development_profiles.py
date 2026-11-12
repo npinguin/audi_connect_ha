@@ -514,16 +514,19 @@ class DevelopmentProfile:
 
     def confirm(
         self, sequence: int, *, worked: bool | None,
-        inspected_vehicle: bool, now: float
+        inspected_vehicle: bool, now: float, readback_verified: bool = False
     ) -> None:
+        record = self.engineering_record(sequence)
+        if readback_verified and (worked is not True or record is None or record.state != "verified"
+                                  or not record.readback_attribute):
+            raise DevelopmentProfileError("No verified readback for this action")
         attempted = self.discovery.review(
             sequence,
             result="uncertain" if worked is None else "worked" if worked else "failed",
             inspected_vehicle=inspected_vehicle,
-            now=now,
+            now=now, readback_verified=readback_verified,
         )
         key = f"{attempted.capability}.{attempted.action}"
-        record = self.engineering_record(sequence)
         if record is not None:
             record.state = "verified" if worked is True else "physical_failed" if worked is False else "uncertain"
             if worked is not None:
