@@ -681,7 +681,7 @@ class OptionsFlowHandler(OptionsFlow):
             self._discovery_candidate = None  # Single-use explicit action approval.
             try:
                 result = await engine.approved_control_discovery(
-                    car.vin, action, operation, approval=group, capability=capability)
+                    car.vin, action, operation, approval=group, capability=capability, guided=True)
             except (ValueError, RuntimeError, OSError, TimeoutError):
                 errors["base"] = "discovery_test_failed"
                 if profile.discovery._active is not None:
