@@ -73,11 +73,13 @@ def test_switch_projection_and_actions(key,reading,capability,on,off,button,raw)
     assert switch.extra_state_attributes["state_source"] == "command_pending"
     enabled.remove(on)
     assert not stateful_control_supported(engine,car,key)
-    assert switch.available
-    asyncio.run(switch.async_turn_off())
-    engine.send_control.assert_awaited_with(VIN,off,capability)
-    with pytest.raises(Exception,match="Vehicle action unavailable"):
-        asyncio.run(switch.async_turn_on())
+    assert not switch.available
+    assert not superseded_control_button(engine,car,"button."+button)
+    for action in (switch.async_turn_on, switch.async_turn_off):
+        with pytest.raises(Exception,match="Vehicle action unavailable"):
+            asyncio.run(action())
+    # A single eligible direction belongs to its independent command button.
+    assert engine.control_enabled(VIN,off,capability)
 
 def test_window_command_readback_rejects_precommand_and_numeric_values():
     car=V3Vehicle(VIN,"Audi","Audi Q8","q8","DE")

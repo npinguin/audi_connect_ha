@@ -53,12 +53,12 @@ class CommandRecord:
 
     @property
     def unresolved(self) -> bool:
-        return self.state in _UNRESOLVED
+        return self.state in _UNRESOLVED or self.requires_review
 
     @property
     def requires_review(self) -> bool:
-        """Only security-sensitive uncertain commands require acknowledgement."""
-        return self.state == "pending" or (self.state == "uncertain" and (
+        """Security-sensitive acceptance without confirmation requires review."""
+        return self.state == "pending" or (self.state in ("uncertain", "accepted_unconfirmed") and (
             self.capability == "access" or
             (self.capability == "remote" and self.action in ("engine_start", "engine_stop"))
         ))

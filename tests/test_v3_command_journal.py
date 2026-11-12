@@ -169,3 +169,18 @@ def test_wake_budget_survives_restart_and_journal_eviction():
     with pytest.raises(RuntimeError, match="wake budget"):
         check_wake_budget(recovered, 20000)
     check_wake_budget(recovered, 100000)
+
+
+def test_security_acceptance_without_confirmation_blocks_only_access():
+    import pytest
+    from custom_components.audiconnect.v3.command_journal import check_command_sequence
+    p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
+    row = CommandRecord.begin("access", "unlock", "cariad.access.unlock", 1000)
+    row.observe_http(200)
+    p.track_command(row)
+    assert row.unresolved and row.requires_review
+    with pytest.raises(RuntimeError, match="uncertain"):
+        check_command_sequence(p, 1100, capability="access", action="lock")
+    check_command_sequence(p, 1100, capability="climate", action="stop")
+    row.state = "verified"
+    check_command_sequence(p, 1100, capability="access", action="lock")
