@@ -326,6 +326,11 @@ class StatusEngine:
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     observe_read_only(car, profile, response.data, response.observed_at)
+                    if "climatisation" in jobs:
+                        row = car.readings.get("climatisationState", {})
+                        car.set_climate(row.get("value"), row.get("captured"),
+                            route="cariad.status.climatisation", observed_at=response.observed_at,
+                            http_status=response.status)
                 record_jobs(profile, jobs, status=response.status, payload=response.data)
                 polled_responses[(key, "cariad", path)] = response
 
