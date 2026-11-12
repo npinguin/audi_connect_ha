@@ -858,7 +858,10 @@ class V3Engine:
                     "disabled_controls": sorted(p.discovery.disabled) if p else [],
                     "automatic_read_discovery": discovery_summary(p) if p else {},
                     "last_api_results": [
-                        {"operation": diagnostic_route_label(ident, self.registry), **entry}
+                        {"operation": diagnostic_route_label(ident, self.registry), **entry,
+                         **({"preview": "[trip values withheld: private history]"}
+                            if ident.startswith("cariad.mobility.status.") and ident != "cariad.mobility.status.parkingPosition"
+                            else {})}
                         for ident, entry in reversed(list(p.api_observations.items()))
                     ][:24] if p else [],
                 },
