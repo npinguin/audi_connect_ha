@@ -91,7 +91,8 @@ _OPTIMISTIC = {
 
 def latest_readback_command(profile, attribute):
     return next((record for record in reversed(getattr(profile, "command_journal", ()))
-                 if getattr(record, "readback_attribute", None) == attribute), None)
+                 if getattr(record, "readback_attribute", None) == attribute
+                 and record.state != "rejected"), None)
 
 
 def projected_state(profile, attribute, reported, captured, *, now=None, optimistic=True):

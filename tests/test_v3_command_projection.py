@@ -65,3 +65,9 @@ def test_restart_and_unrelated_commands_never_replay_or_replace_projection():
     assert projected_state(NS(command_journal=[start,charge]),"climate","off",OLD,now=NOW)==("on","command_pending")
     restored=CommandRecord.restore(start.snapshot())
     assert projected_state(NS(command_journal=[restored]),"climate","off",OLD,now=NOW)==(None,"unknown")
+
+
+def test_rejected_stop_preserves_preceding_accepted_start():
+    start=record("climate","start")
+    stop=record("climate","stop",state="rejected")
+    assert projected_state(NS(command_journal=[start,stop]),"climate","off",OLD,now=NOW)==("on","command_pending")

@@ -63,7 +63,7 @@ _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
 def _command_projection(coordinator, vehicle, attribute, reported, captured, *, optimistic=True):
-    profile = getattr(coordinator.engine, "profiles", {}).get(vehicle.vin.lower())
+    profile = getattr(getattr(coordinator, "engine", None), "profiles", {}).get(vehicle.vin.lower())
     return projected_state(profile, attribute, reported, captured, optimistic=optimistic)
 
 
@@ -208,7 +208,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
                 "vehicle" if self.reported_target_temperature is not None else "unknown"),
             "last_reported_climate_state": self.vehicle.climate_state,
             "state_source": _climate_projection(self.coordinator, self.vehicle)[1],
-            "active_paths": len(profile.active) if profile else 0,
+            "active_paths": len(getattr(profile, "active", {})),
         }
 
     async def async_set_temperature(self, **kwargs):
@@ -912,7 +912,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
 
     def _pending_action(self, action):
         from .command_readback import latest_readback_command
-        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
+        profile = getattr(getattr(self.coordinator, "engine", None), "profiles", {}).get(self.vehicle.vin.lower())
         record = latest_readback_command(profile, "doorLockStatus")
         _, source = _reading_projection(self.coordinator, self.vehicle, "doorLockStatus", optimistic=False)
         return bool(record and record.action == action and source == "command_pending")

@@ -413,3 +413,56 @@ async def test_inventory_evidence_is_per_vehicle_and_not_a_physical_command():
     row=next(x for x in report["operations"] if x["operation"]==INVENTORY_OPERATION)
     assert row["read_only"] and row["physical"]=="not_applicable"
     assert "accepted_not_physically_verified" not in row["attention"]
+
+
+@pytest.mark.asyncio
+async def test_accepted_climate_start_and_immediate_stop_use_real_command_owner():
+    from homeassistant.components.climate import HVACMode
+    from custom_components.audiconnect.v3.entities import V3ClimateEntity
+    engine, transport, store=engine_for(status(),V3Response(200,{},datetime.now(UTC)),
+                                        V3Response(200,{},datetime.now(UTC)))
+    await engine.poll()
+    profile=engine.profiles[VIN.lower()]
+    for action,route in (("start","cariad.climate.start.stored"),("stop","cariad.climate.stop")):
+        profile.control_results[route]="worked"
+        profile.choose_working("climate",action,route)
+    car=engine.vehicles[VIN.lower()]
+    climate=V3ClimateEntity(SimpleNamespace(engine=engine,last_update_success=True),car)
+    climate.async_write_ha_state=lambda:None
+    assert climate.hvac_mode==HVACMode.OFF
+    await climate.async_turn_on()
+    assert climate.hvac_mode==HVACMode.HEAT_COOL
+    assert climate.extra_state_attributes["state_source"]=="command_pending"
+    assert car.climate_state=="off"
+    assert profile.last_command.state=="accepted_unconfirmed"
+    await climate.async_turn_off()
+    assert climate.hvac_mode==HVACMode.OFF
+    assert climate.extra_state_attributes["state_source"]=="command_pending"
+    assert [call[1] for call in transport.calls if len(call)>1]==["GET","POST","POST"]
+    assert len([r for r in profile.command_journal if r.origin=="home_assistant"])==2
+    with pytest.raises(RuntimeError,match="cooldown"):
+        await engine.send_control(VIN,"start")
+    assert transport.request_count==3
+
+
+@pytest.mark.asyncio
+async def test_direct_command_response_uses_actual_vehicle_status():
+    from datetime import timedelta
+    from homeassistant.components.climate import HVACMode
+    from custom_components.audiconnect.v3.entities import V3ClimateEntity
+    engine,transport,_=engine_for(status())
+    await engine.poll()
+    profile=engine.profiles[VIN.lower()]
+    route="cariad.climate.start.stored"
+    profile.control_results[route]="worked"
+    profile.choose_working("climate","start",route)
+    future=datetime.now(UTC)+timedelta(seconds=1)
+    transport._responses.append(V3Response(200,{"climatisation":{"climatisationStatus":{"value":{
+        "climatisationState":"cooling","carCapturedTimestamp":future.isoformat()}}}},future))
+    await engine.send_control(VIN,"start")
+    car=engine.vehicles[VIN.lower()]
+    entity=V3ClimateEntity(SimpleNamespace(engine=engine,last_update_success=True),car)
+    assert entity.hvac_mode==HVACMode.HEAT_COOL
+    assert entity.hvac_action.value=="cooling"
+    assert entity.extra_state_attributes["state_source"]=="vehicle"
+    assert profile.last_command.state=="verified"
