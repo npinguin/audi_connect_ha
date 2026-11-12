@@ -111,3 +111,24 @@ timeInCar example is absent. Low-voltage battery, battery support/care, departur
 profiles/timers and auxiliary heating require additional response evidence.
 No invented warning list, 12V voltage, departure schema or healthy vehicle
 state may be published from this snapshot. The completeness gate remains open.
+
+
+## Automatic read-only policy
+
+All 23 reviewed selective-status jobs stay in the shared normal GET, including
+unknown, unmapped, stale and unadvertised jobs. A supplementary targeted probe
+remains bounded; it is not a prerequisite to continued normal polling. Only
+explicit job-level unsupported evidence removes a job from the schedule.
+Reviewed standalone trip, tripStatistics, parking and legacy resource reads
+run automatically on their own quota-aware cadence, without physical-test
+consent. A user-disabled GPS tracker is respected. Exact standalone routes
+can be excluded by explicit unsupported response, HTTP 405 or 410; a plain
+404, 403, 429, missing value or transient error does not prove non-support.
+Exclusions persist per vehicle and context and are invalidated on a changed
+vehicle context. A later positive response can recover an exclusion.
+No numeric Audi error codes are guessed. The unreviewed/custom or
+reference-only routes remain outside automatic discovery until reviewed.
+GraphQL inventory is read-only despite POST transport. Physical mutations,
+including wake/refresh commands, still require explicit user initiation.
+Coverage reports distinguish excluded from unknown and observed reads.
+This is implementation evidence, not CI or live acceptance.
