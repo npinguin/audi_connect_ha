@@ -38,13 +38,13 @@ def transform_for(family: str, attribute: str) -> dict[str, Any] | None:
     result = _route_mappings().get(family, {}).get(attribute)
     return validate_attribute_transform(attribute, result) if result is not None else None
 
-def validate_attribute_transform(attribute: str, value: Any) -> dict[str, Any]:
+def validate_attribute_transform(attribute: str, value: Any, attributes=ATTRIBUTES) -> dict[str, Any]:
     """A route's target unit must agree with its HA semantic contract."""
     conversion = validate_transform(value)
-    definition = ATTRIBUTES.get(attribute)
+    definition = attributes.get(attribute)
     if definition is None:
         raise ValueError("Unknown Audi attribute")
-    contract = contract_for(definition["entity_key"])
+    contract = definition.get("contract") or contract_for(definition["entity_key"])
     target = contract.get("unit")
     if target is None or conversion["to"] != target:
         raise ValueError("API destination unit does not match the HA attribute contract")

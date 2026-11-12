@@ -17,6 +17,7 @@ from .registry import CapabilityRegistry, VehicleContext
 from .historical_catalog import ATTRIBUTES, V2_JOBS
 from .api_observations import validate_record, MAX_ROUTES
 from .attribute_routes import validate_custom_read_route, get_read_variant, read_variants
+from .custom_attributes import MAX_CUSTOM_ATTRIBUTES, attributes_for, validate_definition
 
 
 def restore_profile(
@@ -91,57 +92,69 @@ def restore_profile(
             raise DevelopmentProfileError("Malformed action evidence")
         profile.control_results[operation] = result
     # Historical attribute evidence is optional for profiles saved by b4.
+    definitions = saved.get("attribute_definitions", {})
+    if not isinstance(definitions, dict) or len(definitions) > MAX_CUSTOM_ATTRIBUTES:
+        raise DevelopmentProfileError("Invalid local attribute catalog")
+    for ident, definition in definitions.items():
+        row = validate_definition(definition)
+        if ident != row["id"]:
+            raise DevelopmentProfileError("Local attribute ID mismatch")
+        profile.attribute_definitions[ident] = row
+    attributes = attributes_for(profile)
     ar = saved.get("attribute_routes", {})
     ae = saved.get("attribute_evidence", {})
     ac = saved.get("attribute_custom", {})
     ad = saved.get("attribute_drafts", {})
     are = saved.get("attribute_route_evidence", {})
-    if any(not isinstance(q, dict) for q in (ac, ad, are)) or len(ac) > 50 or len(ad) > len(ATTRIBUTES) or len(are) > len(ATTRIBUTES):
+    if any(not isinstance(q, dict) for q in (ac, ad, are)) or len(ac) > 50 or len(ad) > len(attributes) or len(are) > len(attributes):
         raise DevelopmentProfileError("Invalid custom read route storage")
     for ident, value in ac.items():
-        route = validate_custom_read_route(value)
+        route = validate_custom_read_route(value, attributes)
         if ident != route["id"]:
             raise DevelopmentProfileError("Custom route ID mismatch")
         profile.attribute_custom[ident] = route
     for ident, variants in are.items():
-        if ident not in ATTRIBUTES or not isinstance(variants, dict) or len(variants) > 25:
+        if ident not in attributes or not isinstance(variants, dict) or len(variants) > 25:
             raise DevelopmentProfileError("Invalid read route evidence")
         for route, data in variants.items():
-            get_read_variant(ident, route, profile.attribute_custom)
+            get_read_variant(ident, route, profile.attribute_custom, attributes)
             if not isinstance(data, dict) or set(data) != {"outcome", "path", "http_status"}:
                 raise DevelopmentProfileError("Untrusted route evidence")
-            if data["outcome"] not in ("verified", "readable_but_stale", "mapping_missing", "api_error") or data["path"] not in get_read_variant(ident, route, profile.attribute_custom)["response_paths"] or type(data["http_status"]) is not int:
+            if data["outcome"] not in ("verified", "readable_but_stale", "mapping_missing", "api_error") or data["path"] not in get_read_variant(ident, route, profile.attribute_custom, attributes)["response_paths"] or type(data["http_status"]) is not int:
                 raise DevelopmentProfileError("Invalid route evidence values")
             profile.attribute_route_evidence.setdefault(ident, {})[route] = dict(data)
     for ident, route in ad.items():
-        get_read_variant(ident, route, profile.attribute_custom)
+        get_read_variant(ident, route, profile.attribute_custom, attributes)
         profile.attribute_drafts[ident] = route
-    if not isinstance(ar, dict) or not isinstance(ae, dict) or len(ar) > len(ATTRIBUTES) or len(ae) > len(ATTRIBUTES):
+    if not isinstance(ar, dict) or not isinstance(ae, dict) or len(ar) > len(attributes) or len(ae) > len(attributes):
         raise DevelopmentProfileError("Invalid attribute profile")
     for ident, detail in ae.items():
-        if ident not in ATTRIBUTES or not isinstance(detail, dict) or set(detail) != {"status", "path", "job", "source", "timestamp_present"}:
+        if ident not in attributes or not isinstance(detail, dict) or set(detail) != {"status", "path", "job", "source", "timestamp_present"}:
             raise DevelopmentProfileError("Invalid attribute evidence")
         if (detail["status"] not in ("verified", "readable_but_stale")
             or detail["path"] not in {
-                p for variant in read_variants(ident, profile.attribute_custom)
+                p for variant in read_variants(ident, profile.attribute_custom, attributes)
                 for p in variant["response_paths"]
             }
-            or detail["job"] != ATTRIBUTES[ident]["job"]
+            or detail["job"] != attributes[ident]["job"]
             or detail["source"] not in ("cariad.selectivestatus", "mbb.legacy")
             or (detail["source"] == "mbb.legacy"
                 and detail["path"] not in {
-                    p for variant in read_variants(ident, profile.attribute_custom)
+                    p for variant in read_variants(ident, profile.attribute_custom, attributes)
                     if variant["family"] == "mbb" for p in variant["response_paths"]
                 })
             or type(detail["timestamp_present"]) is not bool):
             raise DevelopmentProfileError("Untrusted attribute evidence")
         profile.attribute_evidence[ident] = dict(detail)
     for ident, route in ar.items():
-        if ident not in ATTRIBUTES or ident not in ae:
+        if ident not in attributes or ident not in ae:
             raise DevelopmentProfileError("Unverified active attribute")
-        get_read_variant(ident, route, profile.attribute_custom)
+        get_read_variant(ident, route, profile.attribute_custom, attributes)
         if route != "cariad.selectivestatus.batch" and profile.attribute_route_evidence.get(ident, {}).get(route, {}).get("outcome") not in ("verified", "readable_but_stale"):
-            raise DevelopmentProfileError("Unverified active route selection")
+            # A previously valid route can fail during a later poll. Retain its
+            # draft but never crash integration setup or restore it as active.
+            profile.attribute_drafts[ident] = route
+            continue
         profile.attribute_routes[ident] = route
     # Added after b5: older saved per-vehicle profiles load without any upgrade.
     observed_jobs = saved.get("job_discovery", {})

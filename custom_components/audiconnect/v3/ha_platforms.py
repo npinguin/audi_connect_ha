@@ -16,7 +16,7 @@ from .entities import (
     V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
     V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor,
 )
-from .historical_catalog import ATTRIBUTES
+from .custom_attributes import attributes_for
 
 
 def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
@@ -67,8 +67,12 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                         if tag not in seen:
                             seen.add(tag)
                             entities.append(V3TripSensor(coordinator, car, key))
+                profile = getattr(engine, "profiles", {}).get(vin)
+                attributes = attributes_for(profile)
                 for ident in car.readings:
-                    descriptor = ATTRIBUTES.get(ident)
+                    descriptor = attributes.get(ident)
+                    if descriptor and descriptor.get("local") and ident not in profile.attribute_routes:
+                        continue
                     if not descriptor or descriptor["platform"] != platform:
                         continue
                     reading = car.readings.get(ident)

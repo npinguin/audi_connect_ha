@@ -24,6 +24,7 @@ from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
 from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
+from .custom_attributes import MAX_CUSTOM_ATTRIBUTES, attributes_for, descriptor, validate_definition
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
 from .legacy_read_mappings import FIELDS as MBB_FIELDS
@@ -467,14 +468,15 @@ class V3Engine:
     def attribute_routes_for(self, vin: str, attribute: str) -> dict[str, Any]:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
-        alternatives = [r for r in read_variants(attribute, profile.attribute_custom)
-                        if r["family"] == ("mbb" if car.context.auth == "legacy" else "cariad")]
+        alternatives = [r for r in read_variants(attribute, profile.attribute_custom, attributes_for(profile))
+                        if r["family"] == ("mbb" if car.context.auth == "legacy" else "cariad")
+                        or (r["family"] == "cariad" and car.legacy_cariad)]
         for variant in alternatives:
             evidence = profile.attribute_route_evidence.get(attribute, {}).get(variant["id"], {})
             variant["result"] = evidence.get("outcome", "not_tested")
             variant["active"] = profile.attribute_routes.get(attribute) == variant["id"]
         return {
-            "attribute": attribute, "capability": ATTRIBUTES[attribute]["capability"],
+            "attribute": attribute, "capability": attributes_for(profile)[attribute]["capability"],
             "routes": alternatives, "active": profile.attribute_routes.get(attribute),
             "draft": profile.attribute_drafts.get(attribute),
         }
@@ -482,11 +484,24 @@ class V3Engine:
     async def add_attribute_route(self, vin: str, definition: dict[str, Any]) -> str:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
-        route = validate_custom_read_route(definition)
+        raw = dict(definition)
+        local = raw.pop("attribute_definition", None)
+        attributes = attributes_for(profile)
+        if local is not None:
+            local = validate_definition(local)
+            ident = local["id"]
+            if ident != raw.get("attribute") or ident in attributes:
+                raise ValueError("New local attribute must have a unique matching ID")
+            if len(profile.attribute_definitions) >= MAX_CUSTOM_ATTRIBUTES:
+                raise ValueError("Too many local attributes")
+            attributes[ident] = descriptor(local)
+        route = validate_custom_read_route(raw, attributes)
         if route["id"] in profile.attribute_custom:
             raise ValueError("Choose a new custom route identifier")
         if len(profile.attribute_custom) >= 50:
             raise ValueError("Too many custom routes")
+        if local is not None:
+            profile.attribute_definitions[local["id"]] = local
         profile.attribute_custom[route["id"]] = route
         await self.storage.async_save(self.profiles)
         return route["id"]
@@ -514,7 +529,7 @@ class V3Engine:
     async def save_attribute_candidate(self, vin: str, attribute: str, route: str) -> None:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
-        get_read_variant(attribute, route, profile.attribute_custom)
+        get_read_variant(attribute, route, profile.attribute_custom, attributes_for(profile))
         profile.attribute_drafts[attribute] = route
         await self.storage.async_save(self.profiles)
 
@@ -532,12 +547,14 @@ class V3Engine:
     async def activate_attribute_route(self, vin: str, attribute: str, route: str) -> None:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
-        choice = get_read_variant(attribute, route, profile.attribute_custom)
-        if choice["family"] != ("mbb" if car.context.auth == "legacy" else "cariad"):
+        choice = get_read_variant(attribute, route, profile.attribute_custom, attributes_for(profile))
+        if choice["family"] != ("mbb" if car.context.auth == "legacy" else "cariad") and not (
+            choice["family"] == "cariad" and car.legacy_cariad
+        ):
             raise ValueError("Route does not match the vehicle API family")
         result = profile.attribute_route_evidence.get(attribute, {}).get(route, {})
         if result.get("outcome") != "verified" and not (
-            choice["family"] == "mbb" and result.get("outcome") == "readable_but_stale"
+            (choice["family"] == "mbb" or choice.get("allow_last_known")) and result.get("outcome") == "readable_but_stale"
         ):
             if choice["family"] == "mbb":
                 raise ValueError("Test an MBB GET response before enabling legacy polling")
@@ -549,9 +566,9 @@ class V3Engine:
 
     async def disable_attribute_route(self, vin: str, attribute: str) -> None:
         car = self.require_vehicle(vin)
-        if attribute not in ATTRIBUTES:
-            raise ValueError("Unknown historical attribute")
         profile = self.profiles[car.vin.lower()]
+        if attribute not in attributes_for(profile):
+            raise ValueError("Unknown attribute")
         profile.attribute_routes.pop(attribute, None)
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()

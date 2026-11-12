@@ -270,6 +270,7 @@ class DevelopmentProfile:
         self.attribute_routes: dict[str, str] = {}
         self.attribute_evidence: dict[str, dict[str, Any]] = {}
         self.attribute_drafts: dict[str, str] = {}
+        self.attribute_definitions: dict[str, dict[str, Any]] = {}
         self.attribute_custom: dict[str, dict[str, Any]] = {}
         self.attribute_route_evidence: dict[str, dict[str, dict[str, Any]]] = {}
         # Read-only auto discovery; per-vehicle, bounded, no data/tokens stored.
@@ -504,6 +505,7 @@ class DevelopmentProfile:
             "attribute_routes": dict(self.attribute_routes),
             "attribute_evidence": deepcopy(self.attribute_evidence),
             "attribute_drafts": dict(self.attribute_drafts),
+            "attribute_definitions": deepcopy(self.attribute_definitions),
             "attribute_custom": deepcopy(self.attribute_custom),
             "attribute_route_evidence": deepcopy(self.attribute_route_evidence),
             "job_discovery": dict(self.job_discovery),

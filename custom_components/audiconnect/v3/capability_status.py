@@ -15,6 +15,7 @@ from .development_profiles import DevelopmentProfile
 from .action_discovery import approval_group
 from .vehicle import V3Vehicle
 from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
+from .custom_attributes import attributes_for
 from .legacy_read_mappings import variant_for as legacy_variant_for
 from .read_discovery import summary as discovery_summary
 
@@ -188,6 +189,21 @@ def build_status_report(
             "custom": False, "context_applicable": bool(candidate) if vehicle.context.auth == "legacy" else bool(attr["paths"]),
             "job": attr["job"],
         })
+    for attr in attributes_for(profile).values():
+        if not attr.get("local"):
+            continue
+        ident = attr["id"]
+        evidence = profile.attribute_evidence.get(ident, {})
+        selected = profile.attribute_routes.get(ident)
+        choices = [r for r in profile.attribute_custom.values() if r["attribute"] == ident]
+        rows.append({"capability": attr["capability"], "aspect": "status",
+                     "attribute": ident, "entity_key": attr["entity_key"], "api_family": "cariad",
+                     "operation": selected or (choices[0]["id"] if choices else ident), "method": "GET",
+                     "path": evidence.get("path") or (choices[0]["response_path"] if choices else "-"),
+                     "status": evidence.get("status", "not_tested"), "route_result": evidence.get("status", "not_tested"),
+                     "source": "v3_live_evidence" if evidence else "local_attribute_definition",
+                     "selected": selected is not None, "saved_candidate": False, "custom": True,
+                     "context_applicable": vehicle.context.auth != "legacy" or vehicle.legacy_cariad, "job": None})
     for control in INVENTORY["controls"]:
         rows.append({
             "capability": control["capability"], "aspect": "control",

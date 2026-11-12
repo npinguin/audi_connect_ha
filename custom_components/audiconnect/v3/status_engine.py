@@ -10,6 +10,7 @@ from .transport import V3Response
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
 from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
+from .custom_attributes import attributes_for, normalize_local_value
 from .attribute_routes import get_read_variant, read_variants
 from .historical_catalog import ATTRIBUTES, capture_time, read_path, V2_JOBS
 from .legacy_read_mappings import FIELDS as MBB_FIELDS, ROUTES as MBB_ROUTES
@@ -476,12 +477,12 @@ class StatusEngine:
 
     def _attribute_request(self, car: V3Vehicle, profile: DevelopmentProfile,
                            attribute: str, operation: str) -> tuple[str, str, list[str]]:
-        route = get_read_variant(attribute, operation, profile.attribute_custom)
+        route = get_read_variant(attribute, operation, profile.attribute_custom, attributes_for(profile))
         path = (route["path"].replace("{VIN}", car.vin)
                 .replace("{TYPE}", "Audi").replace("{COUNTRY}", car.country))
         if "{JOBS}" in path:
             jobs = list(planned_jobs(car, profile))
-            required = ATTRIBUTES[attribute]["job"]
+            required = attributes_for(profile)[attribute]["job"]
             # Manual discovery of a missing attribute must include its own job,
             # even if the regular vehicle poll already pruned unobserved jobs.
             if required and required not in jobs:
@@ -509,13 +510,19 @@ class StatusEngine:
             value = None
         if isinstance(value, list) and not value:
             value = None
-        variant = get_read_variant(attribute, operation, profile.attribute_custom)
+        variant = get_read_variant(attribute, operation, profile.attribute_custom, attributes_for(profile))
         family = variant["family"]
         try:
             value = normalize_api_value(value, variant.get("conversion"))
         except ValueError:
             value = None
-        captured = capture_time(response.data, field) if value is not None else None
+        definition = attributes_for(profile)[attribute]
+        if definition.get("local"):
+            value = normalize_local_value(value, definition)
+        captured = (read_path(response.data, variant["capture_path"]) if variant.get("capture_path")
+                    else capture_time(response.data, field)) if value is not None else None
+        if not isinstance(captured, str):
+            captured = None
         fresh = timestamp_is_fresh(captured, response.observed_at)
         if not 200 <= response.status < 300:
             outcome = "api_error"
@@ -532,12 +539,12 @@ class StatusEngine:
                 car.readings[attribute] = {
                     "value": value, "captured": captured,
                     "observed": response.observed_at.isoformat(),
-                    "fresh": fresh, "path": field, "job": ATTRIBUTES[attribute]["job"],
+                    "fresh": fresh, "path": field, "job": definition["job"],
                     "status": outcome, "family": family,
                 }
             profile.attribute_evidence[attribute] = {
                 "status": outcome, "path": field,
-                "job": ATTRIBUTES[attribute]["job"],
+                "job": definition["job"],
                 "source": "mbb.legacy" if family == "mbb" else "cariad.selectivestatus",
                 "timestamp_present": bool(captured),
             }

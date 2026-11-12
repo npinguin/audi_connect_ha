@@ -15,12 +15,12 @@ _ID = re.compile(r"^user\.read\.[a-z][a-z0-9_]{0,40}$")
 _PATH = re.compile(r"^(?:[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*|/(?:[^/~]|~[01])*(?:/(?:[^/~]|~[01])*)*)$")
 
 
-def validate_custom_read_route(value: Mapping[str, Any]) -> dict[str, Any]:
+def validate_custom_read_route(value: Mapping[str, Any], attributes=ATTRIBUTES) -> dict[str, Any]:
     required = {"id", "attribute", "family", "method", "path", "response_path"}
-    if not isinstance(value, Mapping) or not required <= set(value) or set(value) - required - {"conversion"}:
+    if not isinstance(value, Mapping) or not required <= set(value) or set(value) - required - {"conversion", "capture_path"}:
         raise ValueError("Invalid custom read route fields")
     ident, attr = value["id"], value["attribute"]
-    if not isinstance(ident, str) or not _ID.fullmatch(ident) or attr not in ATTRIBUTES:
+    if not isinstance(ident, str) or not _ID.fullmatch(ident) or attr not in attributes:
         raise ValueError("Unknown attribute or invalid route ID")
     if value["family"] != "cariad" or value["method"] != "GET":
         raise ValueError("Only approved CARIAD GET routes are executable in clean V3")
@@ -33,15 +33,17 @@ def validate_custom_read_route(value: Mapping[str, Any]) -> dict[str, Any]:
         raise ValueError("Only the VIN placeholder is permitted")
     if not isinstance(mapping, str) or len(mapping) > 180 or not _PATH.fullmatch(mapping):
         raise ValueError("Invalid response mapping")
+    if "capture_path" in value and (not isinstance(value["capture_path"], str) or len(value["capture_path"]) > 180 or not _PATH.fullmatch(value["capture_path"])):
+        raise ValueError("Invalid capture timestamp mapping")
     if "conversion" in value:
-        validate_attribute_transform(attr, value["conversion"])
+        validate_attribute_transform(attr, value["conversion"], attributes)
     return dict(value)
 
 
-def read_variants(attribute: str, custom: Mapping[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    if attribute not in ATTRIBUTES:
+def read_variants(attribute: str, custom: Mapping[str, dict[str, Any]], attributes=ATTRIBUTES) -> list[dict[str, Any]]:
+    if attribute not in attributes:
         raise ValueError("Unknown historical attribute")
-    field = ATTRIBUTES[attribute]
+    field = attributes[attribute]
     variants = []
     if field["paths"] and field["job"]:
         variants.extend((
@@ -62,12 +64,13 @@ def read_variants(attribute: str, custom: Mapping[str, dict[str, Any]]) -> list[
             variants.append({"id": ident, "family": value["family"],
                 "method": "GET", "path": value["path"],
                 "response_paths": [value["response_path"]], "kind": "custom",
-                "conversion": value.get("conversion")})
+                "conversion": value.get("conversion"), "capture_path": value.get("capture_path"),
+                "allow_last_known": field.get("contract", {}).get("display_last_known", False)})
     return variants
 
 
-def get_read_variant(attribute: str, route: str, custom: Mapping[str, dict[str, Any]]) -> dict[str, Any]:
-    found = next((r for r in read_variants(attribute, custom) if r["id"] == route), None)
+def get_read_variant(attribute: str, route: str, custom: Mapping[str, dict[str, Any]], attributes=ATTRIBUTES) -> dict[str, Any]:
+    found = next((r for r in read_variants(attribute, custom, attributes) if r["id"] == route), None)
     if not found:
         raise ValueError("Unknown or non-applicable read-only API variant")
     return found

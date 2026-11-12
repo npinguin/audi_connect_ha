@@ -1652,9 +1652,11 @@ from .registry import read_json_path as read_path
 
 def capture_time(payload: Any, dotted_path: str) -> str | None:
     """Use a vehicle capture timestamp, never substitute cloud receipt time."""
-    parts = dotted_path.split(".")
-    for size in range(len(parts) - 1, 0, -1):
-        node = read_path(payload, ".".join(parts[:size]))
+    pointer = dotted_path.startswith("/")
+    parts = dotted_path[1:].split("/") if pointer else dotted_path.split(".")
+    for size in range(len(parts) - 1, -1, -1):
+        path = ("/" + "/".join(parts[:size])) if pointer else ".".join(parts[:size])
+        node = read_path(payload, path) if size else payload
         if not isinstance(node, dict):
             continue
         stamp = node.get("carCapturedTimestamp") or node.get("timestamp")
