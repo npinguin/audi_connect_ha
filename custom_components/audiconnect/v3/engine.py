@@ -303,6 +303,9 @@ class V3Engine:
             if method == "GET":
                 record["preview"] = "[trip values withheld: private history]"
         save_record(profile, operation, record)
+        if method == "GET":
+            from .read_discovery import record_standalone_read
+            record_standalone_read(profile, operation, record["http_status"])
         # Share structural evidence per reviewed job, not private response values.
         if response is not None and detail is not None and isinstance(detail["payload"], dict):
             from .response_preview import safe_schema_inventory
