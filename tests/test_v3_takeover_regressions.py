@@ -102,3 +102,56 @@ def test_climate_request_metadata_does_not_become_climate_state_or_fake_timestam
     assert detail["cloud_observed"] == now.isoformat()
     assert car.climate_state is None
     assert "private" not in str(detail)
+
+
+def test_public_audi_timer_variants_and_battery_care_are_read_only():
+    # Synthetic values, public schema: upstream issue #760, July 2026.
+    car = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    now = datetime.now(UTC)
+    stamp = now.isoformat()
+    payload = {
+        "departureTimers": {"climatisationTimersStatus": {"value": {
+            "carCapturedTimestamp": stamp, "timeInCar": "2026-11-12T14:00:00+01:00",
+            "timers": [
+                {"id": 1, "enabled": True, "recurringTimer": {
+                    "startTime": "06:10", "targetTime": "06:30",
+                    "recurringOn": {"mondays": True, "tuesdays": False},
+                    "repetitionDays": ["monday"]}},
+                {"id": 2, "enabled": False, "singleTimer": {
+                    "startDateTime": "2026-11-13T05:10:00Z",
+                    "targetDateTime": "2026-11-13T05:30:00Z"}}]}}},
+        "batteryChargingCare": {"chargingCareSettings": {"value": {"batteryCareMode": "deactivated"}}},
+        "vehicleHealthWarnings": {"warningLights": {"value": {}}},
+    }
+    observe_structured(car, payload, now, _accept_observation)
+    details = details_for(car, "departure_climate_timers_detail", "battery_care_detail",
+                          "health_warning_evidence_detail")
+    timers = details["departure_climate_timers"]["data"]
+    assert timers["vehicle_time"] == "2026-11-12T14:00:00+01:00"
+    assert timers["items"][0]["target_time_local"] == "06:30"
+    assert timers["items"][0]["recurring_on"]["tuesdays"] is False
+    assert timers["items"][1]["target_datetime"] == "2026-11-13T05:30:00+00:00"
+    assert details["battery_care"]["data"]["mode"] == "deactivated"
+    assert details["health_warning_evidence"]["data"]["warning_state"] == "unknown"
+    assert not car.advertised_capabilities
+
+
+def test_profile_variants_are_normalized_without_location_or_invalid_soc():
+    car = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    now = datetime.now(UTC)
+    observe_derived(car, SimpleNamespace(), {"chargingProfiles": {"chargingProfilesStatus": {"value": {
+        "carCapturedTimestamp": now.isoformat(), "vehiclePositionedInProfileID": 1,
+        "timeInCar": "", "nextChargingTimer": {"id": 0, "targetSOCreachable": "invalid"},
+        "profiles": [{"id": 1, "name": "Example", "targetSOC_pct": 120, "minSOC_pct": 20,
+            "minSOC_enabled": False, "maxChargingCurrent": "reduced",
+            "options": {"usePreferredChargingTimes": True, "secret": "private"},
+            "preferredChargingTimes": [{"id": 1, "enabled": True,
+                "startTime": "21:00", "endTime": "04:00"}],
+            "position": {"lat": 0, "lon": 0}}]}}}}, now, _accept_observation)
+    row = car.charging_profiles[0]
+    assert row["targetSOC_pct"] is None and row["minSOC_pct"] == 20
+    assert row["minSOC_enabled"] is False and row["maxChargingCurrent"] == "reduced"
+    assert row["preferredChargingTimes"][0]["startTimeLocal"] == "21:00"
+    assert row["options"] == {"usePreferredChargingTimes": True}
+    assert "position" not in row
+    assert car.readings["charging_profile_context_detail"]["value"]["vehicle_time"] is None
