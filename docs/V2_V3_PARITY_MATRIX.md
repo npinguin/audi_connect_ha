@@ -13,7 +13,7 @@
 
 ## Current coverage
 
-109 original baseline entity slots across nine platforms, plus the previous fixbranch's `sensor.last_trip`. {"mapped_conditional":84,"partial":3,"candidate_after_manual_proof":22}. All 11 public HA services and 19 control workstreams are inventoried; four engineering probe services deliberately excluded. Nine V2 business files match the pre-repair Git blob hashes exactly. The original upstream comparison is a declaration comparison, not a claim that the fork's V2 equals current upstream byte-for-byte.
+109 original baseline entity slots across nine platforms, plus the previous fixbranch's `sensor.last_trip`. {"mapped_conditional":87,"candidate_after_manual_proof":22}. All 11 public HA services and 19 control workstreams are inventoried; four engineering probe services deliberately excluded. Nine V2 business files match the pre-repair Git blob hashes exactly. The original upstream comparison is a declaration comparison, not a claim that the fork's V2 equals current upstream byte-for-byte.
 
 ## The user's Q8: observed V2 ↔ V3 b7
 
@@ -82,8 +82,8 @@ V2 metadata evidence: downloaded diagnostic `mode: v2`, `disabled_per_platform: 
 | sensor.park_time | mapped_conditional | v3/engine.py, v3/entities.py | Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS. |
 | sensor.position_last_updated | mapped_conditional | v3/engine.py, v3/entities.py | Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS. |
 | sensor.remaining_climatisation_time | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
-| sensor.preheater_duration | partial | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
-| sensor.preheater_remaining | partial | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.preheater_duration | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration. |
+| sensor.preheater_remaining | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration. |
 | sensor.active_charging_profile_target_soc | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
 | sensor.active_charging_profile_name | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
 | sensor.active_charging_profile_min_soc | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
@@ -97,7 +97,7 @@ V2 metadata evidence: downloaded diagnostic `mode: v2`, `disabled_per_platform: 
 | sensor.cloud_last_successful_poll | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
 | sensor.local_dealer | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
 | sensor.service_overview | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
-| sensor.api_requests_remaining | partial | v3/entities.py, v3/transport.py | Account-level live quota implemented; V2 restored display after HA restart still needs matching behavior. |
+| sensor.api_requests_remaining | mapped_conditional | v3/entities.py, v3/transport.py | Live quota or restored display-only quota; actual HA restart verification pending. |
 | binary_sensor.plug_state | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
 | binary_sensor.plug_lock_state | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
 | binary_sensor.glass_surface_heating | mapped_conditional | v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py | Historical MBB source; modern equivalent not established where the source does not expose it. |
@@ -291,6 +291,6 @@ Source: `v3/historical_catalog.py`, 110 source references across 23 selective-st
 ## Release gate
 
 - Static source inventory and independent code paths: updated; no physical acceptance implied.
-- Open implementation/verification: quota restore display on HA restart; exact legacy timer payload semantics; CARIAD reset-history availability; HA integration behavior and per-vehicle entity availability. No guessed fields or fallback to V2.
+- Open implementation/verification: exact legacy timer payload semantics; CARIAD reset-history availability; HA integration behavior and per-vehicle entity availability. No guessed fields or fallback to V2.
 - Recorder: all thirteen reported state classes restored; actual migration to be checked in HA.
 - Test release remains blocked until code-complete static parity and CI. Physical Q8 and V2→V3→V2 registry rollback are subsequent stable-release acceptance gates.

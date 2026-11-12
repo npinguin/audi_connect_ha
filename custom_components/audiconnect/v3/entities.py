@@ -15,7 +15,7 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.components.climate import (
     ClimateEntity, ClimateEntityFeature, HVACAction, HVACMode,
 )
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass, RestoreSensor
 from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime, PERCENTAGE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
@@ -362,7 +362,7 @@ class V3LocalServiceSensor(V3BaseEntity, SensorEntity):
         }
 
 
-class V3ApiQuotaSensor(V3BaseEntity, SensorEntity):
+class V3ApiQuotaSensor(V3BaseEntity, RestoreSensor):
     """One account-level HA entity; never multiply quota sensors per VIN."""
     _attr_name = "API requests remaining"
     _attr_icon = "mdi:api"
@@ -371,6 +371,23 @@ class V3ApiQuotaSensor(V3BaseEntity, SensorEntity):
     def __init__(self, coordinator, vehicle, entry_id):
         super().__init__(coordinator, vehicle)
         self._attr_unique_id = f"{entry_id}_api_requests_remaining"
+        self._restored_native_value: int | None = None
+        self._restored_last_observed: str | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if self.coordinator.engine.transport.remaining_calls is not None:
+            return
+        restored = await self.async_get_last_sensor_data()
+        if restored is not None and type(restored.native_value) is int and restored.native_value >= 0:
+            self._restored_native_value = restored.native_value
+        last_state = await self.async_get_last_state()
+        if last_state is not None:
+            if self._restored_native_value is None and last_state.state.isdigit():
+                self._restored_native_value = int(last_state.state)
+            stamp = last_state.attributes.get("last_observed")
+            if isinstance(stamp, str):
+                self._restored_last_observed = stamp
 
     @property
     def available(self):
@@ -378,13 +395,19 @@ class V3ApiQuotaSensor(V3BaseEntity, SensorEntity):
 
     @property
     def native_value(self):
-        return self.coordinator.engine.transport.remaining_calls
+        # Restored quota is display-only; never seed V3 transport budgeting.
+        current = self.coordinator.engine.transport.remaining_calls
+        return current if current is not None else self._restored_native_value
 
     @property
     def extra_state_attributes(self):
-        stamp = getattr(self.coordinator.engine.transport, "remaining_calls_observed_at", None)
-        return {"last_observed": stamp.isoformat() if stamp else None,
-                "value_restored": False}
+        transport = self.coordinator.engine.transport
+        stamp = getattr(transport, "remaining_calls_observed_at", None)
+        if transport.remaining_calls is not None:
+            return {"last_observed": stamp.isoformat() if stamp else None,
+                    "value_restored": False}
+        return {"last_observed": self._restored_last_observed,
+                "value_restored": self._restored_native_value is not None}
 
 
 class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):

@@ -89,8 +89,7 @@
     "v3_native_controls_readiness": "implemented_conditional_unverified",
     "fixbranch_additional_entity_rows": 1,
     "v3_code_path_classifications": {
-      "mapped_conditional": 84,
-      "partial": 3,
+      "mapped_conditional": 87,
       "candidate_after_manual_proof": 22
     }
   },
@@ -1360,12 +1359,12 @@
         "preheater_duration"
       ],
       "historical_paths": [],
-      "v3_implementation": "partial",
-      "notes": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "v3_implementation": "mapped_conditional",
+      "notes": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration.",
       "priority": "P2",
       "q8_v3_verified": false,
-      "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
+      "remaining_gap": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration."
     },
     {
       "id": "sensor.preheater_remaining",
@@ -1385,12 +1384,12 @@
         "preheater_remaining"
       ],
       "historical_paths": [],
-      "v3_implementation": "partial",
-      "notes": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "v3_implementation": "mapped_conditional",
+      "notes": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration.",
       "priority": "P2",
       "q8_v3_verified": false,
-      "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
+      "remaining_gap": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration."
     },
     {
       "id": "sensor.active_charging_profile_target_soc",
@@ -1723,12 +1722,12 @@
       },
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "partial",
-      "notes": "Account-level live quota implemented; V2 restored display after HA restart still needs matching behavior.",
+      "v3_implementation": "mapped_conditional",
+      "notes": "Live quota or restored display-only quota; actual HA restart verification pending.",
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/transport.py",
-      "remaining_gap": "Account-level live quota implemented; V2 restored display after HA restart still needs matching behavior."
+      "remaining_gap": "Live quota or restored display-only quota; actual HA restart verification pending."
     },
     {
       "id": "binary_sensor.plug_state",
@@ -4348,7 +4347,7 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "All 109 baseline slots and the additional fixbranch last_trip slot now have a source-backed V3 code path or conditional implementation. MBB read and climate/RLU command execution, legacy bearer routing, and historical derived fields are implemented. This is not code-complete equivalence: quota restoration, modern reset history, legacy timer interpretation and end-to-end HA behavior remain unproven. No release gate promoted.",
+  "latest_candidate_notes": "All 109 baseline slots and the additional fixbranch last_trip slot now have a source-backed V3 code path or conditional implementation. MBB read and climate/RLU command execution, legacy bearer routing, and historical derived fields are implemented. This is not code-complete equivalence: modern reset history, legacy timer interpretation and end-to-end HA behavior remain unproven. No release gate promoted.",
   "product_scope_exclusions": {
     "temporary_runtime_probes": [
       "probe_api_paths",

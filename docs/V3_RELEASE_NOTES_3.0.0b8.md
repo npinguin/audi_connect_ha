@@ -18,7 +18,7 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 
 - Independent MBB reads, climate start/stop, S-PIN challenge-response lock/unlock, bounded backend confirmation, region selection and legacy trip data are implemented. Explicitly reviewed legacy-bearer CARIAD routes are supported without V2 business fallback.
 - Historical access, charge profiles/timers, outdoor temperature, parking, trip data, and native HA controls now have independent source-backed paths. The matrix includes the fixbranch's additional last-trip sensor.
-- Remaining implementation/verification gaps: quota restore display after HA restart, legacy timer interpretation, modern reset-history availability and actual HA entity behavior. The current matrix is not a static-parity sign-off.
+- Remaining implementation/verification gaps: legacy timer interpretation, modern reset-history availability and actual HA entity behavior. The current matrix is not a static-parity sign-off.
 - All four temporary probe services are intentionally excluded. No automatic mutating discovery.
 - Physical Q8 command acceptance, recorder repair and runtime rollback are required after the test package is published, before stable promotion.
 
