@@ -767,3 +767,26 @@ async def test_schema_evidence_excludes_echoed_spin_in_field_names():
     schema = profile.job_schema["inventory"]["fields"]
     assert any("modelYear" in row["path"] for row in schema)
     assert all("9387" not in row["path"] for row in schema)
+
+
+@pytest.mark.asyncio
+async def test_execution_review_is_private_persistent_and_non_authorizing():
+    engine, transport, store = engine_for()
+    engine.entry.data = {"password": "private-password-value"}
+    await engine.discover()
+    profile = engine.profiles[VIN.lower()]
+    now = datetime.now(UTC)
+    engine._api_record(profile, "test.read", "cariad", "GET",
+                       V3Response(200, {"value": 7}, now), VIN)
+    at = profile.api_observations["test.read"]["at"]
+    before = dict(profile.active)
+    await engine.review_execution(VIN, "test.read", at, "worked",
+                                  "checked private-password-value")
+    assert profile.active == before and profile.control_results == {}
+    assert len(transport.calls) == 1
+    assert profile.execution_reviews[0]["comment"] == "checked {SECRET}"
+    restored = restore_profile(engine.registry, profile.discovery.context, profile.snapshot())
+    assert restored.execution_reviews == profile.execution_reviews
+    assert "private-password-value" not in json.dumps(profile.snapshot())
+    with pytest.raises(ValueError, match="no longer retained"):
+        await engine.review_execution(VIN, "unknown", at, "worked", "not evidence")
