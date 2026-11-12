@@ -61,6 +61,15 @@ def _compact(values):
     return {key: value for key, value in values.items() if value is not None}
 
 
+def _preferred_window(row):
+    if not isinstance(row, dict):
+        return None
+    return _compact({"id": _id(row.get("id")),
+                     "enabled": _boolean(row.get("enabled")),
+                     "start_time_local": _clock(row.get("startTimeLocal") or row.get("startTime")),
+                     "end_time_local": _clock(row.get("endTimeLocal") or row.get("endTime"))}) or None
+
+
 def _timer(row):
     if not isinstance(row, dict):
         return None
@@ -68,6 +77,8 @@ def _timer(row):
     recurring = row.get("recurringTimer")
     result = _compact({"id": _id(row.get("id")), "enabled": _boolean(row.get("enabled")),
                        "climatisation": _boolean(row.get("climatisation"))})
+    if isinstance(row.get("preferredChargingTimes"), list):
+        result["preferred_charging_times"] = _array(row["preferredChargingTimes"], _preferred_window, 12)
     if isinstance(single, dict):
         result.update(_compact({
             "start_datetime_local": _local_datetime(single.get("startDateTimeLocal")),
@@ -128,9 +139,14 @@ def _service(row):
     else:
         expiration = None
     status = row.get("status")
+    # Audi Q8 reports integer status codes. Preserve them separately from
+    # textual enums; do not infer impairment meaning or control authority.
+    codes = ([value for value in status[:32] if type(value) is int and 0 <= value <= 2147483647]
+             if isinstance(status, list) else [status] if type(status) is int and 0 <= status <= 2147483647 else None)
     return _compact({"id": ident, "expiration_date": expiration,
                      "user_disabling_allowed": _boolean(row.get("userDisablingAllowed")),
-                     "status": _tokens(status) if isinstance(status, list) else _token(status)})
+                     "status": _tokens(status) if isinstance(status, list) else _token(status),
+                     "status_codes": codes if codes else None})
 
 
 def _warning(row):
@@ -157,7 +173,9 @@ def _request_status(row):
     operation, status = _token(row.get("operation")), _token(row.get("status"))
     if operation is None or status is None:
         return None
-    return {"operation": operation, "status": status}
+    return _compact({"operation": operation, "status": status,
+                     "group": row["group"] if type(row.get("group")) is int
+                     and 0 <= row["group"] <= 2147483647 else None})
 
 
 def _array(rows, normalizer, limit):
@@ -250,11 +268,13 @@ def observe_structured(vehicle, payload, observed_at, accepts):
             block.get("carCapturedTimestamp"), "access.accessStatus.value.overallStatus")
     # b12 exposed these two fields in the climate status envelope. Its
     # vehicle capture belongs to the climate reading, not to the requests.
-    requests_path = "climatisation.climatisationStatus.requests"
-    requests = read_json_path(payload, requests_path)
-    if isinstance(requests, list):
-        put("climate_requests_detail", _array(requests, _request_status, 30),
-            None, requests_path)
+    for key, requests_path in (
+        ("climate_requests_detail", "climatisation.climatisationStatus.requests"),
+        ("access_requests_detail", "access.accessStatus.requests"),
+    ):
+        requests = read_json_path(payload, requests_path)
+        if isinstance(requests, list):
+            put(key, _array(requests, _request_status, 30), None, requests_path)
     services = read_json_path(payload, "userCapabilities.capabilitiesStatus.value")
     if isinstance(services, list):
         put("connected_services_detail", _array(services, _service, 200), None,

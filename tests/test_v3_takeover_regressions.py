@@ -256,3 +256,43 @@ def test_advertised_flash_is_temporarily_blocked_not_unknown_without_position():
     assert result["reason"] == "parking_position_missing"
     car.position = {"latitude": 50.0, "longitude": 4.0}
     assert control_decision(car, profile, auth, "remote", "flash")["operation"] == "cariad.remote.flash"
+
+
+def test_b13_observed_timer_windows_service_codes_and_access_requests():
+    """Synthetic fixture matching the field types observed in Q8 b13."""
+    car = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    now = datetime.now(UTC)
+    payload = {
+        "chargingTimers": {"chargingTimersStatus": {"value": {"timers": [{
+            "id": 1, "enabled": True, "climatisation": False,
+            "singleTimer": {"targetDateTimeLocal": "2026-11-13T07:30:00",
+                            "departureDateTimeLocal": "2026-11-13T08:00:00"},
+            "preferredChargingTimes": [
+                {"id": 2, "enabled": False, "startTimeLocal": "21:00", "endTimeLocal": "04:00"},
+                {"id": 3, "enabled": True, "startTimeLocal": "bad", "endTimeLocal": "05:00",
+                 "privateField": "private"}] }]}}},
+        "userCapabilities": {"capabilitiesStatus": {"value": [
+            {"id": "charging", "status": [0, 2, True, "example", -1]}]}},
+        "access": {"accessStatus": {"requests": [
+            {"operation": "lock", "status": "accepted", "requestId": "private"}]}},
+        "climatisation": {"climatisationStatus": {"requests": [
+            {"operation": "start", "status": "accepted", "group": 2,
+             "info": "private", "requestId": "private"}]}}
+    }
+    observe_structured(car, payload, now, _accept_observation)
+    details = details_for(car, "charging_timers_detail", "connected_services_detail",
+                          "access_requests_detail", "climate_requests_detail")
+    timer = details["charging_timers"]["data"]["items"][0]
+    assert timer["departure_datetime_local"] == "2026-11-13T08:00:00"
+    windows = timer["preferred_charging_times"]["items"]
+    assert windows[0] == {"id": 2, "enabled": False, "start_time_local": "21:00", "end_time_local": "04:00"}
+    assert windows[1] == {"id": 3, "enabled": True, "end_time_local": "05:00"}
+    service = details["connected_services"]["data"]["items"][0]
+    assert service["status_codes"] == [0, 2]
+    assert service["status"] == ["example"]
+    assert details["access_requests"]["data"]["items"] == [{"operation": "lock", "status": "accepted"}]
+    assert details["climate_requests"]["data"]["items"] == [
+        {"operation": "start", "status": "accepted", "group": 2}]
+    assert details["access_requests"]["vehicle_captured"] is None
+    assert "private" not in str(details)
+    assert not car.advertised_capabilities

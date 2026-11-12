@@ -629,7 +629,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         )
         from .structured_details import details_for
         detail_keys = {
-            "doors_trunk_status": ("door_detail", "window_detail", "access_overall_detail", "light_detail"),
+            "doors_trunk_status": ("door_detail", "window_detail", "access_overall_detail", "light_detail", "access_requests_detail"),
             "charging_timer_enabled_count": ("charging_timers_detail", "departure_charging_timers_detail", "battery_care_detail", "charging_profile_context_detail"),
             "climatisation_timer_enabled_count": ("climate_timers_detail", "ventilation_timers_detail"),
             "charging_state": ("charging_timers_detail", "departure_charging_timers_detail", "battery_care_detail", "charging_profile_context_detail"),
