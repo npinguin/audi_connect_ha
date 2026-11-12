@@ -64,9 +64,15 @@ def configure_discovery_readback(record, car, params):
     if isinstance(value, str):
         value = value.strip().lower()
     now = datetime.now(UTC)
-    expects_bool = all(type(v) is bool for v in record.readback_values)
-    if (value is None or captured is None or not -300 <= (now-captured).total_seconds() <= 3600
-            or (type(value) is bool) != expects_bool or value in record.readback_values):
+    known_states = {"climate": CLIMATE_ON_STATES + CLIMATE_OFF_STATES,
+                    "chargingState": CHARGING_ON_STATES + CHARGING_OFF_STATES}
+    states = known_states.get(record.readback_attribute)
+    # Restrict unattended verification to well-defined comfort/charging states
+    # and boolean window heating. Security and wake require explicit review.
+    known = (value in states if states else
+             record.readback_attribute == "windowHeatingActive" and type(value) is bool)
+    if (not known or captured is None or not -300 <= (now-captured).total_seconds() <= 3600
+            or value in record.readback_values):
         record.readback_attribute, record.readback_values = None, None
 
 
