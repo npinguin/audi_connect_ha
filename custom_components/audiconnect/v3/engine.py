@@ -628,7 +628,7 @@ class V3Engine:
             "routes": routes, "active": profile.active.get(f"{capability}.{action}"),
             "pending": in_progress.public() if in_progress else None,
             "requires": "Explicit per-action consent and physical verification",
-            "spin_configured": bool(getattr(self.auth.service, "_spin", None)),
+            "spin_configured": bool(getattr(getattr(self.auth, "service", None), "_spin", None)),
         }
 
     async def disable_control(self, vin: str, capability: str, action: str) -> None:
@@ -705,7 +705,7 @@ class V3Engine:
         )["available_operations"]:
             raise ValueError("Control not applicable to this car")
         validate_approval(capability, aspect, op, approval,
-                          has_spin=bool(getattr(self.auth.service, "_spin", None)))
+                          has_spin=bool(getattr(getattr(self.auth, "service", None), "_spin", None)))
         return await self.test_action(
             vin, aspect, operation, params=params, capability=capability
         )
@@ -734,6 +734,10 @@ class V3Engine:
                 raise ValueError("Review the previous action before trying another")
             if f"{capability}.{aspect}" in profile.discovery.disabled:
                 raise ValueError("This action has been disabled by the user")
+            if (profile.discovery.history and
+                    time.time() < profile.discovery.history[-1].started_at
+                    + profile.discovery.cooldown_seconds):
+                raise ValueError("Vehicle command cooldown still active")
             # Reject invalid templates/parameters BEFORE reserving a pending
             # physical action, otherwise a mere validation error locks the car.
             family, method, path, body = await self._command_request(

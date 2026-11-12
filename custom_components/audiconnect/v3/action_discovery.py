@@ -29,7 +29,10 @@ def approval_group(capability: str, action: str, operation: dict) -> str:
         return "unsupported"
     if operation.get("method") not in ("POST", "PUT"):
         return "unsupported"
-    if (capability == "access" or action in (
+    if (capability == "access" or "/access/" in operation.get("path", "")
+            or "/engine/" in operation.get("path", "")
+            or "/auxiliaryheating/" in operation.get("path", "")
+            or action in (
             "engine_start", "engine_stop", "preheater_start", "preheater_stop"
         ) or operation.get("request_mode") in ("secure_spin", "engine_start", "auxiliary_start")):
         return "spin"

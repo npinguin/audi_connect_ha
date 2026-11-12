@@ -220,6 +220,10 @@ class AudiConnectV3Panel extends HTMLElement {
       this.step = Number(action.slice(5)); this.render(); return;
     }
     if (action === "discovery-group") {
+      if (this.pending) {
+        this.error = "Resolve the pending physical action before changing discovery groups.";
+        this.render(); return;
+      }
       this.discoveryGroup = button.dataset.group;
       this.controlAction = ""; this.attribute = "";
       this.step = this.discoveryGroup === "read_only" ? 1 : 2;
