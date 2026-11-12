@@ -68,7 +68,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.focusOperation = "";
     this.identityOperation = ""; this.identityQuery = ""; this.identityVariables = "{}"; this.identityExecution = null;
     this.operationMethod = "all";
-    this.logCapability = ""; this.logOutcome = "all"; this.logFrom = ""; this.logTo = "";
+    this.capabilityFilter = ""; this.logOutcome = "all"; this.logFrom = ""; this.logTo = "";
     this.readRoutes = [];
     this.readChoice = "";
     this.readDraft = "";
@@ -204,20 +204,25 @@ class AudiConnectV3Panel extends HTMLElement {
     } else if (e.target.id === "inventory-filter") {
       this.inventoryFilter = e.target.value;
       if (this.inventoryFilter === "disabled") {
-        this.apiFamily = "all"; this.entityFilter = ""; this.searchText = "";
+        this.apiFamily = "all"; this.entityFilter = ""; this.searchText = ""; this.capabilityFilter = "";
         this.functionMode = "all"; this.discoveryGroup = "read_only";
       }
       this.render();
     } else if (e.target.id === "global-search") {
-      this.searchText = e.target.value.trim(); this.focusOperation = ""; if(this.searchText) this.apiFamily="all"; this.render();
+      this.searchText = e.target.value.trim(); this.render();
     } else if (e.target.id === "operation-focus") {
       this.focusOperation = e.target.value; this.render();
     } else if (e.target.id === "operation-filter") {
-      this.operationFilter = e.target.value; this.focusOperation = "";
+      this.operationFilter = e.target.value;
       this.render();
-    } else if (["log-capability","log-outcome","log-from","log-to"].includes(e.target.id)) {
-      const field = {"log-capability":"logCapability","log-outcome":"logOutcome","log-from":"logFrom","log-to":"logTo"}[e.target.id];
-      this[field] = e.target.value; this.render();
+    } else if (["capability-filter","log-outcome","log-from","log-to"].includes(e.target.id)) {
+      const field = {"capability-filter":"capabilityFilter","log-outcome":"logOutcome","log-from":"logFrom","log-to":"logTo"}[e.target.id];
+      this[field] = e.target.value;
+      if (field === "capabilityFilter" && this.capabilityFilter) {
+        this.category = this.capabilityFilter;
+        if (this.step === 3) { this.attribute = ""; this.controlAction = ""; this.step = 2; }
+      }
+      this.render();
     } else if (e.target.id === "operation-method") {
       this.operationMethod = e.target.value;
       this.render();
@@ -244,7 +249,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.step = 1; this.apiFamily = "vehicle"; this.functionMode = "all"; this.discoveryGroup = "read_only";
     this.focusOperation = ""; this.operationFilter = "all"; this.operationMethod = "all";
     this.searchText = ""; this.inventoryFilter = "all";
-    this.logCapability = ""; this.logOutcome = "all"; this.logFrom = ""; this.logTo = "";
+    this.capabilityFilter = ""; this.logOutcome = "all"; this.logFrom = ""; this.logTo = "";
   }
 
   identityTemplate(operation) {
@@ -258,7 +263,7 @@ class AudiConnectV3Panel extends HTMLElement {
       row.contract_key === this.entityFilter || (row.entity_ids||[]).includes(this.entityFilter));
   }
   selectEntityFilter(id) {
-    this.entityFilter = id || ""; this.searchText = ""; this.focusOperation = ""; this.apiFamily = "all";
+    this.entityFilter = id || "";
     this.attribute = ""; this.controlAction = ""; this.identityOperation = ""; this.identityExecution = null;
     const link = this.selectedEntityLink();
     if(link?.capabilities?.length) this.category = link.capabilities[0];
@@ -294,7 +299,7 @@ class AudiConnectV3Panel extends HTMLElement {
       return (family === "all" || row.family === family)
         && (!selectedEntity || selectedEntity.operations.includes(key(row)))
         && (!this.focusOperation || key(row) === this.focusOperation)
-        && (!this.logCapability || (op?.capabilities || []).includes(this.logCapability))
+        && (!this.capabilityFilter || (op?.capabilities || []).includes(this.capabilityFilter))
         && (this.operationMethod === "all" || row.method === this.operationMethod)
         && (this.logOutcome === "all"
           || this.logOutcome === "success" && status >= 200 && status < 300
@@ -325,13 +330,14 @@ class AudiConnectV3Panel extends HTMLElement {
     if (!button || this.loading) return;
     const action = button.dataset.action;
     if (action.startsWith("step-")) {
-      this.step = Number(action.slice(5)); this.focusOperation = ""; this.render(); return;
+      this.step = Number(action.slice(5)); this.render(); return;
     }
+    if (action === "clear-operation") { this.focusOperation = ""; this.render(); return; }
     if (action === "filter-entity") { this.selectEntityFilter(button.dataset.entity); return; }
     if (action === "open-operation") {
       this.focusOperation = button.dataset.operation || "";
       this.step = 4; this.apiFamily = "all"; this.operationFilter = "all";
-      this.operationMethod = "all"; this.logCapability = ""; this.logOutcome = "all";
+      this.operationMethod = "all"; this.capabilityFilter = ""; this.logOutcome = "all";
       this.logFrom = ""; this.logTo = ""; this.searchText = ""; this.render(); return;
     }
     if (action === "identity-test" || action === "identity-reset") {
@@ -713,7 +719,8 @@ class AudiConnectV3Panel extends HTMLElement {
       || r.contract_key === selectedEntity.contract_key || r.entity_key === selectedEntity.contract_key
       || (r.entity_keys||[]).includes(selectedEntity.contract_key);
     const operationMatches = o => !selectedEntity || selectedEntity.operations.includes(o.operation) || (o.mappings||[]).some(entityMatches);
-    const operations = (coverage.operations || []).filter(o => (family === "all" || o.family === family) && operationMatches(o));
+    const operations = (coverage.operations || []).filter(o => (family === "all" || o.family === family) && operationMatches(o)
+      && (!this.capabilityFilter || (o.capabilities||[]).includes(this.capabilityFilter)));
     const matchesSearch = value => !this.searchText || JSON.stringify(value).toLowerCase().includes(this.searchText.toLowerCase());
     const visibleOperations = operations.filter(o => matchesSearch(o) &&
       (!this.focusOperation || o.operation===this.focusOperation) &&
@@ -726,13 +733,13 @@ class AudiConnectV3Panel extends HTMLElement {
        this.operationFilter === "historical" && o.reference_only));
     const findings = coverage.findings || [];
     const projection = coverage.account_entity_projection || {};
-    const filteredRows = rows.filter(r => (family === "all" || r.api_family === family) && (!selectedEntity || entityMatches(r) || (!r.entity_key && selectedEntity.operations.includes(r.operation))));
+    const filteredRows = rows.filter(r => (!this.capabilityFilter || r.capability === this.capabilityFilter) && (family === "all" || r.api_family === family) && (!selectedEntity || entityMatches(r) || (!r.entity_key && selectedEntity.operations.includes(r.operation))));
     const attributes = filteredRows.filter(r => r.entity_key &&
       ["v3_live_evidence","v2_attribute_reference","local_attribute_definition"].includes(r.source));
     const controls = filteredRows.filter(r => r.source === "v2_control_reference");
     const controlActions = (coverage.control_actions || []).filter(r =>
-      (family === "all" || r.api_family === family) && entityMatches(r));
-    const identityOps = (coverage.operations || []).filter(o=>o.read_only && !o.reference_only && (o.capabilities||[]).includes("vehicle_identity") && operationMatches(o));
+      (!this.capabilityFilter || r.capability === this.capabilityFilter) && (family === "all" || r.api_family === family) && entityMatches(r));
+    const identityOps = (coverage.operations || []).filter(o=>(!this.capabilityFilter || this.capabilityFilter==="vehicle_identity") && o.read_only && !o.reference_only && (o.capabilities||[]).includes("vehicle_identity") && operationMatches(o));
     const capabilityNames = [...new Set([...attributes,...controls,...controlActions].map(r => r.capability).concat(identityOps.length?["vehicle_identity"]:[], selectedEntity?.capabilities||[]))].filter(cap=>!selectedEntity||selectedEntity.capabilities.includes(cap)).sort();
     if (capabilityNames.length && !capabilityNames.includes(this.category) && this.step!==3) this.category=capabilityNames[0];
     const readable = attributes.filter(r => ["verified","readable_but_stale"].includes(r.status));
@@ -869,6 +876,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </select></div>
         </div>
         <div class="toolbar" style="padding-top:0"><label for="global-search">Search capabilities, entities and API fields</label><input id="global-search" type="search" value="${escapeHTML(this.searchText)}" placeholder="e.g. model, charging, media.longName"></div>
+        <div class="toolbar"><label for="capability-filter">Capability</label><select id="capability-filter"><option value="">All capabilities</option>${[...new Set(rows.map(r=>r.capability).concat((coverage.operations||[]).flatMap(o=>o.capabilities||[]),(coverage.control_actions||[]).map(r=>r.capability)).filter(Boolean))].sort().map(c=>`<option value="${escapeHTML(c)}" ${this.capabilityFilter===c?"selected":""}>${escapeHTML(domainName(c))}</option>`).join("")}</select></div>
         <div class="toolbar"><label for="entity-filter">Home Assistant entity</label><select id="entity-filter"><option value="">All entities</option>${entityLinks.flatMap(link=>(link.entity_ids.length?link.entity_ids:[link.contract_key]).map(id=>`<option value="${escapeHTML(id)}" ${this.entityFilter===id?"selected":""}>${escapeHTML(id)}${link.entity_ids.length?"":" (not registered)"}</option>`)).join("")}</select>${selectedEntity?`<p class="helper">${escapeHTML(selectedEntity.capabilities.map(domainName).join(" · ")||"No capability mapping declared")} · ${selectedEntity.operations.length} linked API operations</p>`:""}</div>
         ${this.entityInspector(selectedEntity)}
         <div class="steps">
@@ -922,7 +930,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <details><summary>Home Assistant projection & historical inventory</summary><p>${Object.entries(projection.counts||{}).map(([k,v])=>escapeHTML(friendly(k))+": "+escapeHTML(v)).join(" · ")}</p><p>${escapeHTML(counts.v2_attribute_inventory??0)} historical attributes · ${escapeHTML(counts.v2_control_inventory??0)} historical controls · ${escapeHTML(counts.observed_jobs??0)} observed jobs</p></details>
             <div style="margin-top:20px"></div>
             <h2>API operations · validation matrix</h2>
-            ${this.focusOperation?`<div class="callout">Focused on ${escapeHTML(this.focusOperation)} <button data-action="step-4">Show all operations</button></div>`:""}
+            ${this.focusOperation?`<div class="callout">Focused on ${escapeHTML(this.focusOperation)} <button data-action="clear-operation">Show all operations</button></div>`:""}
             <p>Tested, active, schema validity and physical confirmation are independent. HTTP 2xx/207 alone is not proof of a working command or complete mapping.</p>
             <div class="line">
               <label>Operation <select id="operation-focus"><option value="">All operations</option>${operations.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.focusOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
@@ -1108,7 +1116,6 @@ class AudiConnectV3Panel extends HTMLElement {
             <h2>Last result and response by API route</h2>
             <p>Inspect the latest masked JSON from existing requests, including command responses. Detailed responses are session-only; restricted diagnostics previews survive a restart.</p>
             <div class="line">
-              <label>Capability <select id="log-capability"><option value="">All capabilities</option>${[...new Set(operations.flatMap(o=>o.capabilities||[]))].sort().map(c=>`<option value="${escapeHTML(c)}" ${this.logCapability===c?"selected":""}>${escapeHTML(domainName(c))}</option>`).join("")}</select></label>
               <label>HTTP outcome <select id="log-outcome">${["all","success","error","unknown"].map(v=>`<option value="${v}" ${this.logOutcome===v?"selected":""}>${v}</option>`).join("")}</select></label>
               <label>From (UTC) <input type="date" id="log-from" value="${escapeHTML(this.logFrom)}"></label>
               <label>To (UTC) <input type="date" id="log-to" value="${escapeHTML(this.logTo)}"></label>
