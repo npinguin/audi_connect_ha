@@ -156,6 +156,7 @@ async def ws_add_route(hass, connection, msg):
     vol.Required("type"): "audiconnect/v3/test",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("aspect"): vol.In(("status", "start", "stop")),
+    vol.Optional("capability", default="climate"): str,
     vol.Required("operation"): str, vol.Optional("parameters"): dict,
     vol.Optional("approval"): vol.In(("non_spin", "spin")),
 })
@@ -166,6 +167,7 @@ async def ws_test(hass, connection, msg):
         if msg["aspect"] == "status":
             result = await engine.test_status_route(
                 msg["vin"], msg["operation"], params=msg.get("parameters"),
+                capability=msg["capability"],
             )
         else:
             result = await engine.approved_control_discovery(

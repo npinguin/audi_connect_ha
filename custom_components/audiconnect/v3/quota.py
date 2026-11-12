@@ -43,6 +43,8 @@ class QuotaBudget:
                 self.retry_at = max(self.retry_at or now, now + self.recovery_delay)
             elif 200 <= status < 300:
                 self.retry_at = None
+        if count is None and self.remaining is None and 200 <= status < 300:
+            self.retry_at = None
         if status == 429:
             delay = now + self.recovery_delay
             retry = headers.get("Retry-After")

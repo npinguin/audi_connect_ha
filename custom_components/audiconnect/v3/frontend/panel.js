@@ -272,7 +272,11 @@ class AudiConnectV3Panel extends HTMLElement {
       if (action === "refresh") {
         await this._load(); return;
       }
-      if (action === "test") {
+      if (action === "review-normal") {
+        const command = this.capabilityStatus.normal_command;
+        if (!command || !["pending", "uncertain"].includes(command.state)) throw new Error("No unresolved command");
+        this.lastResult = await this.api("review_normal_command", {...this.selection, command_id: command.command_id});
+      } else if (action === "test") {
         let parameters = {};
         parameters = JSON.parse(rawParameters);
         if (this.aspect !== "status") throw new Error("Use the explicit control discovery workflow");
@@ -561,6 +565,9 @@ class AudiConnectV3Panel extends HTMLElement {
             <button data-action="discovery-group" data-group="non_spin" class="${this.discoveryGroup==="non_spin"?"primary":""}">Controls · without S-PIN</button>
             <button data-action="discovery-group" data-group="spin" class="${this.discoveryGroup==="spin"?"primary":""}">Controls · with S-PIN</button>
           </div>
+          ${coverage.normal_command && ["pending", "uncertain"].includes(coverage.normal_command.state) ? `
+            <p>A previous vehicle command has an uncertain result. Inspect the vehicle before acknowledging it. No command is replayed.</p>
+            <button data-action="review-normal">I inspected the vehicle — acknowledge uncertainty</button>` : ""}
           <p>Choose a group to review candidates. Selecting a group sends no command. Every control needs separate approval for this vehicle and physical review before the next action.</p>
         </section>`:""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `

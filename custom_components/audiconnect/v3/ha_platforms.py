@@ -27,54 +27,37 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
         raise ValueError("V3 platform forwarded without V3 engine")
     seen: set[str] = set()
 
-    if platform == "sensor":
-        async_add_entities([
-            V3StatusSensor(coordinator, car, kind)
-            for car in engine.vehicles.values()
-            for kind in ("cloud", "age", "freshness", "capability", "poll")
-        ])
-        async_add_entities([
-            V3LocalServiceSensor(coordinator, car, kind)
-            for car in engine.vehicles.values()
-            for kind in ("local_dealer", "service_overview")
-        ])
-        first = next(iter(engine.vehicles.values()), None)
-        if first is not None:
-            async_add_entities([V3ApiQuotaSensor(coordinator, first, entry.entry_id)])
-    elif platform == "button":
-        async_add_entities([
-            V3CloudRefreshButton(coordinator, car)
-            for car in engine.vehicles.values()
-        ])
-    elif platform == "climate":
-        async_add_entities([
-            V3ClimateEntity(coordinator, car)
-            for car in engine.vehicles.values()
-        ])
-        return
-    elif platform == "device_tracker":
-        # Keep the historical V2 tracker identifier. Location is only a
-        # trusted last-parked sample; never imply active driving tracking.
-        async_add_entities([
-            V3ParkedTracker(coordinator, car)
-            for car in engine.vehicles.values()
-        ])
-        return
-    elif platform in ("number", "select"):
-        for car in engine.vehicles.values():
-            if platform == "number":
-                async_add_entities([V3ChargeTargetNumber(coordinator, car)])
-            else:
-                async_add_entities([V3ChargeModeSelect(coordinator, car)])
-        if platform == "select":
-            return
-    elif platform not in ("binary_sensor", "switch", "lock"):
+    if platform not in ("sensor", "binary_sensor", "button", "switch", "lock",
+                         "climate", "device_tracker", "number", "select"):
         raise ValueError("Unknown Audi V3 Home Assistant platform")
 
     def add_verified() -> None:
         entities: list[Any] = []
         for car in engine.vehicles.values():
             vin = car.vin.lower()
+            def add_once(tag: str, factory, *args) -> None:
+                if tag not in seen:
+                    seen.add(tag)
+                    entities.append(factory(coordinator, car, *args))
+
+            if platform == "sensor":
+                for kind in ("cloud", "age", "freshness", "capability", "poll"):
+                    add_once(f"{vin}:core:{kind}", V3StatusSensor, kind)
+                for kind in ("local_dealer", "service_overview"):
+                    add_once(f"{vin}:local:{kind}", V3LocalServiceSensor, kind)
+                if "account:quota" not in seen:
+                    add_once("account:quota", V3ApiQuotaSensor, entry.entry_id)
+            elif platform == "button":
+                add_once(f"{vin}:cloud_refresh", V3CloudRefreshButton)
+            elif platform == "climate":
+                add_once(f"{vin}:climate", V3ClimateEntity)
+            elif platform == "device_tracker":
+                add_once(f"{vin}:tracker", V3ParkedTracker)
+            elif platform == "number":
+                add_once(f"{vin}:target_soc", V3ChargeTargetNumber)
+            elif platform == "select":
+                add_once(f"{vin}:charge_mode", V3ChargeModeSelect)
+
             if platform in ("sensor", "binary_sensor"):
                 if platform == "sensor":
                     for key in car.trips:

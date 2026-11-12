@@ -56,3 +56,34 @@ def test_completed_command_cooldown_survives_restart():
     with pytest.raises(RuntimeError, match="cooldown"):
         restored.check_next(1089)
     restored.check_next(1090)
+
+
+def test_status_evidence_roundtrips_for_non_climate_capability():
+    from pathlib import Path
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.profile_store import restore_profile
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry, VehicleContext
+
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    catalog = CapabilityRegistry.from_json_file(root / "full_catalog.json")
+    context = VehicleContext(auth="auth0", region="DE")
+    profile = DevelopmentProfile(catalog, context)
+    operation = "cariad.status.charging"
+    assert profile.record_status("charging", operation, http_status=200,
+                                 schema_valid=True, fresh=True) == "worked"
+    profile.choose_working("charging", "status", operation)
+    restored = restore_profile(catalog, context, profile.snapshot())
+    assert restored.active["charging.status"] == operation
+
+
+def test_engine_composes_status_and_command_owners():
+    from pathlib import Path
+    import ast
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    for name in ("status_engine.py", "command_engine.py"):
+        tree = ast.parse((root / name).read_text())
+        assert not any(isinstance(node, ast.ImportFrom) and node.module == "engine"
+                       for node in ast.walk(tree))
+    source = (root / "engine.py").read_text()
+    assert "self.status = StatusEngine(" in source
+    assert "self.commands = CommandEngine(" in source
