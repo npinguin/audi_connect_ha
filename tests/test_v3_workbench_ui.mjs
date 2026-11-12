@@ -463,7 +463,7 @@ test("Execution history combines capability, entity, method, outcome, time and p
     {operation:"charge", family:"cariad", method:"GET", at:"2026-11-11T10:00:00Z", http_status:500, payload:{soc:"error"}},
     {operation:"climate", family:"cariad", method:"POST", at:"2026-11-12T10:00:00Z", http_status:200, payload:{soc:80}},
   ];
-  p.logCapability="charging"; p.operationMethod="GET"; p.logOutcome="success";
+  p.capabilityFilter="charging"; p.operationMethod="GET"; p.logOutcome="success";
   p.logFrom="2026-11-12"; p.logTo="2026-11-12"; p.searchText="soc";
   const records=[{...p.engineeringHistory[0],preview:"duplicate"}];
   const rows=p.executionRows(operations,records,"cariad",{operations:["charge"]});
@@ -471,7 +471,7 @@ test("Execution history combines capability, entity, method, outcome, time and p
   assert.equal(rows[0].detail.payload.soc,80);
   assert.equal(p.executionRows(operations,records,"mbb",null).length,0);
   p._resetVehicleSelection();
-  assert.equal(p.logCapability,""); assert.equal(p.logFrom,""); assert.equal(p.searchText,"");
+  assert.equal(p.capabilityFilter,""); assert.equal(p.logFrom,""); assert.equal(p.searchText,"");
 });
 
 
@@ -489,4 +489,16 @@ test("Missing entity trace and actual HA state use existing links without a requ
   p.capabilityStatus.entity_links[0].entity_ids=[];
   p.entityFilter="sensor.state_of_charge";
   assert.match(p.entityInspector(p.selectedEntityLink()), /Entity not registered/);
+});
+
+
+test("Shared capability and operation filters survive navigation and search", async () => {
+  const p = new Panel();
+  p.capabilityFilter="charging"; p.focusOperation="cariad.status.charging"; p.apiFamily="cariad";
+  await p._change({target:{id:"global-search",value:"soc"}});
+  await p._click({target:{closest:()=>({dataset:{action:"step-4"}})}});
+  assert.equal(p.capabilityFilter,"charging"); assert.equal(p.focusOperation,"cariad.status.charging");
+  assert.equal(p.apiFamily,"cariad"); assert.equal(p.searchText,"soc");
+  await p._click({target:{closest:()=>({dataset:{action:"clear-operation"}})}});
+  assert.equal(p.focusOperation,""); assert.equal(p.capabilityFilter,"charging");
 });
