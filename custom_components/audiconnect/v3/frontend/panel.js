@@ -768,7 +768,9 @@ class AudiConnectV3Panel extends HTMLElement {
       <p>${escapeHTML(this.capabilityStatus.vehicle?.label||"Vehicle")} · ${escapeHTML(health.status||"unknown")} · Identity ${escapeHTML(health.identity_status||"unknown")}</p>
       <p><a href="/config/integrations">Open Home Assistant integrations</a> to validate setup, reconfiguration and reauthentication.</p>
       <h3>2 · Read-only discovery</h3>
-      <p><b>${escapeHTML(p.read_assessed??"—")}/${escapeHTML(p.read_total??"—")} assessed</b> · ${escapeHTML(p.read_assessment_percent??"—")}% · ${escapeHTML(p.attributes_normalized??"—")} normalized attributes. Assessment is not proof of support.</p>
+      <p><b>${escapeHTML(friendly(p.read_state||"unknown"))}</b> · ${escapeHTML(p.read_assessed??"—")}/${escapeHTML(p.read_total??"—")} assessed · ${escapeHTML(p.read_assessment_percent??"—")}% · ${escapeHTML(p.attributes_normalized??"—")} normalized attributes. Assessment is not proof of support.</p>
+      <p class="subline">${(p.read_pending_jobs||[]).length} targeted jobs remaining · ${(p.read_retry_exhausted_jobs||[]).length} retry budgets exhausted · ${(p.read_pending_standalone||[]).length} standalone reads awaiting assessment.
+      ${p.read_pause_reason?" Paused: "+escapeHTML(friendly(p.read_pause_reason)):""}${p.read_retry_at?" · Retry eligible: "+escapeHTML(this.localTime(p.read_retry_at)):""}</p>
       <div class="coverage-table"><table><thead><tr><th>Capability</th><th>Read jobs assessed</th><th>Normalized attributes</th></tr></thead><tbody>
       ${Object.entries(p.capabilities||{}).map(([cap,c])=>`<tr><td><button data-action="open-capability" data-capability="${escapeHTML(cap)}">${escapeHTML(domainName(cap))}</button></td><td>${c.jobs_assessed}/${c.jobs_total}</td><td>${c.attributes_normalized}/${c.attributes_total}</td></tr>`).join("")}</tbody></table></div>
       <h3>3 · Control discovery &amp; physical verification</h3>
