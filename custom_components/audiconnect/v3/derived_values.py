@@ -59,6 +59,28 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 record(role + "_engine_type", value.strip().lower(), stamp, "measurements",
                        "measurements.fuelLevelStatus.value." + role + "EngineType")
 
+    # Explicit-unit alternative sources from the same already-fetched batch.
+    def metric(block, field, ident, job, path, maximum):
+        if not isinstance(block, dict):
+            return
+        value = block.get(field)
+        if type(value) in (int, float) and 0 <= value <= maximum:
+            record(ident, value, block.get("carCapturedTimestamp"), job, path + "." + field)
+    path = "measurements.rangeStatus.value"
+    block = read_json_path(payload, path)
+    for field, ident in (("electricRange", "measuredElectricRange"),
+                         ("gasolineRange", "measuredFuelRange"),
+                         ("totalRange_km", "measuredTotalRange")):
+        metric(block, field, ident, "measurements", path, 10000)
+    path = "charging.batteryStatus.value"
+    metric(read_json_path(payload, path), "cruisingRangeElectric_km", "batteryElectricRange",
+           "charging", path, 10000)
+    path = "measurements.fuelLevelStatus.value"
+    metric(fuel_level, "currentSOC_pct", "measuredElectricSOC", "measurements", path, 100)
+    path = "vehicleHealthInspection.maintenanceStatus.value"
+    metric(read_json_path(payload, path), "mileage_km", "maintenanceMileage",
+           "vehicleHealthInspection", path, 2000000)
+
     # Explicit alternative fuel and range readings; engine SOC is not fuel by assumption.
     engines = read_json_path(payload, "fuelStatus.rangeStatus.value")
     if isinstance(engines, dict):

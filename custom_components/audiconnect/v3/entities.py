@@ -553,7 +553,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
             return False
-        if self.attribute["entity_key"] == "car_type" and not self.attribute.get("local"):
+        if self.attribute.get("entity_key") == "car_type" and not self.attribute.get("local"):
             from .vehicle import powertrain_identity
             return powertrain_identity(self.vehicle)["value"] is not None
         if self.attribute.get("local") and self.attribute["id"] not in self.coordinator.engine.profiles[self.vehicle.vin.lower()].attribute_routes:
@@ -565,7 +565,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
 
     @property
     def native_value(self):
-        if self.attribute["entity_key"] == "car_type" and not self.attribute.get("local"):
+        if self.attribute.get("entity_key") == "car_type" and not self.attribute.get("local"):
             from .vehicle import powertrain_identity
             return powertrain_identity(self.vehicle)["value"]
         reading = projection_reading(self.vehicle, self.attribute)[1]
@@ -585,7 +585,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        if self.attribute["entity_key"] == "car_type" and not self.attribute.get("local"):
+        if self.attribute.get("entity_key") == "car_type" and not self.attribute.get("local"):
             from .vehicle import powertrain_identity
             evidence = powertrain_identity(self.vehicle)
             return {"classification_sources": evidence["sources"],
@@ -598,7 +598,12 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             else "fresh" if captured_age <= 60
             else "stale_last_known" if self._allow_last_known else "stale"
         )
+        details = {}
+        if self.attribute.get("entity_key") == "range":
+            from .product_contract import normalized_range_details
+            details = normalized_range_details(self.vehicle)
         return {
+            **details,
             "v3_capability": self.attribute["capability"],
             "v2_attribute": self.attribute["id"],
             "observed_source": source,
@@ -637,6 +642,37 @@ class V3TripSensor(V3BaseEntity, SensorEntity):
     def extra_state_attributes(self):
         return {k: v for k, v in self.vehicle.trips.get(self.key, {}).items()
                 if k not in ("tripID", "timestamp") and v is not None}
+
+
+class V3TripHistorySensor(V3BaseEntity, SensorEntity):
+    """Native access to normalized observed trips; not a lifetime meter."""
+    _attr_name = canonical_entity_name("sensor.trip_history")
+    _attr_icon = "mdi:map-clock-outline"
+    _unrecorded_attributes = frozenset({"trips"})
+
+    def __init__(self, coordinator, vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_trip_history"
+
+    @property
+    def available(self):
+        return getattr(self.vehicle, "inventory_present", True) and bool(self.vehicle.trip_history)
+
+    @property
+    def native_value(self):
+        return len(self.vehicle.trip_history) if self.vehicle.trip_history else None
+
+    @property
+    def extra_state_attributes(self):
+        from .trips import MAX_TRIP_HISTORY
+        rows = self.vehicle.trip_history
+        return {"trips": [{k: v for k, v in row.items() if k not in ("tripID", "source", "units")
+                           and v is not None} for row in rows],
+                "units": rows[0].get("units", {}) if rows else {},
+                "newest_trip": rows[0]["timestamp"] if rows else None,
+                "oldest_trip": rows[-1]["timestamp"] if rows else None,
+                "history_limit": MAX_TRIP_HISTORY,
+                "coverage": "observed_records"}
 
 
 class V3TripMetricSensor(V3BaseEntity, SensorEntity):

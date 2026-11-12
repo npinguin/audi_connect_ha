@@ -33,9 +33,9 @@
       "category": null
     },
     "parking_light": {
-      "name": "Parking lights",
+      "name": "Vehicle lights",
       "device_class": "safety",
-      "icon": "mdi:car-parking-lights",
+      "icon": "mdi:car-light-high",
       "category": null
     },
     "any_window_open": {

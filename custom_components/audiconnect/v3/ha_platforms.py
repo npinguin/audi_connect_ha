@@ -10,7 +10,7 @@ from typing import Any
 
 from .entities import (
     CONTROL_BUTTONS, V3ClimateEntity, V3ReadOnlyBinarySensor, V3TripSensor,
-    V3ReadOnlySensor, V3StatusSensor, V3CloudRefreshButton, V3TripMetricSensor,
+    V3ReadOnlySensor, V3StatusSensor, V3CloudRefreshButton, V3TripMetricSensor, V3TripHistorySensor,
     V3ControlButton, V3ClimateQuickSwitch, V3LockEntity,
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
     V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
@@ -78,6 +78,8 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
 
             if platform in ("sensor", "binary_sensor"):
                 if platform == "sensor":
+                    if getattr(car, "trip_history", ()):
+                        add_once(f"{vin}:trip_history", V3TripHistorySensor)
                     for key in trip_metric_contracts():
                         if trip_metric_value(car, key) is not None:
                             add_once(f"{vin}:trip_metric:{key}", V3TripMetricSensor, key)

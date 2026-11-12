@@ -1231,6 +1231,164 @@
         "device_class": "energy",
         "precision": 3
       }
+    },
+    "sensor.shortterm_trip_distance": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip distance",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "mileage",
+        "unit": "km",
+        "device_class": "distance",
+        "precision": 1
+      }
+    },
+    "sensor.shortterm_trip_duration": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip duration",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "traveltime",
+        "unit": "min",
+        "device_class": "duration",
+        "precision": 0
+      }
+    },
+    "sensor.shortterm_trip_average_speed": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip average speed",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "averageSpeed",
+        "unit": "km/h",
+        "device_class": "speed",
+        "precision": 1
+      }
+    },
+    "sensor.shortterm_trip_average_fuel_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip average fuel consumption",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "averageFuelConsumption",
+        "unit": "L/100 km",
+        "device_class": null,
+        "precision": 1
+      }
+    },
+    "sensor.shortterm_trip_average_electric_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip average electric consumption",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "averageElectricEngineConsumption",
+        "unit": "kWh/100 km",
+        "device_class": null,
+        "precision": 1
+      }
+    },
+    "sensor.shortterm_trip_fuel_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip fuel consumption",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "totalFuelConsumption",
+        "unit": "L",
+        "device_class": "volume",
+        "precision": 3
+      }
+    },
+    "sensor.shortterm_trip_electric_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip electric consumption",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "totalElectricConsumption",
+        "unit": "kWh",
+        "device_class": "energy",
+        "precision": 3
+      }
+    },
+    "sensor.last_trip_zero_emission_distance": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip zero-emission distance",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "zeroEmissionDistance",
+        "unit": "km",
+        "device_class": "distance",
+        "precision": 1
+      }
+    },
+    "sensor.shortterm_trip_zero_emission_distance": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Short-term trip zero-emission distance",
+      "trip_metric": {
+        "source": "shortterm_current",
+        "field": "zeroEmissionDistance",
+        "unit": "km",
+        "device_class": "distance",
+        "precision": 1
+      }
+    },
+    "sensor.longterm_trip_zero_emission_distance": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip zero-emission distance",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "zeroEmissionDistance",
+        "unit": "km",
+        "device_class": "distance",
+        "precision": 1
+      }
+    },
+    "sensor.trip_history": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Trip history"
     }
   },
   "retired_v3_sensors": [

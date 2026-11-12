@@ -174,3 +174,31 @@ def test_native_trip_metrics_only_project_real_values_and_never_accrue_per_trip(
     assert all(e.state_class is None for e in sensors.values())
     assert all(e.entity_category is None for e in sensors.values())
     assert len([e for e in offered if isinstance(e,V3TripMetricSensor)])==7
+
+
+def test_native_trip_history_exposes_rows_without_recording_large_attribute():
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    from custom_components.audiconnect.v3.trips import observe_cariad_trip
+    from custom_components.audiconnect.v3.ha_platforms import setup
+    from custom_components.audiconnect.v3.entities import V3TripHistorySensor
+    car=V3Vehicle(VIN,"Audi","Q8","q8","DE")
+    offered,listeners=[],[]
+    engine=NS(vehicles={VIN.lower():car},profiles={})
+    co=NS(engine=engine,async_add_listener=lambda cb:listeners.append(cb))
+    entry=NS(entry_id="entry",runtime_data=NS(v3=engine,coordinator=co),
+             async_on_unload=lambda cb:None)
+    setup("sensor",entry,offered.extend)
+    observe_cariad_trip(car,"cariad.mobility.status.shortTerm",{"data":[
+        {"tripEndTimestamp":"2026-11-12T06:11:53Z","tripType":"shortTerm","vehicleType":"hybrid",
+         "mileage_km":16,"zeroEmissionDistance_km":5,"startMileage_km":10,"overallMileage_km":26}]})
+    listeners[0]()
+    listeners[0]()
+    sensors=[e for e in offered if isinstance(e,V3TripHistorySensor)]
+    assert len(sensors)==1
+    entity=sensors[0]
+    assert entity.native_value==1 and entity.available
+    assert entity.extra_state_attributes["trips"][0]["vehicleType"]=="hybrid"
+    assert entity.extra_state_attributes["trips"][0]["zeroEmissionDistance"]==5
+    assert "tripID" not in entity.extra_state_attributes["trips"][0]
+    assert "trips" in entity._unrecorded_attributes
+    assert any(e.unique_id.endswith("_sensor_shortterm_trip_zero_emission_distance") for e in offered)

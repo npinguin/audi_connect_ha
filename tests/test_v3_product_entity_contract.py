@@ -34,6 +34,17 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
         "sensor.longterm_trip_average_electric_consumption",
         "sensor.longterm_trip_fuel_consumption",
         "sensor.longterm_trip_electric_consumption",
+        "sensor.shortterm_trip_distance",
+        "sensor.shortterm_trip_duration",
+        "sensor.shortterm_trip_average_speed",
+        "sensor.shortterm_trip_average_fuel_consumption",
+        "sensor.shortterm_trip_average_electric_consumption",
+        "sensor.shortterm_trip_fuel_consumption",
+        "sensor.shortterm_trip_electric_consumption",
+        "sensor.last_trip_zero_emission_distance",
+        "sensor.shortterm_trip_zero_emission_distance",
+        "sensor.longterm_trip_zero_emission_distance",
+        "sensor.trip_history",
     }
     assert all("sensor."+key not in historical for key in inventory["retired_v3_sensors"])
     for key in inventory["retired_v3_sensors"]:

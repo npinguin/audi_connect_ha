@@ -64,11 +64,13 @@ def projection_reading(vehicle, attribute):
     sources = [canonical, *sorted(a for a, target in ALIAS_OF.items() if target == canonical)]
     key = attribute.get("entity_key") or ATTRIBUTES.get(canonical, {}).get("entity_key")
     if key == "range":
-        sources.append("hybridRange")
+        sources.extend(("hybridRange", "measuredTotalRange"))
     if key == "state_of_charge":
         sources.extend(electric_soc_sources(vehicle))
     if key == "tank_level":
         sources.extend(("fuelLevelFromEngine",))
+    if key == "mileage":
+        sources.append("maintenanceMileage")
     valid = [(a, vehicle.readings[a]) for a in sources
              if a in vehicle.readings and (vehicle.readings[a].get("value") is not None
                                          or vehicle.readings[a].get("status") == "invalid_value")]
@@ -196,8 +198,12 @@ def canonical_entity_category(key):
 
 def electric_soc_sources(vehicle):
     readings = vehicle.readings
-    return [role + "EngineRangePercent" for role in ("primary", "secondary")
-            if readings.get(role + "_engine_type", {}).get("value") == "electric"]
+    sources = [role + "EngineRangePercent" for role in ("primary", "secondary")
+               if readings.get(role + "_engine_type", {}).get("value") == "electric"]
+    from .vehicle import powertrain_identity
+    if powertrain_identity(vehicle)["value"] in ("electric", "hybrid", "phev"):
+        sources.append("measuredElectricSOC")
+    return sources
 
 
 def engine_role(vehicle, role):
@@ -267,3 +273,23 @@ def trip_metric_value(vehicle, key):
     trip = getattr(vehicle, "trips", {}).get(contract["source"], {})
     value = trip.get(contract["field"])
     return value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None
+
+
+def normalized_range_details(vehicle):
+    """Explicit fuel/electric ranges, independent of primary/secondary ordering."""
+    from .attribute_runtime import _capture_in_utc
+    readings = vehicle.readings
+    result = {}
+    for kind, ids in (("electric", ["measuredElectricRange", "batteryElectricRange"]),
+                      ("fuel", ["measuredFuelRange"])):
+        ids.extend(role + "EngineRange" for role in ("primary", "secondary")
+                   if engine_role(vehicle, role) == kind)
+        rows = [readings[i] for i in ids if i in readings
+                and readings[i].get("status") in ("verified", "readable_but_stale")
+                and type(readings[i].get("value")) in (int, float)]
+        if rows:
+            row = max(rows, key=lambda item: (_capture_in_utc(item.get("captured")).timestamp()
+                                             if _capture_in_utc(item.get("captured")) else -1))
+            result[kind + "_range_km"] = row["value"]
+            result[kind + "_range_captured"] = row.get("captured")
+    return result
