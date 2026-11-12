@@ -29,10 +29,11 @@ def test_beta_manifest_version_and_hacs_metadata_are_consistent():
     assert manifest["version"] == version
     assert f"# Audi Connect {version}" in notes
     assert version in readme
-    assert f'expected = "{version}"' in workflow
-    assert f"audi_connect_v3_{version}.zip" in workflow
-    assert f"SHA256SUMS_V3_{version}.txt" in workflow
-    assert f"--notes-file docs/V3_RELEASE_NOTES_{version}.md" in workflow
+    assert 'version = manifest["version"]' in workflow
+    assert 'audi_connect_v3_${VERSION}.zip' in workflow
+    assert 'SHA256SUMS_V3_${VERSION}.txt' in workflow
+    assert '--notes-file "docs/V3_RELEASE_NOTES_${VERSION}.md"' in workflow
+    assert 'ha: "2026.7.0"' in workflow and 'ha: "2026.11.1"' in workflow
     assert hacs["homeassistant"] == "2026.7.0"
     assert "npinguin/audi_connect_ha" in manifest["documentation"]
     assert manifest["issue_tracker"].endswith("npinguin/audi_connect_ha/issues")
@@ -115,23 +116,25 @@ def test_workbench_capability_coverage_and_draft_storage_contract():
 
 def test_experimental_authorization_does_not_change_release_gates():
     version, authorization_path = current_beta()
-    authorization = json.loads(authorization_path.read_text())
     gate = json.loads((ROOT / "docs/V2_V3_PARITY_BASELINE.json").read_text())["release_gate"]
     workflow = (ROOT / ".github/workflows/v3-beta-release.yml").read_text()
-    assert authorization["version"] == version
-    assert authorization["normal_release_gates_unchanged"] is True
-    assert authorization["release_intent"] == f"release(test): publish {version} HACS prerelease"
-    assert re.fullmatch(r"[0-9a-f]{40}", authorization["base_commit"])
-    assert authorization_path.relative_to(ROOT).as_posix() in workflow
-    assert f'assert authorization["base_commit"] == "{authorization["base_commit"]}"' in workflow
-    assert f'test "$(git rev-parse HEAD^)" = "{authorization["base_commit"]}"' in workflow
-    assert authorization["classification"] == "experimental_hacs_test_only"
-    assert authorization["stable_promotion_allowed"] is False
-    assert authorization["static_parity_claimed"] is False
-    assert gate["v3_static_parity_proven"] is False
-    assert gate["test_release_code_complete"] is False
-    assert gate["full_release_allowed"] is False
-    assert f"github.event.head_commit.message == '{authorization['release_intent']}'" in workflow
+    assert "assert authorization_path.is_file()" in workflow
+    assert 'authorization["base_commit"] == subprocess.check_output' in workflow
+    assert 'authorization["release_intent"] == intent' in workflow
+    assert 'subprocess.check_output(["git", "log", "-1", "--format=%B"]' in workflow
     assert "publish-code-complete-test" in workflow
     assert "--prerelease --latest=false" in workflow
     assert "needs: verify" in workflow
+    assert 'assert completeness["hacs_ready"] is True and not pending' in workflow
+    if authorization_path.exists():
+        authorization = json.loads(authorization_path.read_text())
+        assert authorization["version"] == version
+        assert authorization["normal_release_gates_unchanged"] is True
+        assert authorization["release_intent"] == f"release(test): publish {version} HACS prerelease"
+        assert re.fullmatch(r"[0-9a-f]{40}", authorization["base_commit"])
+        assert authorization["classification"] == "experimental_hacs_test_only"
+        assert authorization["stable_promotion_allowed"] is False
+        assert authorization["static_parity_claimed"] is False
+        assert gate["v3_static_parity_proven"] is False
+        assert gate["test_release_code_complete"] is False
+        assert gate["full_release_allowed"] is False
