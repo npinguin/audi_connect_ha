@@ -1,12 +1,12 @@
 # Audi Connect V3 — architecture and ownership
 
-**Historical architecture baseline:** 3.0.0b8 source, consolidated commit `284230a5deb3cc0e9366e26c96c87667f2d95a68`, 12 November 2026. **Target:** architecture closure, approved design direction; implementation incomplete. V2 is still the default and rollback choice. The b8 baseline is historical; b9 is a separately authorized experimental HACS test, not stable or static parity sign-off. See current implementation progress and b9 release notes.
+**Historical architecture baseline:** 3.0.0b8 source, consolidated commit `284230a5deb3cc0e9366e26c96c87667f2d95a68`, 12 November 2026. **Target:** architecture closure, approved design direction; implementation incomplete. V2 is still the default and rollback choice. The b8 baseline is historical; b12 is a separately authorized experimental HACS test, not stable or static parity sign-off. See current implementation progress and b12 release notes.
 
 ## Current implementation (AS-IS)
 
 One integration, one HA config entry, one shared Audi account/token owner, one active V2 or V3 runtime. V3 independently owns the vehicle inventory, polling, mapping, commands and all nine native HA platforms. The integration registers the existing service IDs in both runtimes and routes by VIN to the selected runtime. Unsupported V3 commands fail explicitly; no hidden V2 business fallback. User-disabled registry entries remain untouched; integration-disabled entries from the earlier experimental migration are restored.
 
-The baseline contains seven capability groups, 59 API operations (33 GET, 22 POST, 4 PUT), 109 historical entity rows plus one additional last-trip row, and 796 passing Python tests. Inventory counts and green CI do not establish parity or physical acceptance. The release gate is still closed.
+The historical b8 baseline contains seven capability groups, 59 API operations (33 GET, 22 POST, 4 PUT), 109 historical entity rows plus one additional last-trip row, and 796 passing Python tests. Inventory counts and green CI do not establish parity or physical acceptance. The release gate is still closed.
 
 Known debt: climate-specific polling/profile persistence, a 1,290-line engine, redundant pilot runtime and catalog, overlapping read/command schemas, parameterized custom commands not activatable, nonpersistent normal command context, quota recovery and token-refresh concurrency, incomplete multi-car lifecycle, V2 upstream deltas and stale generated inventories.
 
