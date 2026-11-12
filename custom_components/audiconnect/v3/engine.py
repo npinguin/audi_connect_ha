@@ -734,9 +734,9 @@ class V3Engine:
     async def approved_control_discovery(
         self, vin: str, aspect: str, operation: str, *,
         approval: str, params: dict[str, Any] | None = None,
-        capability: str = "climate",
+        capability: str = "climate", guided: bool = False, expert: bool = False,
     ) -> dict[str, Any]:
-        """Public discovery boundary: one explicit approval, one vehicle action."""
+        """Public discovery boundary: one explicitly approved semantic action."""
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vehicle.vin.lower()]
         op = profile.registry.operations.get(operation)
@@ -748,6 +748,10 @@ class V3Engine:
             raise ValueError("Control not applicable to this car")
         validate_approval(capability, aspect, op, approval,
                           has_spin=bool(getattr(getattr(self.auth, "service", None), "_spin", None)))
+        if guided:
+            return await self.commands.test_action(vin, aspect, operation, params=params,
+                                                   capability=capability, guided=True, expert=expert,
+                                                   approval=approval)
         return await self.test_action(
             vin, aspect, operation, params=params, capability=capability
         )
