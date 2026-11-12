@@ -878,8 +878,7 @@ async def test_guided_command_automatically_confirms_only_fresh_changed_readback
     await engine.discover()
     car = engine.require_vehicle(VIN)
     profile = engine.profiles[VIN.lower()]
-    car.climate_state = "off"
-    car.climate_captured = datetime.now(UTC) - timedelta(minutes=1)
+    car.readings["climatisationState"] = {"value": "off", "captured": (datetime.now(UTC) - timedelta(minutes=1)).isoformat()}
     stamp = datetime.now(UTC) + timedelta(seconds=1)
     transport._responses.append(V3Response(202, {"climatisation": {"climatisationStatus": {"value": {
         "climatisationState": "heating", "carCapturedTimestamp": stamp.isoformat()}}}}, stamp))
@@ -891,3 +890,40 @@ async def test_guided_command_automatically_confirms_only_fresh_changed_readback
     assert profile.active["climate.start"] == "cariad.climate.start.stored"
     assert profile.command_journal[-1].state == "verified"
     assert transport.request_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("first_status,first_payload,expected_calls", [
+    (405, {"error": {"code": "notSupported"}}, 2),
+    (410, {"error": {"code": "unsupported"}}, 2),
+    (405, {}, 1),
+    (502, {}, 1),
+    (202, {"data": {"requestID": "test"}}, 1),
+])
+async def test_guided_charging_alternative_only_after_definite_rejection(first_status, first_payload, expected_calls):
+    from types import SimpleNamespace as NS
+    from custom_components.audiconnect.v3.runtime import catalog_path
+    engine, transport, store = engine_for()
+    engine.registry = CapabilityRegistry.from_json_file(catalog_path())
+    engine.auth.service = NS(_spin=None)
+    await engine.discover()
+    car = engine.require_vehicle(VIN)
+    car.advertised_capabilities.add("charging")
+    profile = engine.profiles[VIN.lower()]
+    transport._responses.extend([V3Response(first_status, first_payload, datetime.now(UTC)),
+        V3Response(202, {"data": {"requestID": "second"}}, datetime.now(UTC))])
+    result = await engine.approved_control_discovery(VIN, "start", "cariad.charging.start",
+                                                      capability="charging", approval="non_spin", guided=True)
+    assert transport.request_count == expected_calls
+    assert profile.discovery._active is not None
+    if expected_calls == 2:
+        assert result["operation"] == "cariad.charging.start.combined"
+        assert profile.discovery.history[0].result == "rejected"
+        assert profile.command_journal[0].state == "rejected"
+        assert result["previous_attempt"]["status"] == first_status
+        assert not engine.control_enabled(VIN, "start", "charging")
+        restored = restore_profile(engine.registry, car.context, store.records[VIN.lower()], cooldown_seconds=0)
+        assert restored.discovery.history[0].result == "rejected"
+    else:
+        assert result["operation"] == "cariad.charging.start"
+        assert "previous_attempt" not in result
