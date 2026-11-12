@@ -1019,7 +1019,7 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
     def available(self):
         return (getattr(self.vehicle, "inventory_present", True)
                 and self.coordinator.last_update_success
-                and (self._enabled("on") or self._enabled("off")))
+                and self._enabled("on") and self._enabled("off"))
 
     def _projection(self):
         from .vehicle import charging_active

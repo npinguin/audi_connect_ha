@@ -390,4 +390,5 @@ class V3ProfileStorage:
         })
         if len(records) > 50:
             raise DevelopmentProfileError("Too many saved vehicle profiles")
-        await self._store.async_save({"profiles": records})
+        if records != old.get("profiles", {}):
+            await self._store.async_save({"profiles": records})

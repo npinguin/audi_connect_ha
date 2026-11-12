@@ -637,6 +637,7 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
     remain independent. This is a read-only computation from current state.
     """
     from .control_resolution import control_decision
+    from .read_discovery import physical_control_evidence
     report = build_status_report(vehicle, profile)
     known = base_registry.capabilities
     summaries = [row for row in report["capability_summary"] if row["capability"] in known or row["capability"] == "vehicle_identity"]
@@ -645,12 +646,13 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
         for action in definition.get("control", {}):
             decision = control_decision(vehicle, profile, auth, capability, action)
             operation = decision["operation"]
+            candidates = base_registry.resolve(capability, action, vehicle.context)["available_operations"]
             controls.append({
                 "capability": capability, "action": action,
                 "binding_status": decision["status"], "reason": decision.get("reason"),
                 "eligible": operation is not None,
                 "operation": diagnostic_route_label(operation, base_registry) if operation else None,
-                "physical_evidence": profile.control_results.get(operation, "not_tested") if operation else "not_tested",
+                "physical_evidence": physical_control_evidence(profile, candidates),
             })
     for row in summaries:
         actions = [item for item in controls if item["capability"] == row["capability"]]
@@ -664,6 +666,8 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
     ]
     return {
         "capabilities": summaries,
+        "attributes": {ident: attribute_status(vehicle, profile, definition, datetime.now(UTC))[0]
+                       for ident, definition in CANONICAL_ATTRIBUTES.items()},
         "controls": controls,
         "operations": operations,
         "job_capture_coverage": {

@@ -1,36 +1,27 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Report a reproducible Audi Connect integration issue
 title: ""
 labels: ""
 assignees: ""
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**Problem and expected behavior**
+What happened? What should happen? Is this a regression from a specific version?
 
-**To Reproduce**
-Steps to reproduce the behavior:
+**Environment**
+- Audi Connect version and mode (V2 or V3):
+- Home Assistant version:
+- Vehicle model/year/powertrain (no VIN):
+- Region:
+- Does the same function work in myAudi under the same conditions?
 
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+**Reproduction**
+Steps, relevant vehicle prerequisites, and approximate time of failure.
+For commands, distinguish backend acceptance from observed physical effect.
+Do not repeat an uncertain remote command just to reproduce an issue.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Diagnostics**
+Download native integration diagnostics from Settings > Devices & services > Audi Connect > three-dot menu > Download diagnostics. Review the file before attaching it. Home Assistant may include environment metadata.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Logfile**
-How to enable audiconnect debugging?
-Settings > Integrations > Audi Connect > Enable Debug Logging
-Run service refresh_cloud_data
-Disable Debug Logging
-
-**Your Vehicle Details**
-Model:
-Year:
-Type (Gas/Hybrid/Electric):
-Region (EU/US/CA/CN):
+Never attach tokens, credentials, S-PIN, VIN, coordinates, raw HTTP payloads, private trip history or the internal profile store. Logs/screenshots are optional; redact identifiers before sharing.

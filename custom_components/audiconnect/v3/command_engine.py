@@ -33,7 +33,6 @@ class CommandEngine:
         self._api_record = api_record
         self._notify_discovery_change = notify
         self._actions = asyncio.Lock()
-        self._wake_attempts: dict[str, list[float]] = {}
 
     @property
     def transport(self):
@@ -209,12 +208,8 @@ class CommandEngine:
         remaining = getattr(self.transport, "remaining_calls", None)
         if remaining is not None and remaining <= 12:
             raise RuntimeError("Audi wake quota reserve reached")
-        now = time.monotonic()
-        attempts = self._wake_attempts.setdefault(vin.lower(), [])
-        attempts[:] = [x for x in attempts if now - x < 86400]
-        if len(attempts) >= 4 or (attempts and now - attempts[-1] < 1800):
-            raise RuntimeError("Audi wake budget: 30 minutes and four attempts per 24 hours")
-        attempts.append(now)
+        from .command_journal import check_wake_budget
+        check_wake_budget(self.profiles[vin.lower()], time.time())
 
     async def test_action(
         self, vin: str, aspect: str, operation: str,

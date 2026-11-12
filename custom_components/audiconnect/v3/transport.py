@@ -394,6 +394,7 @@ class V3Transport:
             plan = self.executors[family].plan(
                 self.auth, method, path, body, explicit_action=explicit_action, **kwargs
             )
+            self.quota.reserve_request()
             async with asyncio.timeout(25):
                 async with self.session.request(
                     plan.method, plan.url,

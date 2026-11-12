@@ -150,3 +150,22 @@ def test_failed_engineering_journal_insert_restores_discovery_transaction():
     attempt = p.begin_test("charging", "start", "cariad.charging.start", now=101)
     assert attempt.sequence == sequence + 1
     assert p.engineering_record(attempt.sequence) is not None
+
+
+def test_wake_budget_survives_restart_and_journal_eviction():
+    import pytest
+    from custom_components.audiconnect.v3.command_journal import check_wake_budget
+    p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
+    for i in range(4):
+        record = CommandRecord.begin("remote", "wake", "cariad.remote.wake", 10000 + i * 1800)
+        record.state = "backend_completed"
+        p.track_command(record)
+    for i in range(HISTORY_LIMIT + 5):
+        record = CommandRecord.begin("climate", "stop", "cariad.climate.stop", 16000 + i)
+        record.state = "backend_completed"
+        p.track_command(record)
+    recovered = restore_profile(model(), p.discovery.context, p.snapshot())
+    assert len([row for row in recovered.command_journal if row.is_wake]) == 4
+    with pytest.raises(RuntimeError, match="wake budget"):
+        check_wake_budget(recovered, 20000)
+    check_wake_budget(recovered, 100000)

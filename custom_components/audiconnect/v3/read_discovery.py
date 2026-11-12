@@ -115,7 +115,7 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
         elif profile.job_discovery.get(job) != "unsupported" and any(
                 item.get("job") == job for item in profile.attribute_evidence.values()):
             profile.job_discovery[job] = "observed"
-        elif profile.job_discovery.get(job) not in ("observed", "unsupported"):
+        elif profile.job_discovery.get(job) not in ("observed", "unsupported", "inconclusive"):
             profile.job_discovery[job] = "not_observed"
 
 
@@ -236,6 +236,12 @@ def read_excluded(profile, operation):
     return operation in getattr(profile, "unsupported_reads", ())
 
 
+def physical_control_evidence(profile, candidates):
+    """Stored context-scoped outcomes, independent of current eligibility."""
+    outcomes = {profile.control_results.get(operation) for operation in candidates}
+    return "worked" if "worked" in outcomes else "failed" if "failed" in outcomes else "not_tested"
+
+
 def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=None):
     """Read coverage and control evidence are independent, never proof of support."""
     from .historical_catalog import INVENTORY, CANONICAL_ATTRIBUTES
@@ -278,10 +284,7 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
         for action in definition.get("control", {}):
             available = registry.resolve(capability, action, car.context)["available_operations"]
             decision = control_decision(car, profile, auth, capability, action)
-            physical = "worked" if any(profile.control_results.get(op) == "worked" for op in available) else (
-                "failed" if any(attempt.result == "failed" and attempt.operation in available
-                                and profile.control_results.get(attempt.operation) == "failed"
-                                for attempt in profile.discovery.history) else "not_tested")
+            physical = physical_control_evidence(profile, available)
             controls.append({"capability": capability, "action": action,
                 "catalog_applicable": bool(available), "eligible": bool(decision["operation"]),
                 "status": decision["status"], "reason": decision.get("reason"), "physical": physical})

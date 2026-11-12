@@ -395,6 +395,8 @@ async def test_diagnostics_cover_all_product_capabilities_without_private_route_
     encoded=json.dumps(snapshot)
     assert "private_custom_route" not in encoded and VIN not in encoded
     assert "engineering_history" not in encoded
+    assert all("preview" not in row and "fields" not in row
+               for row in snapshot["climate"]["last_api_results"])
 
 
 @pytest.mark.asyncio

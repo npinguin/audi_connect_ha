@@ -151,6 +151,14 @@ class CommandRecord:
         return record
 
 
+def check_wake_budget(profile, now: float) -> None:
+    """Count durable dispatch reservations, including failed and uncertain calls."""
+    attempts = sorted(row.started_at for row in profile.command_journal
+                      if row.is_wake and now - row.started_at < 86400)
+    if len(attempts) >= 4 or (attempts and now - attempts[-1] < 1800):
+        raise RuntimeError("Audi wake budget: 30 minutes and four attempts per 24 hours")
+
+
 def unresolved_normal_commands(profile):
     """All unresolved HA commands, not only the latest command pointer."""
     rows = list(getattr(profile, "command_journal", ()))

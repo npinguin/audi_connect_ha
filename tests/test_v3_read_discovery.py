@@ -178,6 +178,8 @@ def test_retryable_vendor_error_gets_bounded_recovery_after_initial_scan():
     record_jobs(profile, (job,), status=207, payload={
         job: {"chargingProfilesStatus": {"error": {"code": 4112, "retry": True}}}})
     assert profile.job_discovery[job] == "inconclusive"
+    record_jobs(profile, (job,), status=207, payload={})
+    assert profile.job_discovery[job] == "inconclusive"
     assert pending_groups(profile, max_groups=1) == [("departureTimers",)]
     reserve_group(profile, ("departureTimers",))
     for _ in range(MAX_TARGETED_PROBE_ATTEMPTS - 1):

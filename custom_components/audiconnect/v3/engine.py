@@ -1000,6 +1000,14 @@ class V3Engine:
         vehicles = []
         for index, car in enumerate(self.vehicles.values(), 1):
             p = self.profiles.get(car.vin.lower())
+            schemas = getattr(p, "job_schema", {})
+            # Keep historical-only evidence, without repeating current fields.
+            historical = {}
+            for job, rows in getattr(p, "historical_job_schema", {}).items():
+                current = {(r["path"], r["type"], r.get("quality")) for r in schemas.get(job, {}).get("fields", [])}
+                extra = [r for r in rows if (r["path"], r["type"], r.get("quality")) not in current]
+                if extra:
+                    historical[job] = extra
             vehicles.append({
                 "vehicle_slot": index,
                 "trip_data_sources": len(car.trips),
@@ -1025,9 +1033,9 @@ class V3Engine:
                     if key in ("freshness", "complete", "age_minutes")}
                     for kind in ("door", "window")},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
-                "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
-                "historical_schema_evidence": {"scope": "vin_scoped_historical_union_not_current_context_or_support",
-                    "fields_by_job": getattr(p, "historical_job_schema", {}) if p else {}},
+                "job_schema_evidence": schemas,
+                "historical_schema_evidence": {"scope": "vin_scoped_historical_only_delta_not_current_support",
+                    "fields_by_job": historical},
                 "discovery_progress": self.discovery_progress(car, p) if p else {},
                 "trip_archive_evidence": {"record_count": len(car.trip_history),
                     "snapshot_scopes": sorted(car.trips),
@@ -1040,7 +1048,8 @@ class V3Engine:
                 "climate": {
                     "readable": car.climate_state is not None,
                     "capture_age_minutes": car.capture_age_minutes,
-                    "selected_status": p.active.get("climate.status") if p else None,
+                    "selected_status": diagnostic_route_label(p.active["climate.status"], self.registry)
+                    if p and p.active.get("climate.status") else None,
                     "start_enabled": self.control_enabled(car.vin, "start") if p else False,
                     "stop_enabled": self.control_enabled(car.vin, "stop") if p else False,
                     "candidate_count": len(p.registry.operations_for("climate", "status"))
@@ -1079,16 +1088,17 @@ class V3Engine:
                     "disabled_controls": sorted(p.discovery.disabled) if p else [],
                     "automatic_read_discovery": discovery_summary(p) if p else {},
                     "last_api_results": [
-                        {"operation": diagnostic_route_label(ident, self.registry), **entry,
-                         **({"preview": "[trip values withheld: private history]"}
-                            if (ident.startswith("cariad.mobility.status.") and ident != "cariad.mobility.status.parkingPosition") or ident.startswith("mbb.trip.")
-                            else {})}
+                        {"operation": diagnostic_route_label(ident, self.registry),
+                         **{key: entry[key] for key in ("at", "family", "method", "http_status", "result", "fields_truncated")
+                            if key in entry}}
                         for ident, entry in reversed(list(p.api_observations.items()))
                     ][:24] if p else [],
                 },
             })
         return {
-            "mode": "v3", "polling_owner": "independent_v3_discovery_engine",
+            "mode": "v3", "diagnostics_schema_version": 2,
+            "privacy_scope": "structural_evidence_only_no_response_previews",
+            "polling_owner": "independent_v3_discovery_engine",
             "requests": self.transport.request_count,
             "identity_auth_context": {family: self.auth.identity_auth_evidence(family) for family in ("cariad", "graphql")} if hasattr(self.auth, "identity_auth_evidence") else {},
             "last_poll_success": self.last_cloud_poll_success.isoformat()

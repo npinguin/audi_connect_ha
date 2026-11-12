@@ -30,6 +30,11 @@ class QuotaBudget:
         # Reserve before sending: timeout/cancellation cannot cause a probe storm.
         self.retry_at = now + self.recovery_delay
 
+    def reserve_request(self) -> None:
+        """Debit known quota before dispatch; a response header replaces the estimate."""
+        if self.remaining is not None:
+            self.remaining = max(0, self.remaining - 1)
+
     def observe(self, status: int, headers: Mapping[str, str], now: datetime) -> None:
         raw = headers.get("Vcf-Remaining-Calls")
         try:
