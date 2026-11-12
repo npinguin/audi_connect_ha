@@ -328,8 +328,8 @@ test("HAR identity template exposes fixed variables without browser credentials"
     identity_fixed_parameters:{[op]:{operationName:"GET_USER_VEHICLES_ORDERED_BY",variables:{orderBy:"FAVORITE_AND_REGISTRATION"}}}};
   p.openIdentityEditor(op);
   assert.match(p.shadowRoot.innerHTML,/FAVORITE_AND_REGISTRATION/);
-  assert.match(p.shadowRoot.innerHTML,/identity-variables/);
-  assert.doesNotMatch(p.shadowRoot.innerHTML,/<textarea id="identity-query"[^>]*readonly/);
+  assert.match(p.shadowRoot.innerHTML,/data-field="variables"/);
+  assert.doesNotMatch(p.shadowRoot.innerHTML,/<textarea [^>]*data-field="query"[^>]*readonly/);
   assert.match(p.shadowRoot.innerHTML,/not a web session replay/);
 });
 
@@ -357,10 +357,10 @@ test("identity draft loads per template and reset restores built-in definition",
   p.capabilityStatus={counts:{},rows:[],operations:[{operation:op,method:"POST",path:"/vgql/v1/graphql",family:"graphql",read_only:true,capabilities:["vehicle_identity"],mappings:[]}],
     identity_templates:{[op]:"{ userVehicles { vin } }"},identity_drafts:{[op]:{query:"query Probe { userVehicles { vin nickname } }",variables:{}}}};
   p.openIdentityEditor(op);
-  assert.match(p.identityQuery,/Probe/);
+  assert.match(p.definitionValue("identity",p.identityDefinition).query,/Probe/);
   assert.match(p.shadowRoot.innerHTML,/Save local draft/);
   p.openIdentityEditor(op,true);
-  assert.equal(p.identityQuery,"{ userVehicles { vin } }");
+  assert.equal(p.definitionValue("identity",p.identityDefinition).query,"{ userVehicles { vin } }");
 });
 
 
@@ -529,4 +529,19 @@ test("Execution review edits retained evidence without vehicle calls", async () 
   assert.equal(calls.filter(name=>name==="review_execution").length,1);
   assert.equal(calls.some(name=>name.includes("test")||name.includes("activate")),false);
   assert.match(p.shadowRoot.innerHTML,/Compared against myAudi/);
+});
+
+
+test("GraphQL uses common definition editing and preserves invalid variables without dispatch", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.capabilityStatus={rows:[],identity_templates:{"graphql.inventory.vehicleList":"{ userVehicles { vin } }"}};
+  p.openIdentityEditor("graphql.inventory.vehicleList");
+  const key=p.definitionKey("identity",p.identityDefinition);
+  p.definitionEdits.set(key+":variables","{invalid");
+  p.api=async()=>{throw Error("Unexpected API call");};
+  await p._click({target:{closest:()=>({dataset:{action:"identity-submit"}})}});
+  assert.match(p.error,/Invalid JSON in variables/);
+  assert.equal(p.definitionEdits.get(key+":variables"),"{invalid");
+  p.openIdentityEditor("graphql.inventory.vehicleList",true);
+  assert.equal(p.definitionValue("identity",p.identityDefinition).query,"{ userVehicles { vin } }");
 });
