@@ -526,10 +526,13 @@ def _cockpit(vehicle, profile, rows, controls):
                              "operation": ident, "reason": reason})
     # Keep all engineering observations, but only current, actionable issues
     # belong on Overview. Never turn a historical route test into a task.
-    from .vehicle import CLIMATE_ON_STATES, CHARGING_ON_STATES, normalize_powertrain
+    from .vehicle import CLIMATE_ON_STATES, CHARGING_ON_STATES, normalize_powertrain, powertrain_identity
+    powertrain = powertrain_identity(vehicle)
     identity = {"manufacturer_model": bool(vehicle.model),
                 "model_year": bool(vehicle.model_year),
                 "oem_drivetrain": normalize_powertrain(vehicle.car_type) is not None,
+                "powertrain": powertrain["value"],
+                "powertrain_conflict": powertrain["conflict"],
                 "last_known": vehicle.identity_restored}
     if not vehicle.model:
         findings.append({"id": "vehicle:manufacturer_model", "severity": "review",
@@ -542,13 +545,18 @@ def _cockpit(vehicle, profile, rows, controls):
     if not vehicle.model_family:
         findings.append({"id": "vehicle:model_family", "severity": "review", "reason": "model_family_unknown", "capability": "vehicle_identity", "operation": INVENTORY_OPERATION})
 
-    latest_action = {(c.capability, c.action): c for c in profile.command_journal}
-    bindings = {(c["capability"], c["action"]): c for c in controls}
+    # Current binding decisions own actionability; old route tests remain evidence.
+    for control in controls:
+        status = control["binding_status"]
+        if status in ("candidate_unverified", "no_working_route"):
+            findings.append({"id": "control:" + control["capability"] + "." + control["action"],
+                             "severity": "review", "capability": control["capability"],
+                             "action": control["action"], "reason": status})
     by_attribute = {row["attribute"]: row for row in attributes}
     next_actions = []
     for finding in findings:
         reason = finding["reason"]
-        if finding["id"] in ("vehicle:manufacturer_model", "vehicle:identity_partial"):
+        if finding["id"] in ("vehicle:manufacturer_model", "vehicle:identity_partial") or finding["id"].startswith("control:"):
             next_actions.append(finding)
             continue
         attr = finding.get("attribute")
@@ -571,17 +579,7 @@ def _cockpit(vehicle, profile, rows, controls):
         command = journal.get(finding.get("operation"))
         if not command or not reason.startswith("physical_control_"):
             continue
-        key = (command.capability, command.action)
-        binding = bindings.get(key, {})
-        # Required safety review is always visible. A failed old route is not
-        # an action if a later attempt or another working binding superseded it.
-        if command.requires_review or (
-                latest_action.get(key) is command and command.state == "physical_failed"
-                and binding.get("candidate_count", 0) and not binding.get("enabled")
-                and binding.get("binding_status") != "user_disabled"
-                and profile.control_results.get(command.operation) == "failed"
-                and (command.operation_revision is None or command.operation_revision ==
-                     operation_revision(catalog[command.operation]) if command.operation in catalog else False)):
+        if command.requires_review:
             next_actions.append(finding)
     next_actions.sort(key=lambda f: (0 if f["id"].startswith("vehicle:") else
                     1 if f["reason"].startswith("physical_control_") else 2, f["id"]))

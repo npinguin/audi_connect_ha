@@ -185,3 +185,18 @@ def test_old_failed_route_is_not_next_action_when_control_has_working_binding():
     report = build_status_report(car, profile)
     assert any(f["reason"] == "physical_control_physical_failed" for f in report["findings"])
     assert not any(f["reason"] == "physical_control_physical_failed" for f in report["next_actions"])
+
+
+def test_current_control_action_and_reconciled_hybrid_do_not_require_inventory_model():
+    car, profile = _fixture()
+    car.model = car.model_family = ""
+    car.readings["carType"] = {"value": "hybrid", "status": "verified"}
+    profile.fast_bindings["climate.start"] = {"status": "no_working_route", "operation": None}
+    report = build_status_report(car, profile)
+    assert report["identity_summary"]["powertrain"] == "hybrid"
+    assert not report["identity_summary"]["oem_drivetrain"]
+    assert not report["identity_summary"]["manufacturer_model"]
+    assert any(f.get("action") == "start" and f["reason"] == "no_working_route"
+               for f in report["next_actions"])
+    profile.fast_bindings["climate.start"] = {"status": "local_verified", "operation": "cariad.climate.start.stored"}
+    assert not any(f.get("action") == "start" for f in build_status_report(car, profile)["next_actions"])
