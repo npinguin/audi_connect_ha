@@ -45,6 +45,13 @@ def restore_profile(
     profile = DevelopmentProfile(catalog, old_context, cooldown_seconds=cooldown_seconds)
     from .identity_cache import validate_identity
     profile.manufacturer_identity = validate_identity(saved.get("manufacturer_identity"), context.region)
+    drafts = saved.get("identity_drafts", {})
+    if not isinstance(drafts, dict) or len(drafts) > 20:
+        raise DevelopmentProfileError("Invalid identity drafts")
+    for operation, body in drafts.items():
+        if not isinstance(body, dict) or set(body) != {"query", "variables"}:
+            raise DevelopmentProfileError("Invalid identity draft")
+        profile.save_identity_draft(operation, body["query"], body["variables"])
     custom = saved.get("custom_routes", [])
     read = saved.get("read_evidence", {})
     control = saved.get("control_evidence", {})

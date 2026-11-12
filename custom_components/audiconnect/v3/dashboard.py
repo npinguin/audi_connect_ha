@@ -93,6 +93,7 @@ async def ws_status(hass, connection, msg):
         report["account_entity_projection"] = entity_projection_report(engine)
         from .transport import IDENTITY_QUERIES, WEB_ORDERED_OPERATION, identity_request_body
         report["identity_templates"] = dict(IDENTITY_QUERIES)
+        report["identity_drafts"] = getattr(profile, "identity_drafts", {})
         report["identity_fixed_parameters"] = {
             WEB_ORDERED_OPERATION: {k: v for k, v in identity_request_body(WEB_ORDERED_OPERATION).items()
                                     if k != "query"}
@@ -547,6 +548,23 @@ async def ws_test_identity_operation(hass, connection, msg):
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/save_identity_draft",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("operation"): str,
+    vol.Required("query"): vol.All(str, vol.Length(min=1, max=4096)),
+    vol.Required("variables"): dict,
+})
+@websocket_api.async_response
+async def ws_save_identity_draft(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).save_identity_draft(
+            msg["vin"], msg["operation"], msg["query"], msg["variables"])
+        connection.send_result(msg["id"], {"saved": msg["operation"], "activated": False})
+    except (ValueError, KeyError, RuntimeError, OSError):
+        connection.send_error(msg["id"], "v3_identity_draft_failed", "Invalid or unsaved identity draft")
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/trip_history",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0, max=10000)),
@@ -584,7 +602,7 @@ async def async_setup_dashboard(hass) -> None:
             ws_review, ws_review_normal_command, ws_select, ws_save_candidate, ws_disable,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
-            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads, ws_test_identity_operation, ws_trip_history,
+            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads, ws_test_identity_operation, ws_save_identity_draft, ws_trip_history,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True
@@ -592,7 +610,7 @@ async def async_setup_dashboard(hass) -> None:
         hass,
         webcomponent_name="audiconnect-v3-panel",
         frontend_url_path=_PANEL,
-        module_url="/audiconnect_v3/panel.js?v=3.0.0b18-editor1",
+        module_url="/audiconnect_v3/panel.js?v=3.0.0b18-editor2",
         sidebar_title="Audi Engineering Dashboard",
         sidebar_icon="mdi:car-cog",
         require_admin=True,

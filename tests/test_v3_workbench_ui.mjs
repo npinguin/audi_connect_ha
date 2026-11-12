@@ -357,3 +357,17 @@ test("uncertain vehicle command identifies blocker and leaves read-only workbenc
   assert.match(p.shadowRoot.innerHTML,/acknowledge uncertainty/);
   assert.match(p.shadowRoot.innerHTML,/Read-only polling and query experiments remain available/);
 });
+
+
+test("identity draft loads per template and reset restores built-in definition", () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  const op="graphql.inventory.vehicleList";
+  p.capabilityStatus={counts:{},rows:[],operations:[{operation:op,method:"POST",path:"/vgql/v1/graphql",family:"graphql",read_only:true,capabilities:["vehicle_identity"],mappings:[]}],
+    identity_templates:{[op]:"{ userVehicles { vin } }"},identity_drafts:{[op]:{query:"query Probe { userVehicles { vin nickname } }",variables:{}}}};
+  p.openIdentityEditor(op);
+  assert.match(p.identityQuery,/Probe/);
+  assert.match(p.shadowRoot.innerHTML,/Save local draft/);
+  p.openIdentityEditor(op,true);
+  assert.equal(p.identityQuery,"{ userVehicles { vin } }");
+});

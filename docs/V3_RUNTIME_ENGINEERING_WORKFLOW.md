@@ -33,3 +33,11 @@ unresolved normal command remains in the journal across unrelated actions and
 restart, and can be acknowledged by ID after inspection. No retry or automatic
 authorization. The single Workbench physical-test slot still requires review
 before starting another Workbench test; normal unrelated commands remain usable.
+
+
+## Local draft persistence
+One private draft per existing identity template is stored in the vehicle profile.
+Save local draft is independent of Submit; neither action changes the production
+mapping. Reset template restores the built-in document in the editor; saving it
+replaces the private draft. The draft persists across restarts. Named multi-draft
+libraries and reviewed portable community import/export are still open.

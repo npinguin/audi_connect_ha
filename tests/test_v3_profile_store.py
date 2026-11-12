@@ -164,3 +164,16 @@ def test_historical_physical_review_survives_context_change_without_authorizing_
     again = restore_profile(catalog, refined, restored.snapshot(), cooldown_seconds=0)
     assert again.historical_control_evidence == history
     assert not again.control_results and not again.active
+
+
+def test_identity_draft_roundtrip_does_not_activate_or_dispatch():
+    from custom_components.audiconnect.v3.transport import INVENTORY_OPERATION
+    catalog, context, profile = fresh()
+    query = "query Probe { userVehicles { vin vehicle { core { modelYear } } } }"
+    profile.save_identity_draft(INVENTORY_OPERATION, query, {})
+    result = restore_profile(catalog, context, profile.snapshot())
+    assert result.identity_drafts[INVENTORY_OPERATION] == {"query": query, "variables": {}}
+    assert not result.active and not result.command_journal
+    with pytest.raises(ValueError):
+        result.save_identity_draft(INVENTORY_OPERATION, "mutation { userVehicles { vin } }", {})
+    assert result.identity_drafts[INVENTORY_OPERATION]["query"] == query

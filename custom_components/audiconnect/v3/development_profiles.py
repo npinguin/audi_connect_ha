@@ -267,6 +267,7 @@ class DevelopmentProfile:
         # Historical physical reviews are evidence only, never authorization.
         self.historical_control_evidence: list[dict[str, Any]] = []
         self.manufacturer_identity: dict[str, Any] = {}
+        self.identity_drafts: dict[str, dict[str, Any]] = {}
         self.last_command: CommandRecord | None = None
         self.command_journal: list[CommandRecord] = []
         self.invalidated_attempt_sequence: int | None = None
@@ -518,6 +519,17 @@ class DevelopmentProfile:
         self.discovery.disable(capability, action)
         self.active.pop(f"{capability}.{action}", None)
 
+    def save_identity_draft(self, operation: str, query: str, variables: dict) -> None:
+        """Private VIN-scoped definitions, never automatic polling or control proof."""
+        from .transport import IDENTITY_QUERIES, identity_request_body, validate_identity_body
+        if operation not in IDENTITY_QUERIES:
+            raise DevelopmentProfileError("Unknown GraphQL draft template")
+        body = {"query": query, "variables": variables}
+        default = identity_request_body(operation)
+        if body != {"query": default["query"], "variables": default.get("variables", {})}:
+            validate_identity_body(body)
+        self.identity_drafts[operation] = deepcopy(body)
+
     def snapshot(self) -> dict[str, Any]:
         """Safe local profile record. No VIN, tokens or raw HTTP payloads."""
         return {
@@ -533,6 +545,7 @@ class DevelopmentProfile:
             "control_evidence": dict(self.control_results),
             "historical_control_evidence": deepcopy(self.historical_control_evidence),
             "manufacturer_identity": deepcopy(self.manufacturer_identity),
+            "identity_drafts": deepcopy(self.identity_drafts),
             "last_command": legacy_snapshot(self.last_command) if self.last_command else None,
             "command_journal": [row.snapshot() for row in self.command_journal],
             "attribute_routes": dict(self.attribute_routes),

@@ -501,6 +501,11 @@ class V3Engine:
             while len(profile.engineering_responses) > MAX_ENGINEERING_ROUTES:
                 profile.engineering_responses.pop(next(iter(profile.engineering_responses)))
 
+    async def save_identity_draft(self, vin: str, operation: str, query: str, variables: dict) -> None:
+        car = self.require_vehicle(vin)
+        self.profiles[car.vin.lower()].save_identity_draft(operation, query, variables)
+        await self.storage.async_save(self.profiles)
+
     async def experiment_identity_query(self, vin: str, operation: str, query: str,
                                         variables: dict | None = None) -> dict[str, Any]:
         """Session-only evidence; never overwrite canonical route or activate a mapping."""
