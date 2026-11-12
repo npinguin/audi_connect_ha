@@ -1106,6 +1106,9 @@ class V3Engine:
             "last_poll_succeeded": self.last_cloud_poll_succeeded,
             "last_poll_attempt": self.last_cloud_poll_attempt.isoformat() if self.last_cloud_poll_attempt else None,
             "quota_remaining": self.transport.remaining_calls,
+            "quota_scope": "conservative_estimate_since_last_header",
+            "quota_observed_at": (stamp.isoformat() if (stamp := getattr(
+                self.transport, "remaining_calls_observed_at", None)) else None),
             "vehicles": vehicles,
             "entity_projection": entity_projection_report(self),
         }

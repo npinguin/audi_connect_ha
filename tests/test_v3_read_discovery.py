@@ -41,7 +41,7 @@ def test_transient_api_errors_cannot_mark_a_supported_job_missing():
     record_jobs(profile, ("charging",), status=429, payload=None)
     assert profile.job_discovery["charging"] == "inconclusive"
     record_jobs(profile, ("charging",), status=200, payload={"charging":{"status":"ok"}})
-    assert profile.job_discovery["charging"] == "not_observed"
+    assert profile.job_discovery["charging"] == "inconclusive"
     record_jobs(profile, ("charging",), status=207, payload={
         "charging":{"batteryStatus":{"value":{"currentSOC_pct":42}}}
     })

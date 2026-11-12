@@ -397,6 +397,11 @@ async def test_diagnostics_cover_all_product_capabilities_without_private_route_
     assert "engineering_history" not in encoded
     assert all("preview" not in row and "fields" not in row
                for row in snapshot["climate"]["last_api_results"])
+    from custom_components.audiconnect.v3.historical_catalog import CANONICAL_ATTRIBUTES
+    assert set(evidence["attributes"]) == set(CANONICAL_ATTRIBUTES)
+    for job, historical in snapshot["historical_schema_evidence"]["fields_by_job"].items():
+        current = snapshot["job_schema_evidence"].get(job, {}).get("fields", [])
+        assert not any(row in current for row in historical)
 
 
 @pytest.mark.asyncio
