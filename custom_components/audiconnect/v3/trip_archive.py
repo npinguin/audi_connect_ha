@@ -58,7 +58,7 @@ def merge_history(*groups):
                 continue
             key = (row["timestamp"], row["startMileage"], row["overallMileage"])
             previous = records.get(key, {})
-            records[key] = {**previous, **{k: v for k, v in row.items() if v is not None}}
+            records[key] = {**row, **previous, **{k: v for k, v in row.items() if v is not None}}
     return sorted(records.values(), key=lambda row: row["timestamp"], reverse=True)[:MAX_TRIP_HISTORY]
 
 
