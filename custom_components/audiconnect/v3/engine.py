@@ -639,12 +639,16 @@ class V3Engine:
             return None
         # A saved Workbench result must never bypass current remote-engine
         # permission, including the historical Q8/PHEV exclusion.
-        if capability == "remote" and aspect in ("engine_start", "engine_stop"):
+        restricted = capability == "remote" and aspect in ("engine_start", "engine_stop")
+        if restricted:
             from .command_policy import eligible_operation
-            if not eligible_operation(car, self.auth, capability, aspect):
+            allowed = eligible_operation(car, self.auth, capability, aspect)
+            if not allowed:
                 return None
         ident = p.active.get(key)
-        if ident and p.control_results.get(ident) == "worked" and not p.custom.get(ident, {}).get("variables"):
+        if (ident and p.control_results.get(ident) == "worked"
+                and not p.custom.get(ident, {}).get("variables")
+                and (not restricted or ident == allowed)):
             return ident
         if car.context.auth != "auth0" or len(p.registry.capabilities) <= 1:
             return None

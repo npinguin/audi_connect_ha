@@ -167,6 +167,7 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
         identifiers = {
             "cloud": "cloud_last_successful_poll",
             "age": "vehicle_data_age",
+            "freshness": "vehicle_data_freshness",
             "capability": "v3_climate_capability",
             "poll": "v3_poll_status",
         }
@@ -174,13 +175,28 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
         self._attr_name = {
             "cloud": "Cloud last successful poll",
             "age": "Vehicle data age",
+            "freshness": "Vehicle data freshness",
             "capability": "Climate capability",
             "poll": "V3 cloud polling",
         }[kind]
 
     @property
     def device_class(self):
-        return SensorDeviceClass.TIMESTAMP if self.kind == "cloud" else None
+        return (SensorDeviceClass.TIMESTAMP if self.kind == "cloud"
+                else SensorDeviceClass.ENUM if self.kind == "freshness" else None)
+
+    @property
+    def options(self):
+        return ["fresh", "delayed", "stale", "unknown"] if self.kind == "freshness" else None
+
+    @property
+    def state_class(self):
+        return SensorStateClass.MEASUREMENT if self.kind == "age" else None
+
+    def _vehicle_age(self):
+        # Match historical HA age semantics; ignore future and sentinel clocks.
+        ages = [_reading_age_minutes(x.get("captured")) for x in self.vehicle.readings.values()]
+        return min((int(x) for x in ages if x is not None), default=None)
 
     @property
     def native_unit_of_measurement(self):
@@ -194,9 +210,12 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
     def native_value(self):
         if self.kind == "cloud":
             return self.coordinator.engine.last_cloud_poll_success
-        if self.kind == "age":
-            ages = [_reading_age_minutes(x.get("captured")) for x in self.vehicle.readings.values()]
-            return min((x for x in ages if x is not None), default=None)
+        if self.kind in ("age", "freshness"):
+            age = self._vehicle_age()
+            if self.kind == "age":
+                return age
+            return ("unknown" if age is None else "fresh" if age <= 30
+                    else "delayed" if age <= 120 else "stale")
         if self.kind == "poll":
             return "online" if self.coordinator.last_update_success else "failed"
         if self.vehicle.climate_state is None:
@@ -211,6 +230,20 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         engine = self.coordinator.engine
+        if self.kind == "freshness":
+            last = self.vehicle.readings.get("last_update_time", {}).get("value")
+            return {
+                "vehicle_last_update": last,
+                "vehicle_age_minutes": self._vehicle_age(),
+                "cloud_last_successful_poll": (
+                    engine.last_cloud_poll_success.isoformat()
+                    if engine.last_cloud_poll_success else None),
+                "cloud_last_attempt": (
+                    engine.last_cloud_poll_attempt.isoformat()
+                    if engine.last_cloud_poll_attempt else None),
+                "last_cloud_poll_succeeded": bool(self.coordinator.last_update_success),
+                "freshness_basis": "newest_vehicle_timestamp_not_all_fields",
+            }
         if self.kind == "poll":
             return {
                 "requests": engine.transport.request_count,
@@ -227,6 +260,92 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
                 "status_api": self.vehicle.climate_source,
             }
         return {}
+
+
+class V3LocalServiceSensor(V3BaseEntity, SensorEntity):
+    """Historical local dealer/service entities, not Audi cloud diagnostics."""
+
+    def __init__(self, coordinator, vehicle, kind):
+        super().__init__(coordinator, vehicle)
+        self.kind = kind
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{kind}"
+        self._attr_name = "Dealer (local)" if kind == "local_dealer" else "Service overview"
+        self._attr_icon = "mdi:store" if kind == "local_dealer" else "mdi:car-wrench"
+
+    @property
+    def available(self):
+        return True
+
+    def _local(self):
+        # Shared config-only helper; no V2 model or business API.
+        from ..local_extensions import get_local_dealer
+        return get_local_dealer(self.coordinator.engine.entry.options, self.vehicle.vin)
+
+    def _value(self, ident):
+        row = self.vehicle.readings.get(ident)
+        return row.get("value") if _reading_available(row, allow_last_known=True) else None
+
+    @property
+    def native_value(self):
+        if self.kind == "local_dealer":
+            return self._local().get("dealer_name", "Not configured")
+        numbers = [x for x in (
+            self._value("MAINTENANCE_INTERVAL_TIME_TO_INSPECTION"),
+            self._value("MAINTENANCE_INTERVAL_TIME_TO_OIL_CHANGE"),
+        ) if type(x) in (int, float)]
+        if any(x <= 0 for x in numbers):
+            return "overdue"
+        if any(x <= 30 for x in numbers):
+            return "due_soon"
+        if numbers:
+            return "scheduled"
+        return "appointment_recorded" if self._local().get("next_service_date") else "unknown"
+
+    @property
+    def extra_state_attributes(self):
+        data = self._local()
+        if self.kind == "local_dealer":
+            return {
+                "source": "Home Assistant local configuration (not Audi)",
+                "configured": bool(data),
+                "configuration_path": "Audi Connect > Configure > Edit dealer and local service details",
+                **{k: v for k, v in data.items() if k != "dealer_name"},
+            }
+        return {
+            "inspection_due_days": self._value("MAINTENANCE_INTERVAL_TIME_TO_INSPECTION"),
+            "inspection_due_km": self._value("MAINTENANCE_INTERVAL_DISTANCE_TO_INSPECTION"),
+            "oil_service_due_days": self._value("MAINTENANCE_INTERVAL_TIME_TO_OIL_CHANGE"),
+            "oil_service_due_km": self._value("MAINTENANCE_INTERVAL_DISTANCE_TO_OIL_CHANGE"),
+            "next_appointment_local": data.get("next_service_date"),
+            "warranty_expiry_local": data.get("warranty_expiry"),
+            "maintenance_source": "Audi vehicleHealthInspection when reported",
+            "appointment_source": "Home Assistant local configuration, not Audi",
+        }
+
+
+class V3ApiQuotaSensor(V3BaseEntity, SensorEntity):
+    """One account-level HA entity; never multiply quota sensors per VIN."""
+    _attr_name = "API requests remaining"
+    _attr_icon = "mdi:api"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator, vehicle, entry_id):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{entry_id}_api_requests_remaining"
+
+    @property
+    def available(self):
+        return True
+
+    @property
+    def native_value(self):
+        return self.coordinator.engine.transport.remaining_calls
+
+    @property
+    def extra_state_attributes(self):
+        stamp = getattr(self.coordinator.engine.transport, "remaining_calls_observed_at", None)
+        return {"last_observed": stamp.isoformat() if stamp else None,
+                "value_restored": False}
 
 
 class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):
@@ -247,11 +366,14 @@ def _reading_age_minutes(captured: str | None) -> float | None:
         return None
     try:
         point = datetime.fromisoformat(captured.replace("Z", "+00:00"))
-    except ValueError:
+    except (TypeError, ValueError, AttributeError):
         return None
-    if point.tzinfo is None:
+    if point.tzinfo is None or point.year < 2020:
         return None
-    return max(0.0, (datetime.now(UTC) - point.astimezone(UTC)).total_seconds() / 60)
+    delta = (datetime.now(UTC) - point.astimezone(UTC)).total_seconds()
+    if delta < -300:
+        return None
+    return max(0.0, delta / 60)
 
 
 def _reading_available(
@@ -486,20 +608,21 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
     @property
     def available(self) -> bool:
         engine = self.coordinator.engine
-        return (self.coordinator.last_update_success and self.is_on is not None and
+        # A stale vehicle state is unknown, not a disabled explicit action.
+        return (self.coordinator.last_update_success and
                 engine.control_enabled(self.vehicle.vin, "start") and
                 engine.control_enabled(self.vehicle.vin, "stop"))
 
     async def async_turn_on(self, **kwargs) -> None:
         if not self.available:
-            raise HomeAssistantError("Climate ON/OFF requires fresh state and verified controls")
+            raise HomeAssistantError("Climate ON/OFF requires available verified controls")
         if self.is_on is not True:
             await self.coordinator.engine.send_control(self.vehicle.vin, "start")
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
         if not self.available:
-            raise HomeAssistantError("Climate ON/OFF requires fresh state and verified controls")
+            raise HomeAssistantError("Climate ON/OFF requires available verified controls")
         if self.is_on is not False:
             await self.coordinator.engine.send_control(self.vehicle.vin, "stop")
         self.async_write_ha_state()
@@ -533,7 +656,9 @@ class V3LockEntity(V3BaseEntity, LockEntity):
     def available(self) -> bool:
         engine = self.coordinator.engine
         pin = getattr(getattr(engine.auth, "service", None), "_spin", None)
-        return (self.coordinator.last_update_success and self.is_locked is not None
+        # Do not hide an authorized explicit command just because the car
+        # is sleeping. is_locked still returns None for stale/unknown status.
+        return (self.coordinator.last_update_success
                 and bool(pin) and (
                     engine.control_enabled(self.vehicle.vin, "lock", "access") or
                     engine.control_enabled(self.vehicle.vin, "unlock", "access")
@@ -543,7 +668,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         if not self.available or not self.coordinator.engine.control_enabled(
             self.vehicle.vin, "lock", "access"
         ):
-            raise HomeAssistantError("Lock route or current door status not verified")
+            raise HomeAssistantError("Lock route or authorization not available")
         if self.is_locked is not True:
             await self.coordinator.engine.send_control(self.vehicle.vin, "lock", "access")
         self.async_write_ha_state()
@@ -552,7 +677,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         if not self.available or not self.coordinator.engine.control_enabled(
             self.vehicle.vin, "unlock", "access"
         ):
-            raise HomeAssistantError("Unlock route or current door status not verified")
+            raise HomeAssistantError("Unlock route or authorization not available")
         if self.is_locked is not False:
             await self.coordinator.engine.send_control(self.vehicle.vin, "unlock", "access")
         self.async_write_ha_state()

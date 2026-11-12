@@ -5,6 +5,7 @@ timezone, no fabricated defaults, and no extra cloud request.
 """
 from __future__ import annotations
 from typing import Any
+from datetime import timedelta
 from .registry import read_json_path
 from .freshness import timestamp_is_fresh
 
@@ -22,6 +23,26 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         }
         # Derived observations need no extra API route; HA setup can see them
         # directly while the original batch job remains in the polling plan.
+
+    # Independent historical aliases use the original HA keys. Preserve
+    # existing source timestamps rather than inventing new observations.
+    for ident, source in (
+        ("charging_type", "chargeType"), ("plug_led_color", "plugledColor"),
+        ("primary_engine_type", "engineTypeFirstEngine"),
+        ("secondary_engine_type", "engineTypeSecondEngine"),
+        ("max_charge_current", "chargingCurrentLimitA"),
+    ):
+        row = car.readings.get(source)
+        if row and row.get("value") is not None:
+            record(ident, row["value"], row.get("captured"),
+                   row.get("job"), row.get("path"))
+    remaining = car.readings.get("remainingChargingTime", {})
+    from .attribute_runtime import _capture_in_utc
+    stamp = _capture_in_utc(remaining.get("captured"))
+    minutes = remaining.get("value")
+    if stamp and type(minutes) in (int, float) and 0 < minutes <= 10080:
+        record("charging_complete_time", (stamp + timedelta(minutes=minutes)).isoformat(),
+               remaining["captured"], "charging", remaining.get("path"))
 
     # Historical auxiliary-heating status is distinct from electric cabin
     # climatisation. Do not infer heating from a generic climate state.

@@ -14,7 +14,7 @@ from .entities import (
     V3ControlButton, V3ClimateQuickSwitch, V3LockEntity,
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
     V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
-    V3PreheaterSwitch,
+    V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor,
 )
 from .historical_catalog import ATTRIBUTES
 
@@ -31,8 +31,16 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
         async_add_entities([
             V3StatusSensor(coordinator, car, kind)
             for car in engine.vehicles.values()
-            for kind in ("cloud", "age", "capability", "poll")
+            for kind in ("cloud", "age", "freshness", "capability", "poll")
         ])
+        async_add_entities([
+            V3LocalServiceSensor(coordinator, car, kind)
+            for car in engine.vehicles.values()
+            for kind in ("local_dealer", "service_overview")
+        ])
+        first = next(iter(engine.vehicles.values()), None)
+        if first is not None:
+            async_add_entities([V3ApiQuotaSensor(coordinator, first, entry.entry_id)])
     elif platform == "button":
         async_add_entities([
             V3CloudRefreshButton(coordinator, car)

@@ -40,6 +40,7 @@ class V3Transport:
         self.auth = auth
         self.session = async_get_clientsession(hass)
         self.remaining_calls: int | None = None
+        self.remaining_calls_observed_at: datetime | None = None
         self.last_cloud_poll: datetime | None = None
         self._request_lock = asyncio.Lock()
         self._request_count = 0
@@ -74,6 +75,7 @@ class V3Transport:
                     if quota is not None:
                         try:
                             self.remaining_calls = int(quota)
+                            self.remaining_calls_observed_at = datetime.now(UTC)
                         except ValueError:
                             pass
                     raw = await response.text()

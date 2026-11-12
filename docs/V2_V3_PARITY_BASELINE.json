@@ -530,8 +530,8 @@
         "charging_type"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -576,8 +576,8 @@
         "max_charge_current"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -724,8 +724,8 @@
         "primary_engine_type"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -747,8 +747,8 @@
         "secondary_engine_type"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -1021,8 +1021,8 @@
         "charging_complete_time"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -1094,8 +1094,8 @@
         "plug_led_color"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -1260,8 +1260,8 @@
         "preheater_duration"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -1283,8 +1283,8 @@
         "preheater_remaining"
       ],
       "historical_paths": [],
-      "v3_implementation": "not_migrated",
-      "notes": "V2 derived/legacy/extra sensor; no V3 read mapping or proper native presentation.",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -1488,8 +1488,8 @@
       },
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "missing: V3 only has age / poll sensors, not enum freshness",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P0",
       "q8_v3_verified": false
     },
@@ -1510,7 +1510,7 @@
       "historical_ids": [],
       "historical_paths": [],
       "v3_implementation": "partial",
-      "notes": "present: V3StatusSensor age",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P0",
       "q8_v3_verified": false
     },
@@ -1531,7 +1531,7 @@
       "historical_ids": [],
       "historical_paths": [],
       "v3_implementation": "partial",
-      "notes": "present: V3StatusSensor cloud",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P0",
       "q8_v3_verified": false
     },
@@ -1551,8 +1551,8 @@
       },
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "missing: local dealer options not exposed",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -1572,8 +1572,8 @@
       },
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "missing: composite maintenance/local appointment",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -1593,8 +1593,8 @@
       },
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "missing: account-level rate limit sensor",
+      "v3_implementation": "partial",
+      "notes": "V3 implementation restored; source-dependent values, HA integration and real vehicle acceptance still need validation.",
       "priority": "P2",
       "q8_v3_verified": false
     },
@@ -4086,7 +4086,7 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. All four fork-only engineering probe actions are removed from both runtime service surfaces. Legacy controls, complete derived-data parity and real integration coverage still open. Native preheater switch and scoped remote engine commands added; no real car acceptance claimed.",
+  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. All four fork-only engineering probe actions are removed from both runtime service surfaces. Legacy controls, complete derived-data parity and real integration coverage still open. Native preheater switch and scoped remote engine commands added; no real car acceptance claimed. Historical freshness, quota and local maintenance entities restored, plus explicit stale-state control behavior and charging aliases.",
   "product_scope_exclusions": {
     "temporary_runtime_probes": [
       "probe_api_paths",
