@@ -55,7 +55,7 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     entities.append(factory(coordinator, car, *args))
 
             if platform == "sensor":
-                if car.model:
+                if getattr(car, "model", None):
                     add_once(f"{vin}:model", V3ModelSensor)
                 for kind in CORE_STATUS_KINDS:
                     add_once(f"{vin}:core:{kind}", V3StatusSensor, kind)

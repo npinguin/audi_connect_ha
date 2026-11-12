@@ -81,6 +81,8 @@ async def async_apply_v3_entity_visibility(
     reviewed = set(data.get("b10_reviewed", []))
     categories = dict(data.get("b10_categories", {}))
     disabled_compat = set(data.get("disabled_compatibility", []))
+    stateful_hidden = set(data.get("stateful_hidden_buttons", []))
+    stateful_reviewed = set(data.get("stateful_reviewed_buttons", []))
     for entity_id in owned:
         current = registry.async_get(entity_id)
         uid = getattr(current, "unique_id", "")
@@ -90,7 +92,7 @@ async def async_apply_v3_entity_visibility(
         if not enabled:
             if uid in disabled_compat and current.disabled_by == er.RegistryEntryDisabler.INTEGRATION:
                 registry.async_update_entity(entity_id, disabled_by=None)
-            if uid in hidden and current.hidden_by == er.RegistryEntryHider.INTEGRATION:
+            if uid in hidden | stateful_hidden and current.hidden_by == er.RegistryEntryHider.INTEGRATION:
                 registry.async_update_entity(entity_id, hidden_by=None)
             if uid in categories:
                 previous, applied = categories[uid]
@@ -120,8 +122,21 @@ async def async_apply_v3_entity_visibility(
                 and current.hidden_by != er.RegistryEntryHider.USER and uid not in disabled_compat):
             updates["disabled_by"] = er.RegistryEntryDisabler.INTEGRATION
             disabled_compat.add(uid)
-        if car is not None and uid not in reviewed and (compatibility_hidden(car, key)
-                or superseded_control_button(engine, car, key)):
+        # Stateful aliases are hidden only when a switch can actually be
+        # projected. Restore integration-owned visibility if evidence is absent
+        # on a later setup; never override a user-hidden or disabled entry.
+        if car is not None and uid in stateful_hidden and not superseded_control_button(engine, car, key):
+            if current.hidden_by == er.RegistryEntryHider.INTEGRATION:
+                updates["hidden_by"] = None
+            stateful_hidden.discard(uid)
+            stateful_reviewed.discard(uid)
+        elif (car is not None and uid not in stateful_reviewed
+                and superseded_control_button(engine, car, key)):
+            stateful_reviewed.add(uid)
+            if current.hidden_by is None and current.disabled_by is None:
+                updates["hidden_by"] = er.RegistryEntryHider.INTEGRATION
+                stateful_hidden.add(uid)
+        if car is not None and uid not in reviewed and compatibility_hidden(car, key):
             reviewed.add(uid)
             if current.hidden_by is None and current.disabled_by is None:
                 updates["hidden_by"] = er.RegistryEntryHider.INTEGRATION
@@ -136,6 +151,8 @@ async def async_apply_v3_entity_visibility(
         reviewed.clear()
         categories.clear()
         disabled_compat.clear()
+        stateful_hidden.clear()
+        stateful_reviewed.clear()
 
     # Historical V2 disable records are cleared; the cloud anchor is local
     # account metadata. Never save pilot retirement as a V2 restore candidate.
@@ -152,4 +169,8 @@ async def async_apply_v3_entity_visibility(
         result["b10_categories"] = categories
     if disabled_compat:
         result["disabled_compatibility"] = sorted(disabled_compat)
+    if stateful_hidden:
+        result["stateful_hidden_buttons"] = sorted(stateful_hidden)
+    if stateful_reviewed:
+        result["stateful_reviewed_buttons"] = sorted(stateful_reviewed)
     await store.async_save(result)

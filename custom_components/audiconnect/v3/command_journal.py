@@ -10,7 +10,7 @@ from uuid import uuid4
 _UNRESOLVED = frozenset({"pending", "uncertain"})
 _STATES = _UNRESOLVED | {"accepted_unconfirmed", "backend_completed", "verified", "rejected", "reviewed", "physical_failed"}
 HISTORY_LIMIT = 50
-_READBACKS = {"climate", "chargingState", "doorLockStatus", "targetstateOfCharge", "preferredChargeMode"}
+_READBACKS = {"climate", "chargingState", "doorLockStatus", "targetstateOfCharge", "preferredChargeMode", "windowHeatingActive"}
 
 
 @dataclass

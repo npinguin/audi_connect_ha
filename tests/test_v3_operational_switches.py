@@ -100,3 +100,14 @@ def test_model_inventory_not_nickname(media,expected,family,source):
     entity=V3ModelSensor(NS(async_add_listener=lambda cb:None),car)
     assert entity.native_value==(expected or None)
     assert entity.available is bool(expected)
+
+
+def test_window_readback_survives_journal_restore():
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    rec=CommandRecord.begin("climate","window_heating_stop","cariad.climate.window_heating_stop",
+                            datetime.now(UTC).timestamp())
+    configure_readback(rec,{})
+    restored=CommandRecord.restore(rec.snapshot())
+    assert restored.readback_attribute=="windowHeatingActive"
+    assert restored.readback_values==[False]
+    assert restored.state=="uncertain"
