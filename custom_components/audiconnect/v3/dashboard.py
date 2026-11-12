@@ -137,6 +137,19 @@ async def ws_status(hass, connection, msg):
                         value, vehicle_vin=vehicle.vin, spin=spin, secrets=secrets)["payload"]
         if hasattr(engine, "health"):
             report["integration_health"] = engine.health.snapshot(engine, vehicle)
+        from .read_discovery import user_test_candidates
+        report["end_user_progress"] = engine.discovery_progress(vehicle, profile)
+        report["end_user_candidates"] = [
+            {"label": label, "capability": capability, "action": action,
+             "operation": operation, "approval_group": group}
+            for label, capability, action, operation, group in
+            user_test_candidates(engine, vehicle, profile).values()
+        ]
+        coordinator = getattr(engine.entry.runtime_data, "coordinator", None)
+        interval = getattr(coordinator, "update_interval", None)
+        report["end_user_timing"] = {"poll_interval_seconds": interval.total_seconds() if interval else None,
+            "last_poll_success": engine.last_cloud_poll_success.isoformat() if engine.last_cloud_poll_success else None,
+            "last_poll_attempt": engine.last_cloud_poll_attempt.isoformat() if engine.last_cloud_poll_attempt else None}
         connection.send_result(msg["id"], report)
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_status_failed", str(exc))
