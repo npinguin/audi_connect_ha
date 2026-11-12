@@ -89,6 +89,8 @@ async def ws_status(hass, connection, msg):
         report["fast_bindings"] = profile.fast_bindings
         from .product_contract import entity_projection_report, entity_key
         report["account_entity_projection"] = entity_projection_report(engine)
+        from .transport import IDENTITY_QUERIES
+        report["identity_templates"] = dict(IDENTITY_QUERIES)
         # Admin-only actual HA entity IDs for the selected VIN, never in exported diagnostics.
         if hasattr(hass, "states") and hasattr(hass, "data"):
             from homeassistant.helpers import entity_registry as er
@@ -512,14 +514,23 @@ async def ws_test_family_reads(hass, connection, msg):
     vol.Required("type"): "audiconnect/v3/test_identity_operation",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("operation"): str,
+    vol.Optional("query"): vol.All(str, vol.Length(min=1, max=4096)),
 })
 @websocket_api.async_response
 async def ws_test_identity_operation(hass, connection, msg):
     try:
-        result = await _engine(hass, msg["entry_id"]).test_identity_operation(msg["vin"], msg["operation"])
+        from .transport import IDENTITY_QUERIES
+        engine = _engine(hass, msg["entry_id"])
+        operation = msg["operation"]
+        query = msg.get("query")
+        if query is not None and query != IDENTITY_QUERIES.get(operation):
+            result = await engine.experiment_identity_query(msg["vin"], operation, query)
+        else:
+            result = await engine.test_identity_operation(msg["vin"], operation)
+            result["execution"] = engine.engineering_response_for(msg["vin"], operation)
         connection.send_result(msg["id"], result)
     except (ValueError, KeyError, RuntimeError, OSError, TimeoutError):
-        connection.send_error(msg["id"], "v3_identity_test_failed", "Reviewed identity read failed")
+        connection.send_error(msg["id"], "v3_identity_test_failed", "Identity read failed: check query syntax, VIN selection, quota and session")
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
@@ -568,7 +579,7 @@ async def async_setup_dashboard(hass) -> None:
         hass,
         webcomponent_name="audiconnect-v3-panel",
         frontend_url_path=_PANEL,
-        module_url="/audiconnect_v3/panel.js?v=3.0.0b17",
+        module_url="/audiconnect_v3/panel.js?v=3.0.0b18-editor1",
         sidebar_title="Audi Engineering Dashboard",
         sidebar_icon="mdi:car-cog",
         require_admin=True,

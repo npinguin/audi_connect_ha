@@ -6,6 +6,7 @@ Never execute a user-provided absolute URL or untrusted Authorization header.
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
@@ -60,6 +61,56 @@ IDENTITY_QUERIES = {
 }
 
 IDENTITY_OPERATIONS = frozenset((*IDENTITY_QUERIES, GARAGE_OPERATION))
+
+def validate_identity_query(query: str) -> None:
+    """Bounded field-selection subset: one query, userVehicles, unaliased VIN.
+
+    No mutations, fragments, variables, arguments, directives, introspection,
+    arbitrary hosts or authorization headers. Unknown metadata fields may be
+    explored, but their values are not exposed by the experiment inspector.
+    """
+    if not isinstance(query, str) or not 0 < len(query) <= 4096:
+        raise ValueError("Identity query length is invalid")
+    tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_]*|[{}]|[^\s,]", query)
+    index = count = 0
+    def take():
+        nonlocal index
+        if index >= len(tokens):
+            raise ValueError("Incomplete identity query")
+        token = tokens[index]
+        index += 1
+        return token
+    def peek():
+        return tokens[index] if index < len(tokens) else None
+    def name(token):
+        return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", token)) and not token.startswith("__")
+    def selection(depth):
+        nonlocal count
+        if depth > 8 or take() != "{":
+            raise ValueError("Invalid identity selection")
+        fields = {}
+        while peek() != "}":
+            field = take()
+            count += 1
+            if not name(field) or count > 64 or field in fields:
+                raise ValueError("Invalid or duplicate identity field")
+            fields[field] = selection(depth + 1) if peek() == "{" else None
+        take()
+        if not fields:
+            raise ValueError("Empty identity selection")
+        return fields
+    if peek() == "query":
+        take()
+        if peek() != "{":
+            if not name(take()):
+                raise ValueError("Invalid query name")
+    tree = selection(1)
+    if index != len(tokens) or set(tree) != {"userVehicles"}:
+        raise ValueError("Only a single userVehicles query is supported")
+    vehicle = tree["userVehicles"]
+    if not isinstance(vehicle, dict) or "vin" not in vehicle or vehicle["vin"] is not None:
+        raise ValueError("Include the unaliased vin field for selected-vehicle isolation")
+
 
 def garage_rows(payload):
     rows = payload.get("data") if isinstance(payload, dict) else None
@@ -189,8 +240,10 @@ class V3Transport:
                 family == "graphql" and method == "POST"
                 and path == "/vgql/v1/graphql"
                 and isinstance(body, dict) and set(body) == {"query"}
-                and body["query"] in IDENTITY_QUERIES.values()
+                and (body["query"] in IDENTITY_QUERIES.values() or explicit_action)
             )
+            if family == "graphql" and read_only and body["query"] not in IDENTITY_QUERIES.values():
+                validate_identity_query(body["query"])
             self.quota.authorize(datetime.now(UTC), read_only=read_only)
             await self.auth.ensure_ready()
             plan = self.executors[family].plan(
@@ -249,6 +302,11 @@ class V3Transport:
             raise ValueError("Unknown reviewed GraphQL read operation")
         return await self.request("graphql", "POST", "/vgql/v1/graphql",
                                   body={"query": IDENTITY_QUERIES[operation]}, explicit_action=True)
+
+    async def experiment_identity_query(self, query: str) -> V3Response:
+        validate_identity_query(query)
+        return await self.request("graphql", "POST", "/vgql/v1/graphql",
+                                  body={"query": query}, explicit_action=True)
 
     async def discover_vehicle_images(self) -> dict[str, str]:
         """One optional fixed read query; no token exchange or fallback login."""

@@ -501,6 +501,43 @@ class V3Engine:
             while len(profile.engineering_responses) > MAX_ENGINEERING_ROUTES:
                 profile.engineering_responses.pop(next(iter(profile.engineering_responses)))
 
+    async def experiment_identity_query(self, vin: str, operation: str, query: str) -> dict[str, Any]:
+        """Session-only evidence; never overwrite canonical route or activate a mapping."""
+        from .transport import IDENTITY_QUERIES, selected_identity_response, identity_rows, validate_identity_query
+        from .response_preview import engineering_response, safe_schema_inventory
+        if operation not in IDENTITY_QUERIES:
+            raise ValueError("Choose a GraphQL identity template")
+        validate_identity_query(query)
+        car = self.require_vehicle(vin)
+        if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+            raise RuntimeError("Audi quota is low")
+        response = await self.transport.experiment_identity_query(query)
+        selected = selected_identity_response(response, car.vin)
+        rows = [row for row in identity_rows(response.data) if isinstance(row, dict)
+                and isinstance(row.get("vin"), str) and row["vin"].lower() == car.vin.lower()]
+        settings = getattr(self.entry, "data", {})
+        known = [settings.get(key) for key in (CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN)]
+        service = getattr(self.auth, "service", None)
+        for name in ("_bearer_token_json", "audiToken", "vwToken"):
+            token = getattr(service, name, None)
+            if isinstance(token, dict):
+                known.extend(token.get(k) for k in ("access_token", "refresh_token", "id_token"))
+        # Unknown field names/types only. Never return raw unknown account values.
+        fields, truncated = safe_schema_inventory({"data": {"userVehicles": rows}}, vehicle_vin=car.vin,
+                                                   all_items=True, secrets=tuple(known))
+        detail = engineering_response(selected.data, vehicle_vin=car.vin,
+                                      spin=settings.get(CONF_SPIN), secrets=tuple(known))
+        request = engineering_response(response.request, vehicle_vin=car.vin,
+                                       spin=settings.get(CONF_SPIN), secrets=tuple(known))
+        execution = {"operation": "graphql.inventory.experiment", "template": operation,
+                     "family": "graphql", "method": "POST", "http_status": response.status,
+                     "at": response.observed_at.isoformat(), "request": request,
+                     "fields": fields, "fields_truncated": truncated, **detail}
+        profile = self.profiles[car.vin.lower()]
+        profile.engineering_history.append(execution)
+        del profile.engineering_history[:-MAX_ENGINEERING_HISTORY]
+        return execution
+
     async def test_identity_operation(self, vin: str, operation: str) -> dict[str, Any]:
         """One reviewed read, selected vehicle evidence, no activation."""
         from .transport import (IDENTITY_OPERATIONS, GARAGE_OPERATION, POST_GARAGE_OPERATION, selected_garage_response,

@@ -66,6 +66,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.operationFilter = "all";
     this.searchText = "";
     this.focusOperation = "";
+    this.identityOperation = ""; this.identityQuery = ""; this.identityExecution = null;
     this.operationMethod = "all";
     this.readRoutes = [];
     this.readChoice = "";
@@ -242,6 +243,8 @@ class AudiConnectV3Panel extends HTMLElement {
     } else if (e.target.id === "operation-method") {
       this.operationMethod = e.target.value;
       this.render();
+    } else if (e.target.id === "identity-operation") {
+      this.openIdentityEditor(e.target.value);
     } else if (e.target.id === "api-family") {
       this.apiFamily = e.target.value;
       this.focusOperation = ""; this.attribute = ""; this.controlAction = "";
@@ -251,6 +254,7 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   _resetVehicleSelection() {
+    this.identityOperation = ""; this.identityQuery = ""; this.identityExecution = null;
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
@@ -272,12 +276,35 @@ class AudiConnectV3Panel extends HTMLElement {
     this.render();
   }
 
+  identityTemplate(operation) {
+    const templates = {};
+    return this.capabilityStatus.identity_templates?.[operation] || templates[operation] || "";
+  }
+  openIdentityEditor(operation) {
+    this.identityOperation = operation;
+    this.identityQuery = this.identityTemplate(operation);
+    this.identityExecution = null;
+    this.attribute = ""; this.controlAction = "";
+    this.category = "vehicle_identity"; this.step = 3; this.render();
+  }
+  localTime(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    try { return date.toLocaleString(undefined, {timeZone:this._hass?.config?.time_zone,
+      year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
+    catch { return date.toLocaleString(); }
+  }
+
   async _click(e) {
     const button = e.target.closest("button[data-action]");
     if (!button || this.loading) return;
     const action = button.dataset.action;
     if (action.startsWith("step-")) {
       this.step = Number(action.slice(5)); this.focusOperation = ""; this.render(); return;
+    }
+    if (action === "identity-test" || action === "identity-reset") {
+      this.openIdentityEditor(button.dataset.operation || this.identityOperation); return;
     }
     if (action === "open-identity") {
       this.category = "vehicle_identity"; this.apiFamily = "all"; this.attribute = ""; this.controlAction = ""; this.step = 2; this.render(); return;
@@ -322,6 +349,7 @@ class AudiConnectV3Panel extends HTMLElement {
       this.step = 2; this.render(); return;
     }
     if (action === "select-attribute") {
+      this.identityOperation = ""; this.identityExecution = null;
       this.category = button.dataset.capability;
       this.attribute = button.dataset.attribute;
       this.controlAction = "";
@@ -332,6 +360,7 @@ class AudiConnectV3Panel extends HTMLElement {
       finally { this.loading = false; this.render(); } return;
     }
     if (action === "select-control") {
+      this.identityOperation = ""; this.identityExecution = null;
       this.category = button.dataset.capability;
       this.controlCapability = button.dataset.capability;
       this.controlAction = button.dataset.control;
@@ -354,6 +383,7 @@ class AudiConnectV3Panel extends HTMLElement {
     // Capture edits BEFORE re-render: otherwise the textarea is reset and a
     // custom request silently loses its parameters or entire definition.
     const rawParameters = this.shadowRoot.getElementById("parameters")?.value || "{}";
+    if (action === "identity-submit") this.identityQuery = this.shadowRoot.getElementById("identity-query")?.value || "";
     const rawDefinition = this.shadowRoot.getElementById("definition")?.value || "";
     this.loading = true; this.error = ""; this.render();
     try {
@@ -384,9 +414,12 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("disable", {
           ...this.selection, aspect: this.aspect
         });
-      } else if (action === "identity-test") {
-        this.lastResult = await this.api("test_identity_operation", {...this.selection, operation:button.dataset.operation});
-        this.step = 4; this.apiFamily = button.dataset.operation?.startsWith("cariad.")?"cariad":"graphql"; this.focusOperation = button.dataset.operation;
+      } else if (action === "identity-submit") {
+        const args = {...this.selection, operation:this.identityOperation};
+        if (this.identityOperation.startsWith("graphql.")) args.query = this.identityQuery;
+        const result = await this.api("test_identity_operation", args);
+        this.identityExecution = result.execution || result;
+        this.lastResult = result; this.step = 3;
       } else if (action === "family-test" || action === "family-full-test") {
         const car = this.entries.find(e=>e.entry_id===this.selected)
           ?.vehicles.find(v=>v.vin===this.vin);
@@ -456,7 +489,7 @@ class AudiConnectV3Panel extends HTMLElement {
       await this._loadCapabilityStatus();
       await this._readRoutes();
       await this._controlRoutes();
-      if (["test","read-test","control-test","family-test","family-full-test","identity-test"].includes(action)) {
+      if (["test","read-test","control-test","family-test","family-full-test","identity-submit"].includes(action)) {
         await this._apiResults();
         if(action==="read-test" && this.readRoutes.some(r=>r.id===readRoute)) this.readChoice=readRoute;
         if(action==="control-test" && this.controlRoutes.some(r=>r.id===controlRoute)) this.controlChoice=controlRoute;
@@ -537,7 +570,7 @@ class AudiConnectV3Panel extends HTMLElement {
     if(!detail) return saved?`<h3>Response · restricted historical evidence</h3><pre>${json(saved.preview)}</pre>
       <p>Full request/response was not retained. Never repeat a vehicle command just to obtain evidence.</p>`:
       "<p>No execution recorded for this route.</p>";
-    return `<div class="callout"><b>HTTP ${escapeHTML(detail.http_status??"—")} · ${escapeHTML(detail.at)}</b>
+    return `<div class="callout"><b>HTTP ${escapeHTML(detail.http_status??"—")} · ${escapeHTML(this.localTime(detail.at))}</b>
       <h3>Request sent</h3>
       ${detail.request?`<pre style="max-height:none;user-select:text">${json(detail.request.payload)}</pre>`:"<p>Actual request was not recorded for this execution.</p>"}
       <h3>${detail.operation==="graphql.inventory.vehicleList"?"Response received · selected vehicle only":"Response received"}</h3>
@@ -715,7 +748,7 @@ class AudiConnectV3Panel extends HTMLElement {
           <button data-action="step-1" class="${this.step===1?"current":""}">Overview</button>
           <button data-action="step-2" class="${this.step===2?"current":""}">Capabilities</button>
           <button data-action="step-3" class="${this.step===3?"current":""}">Configure & test</button>
-          <button data-action="step-4" class="${this.step===4?"current":""}">API evidence</button>
+          <button data-action="step-4" class="${this.step===4?"current":""}">API Log</button>
         </div>
         ${this.error?`<div class="error">${escapeHTML(this.error)}</div>`:""}
         ${car&&this.pending?`<section class="card" style="margin-bottom:18px">
@@ -757,7 +790,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <section class="card compact"><div class="section-head"><h2>Home Assistant</h2><button data-action="step-4">Details</button></div><div>${escapeHTML(projection.registered??"—")} registered · ${escapeHTML(projection.projected??"—")} projected <span class="muted">· account scope</span></div></section>
           </section>
           <section class="card" data-view="evidence" style="margin-bottom:18px;display:${this.step===4?"block":"none"}">
-            <div class="section-head"><h2>API evidence</h2><span class="muted">${escapeHTML(family.toUpperCase())}</span></div>
+            <div class="section-head"><h2>API Log</h2><span class="muted">${escapeHTML(family.toUpperCase())}</span></div>
             <details><summary>All findings · ${findings.length}</summary>${findings.map((f,i)=>`<div class="finding"><div><b>${escapeHTML(friendly(f.reason))}</b><div class="subline">${escapeHTML(f.operation||f.attribute||"Vehicle")}</div></div><button data-action="inspect-finding" data-index="${i}">Review</button></div>`).join("")}</details>
             <details><summary>Home Assistant projection & historical inventory</summary><p>${Object.entries(projection.counts||{}).map(([k,v])=>escapeHTML(friendly(k))+": "+escapeHTML(v)).join(" · ")}</p><p>${escapeHTML(counts.v2_attribute_inventory??0)} historical attributes · ${escapeHTML(counts.v2_control_inventory??0)} historical controls · ${escapeHTML(counts.observed_jobs??0)} observed jobs</p></details>
             <div style="margin-top:20px"></div>
@@ -773,7 +806,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <thead><tr><th>Operation / capability</th><th>Test & HTTP</th><th>Mapping / binding</th><th>Physical / attention</th></tr></thead>
               <tbody>${visibleOperations.map(o=>`<tr>
                 <td><b>${escapeHTML(o.operation)}</b><div class="subline">${escapeHTML(o.family)} · ${escapeHTML(o.method)} · ${escapeHTML((o.capabilities||[]).join(", "))}</div><code>${escapeHTML(o.path||"")}</code></td>
-                <td><b>${o.reference_only?"Historical only":o.tested?"Tested directly":o.job_evidence==="observed"?"Observed via batch":o.job_evidence==="not_observed"?"Requested; not observed":"Not tested"}</b><div class="subline">HTTP ${escapeHTML(o.http_status??"—")} · ${escapeHTML(o.transport||"unknown")} · ${escapeHTML(o.last_test||"")}</div></td>
+                <td><b>${o.reference_only?"Historical only":o.tested?"Tested directly":o.job_evidence==="observed"?"Observed via batch":o.job_evidence==="not_observed"?"Requested; not observed":"Not tested"}</b><div class="subline">HTTP ${escapeHTML(o.http_status??"—")} · ${escapeHTML(o.transport||"unknown")} · ${escapeHTML(this.localTime(o.last_test))}</div></td>
                 <td>Schema: ${escapeHTML(o.schema||"unknown")}
                   ${(o.mappings||[]).map(m=>`<div class="subline"><button data-action="${m.capability==="vehicle_identity"?"open-identity":"open-capability"}" data-capability="${escapeHTML(m.capability)}">${escapeHTML(m.capability)}</button> · ${escapeHTML((m.entity_ids||[]).join(", ")||m.entity_key||"No published entity")}<br><code>${escapeHTML(m.field||"")}</code></div>`).join("")}
                   ${(o.graphql_errors||[]).map(err=>`<div class="warn">${escapeHTML(err.code)} · ${escapeHTML(err.field)} ${escapeHTML(err.reason||"")}</div>`).join("")}
@@ -812,7 +845,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <p>Select a function to inspect or test its route.</p>
             <label>Capability domain</label>
             <select id="category" ${this.loading?"disabled":""}>${capabilityNames.map(c=>`<option value="${escapeHTML(c)}" ${this.category===c?"selected":""}>${escapeHTML(c==="vehicle_identity"?"Vehicle Identity":domainName(c))}</option>`).join("")}</select>
-            ${this.category==="vehicle_identity"?`<div class="card"><h2>Vehicle Identity</h2><p>Model, year, drivetrain and images → sensor.model. All requests are read-only.</p>${identityOps.filter(matchesSearch).map(o=>`<div class="attribute-row"><div><b>${escapeHTML(o.operation)}</b><div class="subline">${escapeHTML(o.schema)} · ${escapeHTML(o.http_status??"Not tested")}</div>${(o.mappings||[]).map(m=>`<div class="subline">${escapeHTML(m.name)} → ${escapeHTML((m.entity_ids||[]).join(", ")||m.entity_key)} · ${escapeHTML(m.status)}</div>`).join("")}</div><div><button data-action="identity-test" data-operation="${escapeHTML(o.operation)}">Test</button> <button data-action="identity-evidence" data-operation="${escapeHTML(o.operation)}">API evidence</button></div></div>`).join("")}</div>`:""}
+            ${this.category==="vehicle_identity"?`<div class="card"><h2>Vehicle Identity</h2><p>Model, year, drivetrain and images → sensor.model. All requests are read-only.</p>${identityOps.filter(matchesSearch).map(o=>`<div class="attribute-row"><div><b>${escapeHTML(o.operation)}</b><div class="subline">${escapeHTML(o.schema)} · ${escapeHTML(o.http_status??"Not tested")}</div>${(o.mappings||[]).map(m=>`<div class="subline">${escapeHTML(m.name)} → ${escapeHTML((m.entity_ids||[]).join(", ")||m.entity_key)} · ${escapeHTML(m.status)}</div>`).join("")}</div><div><button data-action="identity-test" data-operation="${escapeHTML(o.operation)}">Test</button> <button data-action="identity-evidence" data-operation="${escapeHTML(o.operation)}">API Log</button></div></div>`).join("")}</div>`:""}
             <div class="function-tabs">${[["all","All functions"],["data","Data"],["controls","Controls"]].map(([mode,label])=>`<button data-action="function-mode" data-mode="${mode}" class="${this.functionMode===mode?"current":""}">${label}</button>`).join("")}</div>
             <div style="display:${this.functionMode==="controls"?"none":"block"}">
             <div class="toolbar">
@@ -931,8 +964,15 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="helper">${escapeHTML(this.lastResult?.family?JSON.stringify(this.lastResult):"No manual family test in this session")}</div>
           </section>
           ${this.step===3&&!this.attribute&&!this.controlAction?`<section class="card" style="margin-bottom:18px">
-            <h2>Choose an individual API path</h2>
-            <p>Select a function from Capabilities to inspect or test its route. <button data-action="step-2">Browse capabilities</button></p>
+            <div class="section-head"><h2>Configure &amp; test</h2><button data-action="step-2">‹ Capabilities</button></div>
+            <label>Vehicle Identity · API operation<select id="identity-operation"><option value="">Choose a source</option>${identityOps.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.identityOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
+            ${this.identityOperation?`<p><b>${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.method)} ${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.path)}</b> · Read-only</p>
+              ${this.identityOperation.startsWith("graphql.")?`<label>Query template<textarea id="identity-query" rows="10" spellcheck="false">${escapeHTML(this.identityQuery)}</textarea></label>`:"<p>Fixed read-only garage inventory GET.</p>"}
+              <div class="actions"><button class="primary" data-action="identity-submit" ${this.loading?"disabled":""}>Submit</button><button data-action="identity-reset">Reset template</button><button data-action="identity-evidence" data-operation="${escapeHTML(this.identityOperation)}">API Log</button></div>
+              <p class="helper">Experiments do not change active mappings. Edited GraphQL supports one userVehicles selection with vin, no mutations, arguments or directives.</p>
+              ${this.identityExecution?this.responseInspector(this.identityOperation,this.identityExecution):this.responseInspector(this.identityOperation)}
+              ${this.identityExecution?.fields?.length?`<details open><summary>Discovered fields · ${this.identityExecution.fields.length}</summary>${this.identityExecution.fields.map(f=>`<div class="subline"><code>${escapeHTML(f.path)}</code> · ${escapeHTML(f.type)}</div>`).join("")}</details>`:""}
+              <h3>Linked capability · Vehicle Identity</h3>${(identityOps.find(o=>o.operation===this.identityOperation)?.mappings||[]).map(m=>`<div class="subline">${escapeHTML(m.name)} → ${escapeHTML((m.entity_ids||[]).join(", ")||m.entity_key)} · ${escapeHTML(m.status)}</div>`).join("")}`:"<p>Select an identity API operation above, or browse other capabilities.</p>"}
           </section>`:""}
           <section class="card" style="margin-bottom:18px;display:${this.step===4?"block":"none"}">
             <div class="eyebrow">Engineering / API evidence</div>
@@ -942,7 +982,7 @@ class AudiConnectV3Panel extends HTMLElement {
               ...this.engineeringHistory.filter(r=>family==="all"||r.family===family).map(r=>({record:r,detail:r})),
               ...records.filter(r=>!this.engineeringHistory.some(e=>e.operation===r.operation&&e.at===r.at)).map(r=>({record:r,detail:null}))
             ].map(({record:r,detail})=>`<details class="record" open>
-              <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · ${escapeHTML(r.at)}</summary>
+              <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · ${escapeHTML(this.localTime(r.at))}</summary>
               <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b></div>
               ${(operations.find(o=>o.operation===r.operation)?.mappings||[]).map(m=>`<div class="subline"><button data-action="${m.capability==="vehicle_identity"?"open-identity":"open-capability"}" data-capability="${escapeHTML(m.capability)}">${escapeHTML(m.capability)}</button> · ${escapeHTML((m.entity_ids||[]).join(", ")||m.entity_key||"No published entity")} · <code>${escapeHTML(m.field||"")}</code></div>`).join("")}
               ${detail?this.responseInspector(r.operation,detail):`<h3>Restricted historical response</h3><pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre><p>Actual request and full response were not retained.</p>`}
