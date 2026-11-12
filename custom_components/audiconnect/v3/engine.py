@@ -684,6 +684,13 @@ class V3Engine:
         return op
 
 
+    async def discard_unused_route(self, vin: str, operation: str) -> None:
+        async with self.commands._actions:
+            profile = self.profiles[self.require_vehicle(vin).vin.lower()]
+            profile.discard_unused_route(operation)
+            await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
+
     async def select_working(self, vin: str, aspect: str, operation: str, capability: str = "climate") -> None:
         """Admin activates a verified control; reads use attribute activation."""
         if aspect == "status":
