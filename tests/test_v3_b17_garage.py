@@ -89,3 +89,19 @@ def test_identity_recovery_rejects_cached_as_fresh_evidence():
                        model_year="2022", identity_restored=True)
     car.merge_identity_evidence(cached)
     assert not car.model and not car.model_year and not car.car_type
+
+
+@pytest.mark.parametrize("rows,errors,expected", [
+    ([{"vin": VIN}, {"vin": OTHER}], [], True),
+    ([{"vin": VIN}], [{"path": ["userVehicles", 0, "vehicle", "core"]}], True),
+    ([{"vin": VIN}], [{"path": ["userVehicles"]}], False),
+    ([{"vin": VIN}], [{"path": ["userVehicles", 0, "vin"]}], False),
+    ([{"vin": VIN}], [{"message": "root failure"}], False),
+    ([{"vin": VIN}, None], [], False),
+    ([{"vin": VIN}, {"vin": VIN.lower()}], [], False),
+    ([], [], False),
+])
+def test_inventory_absence_requires_complete_membership(rows, errors, expected):
+    from custom_components.audiconnect.v3.transport import inventory_membership_complete
+    assert inventory_membership_complete({
+        "data": {"userVehicles": rows}, "errors": errors}) is expected

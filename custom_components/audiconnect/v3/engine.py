@@ -204,7 +204,7 @@ class V3Engine:
                     break
         known: dict[str, V3Vehicle] = {}
         inventory_items = {}
-        complete = bool(found)
+        complete = bool(found) and getattr(self.transport, "last_inventory_complete", True)
         for item in found:
             try:
                 parsed = V3Vehicle.from_graphql(item, self.auth.country)

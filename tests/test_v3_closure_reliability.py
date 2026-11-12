@@ -242,8 +242,8 @@ async def test_inventory_reconciliation_retains_entity_identity_and_blocks_missi
     first = {"vin": vin, "nickname": "Original"}
     second = {"vin": other}
     transport = NS(discover_vehicles=AsyncMock(side_effect=[
-        [first, second], [], [second], [second], [first, second],
-    ]))
+        [first, second], [], [second], [second], [second], [second], [first, second],
+    ]), last_inventory_complete=True)
     class Storage:
         async def async_load(self, registry, contexts):
             return {key: DevelopmentProfile(registry, context)
@@ -255,6 +255,12 @@ async def test_inventory_reconciliation_retains_entity_identity_and_blocks_missi
     original = engine.require_vehicle(vin)
     await engine.discover()
     assert engine.require_vehicle(vin) is original
+    transport.last_inventory_complete = False
+    await engine.discover()
+    await engine.discover()
+    assert engine.require_vehicle(vin) is original
+    assert original.inventory_misses == 0
+    transport.last_inventory_complete = True
     await engine.discover()
     assert engine.require_vehicle(vin) is original
     await engine.discover()

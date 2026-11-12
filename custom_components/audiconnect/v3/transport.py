@@ -131,6 +131,36 @@ def identity_rows(payload):
     rows = data.get("userVehicles") if isinstance(data, dict) else None
     return rows if isinstance(rows, list) else []
 
+def inventory_membership_complete(payload: Any) -> bool:
+    """Only a complete, nonempty VIN inventory can support absence evidence.
+
+    Optional metadata resolver failures do not invalidate known VINs. Root,
+    membership and malformed-row errors cannot establish that a car is absent.
+    """
+    rows = identity_rows(payload)
+    if not rows:
+        return False
+    seen = set()
+    for row in rows:
+        vin = row.get("vin") if isinstance(row, dict) else None
+        if not isinstance(vin, str) or not re.fullmatch(r"[A-Za-z0-9]{17}", vin):
+            return False
+        key = vin.lower()
+        if key in seen:
+            return False
+        seen.add(key)
+    errors = payload.get("errors", [])
+    if not isinstance(errors, list):
+        return False
+    for error in errors:
+        path = error.get("path") if isinstance(error, dict) else None
+        if (not isinstance(path, list) or len(path) < 3 or path[0] != "userVehicles"
+                or type(path[1]) is not int or not 0 <= path[1] < len(rows)
+                or path[2] not in ("vehicle", "nickname")):
+            return False
+    return True
+
+
 def identity_errors(payload, vin):
     indexes = {i for i, row in enumerate(identity_rows(payload)) if isinstance(row, dict)
                and str(row.get("vin", "")).lower() == vin.lower()}
@@ -206,6 +236,7 @@ class V3Transport:
         self.executors = build_family_executors()
         self.last_inventory_metadata: V3Response | None = None
         self.last_inventory_errors: dict[str, list] = {}
+        self.last_inventory_complete = False
 
     @property
     def remaining_calls(self) -> int | None:
@@ -278,6 +309,7 @@ class V3Transport:
     async def discover_vehicles(self) -> list[dict[str, Any]]:
         self.last_inventory_metadata = None
         self.last_inventory_errors = {}
+        self.last_inventory_complete = False
         response = await self.request(
             "graphql", "POST", "/vgql/v1/graphql",
             body={"query": _GRAPHQL_QUERY}, explicit_action=True,
@@ -288,6 +320,7 @@ class V3Transport:
         vehicles = data.get("userVehicles") if isinstance(data, dict) else None
         if not isinstance(vehicles, list):
             raise RuntimeError("Audi vehicle list unavailable (not an empty account)")
+        self.last_inventory_complete = inventory_membership_complete(response.data)
         # Only request metadata is retained here, not an account-wide raw response.
         self.last_inventory_errors = {row["vin"].lower(): identity_errors(response.data, row["vin"])
                                       for row in vehicles if isinstance(row, dict) and isinstance(row.get("vin"), str)}
