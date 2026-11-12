@@ -337,6 +337,16 @@ class AudiConnectV3Panel extends HTMLElement {
     const button = e.target.closest("button[data-action]");
     if (!button || this.loading) return;
     const action = button.dataset.action;
+    if (action === "end-user-select") {
+      const candidate=(this.capabilityStatus.end_user_candidates||[]).find(c=>c.operation===button.dataset.operation);
+      if (!candidate) return;
+      this.controlCapability=candidate.capability; this.controlAction=candidate.action;
+      this.attribute=""; this.controlRoutes=[]; this.controlChoice=candidate.operation;
+      this.loading=true; this.error=""; this.render();
+      try { await this._controlRoutes(); if(this.controlChoice!==candidate.operation) throw Error("Control changed; refresh status before verifying"); }
+      catch(err) {this.error=String(err.message||err);this.controlAction="";this.controlChoice="";}
+      finally {this.loading=false;this.render();} return;
+    }
     if (action.startsWith("step-")) {
       this.step = Number(action.slice(5)); this.render(); return;
     }
@@ -717,6 +727,38 @@ class AudiConnectV3Panel extends HTMLElement {
       ...(source?.conversion ? {conversion:source.conversion} : {})}, null, 2);
   }
 
+  endUserValidation() {
+    const p=this.capabilityStatus.end_user_progress;
+    if (!p) return '<section class="card"><h2>End-user validation</h2><p>No discovery status loaded.</p></section>';
+    const health=this.capabilityStatus.integration_health||{};
+    const timing=this.capabilityStatus.end_user_timing||{};
+    const candidates=this.capabilityStatus.end_user_candidates||[];
+    const candidate=candidates.find(c=>c.operation===this.controlChoice && c.capability===this.controlCapability && c.action===this.controlAction);
+    const route=this.controlRoutes.find(r=>r.id===candidate?.operation);
+    const rows=p.controls||[];
+    return `<section class="card" data-view="end-user-validation">
+      <div class="section-head"><h2>End-user validation</h2><button data-action="refresh" ${this.loading?"disabled":""}>Refresh status</button></div>
+      <p>Same configuration and evidence as native Home Assistant discovery. Refresh reads local status; background discovery follows the normal poll cadence.</p>
+      <h3>1 · Setup &amp; configuration</h3>
+      <p>${escapeHTML(this.capabilityStatus.vehicle?.label||"Vehicle")} · ${escapeHTML(health.status||"unknown")} · Identity ${escapeHTML(health.identity_status||"unknown")}</p>
+      <p><a href="/config/integrations">Open Home Assistant integrations</a> to validate setup, reconfiguration and reauthentication.</p>
+      <h3>2 · Read-only discovery</h3>
+      <p><b>${escapeHTML(p.read_assessed??"—")}/${escapeHTML(p.read_total??"—")} assessed</b> · ${escapeHTML(p.read_assessment_percent??"—")}% · ${escapeHTML(p.attributes_normalized??"—")} normalized attributes. Assessment is not proof of support.</p>
+      <div class="coverage-table"><table><thead><tr><th>Capability</th><th>Read jobs assessed</th><th>Normalized attributes</th></tr></thead><tbody>
+      ${Object.entries(p.capabilities||{}).map(([cap,c])=>`<tr><td><button data-action="open-capability" data-capability="${escapeHTML(cap)}">${escapeHTML(domainName(cap))}</button></td><td>${c.jobs_assessed}/${c.jobs_total}</td><td>${c.attributes_normalized}/${c.attributes_total}</td></tr>`).join("")}</tbody></table></div>
+      <h3>3 · Control discovery &amp; physical verification</h3>
+      <p>${rows.filter(c=>c.eligible).length} eligible · ${escapeHTML(p.controls_physically_verified??0)} physically verified / ${escapeHTML(p.controls_catalog_applicable??0)} applicable. Select one action, inspect the parked vehicle and approve it explicitly.</p>
+      ${rows.map(c=>{const test=candidates.find(x=>x.capability===c.capability&&x.action===c.action);return `<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability,c.action))}</b> · ${escapeHTML(friendly(c.status))} · ${escapeHTML(friendly(c.physical))}<div class="subline">${escapeHTML(friendly(c.reason||""))}</div></div>${test&&c.physical!=="worked"?`<button data-action="end-user-select" data-operation="${escapeHTML(test.operation)}" ${this.loading||this.pending?"disabled":""}>Verify</button>`:""}</div>`;}).join("")}
+      ${candidate&&route&&!this.pending?`<div class="callout"><b>${escapeHTML(candidate.label)}</b><p>Exact route: <code>${escapeHTML(candidate.operation)}</code>. One real physical command. Be present at the safely parked vehicle and able to restore its state.</p>
+      <label><input type="checkbox" id="control-approval"> I accept this specific action and its risks</label>
+      <button data-action="control-test" ${this.loading||this.capabilityBlocked(candidate.capability)?"disabled":""}>Execute once</button></div>`:""}
+      <h3>4 · Recovery &amp; timing</h3>
+      <p>Last poll: ${escapeHTML(this.localTime(timing.last_poll_attempt))} · Last success: ${escapeHTML(this.localTime(timing.last_poll_success))} · Poll interval: ${timing.poll_interval_seconds==null?"unknown":escapeHTML(timing.poll_interval_seconds/60)+" min"} · Quota: ${escapeHTML(health.quota_remaining??"unknown")}</p>
+      ${(health.active_findings||[]).map(f=>`<div class="subline">${escapeHTML(friendly(f.code))} · ${escapeHTML(f.source)} ${f.http_status?"· HTTP "+escapeHTML(f.http_status):""}</div>`).join("")}
+      <p>Uncertain commands are never replayed automatically. Use the existing review above when needed. <button data-action="step-4">Inspect API evidence</button></p>
+    </section>`;
+  }
+
   entityInspector(link) {
     if (!link) return "";
     const rows = (this.capabilityStatus.rows||[]).filter(r=>(r.entity_keys||[]).includes(link.contract_key));
@@ -939,6 +981,7 @@ class AudiConnectV3Panel extends HTMLElement {
           <button data-action="step-2" class="${this.step===2?"current":""}">Capabilities</button>
           <button data-action="step-3" class="${this.step===3?"current":""}">Configure & test</button>
           <button data-action="step-4" class="${this.step===4?"current":""}">API Log</button>
+          <button data-action="step-5" class="${this.step===5?"current":""}">End-user validation</button>
         </div>
         ${this.error?`<div class="error">${escapeHTML(this.error)}</div>`:""}
         ${car&&this.pending?`<section class="card" style="margin-bottom:18px">
@@ -953,6 +996,7 @@ class AudiConnectV3Panel extends HTMLElement {
         </section>`:""}
         ${car?this.unresolvedCommands().map(command=>`<section class="card warn" style="margin-bottom:18px"><b>${escapeHTML(friendly(command.capability))} · ${this.reviewRequired(command)?"review required":"last command outcome uncertain"}</b><p>Previous command: <b>${escapeHTML(command.operation)}</b> · ${escapeHTML(command.state)} ${command.http_status?"· HTTP "+escapeHTML(command.http_status):""} · ${escapeHTML(this.localTime(command.started_at*1000))}</p><p>Other capabilities remain available. Read-only polling and query experiments remain available. ${this.reviewRequired(command)?"Inspect the actual vehicle before acknowledging uncertainty.":"Check the vehicle; you can retry explicitly after the short cooldown. No review required."} No command is replayed or marked successful.</p><button data-action="review-normal" data-command="${escapeHTML(command.command_id)}" ${this.loading?"disabled":""}>${this.reviewRequired(command)?"I inspected the vehicle — acknowledge uncertainty":"Dismiss warning after checking vehicle"}</button></section>`).join(""):""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `
+          ${this.step===5?this.endUserValidation():""}
           <section style="display:${this.step===1?"block":"none"}" data-view="overview">
             <div class="metrics">
               <div class="card"><div class="eyebrow">Cloud connection</div><div class="stat">${item.poll_success?"Connected":"Unknown"}</div><div class="summary">${escapeHTML(item.poll_success?new Date(item.poll_success).toLocaleString():"No successful poll")}</div></div>
