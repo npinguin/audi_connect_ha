@@ -51,6 +51,25 @@ def configure_readback(record, params):
         record.readback_attribute, record.readback_values = match
 
 
+def configure_discovery_readback(record, car, params):
+    """Only auto-confirm an observed change from a known, different pre-test state."""
+    configure_readback(record, params)
+    if not record.readback_attribute:
+        return
+    if record.readback_attribute == "climate":
+        value, captured = car.climate_state, car.climate_captured
+    else:
+        row = car.readings.get(record.readback_attribute) or {}
+        value, captured = row.get("value"), _capture_in_utc(row.get("captured"))
+    if isinstance(value, str):
+        value = value.strip().lower()
+    now = datetime.now(UTC)
+    expects_bool = all(type(v) is bool for v in record.readback_values)
+    if (value is None or captured is None or not -300 <= (now-captured).total_seconds() <= 3600
+            or (type(value) is bool) != expects_bool or value in record.readback_values):
+        record.readback_attribute, record.readback_values = None, None
+
+
 def reconcile_readback(record, car, now=None) -> bool:
     if record.state not in ("accepted_unconfirmed", "backend_completed", "uncertain"):
         return False
