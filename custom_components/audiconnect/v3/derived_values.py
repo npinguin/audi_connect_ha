@@ -57,6 +57,21 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 path = "fuelStatus.rangeStatus.value." + role + "Engine.currentFuelLevel_pct"
                 record(role + "EngineFuelLevel", fuel, stamp, "fuelStatus", path)
                 record("fuelLevelFromEngine", fuel, stamp, "fuelStatus", path)
+    # Operational window heating is not the preference windowHeatingEnabled,
+    # and is not the legacy mirror-heating signal.
+    from .vehicle import window_heating_active
+    path = "climatisation.windowHeatingStatus.value"
+    windows = read_json_path(payload, path)
+    if isinstance(windows, dict):
+        stamp = windows.get("carCapturedTimestamp")
+        active = window_heating_active(windows.get("windowHeatingStatus"))
+        if active is None:
+            from .attribute_runtime import record_invalid_observation
+            record_invalid_observation(car, "windowHeatingActive", stamp, observed_at,
+                                       path, "climatisation", "unknown_window_heating_state")
+        else:
+            record("windowHeatingActive", active, stamp, "climatisation", path)
+
     # Historical auxiliary-heating status is distinct from electric cabin
     # climatisation. Do not infer heating from a generic climate state.
     path = "climatisation.auxiliaryHeatingStatus.value"

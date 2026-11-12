@@ -124,7 +124,9 @@ class V3Engine:
             old_context = vehicle.context
             if parsed.model:
                 vehicle.model = parsed.model
-                vehicle.model_family = parsed.model_family
+                vehicle.model_source = parsed.model_source
+                if parsed.model_family:
+                    vehicle.model_family = parsed.model_family
             if parsed.car_type:
                 vehicle.car_type = parsed.car_type
             if parsed.model_year:
@@ -779,6 +781,10 @@ class V3Engine:
                     "auth": car.context.auth,
                     "region": car.country, "model_family": car.model_family,
                 },
+                "identity_evidence": {"manufacturer_model_present": bool(car.model),
+                                      "model_source": car.model_source or None,
+                                      "model_year_present": bool(car.model_year),
+                                      "drive_type_present": bool(car.car_type)},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "climate": {
                     "readable": car.climate_state is not None,

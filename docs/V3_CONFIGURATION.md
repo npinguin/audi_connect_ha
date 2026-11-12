@@ -41,3 +41,7 @@ The three existing modern trip endpoints are in the mobility catalog and use the
 ### Product names
 
 All built-in entity names are functional, independent of API family and migration status. Source and compatibility details remain engineering metadata. Registry migration updates only integration-owned original labels, including unavailable records; user names, unique IDs and entity IDs are preserved. Hidden compatibility records remain available for existing automations and may still appear with Home Assistant's own Hidden indicator in administrative views. V2 implementation remains untouched.
+
+### Development after b12: operational controls and model
+
+Charging and Window heating use one native switch when both semantic command routes and a recognized vehicle status have been observed. Unknown states are not off; stale data is not live. Existing buttons are preserved for automation compatibility and hidden by default only when the switch has supporting evidence. Window status uses the separate front/rear status array, not the climate preference or legacy mirror heating. Manufacturer model and model year are read from inventory, independent of nickname. Public upstream examples document the window status shape and charging notReadyForCharging; actual Q8 on/off values still need verification in b12. No b13 release authorized.

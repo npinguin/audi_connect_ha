@@ -25,7 +25,7 @@ from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
-from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category, canonical_entity_name
+from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category, canonical_entity_name, stateful_controls, stateful_reading, superseded_control_button
 
 
 def _binding_status(profile, key):
@@ -48,7 +48,7 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
     def device_info(self) -> DeviceInfo:
         name = self.vehicle.model.removeprefix("Audi ").strip() or "Audi"
         if self.vehicle.model_year:
-            name = f"{name} ({self.vehicle.model_year})"
+            name = f"{name} {self.vehicle.model_year}"
         return DeviceInfo(
             identifiers={(DOMAIN, self.vehicle.vin.lower())},
             manufacturer="Audi",
@@ -708,6 +708,8 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
         self._attr_unique_id = f"{vehicle.vin.lower()}_button_{self.key}"
         category = canonical_entity_category("button." + self.key)
         self._attr_entity_category = EntityCategory(category) if category else None
+        if superseded_control_button(coordinator.engine, vehicle, "button." + self.key):
+            self._attr_entity_registry_visible_default = False
         if self.key == "wake_vehicle_modern":
             self._attr_entity_registry_enabled_default = False
 
@@ -743,6 +745,91 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
         except (ValueError, RuntimeError) as err:
             raise HomeAssistantError(str(err)) from err
         self.async_write_ha_state()
+
+
+class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
+    """One normalized stateful control, using the same command owner as buttons."""
+    def __init__(self, coordinator, vehicle, key):
+        super().__init__(coordinator, vehicle)
+        self.key = key
+        self.definition = stateful_controls()[key]
+        self._attr_unique_id = f"{vehicle.vin.lower()}_switch_{key}"
+        self._attr_name = canonical_entity_name("switch." + key)
+        self._attr_icon = self.definition["icon"]
+
+    def _enabled(self, action):
+        return self.coordinator.engine.control_enabled(
+            self.vehicle.vin, self.definition[action], self.definition["capability"])
+
+    @property
+    def available(self):
+        return (getattr(self.vehicle, "inventory_present", True)
+                and self.coordinator.last_update_success
+                and (self._enabled("on") or self._enabled("off")))
+
+    @property
+    def is_on(self):
+        from .attribute_runtime import _capture_in_utc
+        row, state = stateful_reading(self.vehicle, self.key)
+        if state is None or not _reading_available(row):
+            return None
+        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
+        stamp = _capture_in_utc(row.get("captured"))
+        for command in reversed(getattr(profile, "command_journal", ())):
+            if command.capability != self.definition["capability"] or command.action not in (
+                    self.definition["on"], self.definition["off"]):
+                continue
+            if command.state in ("pending", "uncertain", "accepted_unconfirmed", "backend_completed"):
+                if stamp is None or stamp.timestamp() <= command.started_at:
+                    return None
+            break
+        return state
+
+    @property
+    def extra_state_attributes(self):
+        row, state = stateful_reading(self.vehicle, self.key)
+        return {"last_reported_state": state, "vehicle_captured": row.get("captured"),
+                "on_enabled": self._enabled("on"), "off_enabled": self._enabled("off")}
+
+    async def _send(self, action):
+        if not self.available or not self._enabled(action):
+            raise HomeAssistantError("Vehicle action unavailable; review Audi Engineering Dashboard")
+        try:
+            await self.coordinator.engine.send_control(
+                self.vehicle.vin, self.definition[action], self.definition["capability"])
+        except (ValueError, RuntimeError) as err:
+            raise HomeAssistantError(str(err)) from err
+        self.async_write_ha_state()
+
+    async def async_turn_on(self, **kwargs):
+        await self._send("on")
+
+    async def async_turn_off(self, **kwargs):
+        await self._send("off")
+
+
+class V3ModelSensor(V3BaseEntity, SensorEntity):
+    """Manufacturer inventory, not a vehicle capture or a nickname."""
+    _attr_name = canonical_entity_name("sensor.model")
+    _attr_icon = "mdi:car-info"
+
+    def __init__(self, coordinator, vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_model"
+
+    @property
+    def native_value(self):
+        return self.vehicle.model or None
+
+    @property
+    def available(self):
+        return getattr(self.vehicle, "inventory_present", True) and self.native_value is not None
+
+    @property
+    def extra_state_attributes(self):
+        return {"model_family": self.vehicle.model_family or None,
+                "model_year": self.vehicle.model_year or None,
+                "model_source": self.vehicle.model_source or None}
 
 
 class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):

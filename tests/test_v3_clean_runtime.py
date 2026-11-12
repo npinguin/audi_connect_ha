@@ -194,7 +194,8 @@ def test_nickname_cannot_spoof_manufacturer_q8_context():
         "vin": VIN, "nickname": "Q8",
         "vehicle": {"media": {"longName": "Audi A5"}},
     }, "DE")
-    assert car.model_family == ""
+    assert car.model_family == "a5"
+    assert car.model_family != "q8"
     assert car.climate_supported is None
 
 

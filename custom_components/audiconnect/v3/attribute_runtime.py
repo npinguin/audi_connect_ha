@@ -99,6 +99,9 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         if isinstance(value, str) and value.strip().lower() in (
             "unknown", "invalid", "unsupported", "unavailable", "error", ""
         ) and not (ident == "externalPower" and value.strip().lower() == "unavailable"):
+            if ident == "chargingState":
+                record_invalid_observation(vehicle, ident, row["captured"], observed_at,
+                                           row["path"], row["job"], "unknown_charging_state")
             continue
         if len(str(value)) > 10000:
             continue

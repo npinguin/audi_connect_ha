@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from .attribute_runtime import _capture_in_utc
-from .vehicle import CLIMATE_ON_STATES, CLIMATE_OFF_STATES
+from .vehicle import CLIMATE_ON_STATES, CLIMATE_OFF_STATES, CHARGING_ON_STATES, CHARGING_OFF_STATES
 
 
 def configure_readback(record, params):
@@ -18,8 +18,10 @@ def configure_readback(record, params):
         ("climate", "start"): ("climate", list(CLIMATE_ON_STATES)),
         ("climate", "start_with_settings"): ("climate", list(CLIMATE_ON_STATES)),
         ("climate", "stop"): ("climate", list(CLIMATE_OFF_STATES)),
-        ("charging", "start"): ("chargingState", ["charging"]),
-        ("charging", "stop"): ("chargingState", ["off", "stopped", "notcharging", "not_charging"]),
+        ("charging", "start"): ("chargingState", list(CHARGING_ON_STATES)),
+        ("charging", "stop"): ("chargingState", list(CHARGING_OFF_STATES)),
+        ("climate", "window_heating_start"): ("windowHeatingActive", [True]),
+        ("climate", "window_heating_stop"): ("windowHeatingActive", [False]),
         ("access", "lock"): ("doorLockStatus", ["locked"]),
         ("access", "unlock"): ("doorLockStatus", ["unlocked"]),
     }
@@ -54,7 +56,11 @@ def reconcile_readback(record, car, now=None) -> bool:
         return False
     if isinstance(value, str):
         value = value.strip().lower()
-    if type(value) is bool or value not in record.readback_values:
+    if type(value) is bool and record.readback_attribute != "windowHeatingActive":
+        return False
+    if record.readback_attribute == "windowHeatingActive" and type(value) is not bool:
+        return False
+    if value not in record.readback_values:
         return False
     record.state = "verified"
     record.completed_at = max(record.started_at, now.timestamp())

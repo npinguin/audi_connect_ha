@@ -14,12 +14,12 @@ from .entities import (
     V3ControlButton, V3ClimateQuickSwitch, V3LockEntity,
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
     V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
-    V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor,
+    V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor, V3OperationalSwitch, V3ModelSensor,
 )
 from .custom_attributes import attributes_for
 from .attribute_contracts import semantic_value_issue
 from .product_contract import (CORE_STATUS_KINDS, account_cloud_refresh_vin,
-                               projection_descriptor, projection_reading, entity_key)
+                               projection_descriptor, projection_reading, entity_key, stateful_controls, stateful_control_supported)
 
 
 def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
@@ -55,6 +55,8 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     entities.append(factory(coordinator, car, *args))
 
             if platform == "sensor":
+                if car.model:
+                    add_once(f"{vin}:model", V3ModelSensor)
                 for kind in CORE_STATUS_KINDS:
                     add_once(f"{vin}:core:{kind}", V3StatusSensor, kind)
                 for kind in ("local_dealer", "service_overview"):
@@ -131,6 +133,9 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                         entities.append(V3LocationChargeTargetNumber(
                             coordinator, car, profile_id))
             elif platform == "switch":
+                for key in stateful_controls():
+                    if stateful_control_supported(engine, car, key):
+                        add_once(f"{vin}:{key}", V3OperationalSwitch, key)
                 preheater = f"{vin}:preheater_active"
                 if preheater not in seen and any(
                     engine.control_enabled(car.vin, aspect, "climate")

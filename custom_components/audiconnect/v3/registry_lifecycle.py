@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
-from .product_contract import retired_pilot_entity, account_cloud_refresh_vin, entity_key, compatibility_hidden, canonical_entity_category, product_inventory, canonical_entity_name
+from .product_contract import retired_pilot_entity, account_cloud_refresh_vin, entity_key, compatibility_hidden, canonical_entity_category, product_inventory, canonical_entity_name, superseded_control_button
 from homeassistant.const import EntityCategory
 
 
@@ -120,7 +120,8 @@ async def async_apply_v3_entity_visibility(
                 and current.hidden_by != er.RegistryEntryHider.USER and uid not in disabled_compat):
             updates["disabled_by"] = er.RegistryEntryDisabler.INTEGRATION
             disabled_compat.add(uid)
-        if car is not None and uid not in reviewed and compatibility_hidden(car, key):
+        if car is not None and uid not in reviewed and (compatibility_hidden(car, key)
+                or superseded_control_button(engine, car, key)):
             reviewed.add(uid)
             if current.hidden_by is None and current.disabled_by is None:
                 updates["hidden_by"] = er.RegistryEntryHider.INTEGRATION

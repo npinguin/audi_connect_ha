@@ -225,3 +225,30 @@ def canonical_entity_name(key, vehicle=None):
     if platform == "binary_sensor":
         return binary_contract_for(entity).get("name")
     return None
+
+
+def stateful_controls():
+    return product_inventory()["stateful_controls"]
+
+
+def stateful_reading(vehicle, key):
+    """Shared operational state normalization, independent of write support."""
+    from .vehicle import charging_active
+    definition = stateful_controls()[key]
+    row = vehicle.readings.get(definition["attribute"], {})
+    value = row.get("value")
+    state = charging_active(value) if key == "charging" else value if type(value) is bool else None
+    return row, state if row.get("status") in ("verified", "readable_but_stale") else None
+
+
+def stateful_control_supported(engine, vehicle, key):
+    definition = stateful_controls()[key]
+    _, value = stateful_reading(vehicle, key)
+    return value is not None and all(engine.control_enabled(vehicle.vin, definition[action], definition["capability"])
+                                     for action in ("on", "off"))
+
+
+def superseded_control_button(engine, vehicle, key):
+    return any(key == "button." + button and stateful_control_supported(engine, vehicle, control)
+               for control, definition in stateful_controls().items()
+               for button in definition["compatibility_buttons"])

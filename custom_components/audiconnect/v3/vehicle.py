@@ -4,12 +4,52 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+import re
 
 from .registry import VehicleContext
 
 _INVALID = frozenset({"", "invalid", "unsupported", "unknown", "error", "unavailable"})
 CLIMATE_OFF_STATES = ("off", "stopped", "inactive")
 CLIMATE_ON_STATES = ("heating", "cooling", "ventilation", "on", "active")
+CHARGING_ON_STATES = ("charging",)
+CHARGING_OFF_STATES = ("off", "stopped", "notcharging", "not_charging", "notreadyforcharging", "readyforcharging")
+
+
+def charging_active(value):
+    if not isinstance(value, str):
+        return None
+    value = value.strip().lower()
+    return True if value in CHARGING_ON_STATES else False if value in CHARGING_OFF_STATES else None
+
+
+def window_heating_active(rows):
+    """Actual window state only: a positive is conclusive; off requires both known."""
+    if not isinstance(rows, list) or not rows:
+        return None
+    states = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            return None
+        location, state = row.get("windowLocation"), row.get("windowHeatingState")
+        if location not in ("front", "rear") or location in states:
+            return None
+        states[location] = state.strip().lower() if isinstance(state, str) else None
+    if "on" in states.values():
+        return True
+    if set(states) == {"front", "rear"} and all(state == "off" for state in states.values()):
+        return False
+    return None
+
+
+def model_family_from_name(value):
+    """Only manufacturer model labels, never nickname or VIN inference."""
+    if not isinstance(value, str):
+        return ""
+    label = re.sub(r"^audi\s+", "", value.strip(), flags=re.I)
+    match = re.match(r"^(?:(?:rs|sq|s|q|a)\s*[1-9]|r8)(?=\b|[- ])", label, re.I)
+    if match:
+        return re.sub(r"\s+", "", match.group(0)).lower()
+    return "e-tron" if re.match(r"^e[- ]tron\b", label, re.I) else ""
 
 
 @dataclass
@@ -21,6 +61,7 @@ class V3Vehicle:
     country: str
     car_type: str = ""
     model_year: str = ""
+    model_source: str = ""
     auth_family: str = "auth0"
     legacy_cariad: bool = False
     legacy_api_level: int = 0
@@ -51,10 +92,13 @@ class V3Vehicle:
             raise ValueError("Invalid Audi vehicle identifier")
         vehicle = item.get("vehicle") if isinstance(item.get("vehicle"), dict) else {}
         media = vehicle.get("media") if isinstance(vehicle.get("media"), dict) else {}
-        model = media.get("longName") or media.get("shortName") or ""
-        if not isinstance(model, str):
-            model = ""
-        family = "q8" if model.strip().lower().startswith(("audi q8", "q8")) else ""
+        def label(key):
+            value = media.get(key)
+            return value.strip() if isinstance(value, str) and value.strip().lower() not in _INVALID else ""
+        long_name, short_name = label("longName"), label("shortName")
+        model = long_name or short_name
+        source = "audi_long_name" if long_name else "audi_short_name" if short_name else ""
+        family = model_family_from_name(short_name) or model_family_from_name(long_name)
         core = vehicle.get("core") if isinstance(vehicle.get("core"), dict) else {}
         year = str(core.get("modelYear") or "")
         year = year if len(year) == 4 and year.isdigit() and 1980 <= int(year) <= 2100 else ""
@@ -68,7 +112,8 @@ class V3Vehicle:
         return cls(
             vin=vin.upper(), name=title or "Audi vehicle", model=model,
             model_family=family, country=country,
-            car_type=str(drive).lower() if drive is not None else "", model_year=year,
+            car_type=drive.strip().lower() if isinstance(drive, str) and drive.strip().lower() not in _INVALID else "",
+            model_year=year, model_source=source,
         )
 
     @property

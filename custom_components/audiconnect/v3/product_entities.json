@@ -1003,6 +1003,24 @@
       "freshness": "native_entity_contract",
       "category": "diagnostic",
       "name": "Refresh cloud data"
+    },
+    "switch.charging": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "category": null,
+      "name": "Charging"
+    },
+    "switch.window_heating": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "category": null,
+      "name": "Window heating"
     }
   },
   "retired_v3_sensors": [
@@ -1036,5 +1054,29 @@
   "retired_legacy_buttons": [
     "start_climate_car_settings",
     "stop_climate"
-  ]
+  ],
+  "stateful_controls": {
+    "charging": {
+      "capability": "charging",
+      "attribute": "chargingState",
+      "on": "start",
+      "off": "stop",
+      "icon": "mdi:ev-station",
+      "compatibility_buttons": [
+        "start_charging_modern",
+        "stop_charging_modern"
+      ]
+    },
+    "window_heating": {
+      "capability": "climate",
+      "attribute": "windowHeatingActive",
+      "on": "window_heating_start",
+      "off": "window_heating_stop",
+      "icon": "mdi:car-defrost-rear",
+      "compatibility_buttons": [
+        "start_window_heating_modern",
+        "stop_window_heating_modern"
+      ]
+    }
+  }
 }

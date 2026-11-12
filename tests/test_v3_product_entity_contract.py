@@ -18,7 +18,8 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
     historical = {row["id"] for row in baseline["entities"]}
     inventory = product_inventory()
     assert set(inventory["entities"]) == historical | {
-        "sensor.last_trip", "button.v3_refresh_cloud", "switch.climate_quick_control"}
+        "sensor.last_trip", "button.v3_refresh_cloud", "switch.climate_quick_control",
+        "switch.charging", "switch.window_heating"}
     assert all("sensor."+key not in historical for key in inventory["retired_v3_sensors"])
     for key in inventory["retired_v3_sensors"]:
         assert retired_pilot_entity(VIN+"_sensor_"+key)
