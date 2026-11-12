@@ -660,7 +660,7 @@ class AudiConnectV3Panel extends HTMLElement {
       (this.inventoryFilter !== "disabled" || r.status==="disabled_by_user"));
     const chosen = this.readRoutes.find(r => r.id === this.readChoice);
     const activeRoute = this.controlAction ? this.controlChoice :
-      this.attribute ? this.readChoice : "";
+      this.attribute ? (chosen?.evidence_operation || this.readChoice) : "";
     const records = (this.apiHistory || []).filter(r =>
       (family === "all" || r.family === family) && (!selectedEntity || selectedEntity.operations.includes(r.operation)));
     const lastSelectedResult = records.find(r=>r.operation===activeRoute);

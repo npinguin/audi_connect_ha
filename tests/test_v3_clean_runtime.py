@@ -642,4 +642,21 @@ async def test_selected_climate_mapping_is_the_single_native_state_source():
     await engine.activate_attribute_route(VIN, "climatisationState", route)
     await engine.poll()
     assert car.climate_state == car.readings["climatisationState"]["value"] == "heating"
-    assert car.climate_source == route
+    assert car.climate_source == "cariad.status.climatisation"
+
+
+@pytest.mark.asyncio
+async def test_targeted_jobs_do_not_overwrite_each_others_api_evidence():
+    stamp = datetime.now(UTC).isoformat()
+    charging = V3Response(200, {"charging":{"batteryStatus":{"value":{
+        "currentSOC_pct":61, "carCapturedTimestamp":stamp}}}}, datetime.now(UTC))
+    engine, _, _ = engine_for(status(), charging, status(value="heating"))
+    await engine.poll()
+    route = "cariad.selectivestatus.targeted"
+    first = await engine.test_attribute_route(VIN, "stateOfCharge", route)
+    second = await engine.test_attribute_route(VIN, "climatisationState", route)
+    assert first["operation"] == "cariad.status.charging"
+    assert second["operation"] == "cariad.status.climatisation"
+    profile = engine.profiles[VIN.lower()]
+    assert first["operation"] in profile.api_observations and second["operation"] in profile.api_observations
+    assert route not in profile.api_observations

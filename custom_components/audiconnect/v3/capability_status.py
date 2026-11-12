@@ -24,6 +24,7 @@ from .action_discovery import approval_group
 from .vehicle import V3Vehicle
 from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .custom_attributes import attributes_for
+from .attribute_routes import get_read_variant
 from .legacy_read_mappings import variant_for as legacy_variant_for
 from .read_discovery import summary as discovery_summary
 from .transport import INVENTORY_OPERATION, IDENTITY_QUERIES, IDENTITY_OPERATIONS, GARAGE_OPERATION, GARAGE_PATH, POST_GARAGE_OPERATION
@@ -204,7 +205,9 @@ def build_status_report(
             "capability": attr["capability"], "aspect": "status",
             "attribute": attr["id"], "entity_key": attr["entity_key"],
             "api_family": family,
-            "operation": selected or ("v2.attribute." + attr["id"]),
+            "operation": (get_read_variant(attr["id"], selected, profile.attribute_custom,
+                                          attributes_for(profile))["evidence_operation"]
+                          if selected else "v2.attribute." + attr["id"]),
             "method": "GET" if known else "-",
             "path": mapped_path,
             "route_result": evidence.get("status", "not_tested"),
@@ -373,7 +376,7 @@ def _cockpit(vehicle, profile, rows, controls):
         method = op.get("method") or record.get("method") or ref.get("method")
         active = (any(row["selected"] for row in matching)
                   or any(item.get("operation") == ident for item in fast.values())
-                  or ident in profile.attribute_routes.values())
+                  or any(row["selected"] and row["operation"] == ident for row in attributes))
         applicable = [row["context_applicable"] for row in matching
                       if row["context_applicable"] is not None]
         http = record.get("http_status")
@@ -422,7 +425,7 @@ def _cockpit(vehicle, profile, rows, controls):
                      "backend_result": command.backend_result if command else None,
                      "active": active, "last_test": record.get("at"),
                      "attention": reasons, "catalog": ident in catalog,
-                     "reference_only": ident in references}
+                     "reference_only": ident in references or ident in ("cariad.selectivestatus.targeted", "cariad.selectivestatus.batch")}
         fields = []
         raw_fields = {(f["path"], f["type"]): f for f in record.get("fields", [])}
         for schema_evidence in profile.job_schema.values():

@@ -150,3 +150,7 @@ This remediation does not establish zero technical debt. Remaining work includes
 ## Audit 02 — canonical native climate state
 
 Native climate state, capture time and path derive from the canonical climatisationState reading; separate mutable climate fields and mirrored writes are removed. The normal climatisationStatus mapping precedes the historical auxiliary fallback. Selected attribute routes take precedence over default and legacy reads. A previously selected capability-level status route retains a narrow compatibility fallback until old profile selections are migrated.
+
+## Audit 02 — concrete API evidence identity
+
+Attribute route choices are template bindings, not API evidence identifiers. Targeted CARIAD reads use their actual catalog job operation, shared reads use the existing scheduled batch operation and MBB reads use their resource-specific discovery operation. Custom variants use their unique definition ID. Workbench inspects the corresponding concrete evidence. Historical ambiguous generic targeted/batch records remain reference-only rather than being attributed to an arbitrary job.

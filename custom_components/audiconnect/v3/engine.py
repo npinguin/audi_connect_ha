@@ -814,7 +814,8 @@ class V3Engine:
         ):
             raise ValueError("Read route is not applicable to this vehicle API family")
         response = await self.transport.request(family, "GET", path)
-        self._api_record(profile, route, family, "GET", response, car.vin)
+        variant = get_read_variant(attribute, route, profile.attribute_custom, attributes_for(profile))
+        self._api_record(profile, variant["evidence_operation"], family, "GET", response, car.vin)
         result = self._record_attribute_response(car, profile, attribute, route, mappings, response, publish=False)
         await self.storage.async_save(self.profiles)
         return result

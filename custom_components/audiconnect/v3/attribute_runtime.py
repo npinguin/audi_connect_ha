@@ -63,7 +63,7 @@ def record_observation(vehicle, profile, ident, value, captured, observed_at,
     vehicle.readings[ident] = {
         "value": value, "captured": captured, "observed": observed_at.isoformat(),
         "fresh": fresh, "path": path, "job": job, "status": status, "family": family,
-        "operation": operation or ("mbb.legacy" if family == "mbb" else "cariad.selectivestatus.batch"),
+        "operation": operation or ("mbb.legacy" if family == "mbb" else "cariad.climate.status.batch"),
     }
     profile.attribute_evidence[ident] = {
         "status": status, "path": path, "job": job,

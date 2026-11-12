@@ -47,10 +47,10 @@ def read_variants(attribute: str, custom: Mapping[str, dict[str, Any]], attribut
     variants = []
     if field["paths"] and field["job"]:
         variants.extend((
-            {"id": "cariad.selectivestatus.batch", "family": "cariad", "method": "GET",
+            {"id": "cariad.selectivestatus.batch", "evidence_operation": "cariad.climate.status.batch", "family": "cariad", "method": "GET",
              "path": _BASE, "response_paths": field["paths"], "kind": "shared_batch",
              "conversion": transform_for("cariad", attribute)},
-            {"id": "cariad.selectivestatus.targeted", "family": "cariad", "method": "GET",
+            {"id": "cariad.selectivestatus.targeted", "evidence_operation": "cariad.status." + field["job"], "family": "cariad", "method": "GET",
              "path": _BASE.replace("{JOBS}", field["job"]),
              "response_paths": field["paths"], "kind": "targeted_job",
              "conversion": transform_for("cariad", attribute)},
@@ -58,10 +58,11 @@ def read_variants(attribute: str, custom: Mapping[str, dict[str, Any]], attribut
     legacy = variant_for(attribute)
     if legacy is not None:
         legacy["conversion"] = transform_for("mbb", attribute)
+        legacy["evidence_operation"] = "mbb.discovery." + legacy["id"].split(".")[1]
         variants.append(legacy)
     for ident, value in custom.items():
         if value.get("attribute") == attribute:
-            variants.append({"id": ident, "family": value["family"],
+            variants.append({"id": ident, "evidence_operation": ident, "family": value["family"],
                 "method": "GET", "path": value["path"],
                 "response_paths": [value["response_path"]], "kind": "custom",
                 "conversion": value.get("conversion"), "capture_path": value.get("capture_path"),

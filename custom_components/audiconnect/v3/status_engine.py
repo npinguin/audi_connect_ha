@@ -378,8 +378,13 @@ class StatusEngine:
                     except (TimeoutError, OSError, RuntimeError, ValueError):
                         break
                     polled_responses[(key, family, path)] = response
-                for ident, route, mappings in selected:
-                    self._api_record(profile, route, family, "GET", response, car.vin)
+                operations = {
+                    get_read_variant(ident, route, profile.attribute_custom,
+                                     attributes_for(profile))["evidence_operation"]
+                    for ident, route, _ in selected
+                }
+                for operation in sorted(operations):
+                    self._api_record(profile, operation, family, "GET", response, car.vin)
                 for ident, route, mappings in selected:
                     self._record_attribute_response(car, profile, ident, route, mappings, response)
                 if 200 <= response.status < 300:
@@ -562,9 +567,9 @@ class StatusEngine:
         if publish and 200 <= response.status < 300 and value is not None:
             record_observation(car, profile, attribute, value, captured,
                                response.observed_at, field, definition["job"], family,
-                               fresh=fresh, operation=operation)
+                               fresh=fresh, operation=variant["evidence_operation"])
         return {
-            "attribute": attribute, "route": operation, "result": outcome,
+            "attribute": attribute, "route": operation, "operation": variant["evidence_operation"], "result": outcome,
             "http_status": response.status, "mapping": field,
             "captured": captured, "value": value if isinstance(value, (str, int, float, bool)) else None,
         }
