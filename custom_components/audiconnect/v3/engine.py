@@ -20,7 +20,7 @@ from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
 from .trip_archive import V3TripArchive
 from .response_preview import engineering_response, MAX_ENGINEERING_ROUTES, MAX_ENGINEERING_HISTORY
-from .api_observations import record_for, save_record
+from .api_observations import record_for, save_record, save_execution_review
 from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
 from .transport import V3Response, V3Transport, INVENTORY_OPERATION
@@ -588,6 +588,22 @@ class V3Engine:
             for ident, record in reversed(list(profile.api_observations.items()))
             if family == "all" or record["family"] == family
         ]
+
+    async def review_execution(self, vin: str, operation: str, at: str,
+                               outcome: str, comment: str) -> None:
+        """Annotate existing evidence without running or activating anything."""
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        records = self.api_results_for(vin) + self.engineering_history_for(vin)
+        if not any(row["operation"] == operation and row["at"] == at for row in records):
+            raise ValueError("Execution evidence is no longer retained")
+        if not isinstance(comment, str) or len(comment) > 500:
+            raise ValueError("Comment must be at most 500 characters")
+        spin, secrets = self._evidence_credentials()
+        masked = engineering_response(comment, vehicle_vin=car.vin, spin=spin, secrets=secrets)["payload"]
+        save_execution_review(profile, {"operation": operation, "at": at,
+                                        "outcome": outcome, "comment": masked})
+        await self.storage.async_save(self.profiles)
 
     def engineering_response_for(self, vin: str, operation: str) -> dict[str, Any]:
         """Read latest local detail; never issue a request or restore raw payloads."""
