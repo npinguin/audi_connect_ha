@@ -376,6 +376,10 @@ class StatusEngine:
                 if route == "cariad.selectivestatus.batch":
                     continue
                 family, path, mappings = self._attribute_request(car, profile, ident, route)
+                if "selectivestatus?jobs=" in path:
+                    jobs = path.rsplit("jobs=", 1)[-1].split(",")
+                    if all(profile.job_discovery.get(job) == "unsupported" for job in jobs):
+                        continue
                 unique.setdefault((family, path), []).append((ident, route, mappings))
             # Refuse an unbounded per-attribute request explosion.
             routes = list(unique.items())
