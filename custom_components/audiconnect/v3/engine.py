@@ -287,6 +287,17 @@ class V3Engine:
     async def _dispatch_command(self, car, family, method, path, body):
         return await self.commands._dispatch_command(car, family, method, path, body)
 
+    def _evidence_credentials(self):
+        """One redaction context for reviewed and experimental API evidence."""
+        settings = getattr(self.entry, "data", {})
+        known = [settings.get(key) for key in (CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN)]
+        service = getattr(self.auth, "service", None)
+        for name in ("_bearer_token_json", "audiToken", "vwToken"):
+            token = getattr(service, name, None)
+            if isinstance(token, dict):
+                known.extend(token.get(k) for k in ("access_token", "refresh_token", "id_token"))
+        return settings.get(CONF_SPIN), tuple(known)
+
     def _api_record(self, profile: DevelopmentProfile, operation: str,
                     family: str, method: str, response: V3Response | None,
                     vin: str) -> None:
@@ -294,21 +305,13 @@ class V3Engine:
         detail = None
         request = None
         if response is not None:
-            settings = getattr(self.entry, "data", {})
-            known = [settings.get(key) for key in (CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN)]
-            # Redact echoed credentials before building either evidence view,
-            # without requesting or refreshing tokens.
-            service = getattr(self.auth, "service", None)
-            for name in ("_bearer_token_json", "audiToken", "vwToken"):
-                token = getattr(service, name, None)
-                if isinstance(token, dict):
-                    known.extend(token.get(k) for k in ("access_token", "refresh_token", "id_token"))
+            spin, known = self._evidence_credentials()
             try:
                 detail = engineering_response(response.data, vehicle_vin=vin,
-                                              spin=settings.get(CONF_SPIN), secrets=tuple(known))
+                                              spin=spin, secrets=known)
                 if response.request is not None:
                     request = engineering_response(response.request, vehicle_vin=vin,
-                                                   spin=settings.get(CONF_SPIN), secrets=tuple(known))
+                                                   spin=spin, secrets=known)
             except (TypeError, ValueError, OverflowError, RecursionError):
                 detail = {"payload": "[RESPONSE INSPECTION UNAVAILABLE]", "truncated": True}
         from .transport import GARAGE_OPERATION
@@ -342,7 +345,7 @@ class V3Engine:
                 groups[operation] = payload if isinstance(payload, dict) else {"response": payload}
             for job, data in groups.items():
                 fields, truncated = safe_schema_inventory(data, vehicle_vin=vin, all_items=True,
-                    field_limit=512, char_limit=64000, secrets=tuple(known))
+                    field_limit=512, char_limit=64000, secrets=known + (str(spin or ''),))
                 if not fields:
                     continue
                 archived = merge_schema_evidence({"fields": profile.historical_job_schema.get(job, [])}, fields, truncated,
@@ -392,20 +395,14 @@ class V3Engine:
         selected = selected_identity_response(response, car.vin)
         rows = [row for row in identity_rows(response.data) if isinstance(row, dict)
                 and isinstance(row.get("vin"), str) and row["vin"].lower() == car.vin.lower()]
-        settings = getattr(self.entry, "data", {})
-        known = [settings.get(key) for key in (CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN)]
-        service = getattr(self.auth, "service", None)
-        for name in ("_bearer_token_json", "audiToken", "vwToken"):
-            token = getattr(service, name, None)
-            if isinstance(token, dict):
-                known.extend(token.get(k) for k in ("access_token", "refresh_token", "id_token"))
+        spin, known = self._evidence_credentials()
         # Unknown field names/types only. Never return raw unknown account values.
         fields, truncated = safe_schema_inventory({"data": {"userVehicles": rows}}, vehicle_vin=car.vin,
-                                                   all_items=True, secrets=tuple(known))
+                                                   all_items=True, secrets=known + (str(spin or ''),))
         detail = engineering_response(selected.data, vehicle_vin=car.vin,
-                                      spin=settings.get(CONF_SPIN), secrets=tuple(known))
+                                      spin=spin, secrets=known)
         request = engineering_response(response.request, vehicle_vin=car.vin,
-                                       spin=settings.get(CONF_SPIN), secrets=tuple(known))
+                                       spin=spin, secrets=known)
         execution = {"operation": "graphql.inventory.experiment", "template": operation,
                      "family": "graphql", "method": "POST", "http_status": response.status,
                      "at": response.observed_at.isoformat(), "request": request,
