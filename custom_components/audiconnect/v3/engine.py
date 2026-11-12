@@ -234,6 +234,9 @@ class V3Engine:
                                       metadata.observed_at, metadata.remaining_calls, metadata.request)
                 self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
                                  response, known[vin].vin)
+        # Refresh only previously observed, explicitly adopted reviewed sources.
+        # One account request per distinct source, not one request per VIN.
+        await self._refresh_adopted_identity(known)
         # One bounded best-effort read per runtime. The image response is
         # intentionally excluded from API observations and engineering exports.
         image_reader = getattr(self.transport, "discover_vehicle_images", None)
@@ -257,6 +260,45 @@ class V3Engine:
                         car.image_status = "observed"
                     elif not car.image_url:
                         car.image_status = "not_observed"
+
+    async def _refresh_adopted_identity(self, known):
+        from .transport import IDENTITY_QUERIES, GARAGE_OPERATION
+        sources = {}
+        for key, car in known.items():
+            operation = car.identity_operation
+            if car.identity_restored and operation != INVENTORY_OPERATION and (
+                    operation == GARAGE_OPERATION or operation in IDENTITY_QUERIES):
+                sources.setdefault(operation, []).append((key, car))
+        for operation, cars in sources.items():
+            if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+                break
+            try:
+                response = await self.transport.test_identity_query(operation)
+            except (RuntimeError, ValueError, OSError, TimeoutError):
+                continue
+            if not 200 <= response.status < 300:
+                if response.status in (401, 403, 429) or response.status >= 500:
+                    break
+                continue
+            async with self.commands._actions:
+                for key, car in cars:
+                    profile = self.profiles[key]
+                    if profile.discovery._active is not None:
+                        continue
+                    selected, candidate = self._identity_candidate(response, car, operation)
+                    self._apply_identity_candidate(car, profile, candidate, operation, response.observed_at)
+                    self._api_record(profile, operation, "cariad" if operation == GARAGE_OPERATION else "graphql",
+                                     "GET" if operation == GARAGE_OPERATION else "POST", selected, car.vin)
+
+    @staticmethod
+    def _identity_candidate(response, car, operation):
+        from .transport import (GARAGE_OPERATION, selected_garage_response,
+                                garage_rows, selected_identity_response, identity_rows)
+        garage = operation == GARAGE_OPERATION
+        selected = selected_garage_response(response, car.vin) if garage else selected_identity_response(response, car.vin)
+        rows = garage_rows(selected.data) if garage else identity_rows(selected.data)
+        candidate = (V3Vehicle.from_garage if garage else V3Vehicle.from_graphql)(rows[0], car.country) if len(rows) == 1 else None
+        return selected, candidate
 
     def _resolve_secure_body(
         self, vehicle: V3Vehicle, ident: str, family: str,
@@ -445,8 +487,7 @@ class V3Engine:
 
     async def test_identity_operation(self, vin: str, operation: str, *, activate=False) -> dict[str, Any]:
         """One reviewed read; explicit adoption requires fresh matching OEM metadata."""
-        from .transport import (IDENTITY_QUERIES, GARAGE_OPERATION, selected_garage_response,
-                                garage_rows, selected_identity_response, identity_rows)
+        from .transport import IDENTITY_QUERIES, GARAGE_OPERATION, identity_rows
         if operation != GARAGE_OPERATION and operation not in IDENTITY_QUERIES:
             raise ValueError("Unknown reviewed GraphQL operation")
         car = self.require_vehicle(vin)
@@ -454,11 +495,8 @@ class V3Engine:
             raise RuntimeError("Audi quota is low")
         response = await self.transport.test_identity_query(operation)
         is_garage = operation == GARAGE_OPERATION
-        selected = selected_garage_response(response, car.vin) if is_garage else selected_identity_response(response, car.vin)
+        selected, candidate = self._identity_candidate(response, car, operation)
         profile = self.profiles[car.vin.lower()]
-        self._api_record(profile, operation, "cariad" if is_garage else "graphql", "GET" if is_garage else "POST", selected, car.vin)
-        rows = garage_rows(selected.data) if is_garage else identity_rows(selected.data)
-        candidate = (V3Vehicle.from_garage if is_garage else V3Vehicle.from_graphql)(rows[0], car.country) if len(rows) == 1 else None
         can_activate = bool(200 <= response.status < 300 and candidate and candidate.model
                             and (not car.model or car.identity_restored or car.model == candidate.model))
         activated = False
@@ -471,6 +509,8 @@ class V3Engine:
                 activated = self._apply_identity_candidate(car, profile, candidate, operation, response.observed_at)
                 if not activated:
                     raise ValueError("Identity evidence conflicts with current vehicle context")
+        # Record after context reconciliation; the adoption must not erase its own evidence.
+        self._api_record(profile, operation, "cariad" if is_garage else "graphql", "GET" if is_garage else "POST", selected, car.vin)
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
         from .vehicle import select_vehicle_image
@@ -479,7 +519,7 @@ class V3Engine:
                             and str(row.get("vin", "")).lower() == car.vin.lower())
         return {"operation": operation, "http_status": response.status,
                 "image_present": image_present,
-                "errors": selected.data.get("errors", []), "vehicle_present": bool(rows),
+                "errors": selected.data.get("errors", []), "vehicle_present": candidate is not None,
                 "model_present": bool(candidate and candidate.model),
                 "year_present": bool(candidate and candidate.model_year),
                 "drive_type_present": bool(candidate and candidate.car_type),
@@ -946,8 +986,16 @@ class V3Engine:
     def discovery_progress(self, car, profile):
         """One read-only coverage contract for diagnostics and user entities."""
         from .read_discovery import user_progress
-        return user_progress(car, profile, self.auth, base_registry=self.registry,
-                             parking_allowed=self.status.parking_read_allowed(car))
+        progress = user_progress(car, profile, self.auth, base_registry=self.registry,
+                                 parking_allowed=self.status.parking_read_allowed(car))
+        health = self.health.snapshot(self, car)
+        if progress["read_state"] not in ("complete", "complete_with_unresolved") and health["status"] in (
+                "authentication_required", "rate_limited", "cloud_unavailable", "error"):
+            progress["read_state"] = "paused"
+            progress["read_pause_reason"] = health["status"]
+        retry_at = getattr(getattr(self.transport, "quota", None), "retry_at", None)
+        progress["read_retry_at"] = retry_at.isoformat() if retry_at else None
+        return progress
 
     def diagnostics(self) -> dict[str, Any]:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
