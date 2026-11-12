@@ -84,6 +84,7 @@ class StatusEngine:
             except (RuntimeError, ValueError, OSError, TimeoutError):
                 break
             cache[(car.vin.lower(), "mbb", path)] = response
+            self._api_record(profile, "mbb.discovery." + kind, "mbb", "GET", response, car.vin)
             if response.status in (404, 410):
                 self._legacy_route_backoff[key] = self._poll_cycles + 96
                 continue
