@@ -106,7 +106,7 @@ class StatusEngine:
         shared poll cadence and quota protect the car and account; no extra
         coordinator, user action, raw response storage or invented trip data.
         """
-        from .trips import normalize_cariad_trip
+        from .trips import CARIAD_TRIP_OPERATIONS, observe_cariad_trip
         from .attribute_runtime import _capture_in_utc
 
         remaining = self.transport.remaining_calls
@@ -141,32 +141,25 @@ class StatusEngine:
                     if incoming and (not previous or incoming>=previous):
                         car.trips[state_key]=trip
             return
-        for suffix, state_key in (
-            ("shortterm", "shortterm_current"),
-            ("longterm", "longterm_current"),
-            ("shortterm/last", "last_trip"),
-        ):
+        profile = self.profiles[car.vin.lower()]
+        available = profile.registry.resolve("mobility", "status", car.context)["available_operations"] if "mobility" in profile.registry.capabilities else ()
+        for ident in CARIAD_TRIP_OPERATIONS:
+            if ident not in available:
+                continue
             remaining = self.transport.remaining_calls
             if remaining is not None and remaining <= 12:
                 break
+            family, method, path, _ = self._operation_request(car, ident)
             try:
-                reply = await self.transport.request(
-                    "cariad", "GET", f"/vehicle/v1/trips/{car.vin}/{suffix}"
-                )
+                reply = await self.transport.request(family, method, path)
             except (TimeoutError, OSError, RuntimeError, ValueError):
+                self._api_record(profile, ident, family, method, None, car.vin)
                 break
+            self._api_record(profile, ident, family, method, reply, car.vin)
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 break
-            if not 200 <= reply.status < 300:
-                continue
-            trip, _ = normalize_cariad_trip(reply.data)
-            if trip is None:
-                continue
-            previous = _capture_in_utc(car.trips.get(state_key, {}).get("timestamp"))
-            incoming = _capture_in_utc(trip.get("timestamp"))
-            if previous and (not incoming or incoming < previous):
-                continue
-            car.trips[state_key] = trip
+            if 200 <= reply.status < 300:
+                observe_cariad_trip(car, ident, reply.data)
 
     async def poll(self) -> list[V3Vehicle]:
         self.last_cloud_poll_attempt = datetime.now(UTC)
@@ -451,13 +444,17 @@ class StatusEngine:
             if (self.transport.remaining_calls is not None
                     and self.transport.remaining_calls <= 12):
                 return
+            ident = "cariad.mobility.status.parkingPosition"
+            profile = self.profiles[car.vin.lower()]
+            if ident not in profile.registry.operations:
+                continue
+            family, method, path, _ = self._operation_request(car, ident)
             try:
-                reply = await self.transport.request(
-                    "cariad", "GET",
-                    f"/vehicle/v1/vehicles/{car.vin}/parkingposition",
-                )
+                reply = await self.transport.request(family, method, path)
             except (TimeoutError, OSError, RuntimeError, ValueError):
+                self._api_record(profile, ident, family, method, None, car.vin)
                 return
+            self._api_record(profile, ident, family, method, reply, car.vin)
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 return
             if reply.status == 204:

@@ -167,7 +167,10 @@
       "status": {
         "operations": [
           "cariad.mobility.status.parkingPosition",
-          "cariad.mobility.status.tripStatistics"
+          "cariad.mobility.status.tripStatistics",
+          "cariad.mobility.status.shortTerm",
+          "cariad.mobility.status.longTerm",
+          "cariad.mobility.status.lastTrip"
         ]
       }
     },
@@ -694,7 +697,7 @@
         "data",
         "parkingPosition"
       ],
-      "notes": "Location sensitive: never automatically discovered or polled",
+      "notes": "Sensitive location: normal polling only for an enabled or advertised tracker; explicit full read scan; masked evidence",
       "legacy_compatible": true
     },
     "cariad.mobility.status.tripStatistics": {
@@ -933,6 +936,54 @@
       "priority": 0,
       "request_mode": "mbb_rlu",
       "confirmation": "legacy_request_poll"
+    },
+    "cariad.mobility.status.shortTerm": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/trips/{VIN}/shortterm",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "data",
+        "trips",
+        "tripData",
+        "tripDataList",
+        "records",
+        "items"
+      ],
+      "notes": "Existing reviewed trip poll route; shared normalizer; explicit full scan or bounded mobility polling"
+    },
+    "cariad.mobility.status.longTerm": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/trips/{VIN}/longterm",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "data",
+        "trips",
+        "tripData",
+        "tripDataList",
+        "records",
+        "items"
+      ],
+      "notes": "Existing reviewed trip poll route; shared normalizer; explicit full scan or bounded mobility polling"
+    },
+    "cariad.mobility.status.lastTrip": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/trips/{VIN}/shortterm/last",
+      "delivery": "manual",
+      "priority": 90,
+      "response_paths": [
+        "data",
+        "trips",
+        "tripData",
+        "tripDataList",
+        "records",
+        "items"
+      ],
+      "notes": "Existing reviewed trip poll route; shared normalizer; explicit full scan or bounded mobility polling"
     }
   },
   "source": "v2_historical_catalog_plus_climate_pilot",

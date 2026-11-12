@@ -206,3 +206,26 @@ def normalize_mbb_trips(payload: Any) -> dict[str, dict]:
             except (KeyError,TypeError,ValueError): result[key]=None
         return result
     return {"current":normalized(current),"reset":normalized(reset)}
+
+
+CARIAD_TRIP_OPERATIONS = {
+    "cariad.mobility.status.shortTerm": "shortterm_current",
+    "cariad.mobility.status.longTerm": "longterm_current",
+    "cariad.mobility.status.lastTrip": "last_trip",
+}
+
+
+def observe_cariad_trip(vehicle, operation, payload):
+    """Single normalizer for ordinary polling and explicit engineering scans."""
+    if operation not in CARIAD_TRIP_OPERATIONS:
+        return False
+    trip, _ = normalize_cariad_trip(payload)
+    if trip is None:
+        return False
+    key = CARIAD_TRIP_OPERATIONS[operation]
+    previous = _timestamp(vehicle.trips.get(key, {}).get("timestamp"))
+    incoming = _timestamp(trip.get("timestamp"))
+    if previous is not None and (incoming is None or incoming < previous):
+        return False
+    vehicle.trips[key] = trip
+    return True

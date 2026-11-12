@@ -400,6 +400,9 @@ class V3Engine:
                 record_jobs(profile, jobs, status=reply.status, payload=reply.data)
                 if outcome == "http_ok":
                     observe_read_only(car, profile, reply.data, reply.observed_at)
+            elif family == "cariad" and outcome == "http_ok":
+                from .trips import observe_cariad_trip
+                observe_cariad_trip(car, ident, reply.data)
             # Individual 400/404/405/422 results are evidence; continue.
             # Account/auth/quota/server failures suspend the scan.
             if reply.status in (401, 403, 429) or reply.status >= 500:

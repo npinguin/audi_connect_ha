@@ -58,9 +58,33 @@ def test_trip_data_poll_uses_one_cadence_and_retains_existing_data():
     transport = NS(remaining_calls=100, request=AsyncMock(return_value=NS(
         status=200, data={"data":[{"tripEndTimestamp": stamp, "mileage_km": 35}]}
     )))
-    engine = NS(transport=transport, _trip_poll_at={})
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.runtime import catalog_path
+    from custom_components.audiconnect.v3.trips import CARIAD_TRIP_OPERATIONS
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    profile = DevelopmentProfile(registry, car.context)
+    records = []
+    def request(car, ident):
+        op = registry.operations[ident]
+        return op["family"], op["method"], op["path"].format(VIN=car.vin), None
+    engine = NS(transport=transport, _trip_poll_at={}, profiles={VIN.lower():profile},
+                _operation_request=request, _api_record=lambda profile, ident, *args: records.append(ident))
     asyncio.run(StatusEngine._poll_trips(engine, car))
+    assert records == list(CARIAD_TRIP_OPERATIONS)
     assert transport.request.await_count == 3
     assert car.trips["shortterm_current"]["mileage"] == 35
     asyncio.run(StatusEngine._poll_trips(engine, car))
     assert transport.request.await_count == 3
+
+
+def test_trip_observation_rejects_older_capture():
+    from datetime import timedelta
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    from custom_components.audiconnect.v3.trips import observe_cariad_trip
+    car = V3Vehicle(VIN,"Audi","Q8","q8","DE")
+    now=datetime.now(UTC)
+    op="cariad.mobility.status.lastTrip"
+    assert observe_cariad_trip(car,op,{"data":[{"tripEndTimestamp":now.isoformat(),"mileage_km":35}]})
+    assert not observe_cariad_trip(car,op,{"data":[{"tripEndTimestamp":(now-timedelta(days=1)).isoformat(),"mileage_km":10}]})
+    assert car.trips["last_trip"]["mileage"] == 35

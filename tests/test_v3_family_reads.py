@@ -88,3 +88,6 @@ async def test_full_scan_resumes_and_covers_unmapped_jobs_without_mutations():
     assert any("activeVentilation" in path for path in calls)
     assert any("batterySupport" in path for path in calls)
     assert any("parkingposition" in path for path in calls)
+    assert {path for path in calls if "/vehicle/v1/trips/" in path} == {
+        "/vehicle/v1/trips/"+car.vin+"/"+suffix for suffix in ("shortterm","longterm","shortterm/last")
+    }
