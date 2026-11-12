@@ -308,7 +308,11 @@ class AudiConnectV3Panel extends HTMLElement {
     return this.capabilityStatus.unresolved_commands || (normal && ["pending","uncertain"].includes(normal.state) ? [normal] : []);
   }
   capabilityBlocked(capability) {
-    return this.unresolvedCommands().some(row=>row.capability===capability);
+    return this.unresolvedCommands().some(row=>row.capability===capability && this.reviewRequired(row));
+  }
+  reviewRequired(row) {
+    return row.review_required ?? (row.state==="pending" || row.capability==="access" ||
+      (row.capability==="remote" && ["engine_start","engine_stop"].includes(row.action)));
   }
   localTime(value) {
     if (!value) return "";
@@ -800,7 +804,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>
           </div>
         </section>`:""}
-        ${car?this.unresolvedCommands().map(command=>`<section class="card warn" style="margin-bottom:18px"><b>${escapeHTML(friendly(command.capability))} controls temporarily blocked</b><p>Previous command: <b>${escapeHTML(command.operation)}</b> · ${escapeHTML(command.state)} · ${escapeHTML(this.localTime(command.started_at*1000))}</p><p>Other capabilities remain available. Read-only polling and query experiments remain available. Inspect the actual vehicle before acknowledging uncertainty. No command is replayed or marked successful.</p><button data-action="review-normal" data-command="${escapeHTML(command.command_id)}" ${this.loading?"disabled":""}>I inspected the vehicle — acknowledge uncertainty</button></section>`).join(""):""}
+        ${car?this.unresolvedCommands().map(command=>`<section class="card warn" style="margin-bottom:18px"><b>${escapeHTML(friendly(command.capability))} · ${this.reviewRequired(command)?"review required":"last command outcome uncertain"}</b><p>Previous command: <b>${escapeHTML(command.operation)}</b> · ${escapeHTML(command.state)} ${command.http_status?"· HTTP "+escapeHTML(command.http_status):""} · ${escapeHTML(this.localTime(command.started_at*1000))}</p><p>Other capabilities remain available. Read-only polling and query experiments remain available. ${this.reviewRequired(command)?"Inspect the actual vehicle before acknowledging uncertainty.":"Check the vehicle; you can retry explicitly after the short cooldown. No review required."} No command is replayed or marked successful.</p><button data-action="review-normal" data-command="${escapeHTML(command.command_id)}" ${this.loading?"disabled":""}>${this.reviewRequired(command)?"I inspected the vehicle — acknowledge uncertainty":"Dismiss warning after checking vehicle"}</button></section>`).join(""):""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `
           <section style="display:${this.step===1?"block":"none"}" data-view="overview">
             <div class="metrics">

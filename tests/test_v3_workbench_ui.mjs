@@ -350,11 +350,11 @@ test("uncertain vehicle command identifies blocker and leaves read-only workbenc
     operation:"cariad.climate.window_heating_start",capability:"climate",command_id:"cmd1",state:"uncertain",started_at:1794500000
   }};
   p.render();
-  assert.match(p.shadowRoot.innerHTML,/climate controls temporarily blocked/i);
-  assert.equal(p.capabilityBlocked("climate"),true);
+  assert.match(p.shadowRoot.innerHTML,/last command outcome uncertain/i);
+  assert.equal(p.capabilityBlocked("climate"),false);
   assert.equal(p.capabilityBlocked("access"),false);
   assert.match(p.shadowRoot.innerHTML,/cariad.climate.window_heating_start/);
-  assert.match(p.shadowRoot.innerHTML,/acknowledge uncertainty/);
+  assert.match(p.shadowRoot.innerHTML,/No review required/);
   assert.match(p.shadowRoot.innerHTML,/Read-only polling and query experiments remain available/);
 });
 

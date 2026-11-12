@@ -12,6 +12,7 @@ _STATES = _UNRESOLVED | {"accepted_unconfirmed", "backend_completed", "verified"
 HISTORY_LIMIT = 50
 # Local anti-flood policy, not a claimed Audi server limit.
 HA_COMMAND_COOLDOWN_SECONDS = 10
+TEMPORARY_ERROR_COOLDOWN_SECONDS = 30
 ENGINEERING_COMMAND_COOLDOWN_SECONDS = 90
 _READBACKS = {"climate", "chargingState", "doorLockStatus", "targetstateOfCharge", "preferredChargeMode", "windowHeatingActive", "preheater_active",
               "climatisationWindowHeatingEnabled", "climatisationAtUnlock",
@@ -46,6 +47,14 @@ class CommandRecord:
         return self.state in _UNRESOLVED
 
     @property
+    def requires_review(self) -> bool:
+        """Only security-sensitive uncertain commands require acknowledgement."""
+        return self.state == "pending" or (self.state == "uncertain" and (
+            self.capability == "access" or
+            (self.capability == "remote" and self.action in ("engine_start", "engine_stop"))
+        ))
+
+    @property
     def is_wake(self) -> bool:
         """Only the reviewed CARIAD wake/refresh operations are preparatory."""
         return (self.capability == "remote" and self.action in ("wake", "refresh")
@@ -56,8 +65,13 @@ class CommandRecord:
         return self.is_wake and self.state in ("accepted_unconfirmed", "backend_completed", "verified")
 
     def check_next(self, now: float, cooldown: float = HA_COMMAND_COOLDOWN_SECONDS, *, capability=None, action=None) -> None:
-        if self.unresolved:
+        if self.requires_review:
             raise RuntimeError("Previous vehicle command outcome uncertain; inspect and review it")
+        if self.state == "uncertain":
+            until = (self.completed_at or self.started_at) + max(cooldown, TEMPORARY_ERROR_COOLDOWN_SECONDS)
+            if now < until:
+                raise RuntimeError(f"Previous command outcome uncertain; try again in {math.ceil(until-now)}s")
+            return  # No automatic retry; a new explicit request is permitted.
         if self.wake_accepted and capability is not None and action is not None:
             return  # Wake has its own quota/cadence guard in CommandEngine.
         if now < self.started_at + cooldown:
@@ -137,16 +151,25 @@ def unresolved_normal_commands(profile):
 
 def blocking_normal_command(profile, capability):
     return next((row for row in reversed(unresolved_normal_commands(profile))
-                 if row.capability == capability), None)
+                 if row.capability == capability and row.requires_review), None)
 
 
 def check_command_sequence(profile, now: float, *, capability: str, action: str,
                            cooldown: float = HA_COMMAND_COOLDOWN_SECONDS) -> None:
-    """Uncertainty is capability-scoped; a short anti-flood cooldown stays global."""
+    """Transient failures expire; security review and anti-flood limits remain."""
     blocker = blocking_normal_command(profile, capability)
     if blocker is not None:
         blocker.check_next(now, cooldown=cooldown, capability=capability, action=action)
+    # Only the most recent action in this capability matters for a routine
+    # transient failure. Keep older outcomes as history, not an interlock.
+    rows = list(getattr(profile, "command_journal", ()))
     latest = profile.last_command
+    if latest is not None and latest not in rows:
+        rows.append(latest)
+    previous = next((row for row in reversed(rows)
+                     if row.origin == "home_assistant" and row.capability == capability), None)
+    if previous is not None and previous.state == "uncertain":
+        previous.check_next(now, cooldown=cooldown, capability=capability, action=action)
     if latest is None:
         return
     if latest.unresolved:

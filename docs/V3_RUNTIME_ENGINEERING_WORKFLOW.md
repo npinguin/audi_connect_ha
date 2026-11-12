@@ -41,3 +41,14 @@ Save local draft is independent of Submit; neither action changes the production
 mapping. Reset template restores the built-in document in the editor; saving it
 replaces the private draft. The draft persists across restarts. Named multi-draft
 libraries and reviewed portable community import/export are still open.
+
+
+## Temporary operational errors (supersedes permanent normal-command review)
+Ordinary HA command failures do not remove a supported route or require manual
+review. An uncertain HTTP 5xx/timeout is reported immediately, remains truthful
+in history, and allows a new explicit request after 30 seconds (existing quota,
+wake budget and engineering cooldown still apply). Routine controls stay visible;
+an early retry gets a useful error. No automatic replay. Only unresolved access
+and remote engine commands retain mandatory review due to their consequences.
+The Workbench physical-test review remains proof for activation, not a routine
+HA command prerequisite outside the tested capability.

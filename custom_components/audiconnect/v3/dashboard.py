@@ -86,7 +86,16 @@ async def ws_status(hass, connection, msg):
         report = build_status_report(vehicle, profile)
         report["normal_command"] = profile.last_command.snapshot() if profile.last_command else None
         from .command_journal import unresolved_normal_commands
-        report["unresolved_commands"] = [row.snapshot() for row in unresolved_normal_commands(profile)]
+        # Only the latest unresolved routine command per capability is a current
+        # warning; security review items remain visible until acknowledged.
+        latest_by_capability = {row.capability: row for row in getattr(profile, "command_journal", ())
+                                if row.origin == "home_assistant"}
+        report["unresolved_commands"] = [
+            {**row.snapshot(), "review_required": row.requires_review,
+             "http_status": profile.api_observations.get(row.operation, {}).get("http_status")}
+            for row in unresolved_normal_commands(profile)
+            if row.requires_review or latest_by_capability.get(row.capability, row) is row
+        ]
         report["command_journal"] = [row.snapshot() for row in profile.command_journal]
         report["fast_bindings"] = profile.fast_bindings
         from .product_contract import entity_projection_report, entity_key

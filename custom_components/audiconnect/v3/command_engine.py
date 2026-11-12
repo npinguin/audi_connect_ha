@@ -324,6 +324,7 @@ class CommandEngine:
                 if not 200 <= response.status < 300:
                     # A server error can occur after execution; do not assume failure.
                     record.state = "uncertain" if response.status >= 500 else "rejected"
+                    record.backend_result = "transport_uncertain" if record.state == "uncertain" else "rejected"
                     car.last_command_result = f"request_failed_{response.status}"
                 else:
                     record.state = "accepted_unconfirmed"
@@ -356,16 +357,25 @@ class CommandEngine:
                 record.backend_result = "transport_uncertain"
                 car.last_command_result = "transport_uncertain"
                 self._api_record(p, ident, family, method, None, car.vin)
+                record.completed_at = max(record.started_at, time.time())
                 await self.storage.async_save(self.profiles)
-                raise RuntimeError("Audi command outcome uncertain; check the car") from err
+                self._notify_discovery_change()
+                advice = "inspect and review in Engineering Dashboard" if record.requires_review else "check the vehicle; try again after the short cooldown"
+                raise RuntimeError(f"Audi {capability}.{aspect}: connection error or timeout; outcome uncertain. {advice}.") from err
             if record.state in ("accepted_unconfirmed", "backend_completed"):
                 observe_command_response(record, car, p, family, response)
                 if record.state == "verified":
                     car.last_command_result = "verified"
+            if record.state in ("rejected", "uncertain"):
+                record.completed_at = max(record.started_at, time.time())
             await self.storage.async_save(self.profiles)
             self._notify_discovery_change()
             if record.state in ("rejected", "uncertain"):
-                raise RuntimeError("Audi command rejected or uncertain; no automatic retry")
+                detail = f"HTTP {response.status}" if not 200 <= response.status < 300 else (record.backend_result or record.state)
+                advice = ("inspect and review in Engineering Dashboard" if record.requires_review
+                          else "check the vehicle; try again after the short cooldown" if record.state == "uncertain"
+                          else "check permissions, quota or vehicle prerequisites")
+                raise RuntimeError(f"Audi {capability}.{aspect}: {detail}; {record.state}. {advice}.")
             return record
 
     async def review_normal_command(self, vin: str, command_id: str) -> None:

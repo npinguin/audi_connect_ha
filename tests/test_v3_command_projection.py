@@ -85,6 +85,5 @@ def test_normal_command_cooldown_expires_after_ten_seconds(cap,action):
     start.state="uncertain"
     if cap == "climate":
         with pytest.raises(RuntimeError,match="uncertain"):
-            check_command_sequence(profile,1100,capability=cap,action=action)
-    else:
-        check_command_sequence(profile,1100,capability=cap,action=action)
+            check_command_sequence(profile,1020,capability=cap,action=action)
+    check_command_sequence(profile,1100,capability=cap,action=action)

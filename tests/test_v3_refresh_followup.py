@@ -133,7 +133,7 @@ async def test_wake_budget_and_uncertain_command_guard_remain_independent():
     wake = engine.profiles[VIN.lower()].last_command
     wake.state = "uncertain"
     wake.started_at -= 120
-    with pytest.raises(RuntimeError, match="uncertain"):
+    with pytest.raises(RuntimeError, match="wake budget"):
         await engine.commands.send_control(VIN, "wake", "remote")
     await engine.commands.send_control(VIN, "start", "climate")
     assert wake.unresolved
@@ -173,5 +173,7 @@ def test_acknowledged_wake_survives_restart_without_blocking_climate():
     with pytest.raises(RuntimeError, match="uncertain"):
         check_command_sequence(NS(last_command=latest, command_journal=rows), 1020,
                                capability="remote", action="wake")
+    check_command_sequence(NS(last_command=latest, command_journal=rows), 1030,
+                           capability="remote", action="wake")
     check_command_sequence(NS(last_command=latest, command_journal=rows), 1020,
                            capability="climate", action="start")

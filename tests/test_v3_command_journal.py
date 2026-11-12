@@ -58,21 +58,21 @@ def test_unresolved_capability_survives_unrelated_commands_and_restart():
     from custom_components.audiconnect.v3.command_journal import check_command_sequence, unresolved_normal_commands
     import pytest
     p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
-    uncertain = CommandRecord.begin("climate", "window_heating_start", "cariad.climate.window_heating_start", 1)
+    uncertain = CommandRecord.begin("access", "unlock", "cariad.access.unlock", 1)
     uncertain.state = "uncertain"
     p.track_command(uncertain)
-    check_command_sequence(p, 100, capability="access", action="lock")
+    check_command_sequence(p, 100, capability="climate", action="stop")
     with pytest.raises(RuntimeError, match="uncertain"):
-        check_command_sequence(p, 100, capability="climate", action="stop")
+        check_command_sequence(p, 100, capability="access", action="lock")
     for i in range(HISTORY_LIMIT + 2):
-        other = CommandRecord.begin("access", "lock", "cariad.access.lock", 100+i*20)
+        other = CommandRecord.begin("climate", "start", "cariad.climate.start.stored", 100+i*20)
         other.state = "verified"
         p.track_command(other)
     assert len(p.command_journal) == HISTORY_LIMIT
     restored = restore_profile(model(), p.discovery.context, p.snapshot())
     assert [row.command_id for row in unresolved_normal_commands(restored)] == [uncertain.command_id]
     with pytest.raises(RuntimeError, match="uncertain"):
-        check_command_sequence(restored, 3000, capability="climate", action="start")
+        check_command_sequence(restored, 3000, capability="access", action="lock")
     check_command_sequence(restored, 3000, capability="charging", action="start")
 
 
@@ -86,8 +86,13 @@ def test_control_resolution_only_blocks_affected_capability():
     p = DevelopmentProfile(model(), car.context)
     auth = NS(uses_auth0=True, service=NS(_spin="1234"))
     baseline = control_decision(car,p,auth,"access","lock")
+    climate = control_decision(car,p,auth,"climate","stop")
     row = CommandRecord.begin("climate","window_heating_start","cariad.climate.window_heating_start",1)
     row.state = "uncertain"
     p.track_command(row)
     assert control_decision(car,p,auth,"access","lock") == baseline
-    assert control_decision(car,p,auth,"climate","stop")["status"] == "pending_review"
+    assert control_decision(car,p,auth,"climate","stop") == climate
+    row = CommandRecord.begin("access","unlock","cariad.access.unlock",100)
+    row.state = "uncertain"
+    p.track_command(row)
+    assert control_decision(car,p,auth,"access","lock")["status"] == "pending_review"

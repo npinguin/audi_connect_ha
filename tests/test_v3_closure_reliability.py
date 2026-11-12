@@ -44,9 +44,9 @@ def test_pending_command_restores_uncertainty_without_replay():
     assert restored.command_id == record.command_id
     assert restored.unresolved
     with pytest.raises(RuntimeError, match="uncertain"):
-        restored.check_next(2000)
-    restored.state = "reviewed"
-    restored.check_next(2000)
+        restored.check_next(1020)
+    restored.check_next(1030)
+    assert restored.unresolved  # History is not fabricated as a success.
 
 
 def test_completed_command_cooldown_survives_restart():
@@ -168,6 +168,13 @@ async def test_normal_command_persisted_before_dispatch_and_timeout_blocks_resta
     with pytest.raises(RuntimeError, match="uncertain"):
         await engine.send_control(vin, "start", "charging")
     assert calls == ["POST"]
+    # No mandatory review for charging; after cooldown a fresh explicit request
+    # can reach the OEM, while the initial failure remains in history.
+    restored.last_command.started_at -= 120
+    restored.last_command.completed_at = restored.last_command.started_at + 1
+    with pytest.raises(RuntimeError, match="uncertain"):
+        await engine.send_control(vin, "start", "charging")
+    assert calls == ["POST", "POST"]
 
 
 @pytest.mark.asyncio

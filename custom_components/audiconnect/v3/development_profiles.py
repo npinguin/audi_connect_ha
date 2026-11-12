@@ -356,11 +356,11 @@ class DevelopmentProfile:
         self.command_journal.append(record)
         if record.origin == "home_assistant":
             self.last_command = record
-        # Never evict an unresolved HA command or the active engineering attempt.
+        # Keep security review and active engineering attempts; routine errors are bounded history.
         while len(self.command_journal) > HISTORY_LIMIT:
             active = self.discovery._active
             index = next((i for i, row in enumerate(self.command_journal)
-                          if not (row.origin == "home_assistant" and row.unresolved)
+                          if not (row.origin == "home_assistant" and row.requires_review)
                           and not (active is not None and row.origin == "workbench"
                                    and row.engineering_sequence == active.sequence)
                           and row is not self.last_command), None)
