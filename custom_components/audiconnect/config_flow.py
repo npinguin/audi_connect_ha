@@ -645,17 +645,17 @@ class OptionsFlowHandler(OptionsFlow):
             if choice == "finish":
                 return self.async_create_entry(title="", data=self._pending_options or dict(self.config_entry.options))
             if choice == "refresh":
-                await self.config_entry.runtime_data.coordinator.async_request_refresh()
+                await engine.resume_read_discovery(car.vin)
                 return await self.async_step_discovery()
         if candidates:
             self._discovery_action, self._discovery_candidate = next(iter(candidates.items()))
             return await self.async_step_discovery_consent()
         progress = engine.discovery_progress(car, profile)
-        controls = {}
         return self.async_show_form(step_id="discovery", data_schema=vol.Schema({
             vol.Required("action", default="finish"): vol.In({
-                "finish": "Finish", "refresh": "Refresh read discovery", **controls})}),
+                "finish": "Finish", "refresh": "Resume unresolved read discovery"})}),
             description_placeholders={"vehicle": car.name,
+                "read_state": str(progress["read_state"]).replace("_", " "),
                 "read": str(progress["read_assessment_percent"]),
                 "assessed": str(progress["read_assessed"]), "total": str(progress["read_total"]),
                 "verified": str(progress["controls_physically_verified"]),
@@ -672,7 +672,10 @@ class OptionsFlowHandler(OptionsFlow):
         label, capability, action, operation, group = candidate
         errors = {}
         if user_input is not None:
-            if user_input.get("accept") is not True:
+            answer = user_input.get("accept")
+            if answer == "finish":
+                return self.async_create_entry(title="", data=self._pending_options or dict(self.config_entry.options))
+            if answer is not True and answer != "yes":
                 if self._discovery_skipped is None:
                     self._discovery_skipped = set()
                 self._discovery_skipped.add(self._discovery_action)
@@ -692,9 +695,14 @@ class OptionsFlowHandler(OptionsFlow):
             else:
                 self._discovery_sequence = result["sequence"]
                 return await self.async_step_discovery_review()
+        progress = engine.discovery_progress(car, profile)
         return self.async_show_form(step_id="discovery_consent",
-            data_schema=vol.Schema({vol.Required("accept", default=False): bool}),
-            errors=errors, description_placeholders={"vehicle": car.name, "action": label})
+            data_schema=vol.Schema({vol.Required("accept", default="no"): vol.In({
+                "yes": "Yes", "no": "No / skip", "finish": "Finish"})}),
+            errors=errors, description_placeholders={"vehicle": car.name, "action": label,
+                "verified": str(progress["controls_physically_verified"]),
+                "controls": str(progress["controls_catalog_applicable"]),
+                "skipped": str(len(self._discovery_skipped or ()))})
 
     async def async_step_discovery_review(self, user_input=None):
         engine, car, profile = self._discovery_context()
