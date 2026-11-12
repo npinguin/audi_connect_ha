@@ -159,6 +159,8 @@ class V3Engine:
                 ),
             )
         op = profile.registry.operations[ident]
+        if op.get("request_mode") == "verified_vehicle_target":
+            raise ValueError("Pilot stored-settings adapter not implemented; use the full V3 catalog")
         path = op["path"].format(
             VIN=vehicle.vin, COUNTRY=vehicle.country,
             TYPE="Audi", JOBS=",".join(planned_jobs(vehicle, profile)),
@@ -519,12 +521,12 @@ class V3Engine:
         car = self.require_vehicle(vin)
         p = self.profiles[vin.lower()]
         key = f"{capability}.{aspect}"
-        if key in p.discovery.disabled:
+        if key in p.discovery.disabled or p.discovery._active is not None:
             return None
         ident = p.active.get(key)
         if ident and p.control_results.get(ident) == "worked" and not p.custom.get(ident, {}).get("variables"):
             return ident
-        if car.context.auth != "auth0":
+        if car.context.auth != "auth0" or len(p.registry.capabilities) <= 1:
             return None
         # Historical V2 routes, not exploratory alternatives, are selectable
         # on the vehicle's own declared capability or reviewed status shape.
@@ -546,7 +548,8 @@ class V3Engine:
     def _reserve_wake(self, vin: str, operation: str) -> None:
         if operation not in ("cariad.remote.wake", "cariad.remote.refresh"):
             return
-        if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+        remaining = getattr(self.transport, "remaining_calls", None)
+        if remaining is not None and remaining <= 12:
             raise RuntimeError("Audi wake quota reserve reached")
         now = time.monotonic()
         attempts = self._wake_attempts.setdefault(vin.lower(), [])

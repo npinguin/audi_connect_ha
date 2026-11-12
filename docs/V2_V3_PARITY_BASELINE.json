@@ -4058,7 +4058,9 @@
     "v3_static_parity_proven": false,
     "v3_live_q8_parity_proven": false,
     "v3_v2_v3_v2_registry_rollback_proven": false,
-    "full_release_allowed": false
+    "full_release_allowed": false,
+    "test_release_code_complete": false,
+    "test_release_policy": "Code-complete V2 and prior-fix coverage plus passing CI; physical Q8 and rollback required for stable only."
   },
   "v3_only_controls": [
     {
@@ -4093,5 +4095,5 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "V3 has own nine-platform entrypoint and bounded request-ID follow-up, but no physical Q8 acceptance; status labels refer to source implementation, not live parity."
+  "latest_candidate_notes": "CARIAD historical read/write routes, climate settings, profile sliders, timer summaries, wake guard and explicit service parameter forwarding added; legacy, remaining derived sensors, prior-fix trip probes, Recorder and complete tests remain open."
 }

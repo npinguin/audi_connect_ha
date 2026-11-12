@@ -19,7 +19,7 @@ def test_recovered_sensor_requires_vehicle_specific_evidence():
     assert 'from .v3.ha_platforms import setup as v3_setup' in sensor
     assert 'from .v3.ha_platforms import setup as v3_setup' in binary
     platforms = (ROOT / "v3" / "ha_platforms.py").read_text()
-    assert "profile.attribute_routes" in platforms
+    assert "for ident in car.readings" in platforms
     assert "car.readings.get(ident)" in platforms
     # No discovery result may disable a pre-existing V2 ID. The entity can
     # remain unavailable until V3 implements that source, but its ID survives.

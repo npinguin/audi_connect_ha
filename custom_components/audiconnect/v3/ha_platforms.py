@@ -66,7 +66,6 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
         entities: list[Any] = []
         for car in engine.vehicles.values():
             vin = car.vin.lower()
-            profile = engine.profiles.get(vin)
             if platform in ("sensor", "binary_sensor"):
                 for ident in car.readings:
                     descriptor = ATTRIBUTES.get(ident)
