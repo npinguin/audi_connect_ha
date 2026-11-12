@@ -355,8 +355,12 @@ class AudiConnectV3Panel extends HTMLElement {
 
   async _click(e) {
     const button = e.target.closest("button[data-action]");
-    if (!button || this.loading) return;
+    if (!button) return;
     const action = button.dataset.action;
+    if (action === "copy-evidence") {
+      await this.copyEvidence(button); return;
+    }
+    if (this.loading) return;
     if (action === "discovery-mode") {
       this.expertDiscovery=button.dataset.mode==="expert"; this.render(); return;
     }
@@ -861,20 +865,56 @@ class AudiConnectV3Panel extends HTMLElement {
     </details>`;
   }
 
+  async copyEvidence(button) {
+    const block = button.closest("[data-copy-evidence]");
+    const kind = button.dataset.copy;
+    if (!block || !["request","response","all"].includes(kind)) return;
+    const request = block.querySelector('pre[data-evidence="request"]');
+    const response = block.querySelector('pre[data-evidence="response"]');
+    const status = block.querySelector("[data-evidence-status]")?.textContent || "";
+    const note = block.querySelector("[data-evidence-note]")?.textContent || "";
+    const value = kind==="request" ? request?.textContent : kind==="response" ? response?.textContent :
+      [status,request?"Request sent\n\n"+request.textContent:"Actual request not retained.",
+       response?"Response received\n\n"+response.textContent:"",note].filter(Boolean).join("\n\n");
+    if (!value) return;
+    try {
+      // Copy only the masked text already displayed; no API or new execution.
+      if (!navigator.clipboard?.writeText) throw Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // HA can also be served over a non-secure local origin.
+      let field;
+      try {
+        field=document.createElement("textarea");
+        field.value=value; field.setAttribute("readonly","");
+        field.style.cssText="position:fixed;left:-9999px;top:0";
+        this.shadowRoot.appendChild(field); field.select();
+        if (!document.execCommand("copy")) throw Error("Copy unavailable");
+      } catch {
+        button.textContent="Copy failed — select JSON"; return;
+      } finally { field?.remove(); }
+    }
+    button.textContent="Copied";
+  }
+
+  evidenceCopyButton(kind, label) {
+    return `<button data-action="copy-evidence" data-copy="${kind}">${label}</button>`;
+  }
+
   responseInspector(operation, execution=null) {
     if (!operation) return "";
     const saved = this.apiHistory.find(r=>r.operation===operation);
     const detail = execution || this.engineeringHistory.find(r=>r.operation===operation && (!saved || r.at===saved.at));
     const json = value=>escapeHTML(JSON.stringify(value,null,2));
-    if(!detail) return saved?`<h3>Response · restricted historical evidence</h3><pre>${json(saved.preview)}</pre>
-      <p>Full request/response was not retained. Never repeat a vehicle command just to obtain evidence.</p>`:
+    if(!detail) return saved?`<div data-copy-evidence><h3>Response · restricted historical evidence</h3>${this.evidenceCopyButton("response","Copy response")}<pre data-evidence="response">${json(saved.preview)}</pre>
+      <p data-evidence-note>Full request/response was not retained. Never repeat a vehicle command just to obtain evidence.</p></div>`:
       "<p>No execution recorded for this route.</p>";
-    return `<div class="callout"><b>HTTP ${escapeHTML(detail.http_status??"—")} · ${escapeHTML(this.localTime(detail.at))}</b>
+    return `<div class="callout" data-copy-evidence><div class="actions"><b data-evidence-status>HTTP ${escapeHTML(detail.http_status??"—")} · ${escapeHTML(this.localTime(detail.at))}</b>${this.evidenceCopyButton("all","Copy request &amp; response")}</div>
       <h3>Request sent</h3>
-      ${detail.request?`<pre style="max-height:none;user-select:text">${json(detail.request.payload)}</pre>`:"<p>Actual request was not recorded for this execution.</p>"}
+      ${detail.request?`${this.evidenceCopyButton("request","Copy request")}<pre data-evidence="request" style="max-height:none;user-select:text">${json(detail.request.payload)}</pre>`:"<p>Actual request was not recorded for this execution.</p>"}
       <h3>${detail.operation==="graphql.inventory.vehicleList"?"Response received · selected vehicle only":"Response received"}</h3>
-      <pre style="max-height:none;user-select:text">${json(detail.payload)}</pre>
-      <p class="helper">Masked JSON · ${detail.truncated||detail.request?.truncated?"Size limit reached; partial evidence.":"Within local inspection limits."} ${detail.operation==="graphql.inventory.vehicleList"?"Read-only inventory query; other vehicles excluded.":"HTTP acceptance is not physical confirmation."}</p>
+      ${this.evidenceCopyButton("response","Copy response")}<pre data-evidence="response" style="max-height:none;user-select:text">${json(detail.payload)}</pre>
+      <p class="helper" data-evidence-note>Masked JSON · ${detail.truncated||detail.request?.truncated?"Size limit reached; partial evidence.":"Within local inspection limits."} ${detail.operation==="graphql.inventory.vehicleList"?"Read-only inventory query; other vehicles excluded.":"HTTP acceptance is not physical confirmation."}</p>
     </div>`;
   }
 
@@ -1309,7 +1349,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · <time datetime="${escapeHTML(r.at||"")}">${escapeHTML(this.localTime(r.at))}</time></summary>
               <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b></div>
               ${(operations.find(o=>o.operation===(r.template||r.operation))?.mappings||[]).map(m=>`<div class="subline"><button data-action="${m.capability==="vehicle_identity"?"open-identity":"open-capability"}" data-capability="${escapeHTML(m.capability)}">${escapeHTML(m.capability)}</button> · ${this.entityLinks(m.entity_ids)||escapeHTML(m.entity_key||"No published entity")} · <code>${escapeHTML(m.field||"")}</code></div>`).join("")}
-              ${detail?this.responseInspector(r.operation,detail):`<h3>Restricted historical response</h3><pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre><p>Actual request and full response were not retained.</p>`}
+              ${detail?this.responseInspector(r.operation,detail):`<div data-copy-evidence><h3>Restricted historical response</h3>${this.evidenceCopyButton("response","Copy response")}<pre data-evidence="response">${escapeHTML(JSON.stringify(r.preview,null,2))}</pre><p>Actual request and full response were not retained.</p></div>`}
               ${this.executionReviewFields(r,index)}
             </details>`).join("")||'<p>No saved API results yet.</p>':""}
           </section>

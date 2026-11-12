@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 let Panel;
+let clipboard = [];
 class FakeElement {
   attachShadow() {
     this.shadowRoot = {
@@ -13,7 +14,7 @@ class FakeElement {
 }
 vm.runInNewContext(
   fs.readFileSync("custom_components/audiconnect/v3/frontend/panel.js", "utf8"),
-  {HTMLElement: FakeElement, customElements: {define(name, klass) {
+  {HTMLElement: FakeElement, navigator:{clipboard:{writeText:async value=>{clipboard.push(value);}}}, customElements: {define(name, klass) {
     assert.equal(name, "audiconnect-v3-panel"); Panel = klass;
   }}}
 );
@@ -654,4 +655,29 @@ test("Overview prioritizes current actions without deleting historical findings"
   assert.match(p.shadowRoot.innerHTML,/Oil level is a warning/);
   await p._click({target:{closest:()=>({dataset:{action:"inspect-finding",index:"1"}})}});
   assert.equal(p.category,"vehicle_identity");assert.equal(p.step,2);
+});
+
+
+test("Copy API evidence uses displayed masked JSON only and never calls Audi", async () => {
+  const p=new Panel();
+  const detail={operation:"graphql.inventory.webOrdered",http_status:401,at:"2026-11-12T21:42:49Z",
+    request:{payload:{url:"/graphql",vin:"{VIN}"}},payload:{errors:[{reason:"token_exchange_denied"}]}};
+  const html=p.responseInspector(detail.operation,detail);
+  assert.match(html,/Copy request &amp; response/);
+  assert.match(html,/Copy request/);assert.match(html,/Copy response/);
+  const req=JSON.stringify(detail.request.payload,null,2),res=JSON.stringify(detail.payload,null,2);
+  const nodes={'pre[data-evidence="request"]':{textContent:req},'pre[data-evidence="response"]':{textContent:res},
+    "[data-evidence-status]":{textContent:"HTTP 401"},"[data-evidence-note]":{textContent:"Masked JSON"}};
+  p.api=async()=>{throw Error("Copy must not call backend");};
+  clipboard=[];
+  for (const kind of ["request","response","all"]) {
+    const button={dataset:{action:"copy-evidence",copy:kind},closest:()=>({querySelector:key=>nodes[key]})};
+    await p._click({target:{closest:()=>button}});
+    assert.equal(button.textContent,"Copied");
+  }
+  assert.equal(clipboard[0],req);assert.equal(clipboard[1],res);
+  assert.equal(clipboard[2],["HTTP 401","Request sent\n\n"+req,"Response received\n\n"+res,"Masked JSON"].join("\n\n"));
+  p.apiHistory=[{operation:"old",preview:{code:401}}];
+  assert.match(p.responseInspector("old"),/Copy response/);
+  assert.doesNotMatch(p.responseInspector("old"),/Copy request/);
 });
