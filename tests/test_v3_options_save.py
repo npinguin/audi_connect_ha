@@ -91,7 +91,8 @@ def test_form_can_render_v3_workbench_option_when_mode_is_v3():
 
 
 @pytest.mark.asyncio
-async def test_user_discovery_never_dispatches_without_exact_single_action_consent():
+async def test_user_discovery_never_dispatches_without_exact_single_action_consent(monkeypatch):
+    from custom_components.audiconnect.v3 import read_discovery
     from unittest.mock import AsyncMock
     flow = OptionsFlowHandler()
     car = SimpleNamespace(vin="WAUZZZ4M0MD123456", name="Test car")
@@ -101,20 +102,20 @@ async def test_user_discovery_never_dispatches_without_exact_single_action_conse
     flow._discovery_action = "access.unlock"
     original = ("Unlock vehicle", "access", "unlock", "cariad.access.unlock", "spin")
     flow._discovery_candidate = original
-    flow._user_test_candidates = lambda *args: {"access.unlock": original}
+    monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {"access.unlock": original})
     flow.async_step_discovery = AsyncMock(return_value={"step_id": "discovery"})
     flow.async_step_discovery_review = AsyncMock(return_value={"step_id": "review"})
     result = await flow.async_step_discovery_consent({"accept": False})
     assert result["step_id"] == "discovery"
     engine.approved_control_discovery.assert_not_awaited()
     flow._discovery_candidate = original
-    flow._user_test_candidates = lambda *args: {
-        "access.unlock": ("Unlock vehicle", "access", "unlock", "another.route", "spin")}
+    monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {
+        "access.unlock": ("Unlock vehicle", "access", "unlock", "another.route", "spin")})
     result = await flow.async_step_discovery_consent({"accept": True})
     assert result["step_id"] == "discovery"
     engine.approved_control_discovery.assert_not_awaited()
     flow._discovery_candidate = original
-    flow._user_test_candidates = lambda *args: {"access.unlock": original}
+    monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {"access.unlock": original})
     result = await flow.async_step_discovery_consent({"accept": True})
     assert result["step_id"] == "review"
     engine.approved_control_discovery.assert_awaited_once_with(
