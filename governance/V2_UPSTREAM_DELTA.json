@@ -103,7 +103,7 @@
     {
       "path": "custom_components/audiconnect/manifest.json",
       "upstream_blob": "e14c95959d9ec094693d93b45ecf9aa533d28f57",
-      "development_blob": "13d68426e8dd34267f3b2f8258fcae8bd8a30eed"
+      "development_blob": "080c7e9a217f83f63b52d55668b4bb9611b2e877"
     },
     {
       "path": "custom_components/audiconnect/number.py",

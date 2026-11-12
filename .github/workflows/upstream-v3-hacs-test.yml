@@ -1,0 +1,123 @@
+name: Upstream V3 HACS candidate
+
+on:
+  push:
+    branches: [release/upstream-v3-b20]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.repository == 'npinguin/audi_connect_ha'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ha: "2026.7.0"
+            package: false
+          - ha: "2026.11.1"
+            package: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Verify upstream runtime equivalence
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          base = "14f2b2ba8a8cfc538998be435d4b9449160cabc6"
+          folder = "custom_components/audiconnect"
+          manifest = folder + "/manifest.json"
+          assert subprocess.check_output(
+              ["git", "rev-parse", "HEAD^"], text=True
+          ).strip() == base
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", base, "HEAD", "--", folder],
+              text=True,
+          ).splitlines()
+          assert changed == [manifest], changed
+          actual = json.loads(Path(manifest).read_text())
+          original = json.loads(subprocess.check_output(
+              ["git", "show", base + ":" + manifest], text=True
+          ))
+          assert actual.pop("version") == "3.0.0b20"
+          original.pop("version")
+          assert actual == original
+          assert json.loads(Path("hacs.json").read_text())[
+              "homeassistant"
+          ] == "2026.7.0"
+          PY
+      - name: Install target HA and test dependencies
+        run: |
+          sed 's/^homeassistant==.*/homeassistant==${{ matrix.ha }}/' requirements-test.txt > "$RUNNER_TEMP/audi-test.txt"
+          pip install -r "$RUNNER_TEMP/audi-test.txt"
+      - name: Python regression tests
+        run: pytest -q
+      - name: Workbench regression
+        if: matrix.package
+        run: |
+          node --check custom_components/audiconnect/v3/frontend/panel.js
+          node --test tests/test_v3_workbench_ui.mjs
+      - name: Upstream pre-commit hooks
+        if: matrix.package
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files --show-diff-on-failure
+      - name: Home Assistant hassfest
+        if: matrix.package
+        uses: home-assistant/actions/hassfest@master
+      - name: HACS integration validation
+        if: matrix.package
+        uses: hacs/action@main
+        with:
+          category: integration
+      - name: Package integration
+        if: matrix.package
+        run: |
+          cd custom_components
+          zip -qr ../audi_connect_v3_3.0.0b20.zip audiconnect -x "*/__pycache__/*" "*.pyc"
+          cd ..
+          sha256sum audi_connect_v3_3.0.0b20.zip > SHA256SUMS_V3_3.0.0b20.txt
+      - uses: actions/upload-artifact@v4
+        if: matrix.package
+        with:
+          name: upstream-v3-b20-validated
+          path: |
+            audi_connect_v3_3.0.0b20.zip
+            SHA256SUMS_V3_3.0.0b20.txt
+          if-no-files-found: error
+
+  publish:
+    if: github.repository == 'npinguin/audi_connect_ha' && github.ref == 'refs/heads/release/upstream-v3-b20' && github.event.head_commit.message == 'release(test): publish 3.0.0b20 upstream review prerelease'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: upstream-v3-b20-validated
+      - name: Publish immutable experimental prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum -c SHA256SUMS_V3_3.0.0b20.txt
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/3.0.0b20" >/dev/null 2>&1 || gh release view 3.0.0b20 >/dev/null 2>&1; then
+            echo "Refusing to replace existing tag or release." >&2
+            exit 1
+          fi
+          gh release create 3.0.0b20 audi_connect_v3_3.0.0b20.zip SHA256SUMS_V3_3.0.0b20.txt \
+            --target "$GITHUB_SHA" \
+            --title "Audi Connect 3.0.0b20 — upstream V3 review test" \
+            --notes-file docs/V3_RELEASE_NOTES_3.0.0b20.md \
+            --prerelease --latest=false
