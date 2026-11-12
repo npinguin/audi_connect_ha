@@ -19,6 +19,7 @@ from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, Sen
 from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime, PERCENTAGE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ..const import DOMAIN
@@ -45,38 +46,64 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
         )
 
 
-class V3ClimateEntity(V3BaseEntity, ClimateEntity):
+class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
     _attr_name = "Climatisation"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 15
     _attr_max_temp = 30
-    _attr_target_temperature_step = 0.5
+    _attr_target_temperature_step = 1.0
+
+    @property
+    def native_target_temperature(self):
+        row = self.vehicle.readings.get("climatisationTargetTemperatureC", {})
+        value = row.get("value")
+        return self._requested_temperature if self._requested_temperature is not None else (
+            value if type(value) in (int, float) and 15 <= value <= 30 else self._restored_temperature
+        )
 
     @property
     def target_temperature(self):
-        row = self.vehicle.readings.get("climatisationTargetTemperatureC", {})
-        value = row.get("value")
-        return value if isinstance(value, (int, float)) else None
+        return self.native_target_temperature
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None:
+            try:
+                value = float(last.attributes.get("temperature"))
+                if 15 <= value <= 30:
+                    self._restored_temperature = value
+            except (TypeError, ValueError):
+                pass
 
     async def async_set_temperature(self, **kwargs):
         value = kwargs.get("temperature")
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not 15 <= value <= 30:
             raise HomeAssistantError("Climate temperature must be 15..30 C")
-        await self.coordinator.engine.send_control(
-            self.vehicle.vin, "set_settings", "climate",
-            params={"targetTemperature_C": value},
-        )
+        # V2 contract: changing a setpoint while off never starts the car.
+        self._requested_temperature = float(value)
+        self.async_write_ha_state()
+        if self.hvac_mode == HVACMode.HEAT_COOL:
+            try:
+                await self.coordinator.engine.send_control(
+                    self.vehicle.vin, "start_with_settings", "climate",
+                    params={"temp_c": value},
+                )
+            except (RuntimeError, ValueError) as err:
+                raise HomeAssistantError(str(err)) from err
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
         super().__init__(coordinator, vehicle)
         # Keep original unique ID and HA automations.
         self._attr_unique_id = f"{vehicle.vin.lower()}_climate_climatisation"
+        self._requested_temperature = None
+        self._restored_temperature = 21.0
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
         value = ClimateEntityFeature(0)
-        if self.coordinator.engine.control_enabled(self.vehicle.vin, "set_settings"):
+        if self.coordinator.engine.control_enabled(self.vehicle.vin, "start_with_settings"):
             value |= ClimateEntityFeature.TARGET_TEMPERATURE
         if self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
             value |= ClimateEntityFeature.TURN_ON
@@ -147,7 +174,15 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         if not self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
             raise HomeAssistantError("Climate Start must be tested and enabled in V3 Development")
         try:
-            await self.coordinator.engine.send_control(self.vehicle.vin, "start")
+            if self.coordinator.engine.control_enabled(self.vehicle.vin, "start_with_settings"):
+                await self.coordinator.engine.send_control(
+                    self.vehicle.vin, "start_with_settings", "climate",
+                    params={"temp_c": self.native_target_temperature},
+                )
+            elif self._requested_temperature is not None:
+                raise HomeAssistantError("Temperature-bearing start is not enabled")
+            else:
+                await self.coordinator.engine.send_control(self.vehicle.vin, "start")
         except (RuntimeError, ValueError) as err:
             raise HomeAssistantError(str(err)) from err
         self.async_write_ha_state()
@@ -436,6 +471,10 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             return _capture_in_utc(value)
         if self.attribute["id"] in ("vehicleReportedOnline", "vehicleReportedActive") and type(value) is bool:
             return ("online" if value else "offline") if self.attribute["id"] == "vehicleReportedOnline" else ("active" if value else "inactive")
+        if self.attribute["id"] == "externalPower":
+            return {"ready": "Ready", "unavailable": "Not Ready"}.get(value, value)
+        if self.attribute["id"] == "chargingPlugAutoUnlock":
+            return {"on": "enabled", "off": "disabled"}.get(value, value)
         return value if isinstance(value, (str, int, float, bool)) else None
 
     @property
@@ -502,6 +541,11 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
     @property
     def available(self) -> bool:
         reading = self.vehicle.readings.get(self.attribute["id"])
+        if self.attribute["id"] == "is_moving" and reading:
+            # Historical parking endpoint indication, not a live GPS fix.
+            age = _reading_age_minutes(reading.get("observed"))
+            return (reading.get("path") in ("parkingposition HTTP 204", "parkingposition parked sample")
+                    and type(reading.get("value")) is bool and age is not None and age <= 60)
         return _reading_available(reading)
 
     @property

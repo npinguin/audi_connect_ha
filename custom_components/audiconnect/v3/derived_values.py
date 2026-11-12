@@ -71,7 +71,8 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         captured = block.get("carCapturedTimestamp")
         names = {"frontLeft": "left_front", "frontRight": "right_front",
                  "rearLeft": "left_rear", "rearRight": "right_rear"}
-        opened, unlocked, windows = [], [], []
+        opened, unlocked, windows = {}, {}, {}
+        trunk_open = trunk_unlocked = None
         for row in block.get("doors", []) if isinstance(block.get("doors"), list) else []:
             if not isinstance(row, dict):
                 continue
@@ -82,26 +83,34 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
             lock_state = True if "unlocked" in states else False if "locked" in states else None
             if name in names:
                 record(names[name] + "_door_open", open_state, captured, "access", path)
-                opened.append(open_state)
-                unlocked.append(lock_state)
+                opened[name] = open_state
+                unlocked[name] = lock_state
             elif name == "trunk":
                 record("trunk_open", open_state, captured, "access", path)
                 record("trunk_unlocked", lock_state, captured, "access", path)
-                opened.append(open_state)
-                unlocked.append(lock_state)
+                trunk_open, trunk_unlocked = open_state, lock_state
             elif name == "bonnet":
                 record("hood_open", open_state, captured, "access", path)
         # Positive is conclusive even if other components are not present.
         # Negative requires complete, known evidence; no fabricated safe state.
         for key, values in (("any_door_open", opened), ("any_door_unlocked", unlocked)):
-            value = True if True in values else False if len(values) >= 3 and all(x is False for x in values) else None
-            record(key, value, captured, "access", path)
-        if True in opened:
+            value = True if True in values.values() else False if len(values) == 4 and all(x is False for x in values.values()) else None
+            if value is None:
+                if accepts(car.readings.get(key), captured):
+                    car.readings.pop(key, None)
+            else:
+                record(key, value, captured, "access", path)
+        if True in opened.values() or trunk_open is True:
             record("doors_trunk_status", "Open", captured, "access", path)
-        elif opened and all(x is False for x in opened):
-            lock = block.get("doorLockStatus")
-            if lock in ("locked", "unlocked"):
-                record("doors_trunk_status", "Locked" if lock == "locked" else "Closed", captured, "access", path)
+        elif len(opened) == 4 and all(x is False for x in opened.values()) and trunk_open is False:
+            if True in unlocked.values() or trunk_unlocked is True:
+                record("doors_trunk_status", "Closed", captured, "access", path)
+            elif len(unlocked) == 4 and all(x is False for x in unlocked.values()) and trunk_unlocked is False:
+                record("doors_trunk_status", "Locked", captured, "access", path)
+            elif accepts(car.readings.get("doors_trunk_status"), captured):
+                car.readings.pop("doors_trunk_status", None)
+        elif accepts(car.readings.get("doors_trunk_status"), captured):
+            car.readings.pop("doors_trunk_status", None)
         for row in block.get("windows", []) if isinstance(block.get("windows"), list) else []:
             if not isinstance(row, dict):
                 continue
@@ -113,10 +122,14 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                    {"sunRoof": "sun_roof", "roofCover": "roof_cover"}.get(name))
             if key:
                 record(key, state, captured, "access", path)
-                windows.append(state)
-        record("any_window_open", True if True in windows else
-               False if len(windows) >= 4 and all(x is False for x in windows) else None,
-               captured, "access", path)
+                if name in names:
+                    windows[name] = state
+        value = True if True in windows.values() else False if len(windows) == 4 and all(x is False for x in windows.values()) else None
+        if value is None:
+            if accepts(car.readings.get("any_window_open"), captured):
+                car.readings.pop("any_window_open", None)
+        else:
+            record("any_window_open", value, captured, "access", path)
     path = "vehicleLights.lightsStatus.value"
     lights = read_json_path(payload, path)
     if isinstance(lights, dict) and isinstance(lights.get("lights"), list):

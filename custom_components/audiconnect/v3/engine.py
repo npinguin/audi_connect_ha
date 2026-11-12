@@ -1165,7 +1165,9 @@ class V3Engine:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
         family, path, mappings = self._attribute_request(car, profile, attribute, route)
-        if family != ("mbb" if car.context.auth == "legacy" else "cariad"):
+        if family != ("mbb" if car.context.auth == "legacy" else "cariad") and not (
+            family == "cariad" and car.legacy_cariad
+        ):
             raise ValueError("Read route is not applicable to this vehicle API family")
         response = await self.transport.request(family, "GET", path)
         self._api_record(profile, route, family, "GET", response, car.vin)

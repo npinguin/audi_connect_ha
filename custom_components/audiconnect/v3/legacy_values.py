@@ -51,7 +51,7 @@ def observe_legacy(car,profile,kind,response):
             raw=_number(read_json_path(payload,path))
             if raw is not None: record(ident,conversion(raw),path=path)
     if kind=="charger":
-        for ident,source in (("charging_type","chargeMode"),("plug_led_color","plugledColor"),
+        for ident,source in (("charging_type","chargeType"),("plug_led_color","plugledColor"),
             ("primary_engine_type","engineTypeFirstEngine"),("secondary_engine_type","engineTypeSecondEngine")):
             row=car.readings.get(source,{})
             record(ident,row.get("value"),row.get("captured"),row.get("path"))
@@ -83,7 +83,14 @@ def observe_legacy(car,profile,kind,response):
         "MAINTENANCE_INTERVAL_DISTANCE_TO_INSPECTION","MAINTENANCE_INTERVAL_TIME_TO_INSPECTION",
         "ADBLUE_RANGE","OIL_LEVEL_DIPSTICKS_PERCENTAGE"}
     for key,(value,stamp) in found.items():
-        if key in numeric_fields: record(key,_number(value),stamp,key)
+        if key=="OIL_LEVEL_DIPSTICKS_PERCENTAGE" and type(value) is bool:
+            record("oil_level_binary",not value,stamp,key)
+        elif key in numeric_fields:
+            record(key,_number(value),stamp,key)
+        if key=="LIGHT_STATUS" and isinstance(value,list) and len(value)>=2:
+            states=[item.get("status") for item in value[:2] if isinstance(item,dict)]
+            if len(states)==2 and all(state in ("on","off") for state in states):
+                record("parking_light","on" in states,stamp,key)
         if key=="BRAKING_STATUS":
             record("braking_status",True if str(value)=="1" else False if str(value)=="2" else None,stamp,key)
         if key=="TEMPERATURE_OUTSIDE":

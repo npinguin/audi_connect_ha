@@ -78,7 +78,7 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
             continue
         if isinstance(value, str) and value.strip().lower() in (
             "unknown", "invalid", "unsupported", "unavailable", "error", ""
-        ):
+        ) and not (ident == "externalPower" and value.strip().lower() == "unavailable"):
             continue
         if len(str(value)) > 10000:
             continue
