@@ -232,14 +232,13 @@ def user_progress(car, profile, auth):
     if "mobility" in profile.registry.capabilities and modern:
         from .trips import CARIAD_TRIP_OPERATIONS
         available = profile.registry.resolve("mobility", "status", car.context)["available_operations"]
-        for operation in CARIAD_TRIP_OPERATIONS:
+        for operation in (*CARIAD_TRIP_OPERATIONS, "cariad.mobility.status.parkingPosition", "cariad.mobility.status.tripStatistics"):
             if operation in available:
                 reads[operation] = getattr(profile, "standalone_discovery", {}).get(operation, profile.api_observations.get(operation, {}).get("http_status"))
     if car.context.auth == "legacy":
         from .legacy_read_mappings import ROUTES
-        for kind in ROUTES:
-            operation = "mbb.discovery." + kind
-            reads[operation] = profile.api_observations.get(operation, {}).get("http_status")
+        for operation in [*("mbb.discovery." + kind for kind in ROUTES), "mbb.trip.shortTerm", "mbb.trip.longTerm"]:
+            reads[operation] = getattr(profile, "standalone_discovery", {}).get(operation, profile.api_observations.get(operation, {}).get("http_status"))
     def assessed_http(status):
         return type(status) is int and (200 <= status < 300 or status in (400, 404, 405, 410, 422))
     controls = []
@@ -276,9 +275,10 @@ def user_progress(car, profile, auth):
         "schema_inventory_percent": round(100 * schema_captured / len(jobs), 1) if jobs else None,
         "schema_inventory_scope": "current_session_untruncated_capture_not_semantic_completeness",
         "read_assessed": assessed, "read_total": total, "jobs": jobs,
-        "standalone_http": reads, "model_present": bool(car.model),
+        "standalone_http": reads, "unsupported_reads": sorted(op for op in reads if read_excluded(profile, op)),
+        "model_present": bool(car.model),
         "controls_catalog_applicable": len(applicable), "controls_physically_verified": verified,
         "control_verification_percent": round(100 * verified / len(applicable), 1) if applicable else None,
         "controls": controls, "capabilities": capabilities,
-        "excluded_reads": ["parkingPosition (tracker policy)", "tripStatistics (separate catalog route)", "custom and reference-only routes"],
+        "excluded_reads": ["user-disabled GPS tracker (if disabled)", "custom and reference-only routes"],
         "scope": "selective-status jobs and reviewed standard trip/legacy resources; not vehicle support"}
