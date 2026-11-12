@@ -163,7 +163,7 @@ def restore_profile(
             or len(observed_jobs) > len(V2_JOBS) or len(probed_jobs) > len(V2_JOBS)):
         raise DevelopmentProfileError("Invalid CARIAD discovery data")
     for job, result in observed_jobs.items():
-        if job not in V2_JOBS or result not in ("observed", "not_observed", "inconclusive"):
+        if job not in V2_JOBS or result not in ("observed", "not_observed", "inconclusive", "unsupported"):
             raise DevelopmentProfileError("Untrusted discovery job status")
     for job, count in probed_jobs.items():
         if job not in V2_JOBS or type(count) is not int or not 0 <= count <= 1:
@@ -179,6 +179,10 @@ def restore_profile(
         raise DevelopmentProfileError("Invalid standalone discovery evidence")
     for key, value in standalone.items():
         record_standalone_read(profile, key, value)
+    excluded = saved.get("unsupported_reads", [])
+    if not isinstance(excluded, list) or any(not isinstance(key, str) or key not in STANDALONE_READS for key in excluded):
+        raise DevelopmentProfileError("Invalid explicit read exclusion")
+    profile.unsupported_reads.update(excluded)
     observations = saved.get("api_observations", {})
     if not isinstance(observations, dict) or len(observations) > MAX_ROUTES:
         raise DevelopmentProfileError("Invalid saved API observations")
