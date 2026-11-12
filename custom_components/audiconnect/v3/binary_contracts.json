@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "source": "V2 BINARY_SENSOR_DESCRIPTIONS, explicit V3 metadata contract",
+  "source": "V3 product semantics; historical binary identities retained",
   "attributes": {
     "plug_state": {
       "name": "Plug state",
       "device_class": "plug",
-      "icon": "mdi:ev-plug-type1",
+      "icon": "mdi:ev-plug-type2",
       "category": null
     },
     "plug_lock_state": {
       "name": "Plug Lock state",
       "device_class": "lock",
-      "icon": "mdi:ev-plug-type1",
+      "icon": null,
       "category": null
     },
     "glass_surface_heating": {
@@ -33,10 +33,10 @@
       "category": null
     },
     "parking_light": {
-      "name": "Parking light",
+      "name": "Parking lights",
       "device_class": "safety",
-      "icon": "mdi:lightbulb",
-      "category": "diagnostic"
+      "icon": "mdi:car-parking-lights",
+      "category": null
     },
     "any_window_open": {
       "name": "Windows",
@@ -53,7 +53,7 @@
     "any_door_open": {
       "name": "Doors",
       "device_class": "door",
-      "icon": null,
+      "icon": "mdi:car-door",
       "category": null
     },
     "trunk_unlocked": {
@@ -65,62 +65,62 @@
     "trunk_open": {
       "name": "Trunk",
       "device_class": "door",
-      "icon": null,
+      "icon": "mdi:car-door",
       "category": null
     },
     "hood_open": {
       "name": "Hood",
       "device_class": "door",
-      "icon": null,
+      "icon": "mdi:car-door",
       "category": null
     },
     "left_front_door_open": {
       "name": "Left front door",
       "device_class": "door",
-      "icon": null,
-      "category": "diagnostic"
+      "icon": "mdi:car-door",
+      "category": null
     },
     "right_front_door_open": {
       "name": "Right front door",
       "device_class": "door",
-      "icon": null,
-      "category": "diagnostic"
+      "icon": "mdi:car-door",
+      "category": null
     },
     "left_rear_door_open": {
       "name": "Left rear door",
       "device_class": "door",
-      "icon": null,
-      "category": "diagnostic"
+      "icon": "mdi:car-door",
+      "category": null
     },
     "right_rear_door_open": {
       "name": "Right rear door",
       "device_class": "door",
-      "icon": null,
-      "category": "diagnostic"
+      "icon": "mdi:car-door",
+      "category": null
     },
     "left_front_window_open": {
       "name": "Left front window",
       "device_class": "window",
       "icon": null,
-      "category": "diagnostic"
+      "category": null
     },
     "right_front_window_open": {
       "name": "Right front window",
       "device_class": "window",
       "icon": null,
-      "category": "diagnostic"
+      "category": null
     },
     "left_rear_window_open": {
       "name": "Left rear window",
       "device_class": "window",
       "icon": null,
-      "category": "diagnostic"
+      "category": null
     },
     "right_rear_window_open": {
       "name": "Right rear window",
       "device_class": "window",
       "icon": null,
-      "category": "diagnostic"
+      "category": null
     },
     "braking_status": {
       "name": "Braking status",
@@ -129,16 +129,16 @@
       "category": null
     },
     "oil_level_binary": {
-      "name": "Oil Level Binary",
+      "name": "Oil level warning",
       "device_class": "problem",
       "icon": "mdi:oil",
-      "category": "diagnostic"
+      "category": null
     },
     "is_moving": {
-      "name": "Is moving",
+      "name": "Vehicle moving",
       "device_class": "moving",
-      "icon": "mdi:motion-outline",
-      "category": "diagnostic"
+      "icon": "mdi:car-side",
+      "category": null
     }
   }
 }

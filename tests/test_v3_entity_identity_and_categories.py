@@ -165,3 +165,14 @@ def test_exact_pilot_retirement_and_single_account_refresh_anchor(monkeypatch):
     assert engine.cloud_refresh_vin == other
     assert entries["button.duplicate"].disabled_by is None
     assert entries["button.refresh"].disabled_by == er.RegistryEntryDisabler.INTEGRATION
+
+def test_b10_compatibility_visibility_requires_evidence():
+    from custom_components.audiconnect.v3.product_contract import compatibility_hidden
+    car = NS(readings={"stateOfCharge": {"value": 77},
+                       "secondary_engine_type": {"value": "electric"}})
+    assert compatibility_hidden(car, "switch.climate_quick_control")
+    assert compatibility_hidden(car, "sensor.secondary_engine_range_percent")
+    assert not compatibility_hidden(car, "sensor.primary_engine_range_percent")
+    assert not compatibility_hidden(car, "sensor.oil_level")
+    car.readings["OIL_LEVEL_DIPSTICKS_PERCENTAGE"] = {"reason": "boolean_oil_level_use_binary"}
+    assert compatibility_hidden(car, "sensor.oil_level")

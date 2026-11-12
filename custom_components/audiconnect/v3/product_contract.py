@@ -128,7 +128,10 @@ def entity_projection_report(engine):
         counts[status] += 1
         row = {"platform": platform, "contract_key": key or "unrecognized_registry_key",
                "status": status, "offered_by_runtime": offered, "state_present": state_present,
-               "disabled_by": getattr(disabled, "value", None)}
+               "disabled_by": getattr(disabled, "value", None),
+               "entity_category": getattr(getattr(entry, "entity_category", None), "value", None),
+               "hidden_by": getattr(getattr(entry, "hidden_by", None), "value", None),
+               "original_icon": getattr(entry, "original_icon", None)}
         if key is None:
             suffix = uid.split("_", 1)[-1] if isinstance(uid, str) else ""
             row["key_fingerprint"] = hashlib.sha256(suffix.encode()).hexdigest()[:16]
@@ -136,3 +139,31 @@ def entity_projection_report(engine):
     report.update(registry_available=True, registered=len(entries), counts=dict(counts),
                   rows=rows[:250], truncated=len(rows)>250)
     return report
+
+def compatibility_hidden(vehicle, key):
+    """Hide redundant representations only with supporting semantic evidence."""
+    readings = getattr(vehicle, "readings", {})
+    if key in product_inventory()["default_hidden_compatibility"]:
+        if key == "sensor.hybrid_range":
+            return any(readings.get(x, {}).get("value") is not None for x in ("TOTAL_RANGE", "range"))
+        return True
+    if key == "sensor.oil_level":
+        return readings.get("OIL_LEVEL_DIPSTICKS_PERCENTAGE", {}).get("reason") == "boolean_oil_level_use_binary"
+    for role in ("primary", "secondary"):
+        if key != "sensor." + role + "_engine_range_percent":
+            continue
+        engine = readings.get(role + "_engine_type", {}).get("value")
+        if engine == "electric":
+            return readings.get("stateOfCharge", {}).get("value") is not None
+        # Fuel percentage is not necessarily the same as generic engine SOC.
+    return False
+
+
+def canonical_entity_category(key):
+    """Categories are product semantics, not API provenance."""
+    if key.startswith("binary_sensor.") and key != "binary_sensor.custom_attribute":
+        return None
+    if key in ("number.target_state_of_charge", "number.active_charging_profile_target_soc",
+               "number.charge_profile_{profile_id}_target_soc", "select.charge_mode"):
+        return "config"
+    return None

@@ -26,7 +26,7 @@ from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
-from .product_contract import projection_reading
+from .product_contract import projection_reading, compatibility_hidden
 
 
 def _binding_status(profile, key):
@@ -59,7 +59,7 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
 
 
 class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
-    _attr_name = "Climatisation"
+    _attr_name = "Climate"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 15
@@ -146,7 +146,11 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
         age = self.vehicle.capture_age_minutes
         if state is None or (age is None and not self._recent_legacy_status()) or (age is not None and age > 60):
             return None
-        return HVACMode.OFF if state in ("off", "stopped", "inactive") else HVACMode.HEAT_COOL
+        if state in ("off", "stopped", "inactive"):
+            return HVACMode.OFF
+        if state in ("heating", "cooling", "ventilation", "on", "active"):
+            return HVACMode.HEAT_COOL
+        return None
 
     @property
     def hvac_action(self) -> HVACAction | None:
@@ -473,6 +477,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         self.attribute = attribute
         self._attr_unique_id = f'{vehicle.vin.lower()}_sensor_{attribute["entity_key"]}'
         contract = attribute.get("contract") or contract_for(attribute["entity_key"])
+        self._attr_entity_registry_visible_default = not compatibility_hidden(vehicle, "sensor." + attribute["entity_key"])
         self._semantic_contract = contract
         self._allow_last_known = contract.get("display_last_known", False) is True
         self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
@@ -614,15 +619,15 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
             # V2 accessors normalize these raw Audi status enums before the
             # legacy binary platform sees them. V3 must do the same.
             if key == "plug_state":
-                return None if normalized in ("", "invalid", "unsupported", "unknown") else normalized != "disconnected"
+                return {"connected": True, "disconnected": False}.get(normalized)
             if key == "plug_lock_state":
-                return None if normalized in ("", "invalid", "unsupported", "unknown") else normalized != "locked"
+                return {"locked": False, "unlocked": True}.get(normalized)
             if normalized in ("normal", "false", "off", "inactive", "closed", "locked"):
                 return False
             if normalized in ("true", "on", "active", "open", "unlocked"):
                 return True
             return None
-        return bool(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -697,7 +702,8 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
 
 
 class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
-    _attr_name = "Climatisation ON/OFF"
+    _attr_name = "Climate ON/OFF (compatibility)"
+    _attr_entity_registry_visible_default = False
     _attr_icon = "mdi:car-air-conditioner"
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
@@ -710,7 +716,11 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
         age = self.vehicle.capture_age_minutes
         if state is None or age is None or age > 60:
             return None
-        return state not in ("off", "inactive", "stopped")
+        if state in ("off", "inactive", "stopped"):
+            return False
+        if state in ("heating", "cooling", "ventilation", "on", "active"):
+            return True
+        return None
 
     @property
     def available(self) -> bool:
@@ -857,6 +867,7 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
     """V2 global charge-target identity; command gated by V3 route evidence."""
 
     _attr_name = "Target state of charge"
+    _attr_entity_category = EntityCategory.CONFIG
     _attr_device_class = NumberDeviceClass.BATTERY
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_native_min_value = 20
@@ -1026,7 +1037,8 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
 class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
     """V2 select identity, independent preferred-mode source and command gate."""
 
-    _attr_name = "Charge mode"
+    _attr_name = "Preferred charge mode"
+    _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:battery-clock"
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
@@ -1040,6 +1052,7 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
         return (
             _reading_available(self.vehicle.readings.get("preferredChargeMode"),
                                allow_last_known=True)
+            and bool(self.options) and self.current_option in self.options
             and self.coordinator.engine.control_enabled(
                 self.vehicle.vin, "set_charge_mode", "charging"
             )
@@ -1054,11 +1067,8 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
             if isinstance(x, str) and x.lower() not in
             {"", "invalid", "unsupported", "unknown"}
         ] if isinstance(values, list) else []
-        if not modes:
-            modes = ["manual", "timer"]
-        current = self.current_option
-        if current and current not in modes:
-            modes.append(current)
+        # Only the vehicle-advertised choices may be written.
+        # A reported current option is not evidence of other supported choices.
         return modes
 
     @property

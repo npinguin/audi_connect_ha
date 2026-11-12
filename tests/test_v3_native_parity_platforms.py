@@ -47,7 +47,7 @@ def test_v3_platforms_reuse_exact_v2_unique_ids():
     assert number.native_min_value == 20
     assert number.native_max_value == 100
     assert number.native_step == 5
-    assert select.options == ["manual", "timer"]
+    assert select.options == []
     assert tracker.latitude is None and not tracker.available
 
 
@@ -91,6 +91,7 @@ def test_charge_targets_and_modes_read_normalized_v3_values():
         "targetstateOfCharge": {
             "value": 80, "captured": captured, "status": "verified",
         },
+        "availableChargeModes": {"value": ["manual", "timer"], "captured": captured, "status": "verified"},
         "preferredChargeMode": {
             "value": "timer", "captured": captured, "status": "verified",
         },

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source": "V2_V3_PARITY_BASELINE plus explicit product extensions",
+  "source": "V2_V3_PARITY_BASELINE plus explicit product extensions; b10 reversible compatibility visibility, vehicle-first categories",
   "entities": {
     "sensor.last_update_time": {
       "origin": "v2",
@@ -978,5 +978,10 @@
   "raw_only_attributes": [
     "preferredChargeMode"
   ],
-  "local_extensions": "validated sensor/binary_sensor v3_custom_*"
+  "local_extensions": "validated sensor/binary_sensor v3_custom_*",
+  "default_hidden_compatibility": [
+    "switch.climate_quick_control",
+    "sensor.climatisation_state",
+    "sensor.hybrid_range"
+  ]
 }

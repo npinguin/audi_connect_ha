@@ -3,7 +3,7 @@
   "source": "upstream_v2_sensor_descriptions",
   "attributes": {
     "range": {
-      "name": "Range",
+      "name": "Total range",
       "unit": "km",
       "device_class": "distance",
       "state_class": "measurement",
@@ -13,7 +13,7 @@
       "icon": "mdi:map-marker-distance"
     },
     "tank_level": {
-      "name": "Tank level",
+      "name": "Fuel level",
       "unit": "%",
       "device_class": null,
       "state_class": "measurement",
@@ -23,7 +23,7 @@
       "icon": "mdi:gas-station"
     },
     "mileage": {
-      "name": "Mileage",
+      "name": "Odometer",
       "unit": "km",
       "device_class": "distance",
       "state_class": "total_increasing",
@@ -73,7 +73,7 @@
       "icon": "mdi:oil"
     },
     "oil_level": {
-      "name": "Oil level",
+      "name": "Oil level percentage",
       "unit": "%",
       "device_class": null,
       "state_class": "measurement",
@@ -143,7 +143,7 @@
       "icon": "mdi:map-marker-distance"
     },
     "primary_engine_range_percent": {
-      "name": "Primary engine Percent",
+      "name": "Primary engine level",
       "unit": "%",
       "device_class": null,
       "state_class": "measurement",
@@ -173,7 +173,7 @@
       "icon": "mdi:map-marker-distance"
     },
     "secondary_engine_range_percent": {
-      "name": "Secondary engine Percent",
+      "name": "Secondary engine level",
       "unit": "%",
       "device_class": null,
       "state_class": "measurement",
@@ -183,7 +183,7 @@
       "icon": "mdi:gauge"
     },
     "hybrid_range": {
-      "name": "hybrid Range",
+      "name": "Combined range (compatibility)",
       "unit": "km",
       "device_class": "distance",
       "state_class": "measurement",
@@ -193,7 +193,7 @@
       "icon": "mdi:map-marker-distance"
     },
     "state_of_charge": {
-      "name": "State of charge",
+      "name": "Battery state of charge",
       "unit": "%",
       "device_class": "battery",
       "state_class": "measurement",
@@ -294,7 +294,7 @@
       "icon": "mdi:ev-plug-type2"
     },
     "climatisation_state": {
-      "name": "Climatisation state",
+      "name": "Climate state (compatibility)",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -454,7 +454,7 @@
       "icon": "mdi:car-clock"
     },
     "last_update_time": {
-      "name": "Last Update",
+      "name": "Last vehicle capture",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,

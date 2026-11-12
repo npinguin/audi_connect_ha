@@ -15,7 +15,8 @@ def test_all_v2_binary_sensor_metadata_matches_independent_v3_projection():
         entity = V3ReadOnlyBinarySensor(coordinator, car,
             {"id": description.key, "entity_key": description.key, "capability": "vehicle_status"})
         assert entity.unique_id == car.vin.lower() + "_binary_sensor_" + description.key
-        assert entity.name == description.name
+        contract = binary_contracts()[description.key]
+        assert entity.name == contract["name"]
         assert entity.device_class == description.device_class
-        assert entity.entity_category == description.entity_category
-        assert entity.icon == description.icon
+        assert entity.entity_category is None
+        assert entity.icon == contract["icon"]

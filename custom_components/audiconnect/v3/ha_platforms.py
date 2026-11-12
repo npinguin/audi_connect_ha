@@ -62,13 +62,17 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 if "account:quota" not in seen:
                     add_once("account:quota", V3ApiQuotaSensor, entry.entry_id)
             elif platform == "climate":
-                add_once(f"{vin}:climate", V3ClimateEntity)
+                if car.climate_state is not None or any(engine.control_enabled(car.vin, action)
+                    for action in ("start", "stop", "start_with_settings")):
+                    add_once(f"{vin}:climate", V3ClimateEntity)
             elif platform == "device_tracker":
                 add_once(f"{vin}:tracker", V3ParkedTracker)
             elif platform == "number":
-                add_once(f"{vin}:target_soc", V3ChargeTargetNumber)
+                if engine.control_enabled(car.vin, "set_target_soc", "charging") and type(car.readings.get("targetstateOfCharge", {}).get("value")) in (int, float):
+                    add_once(f"{vin}:target_soc", V3ChargeTargetNumber)
             elif platform == "select":
-                add_once(f"{vin}:charge_mode", V3ChargeModeSelect)
+                if engine.control_enabled(car.vin, "set_charge_mode", "charging") and car.readings.get("availableChargeModes", {}).get("value"):
+                    add_once(f"{vin}:charge_mode", V3ChargeModeSelect)
 
             if platform in ("sensor", "binary_sensor"):
                 if platform == "sensor":

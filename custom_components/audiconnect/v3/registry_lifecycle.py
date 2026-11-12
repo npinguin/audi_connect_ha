@@ -14,7 +14,8 @@ from __future__ import annotations
 from typing import Any
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
-from .product_contract import retired_pilot_entity, account_cloud_refresh_vin
+from .product_contract import retired_pilot_entity, account_cloud_refresh_vin, entity_key, compatibility_hidden, canonical_entity_category
+from homeassistant.const import EntityCategory
 
 
 async def async_apply_v3_entity_visibility(
@@ -76,6 +77,40 @@ async def async_apply_v3_entity_visibility(
             registry.async_update_entity(entity_id, disabled_by=None)
             duplicate_ids.discard(unique_id)
 
+    # Reversible default visibility migration, never disable/delete compatibility IDs.
+    hidden = set(data.get("b10_hidden", []))
+    reviewed = set(data.get("b10_reviewed", []))
+    for entity_id in owned:
+        current = registry.async_get(entity_id)
+        uid = getattr(current, "unique_id", "")
+        key = entity_key(uid, entry.entry_id)
+        if not key or not hasattr(current, "hidden_by"):
+            continue
+        if not enabled:
+            if uid in hidden and current.hidden_by == er.RegistryEntryHider.INTEGRATION:
+                registry.async_update_entity(entity_id, hidden_by=None)
+            continue
+        if engine is None:
+            continue
+        car = engine.vehicles.get(uid.split("_", 1)[0].lower())
+        if car is None:
+            continue
+        updates = {}
+        if key.startswith("binary_sensor.") and key != "binary_sensor.custom_attribute" and current.entity_category == EntityCategory.DIAGNOSTIC:
+            updates["entity_category"] = None
+        if canonical_entity_category(key) == "config" and current.entity_category is None:
+            updates["entity_category"] = EntityCategory.CONFIG
+        if uid not in reviewed and compatibility_hidden(car, key):
+            reviewed.add(uid)
+            if current.hidden_by is None and current.disabled_by is None:
+                updates["hidden_by"] = er.RegistryEntryHider.INTEGRATION
+                hidden.add(uid)
+        if updates:
+            registry.async_update_entity(entity_id, **updates)
+    if not enabled:
+        hidden.clear()
+        reviewed.clear()
+
     # Historical V2 disable records are cleared; the cloud anchor is local
     # account metadata. Never save pilot retirement as a V2 restore candidate.
     result = {"entity_ids": []}
@@ -83,4 +118,8 @@ async def async_apply_v3_entity_visibility(
         result["cloud_refresh_anchor"] = primary or data["cloud_refresh_anchor"]
     if duplicate_ids:
         result["retired_duplicate_cloud_refresh"] = sorted(duplicate_ids)
+    if hidden:
+        result["b10_hidden"] = sorted(hidden)
+    if reviewed:
+        result["b10_reviewed"] = sorted(reviewed)
     await store.async_save(result)
