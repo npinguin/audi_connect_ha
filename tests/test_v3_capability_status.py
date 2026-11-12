@@ -154,3 +154,34 @@ def test_untested_read_candidates_are_linked_to_entities_before_any_api_call():
     assert custom["mappings"][0]["status"] == "not_tested"
     charging = operations["cariad.status.charging"]
     assert any(m["attribute"] == "stateOfCharge" and not m["active"] for m in charging["mappings"])
+
+
+def test_next_actions_prioritizes_missing_identity_without_repeating_known_mapping_notes():
+    from datetime import UTC, datetime
+    from custom_components.audiconnect.v3.attribute_runtime import observe_read_only
+    car, profile = _fixture()
+    car.model = car.model_family = ""
+    now = datetime.now(UTC)
+    observe_read_only(car, profile, {"oilLevel": {"oilLevelStatus": {"value": {
+        "value": True, "carCapturedTimestamp": now.isoformat()}}}}, now)
+    car.readings["remainingClimatisationTime"] = {"value": -1, "captured": now.isoformat()}
+    car.readings["climatisationState"] = {"value": "off", "captured": now.isoformat()}
+    report = build_status_report(car, profile)
+    assert report["next_actions"][0]["reason"] == "manufacturer_identity_missing"
+    assert not report["identity_summary"]["manufacturer_model"]
+    assert any(f["reason"] == "boolean_oil_level_use_binary" for f in report["findings"])
+    assert not any(f["reason"] in ("boolean_oil_level_use_binary", "negative_duration")
+                   for f in report["next_actions"])
+
+
+def test_old_failed_route_is_not_next_action_when_control_has_working_binding():
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    car, profile = _fixture()
+    failed = CommandRecord.begin("climate", "start", "cariad.climate.start.stored", 1)
+    failed.state = "physical_failed"
+    profile.command_journal.append(failed)
+    profile.control_results[failed.operation] = "failed"
+    profile.fast_bindings["climate.start"] = {"status": "local_verified", "operation": "cariad.climate.start.settings"}
+    report = build_status_report(car, profile)
+    assert any(f["reason"] == "physical_control_physical_failed" for f in report["findings"])
+    assert not any(f["reason"] == "physical_control_physical_failed" for f in report["next_actions"])
