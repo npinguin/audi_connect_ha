@@ -33,3 +33,5 @@ This documentation is **research**, not an active deployment or a manufacturer-e
 - [V3 completeness audit](V3_COMPLETENESS_AUDIT.md) — pre-next-HACS gate and sanitized b12 capability evidence.
 
 - [V3 upstream readiness](V3_UPSTREAM_READINESS.md) — draft PR, remaining machine-gate blockers, evidence checklist and proposed upstream release sequence.
+
+- [Upstream gap scan and API research roadmap](V3_UPSTREAM_GAP_AND_API_RESEARCH.md) — accepted contributions, community acceptance cases, prioritized API research and permission boundaries.
