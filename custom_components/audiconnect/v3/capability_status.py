@@ -205,13 +205,6 @@ def build_status_report(
             "operation": selected or ("v2.attribute." + attr["id"]),
             "method": "GET" if known else "-",
             "path": mapped_path,
-            "status": evidence.get(
-                "status",
-                ("not_observed" if attr["job"] in profile.job_discovery
-                 and profile.job_discovery[attr["job"]] == "not_observed"
-                 and known and attr["paths"]
-                 else "not_tested" if known else "mapping_pending"),
-            ),
             "route_result": evidence.get("status", "not_tested"),
             "source": "v3_live_evidence" if evidence else "v2_attribute_reference",
             "selected": selected is not None, "saved_candidate": False,
@@ -229,7 +222,7 @@ def build_status_report(
                      "attribute": ident, "entity_key": attr["entity_key"], "api_family": "cariad",
                      "operation": selected or (choices[0]["id"] if choices else ident), "method": "GET",
                      "path": evidence.get("path") or (choices[0]["response_path"] if choices else "-"),
-                     "status": evidence.get("status", "not_tested"), "route_result": evidence.get("status", "not_tested"),
+                     "route_result": evidence.get("status", "not_tested"),
                      "source": "v3_live_evidence" if evidence else "local_attribute_definition",
                      "selected": selected is not None, "saved_candidate": False, "custom": True,
                      "context_applicable": vehicle.context.auth != "legacy" or vehicle.legacy_cariad, "job": None})

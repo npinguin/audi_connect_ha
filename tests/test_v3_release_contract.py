@@ -106,7 +106,9 @@ def test_workbench_capability_coverage_and_draft_storage_contract():
     assert '"audiconnect/v3/status"' in dashboard
     assert '"audiconnect/v3/save_candidate"' in dashboard
     assert 'this.api("status"' in client
-    assert 'this.api("save_candidate"' in client
+    assert '"audiconnect/v3/attribute_save"' in dashboard
+    assert 'this.api("attribute_save"' in client
+    assert 'this.api("save_candidate"' not in client
     assert "def save_candidate(" in model
     assert '"draft_selected": dict(self.draft_selected)' in model
 

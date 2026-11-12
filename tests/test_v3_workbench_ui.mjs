@@ -399,18 +399,18 @@ test("save and test read template executes only GET test and keeps new route sel
   const calls=[];
   p.api=async(name,args)=>{
     calls.push(name);
-    if(name==="attribute_add"){assert.equal(args.definition.response_path,"charging.changed");return {saved:"user.read.new_mapping",activated:false};}
-    if(name==="attribute_test"){assert.equal(args.operation,"user.read.new_mapping");return {route:args.operation,result:"verified"};}
+    if(name==="attribute_add"){assert.equal(args.definition.response_path,"charging.changed");return {saved:"user.read.stateofcharge_mapping",activated:false};}
+    if(name==="attribute_test"){assert.equal(args.operation,"user.read.stateofcharge_mapping");return {route:args.operation,result:"verified"};}
     if(name==="routes")return {routes:[],history:[]};
     if(name==="status")return {counts:{},rows:[]};
-    if(name==="attribute_routes")return {routes:[...p.readRoutes,{id:"user.read.new_mapping",family:"cariad",kind:"custom",path:"/new",response_paths:["charging.changed"]}],active:"target"};
+    if(name==="attribute_routes")return {routes:[...p.readRoutes,{id:"user.read.stateofcharge_mapping",family:"cariad",kind:"custom",path:"/new",response_paths:["charging.changed"]}],active:"target"};
     if(name==="api_results")return {records:[]};
     if(name==="list")return {integrations:p.entries};
     throw Error(name);
   };
   await p._click({target:{closest:()=>({dataset:{action:"read-add-test"}})}});
   assert.equal(p.error,"");
-  assert.equal(p.readChoice,"user.read.new_mapping");
+  assert.equal(p.readChoice,"user.read.stateofcharge_mapping");
   assert.deepEqual(calls.filter(n=>/attribute_(add|test|activate)/.test(n)),["attribute_add","attribute_test"]);
 });
 
@@ -423,4 +423,18 @@ test("typed command parameters use backend schema without JSON editing", () => {
   const key=p.definitionKey("parameters",JSON.stringify([route.id,route.parameter_schema]));
   p.definitionEdits.set(key+":value","timer");
   assert.equal(p.parameterValues(route,"{}").value,"timer");
+});
+
+
+test("repeated template editing proposes another identifier without changing active route",()=>{
+  const p=new Panel();p.attribute="stateOfCharge";
+  p.readRoutes=[{id:"user.read.stateofcharge_mapping",kind:"custom",family:"cariad",path:"/new",response_paths:["charging.soc"]}];
+  p.readChoice=p.readRoutes[0].id;
+  const template=JSON.parse(p.initialReadRoute);
+  assert.equal(template.id,"user.read.stateofcharge_mapping_2");
+  assert.equal(template.path,"/new");
+  p.controlCapability="charging";p.controlAction="start";
+  p.controlRoutes=[{id:"user.charging.start.alternative",family:"cariad",method:"POST",path:"/start",request_body:{}}];
+  p.controlChoice=p.controlRoutes[0].id;
+  assert.equal(JSON.parse(p.initialControlRoute).id,"user.charging.start.alternative_2");
 });

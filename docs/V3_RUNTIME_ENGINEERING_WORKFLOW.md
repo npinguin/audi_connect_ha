@@ -118,3 +118,7 @@ The reviewed charge-mode PUT now declares its enum, binding and body in the exis
 ## Cleanup slice 10 — remove obsolete climate-pilot frontend workflow
 
 Removed the unused climate-only route wizard, hidden action handlers and redundant `routes` WebSocket call from the frontend. Current attribute, control and identity workflows remain. The four views are retained, and pending action state is obtained from the current status/selected control endpoints. Existing backend compatibility endpoints are not removed in this slice. Tests exercise the actual read candidate workflow rather than unreachable pilot UI.
+
+## Cleanup slice 11 — remove stale UI contract and make repeated experiments practical
+
+The release contract now checks the actual attribute-save frontend path rather than the retired climate wizard. Removed redundant attribute-status initialization (canonical evidence computes it once). Alternative templates propose an attribute/action-specific unused identifier among the loaded variants, and refresh preserves the selected route instead of reverting to the active route. Backend uniqueness and activation validation remain authoritative; variants are still immutable.

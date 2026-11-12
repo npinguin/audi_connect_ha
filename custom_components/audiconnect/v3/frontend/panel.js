@@ -154,7 +154,8 @@ class AudiConnectV3Panel extends HTMLElement {
     this.readRoutes = data.routes || [];
     this.readDraft = data.draft || "";
     this.readActive = data.active || "";
-    this.readChoice = this.readRoutes.some(r => r.id === this.readDraft) ? this.readDraft :
+    this.readChoice = this.readRoutes.some(r => r.id === this.readChoice) ? this.readChoice :
+      this.readRoutes.some(r => r.id === this.readDraft) ? this.readDraft :
       this.readRoutes.some(r => r.id === this.readActive) ? this.readActive :
       this.readRoutes[0]?.id || "";
   }
@@ -169,9 +170,9 @@ class AudiConnectV3Panel extends HTMLElement {
     this.controlRoutes = value.routes || [];
     this.controlRequirement = value.requires || "";
     this.spinConfigured = value.spin_configured === true;
-    this.controlChoice = value.active && this.controlRoutes.some(r=>r.id===value.active)
-      ? value.active : this.controlRoutes.some(r=>r.id===this.controlChoice)
-        ? this.controlChoice : this.controlRoutes[0]?.id || "";
+    this.controlChoice = this.controlRoutes.some(r=>r.id===this.controlChoice)
+      ? this.controlChoice : value.active && this.controlRoutes.some(r=>r.id===value.active)
+        ? value.active : this.controlRoutes[0]?.id || "";
     this.pending = value.pending || null;
   }
 
@@ -473,6 +474,14 @@ class AudiConnectV3Panel extends HTMLElement {
     }
   }
 
+  nextVariantId(base, routes) {
+    const used=new Set(routes.map(route=>route.id));
+    if (!used.has(base)) return base;
+    let n=2;
+    while (used.has(base+"_"+n)) n++;
+    return base+"_"+n;
+  }
+
   definitionKey(id, template) {
     return JSON.stringify([id, this.selected, this.vin, template]);
   }
@@ -553,7 +562,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const body = selected && Object.hasOwn(selected,"request_body") ? selected.request_body :
       capability==="access" && ["lock","unlock"].includes(action) ? {spin:"{SPIN}"} : null;
     return JSON.stringify({
-      id:"user."+capability+"."+action+".alternative",
+      id:this.nextVariantId("user."+capability+"."+action+".alternative",this.controlRoutes),
       capability, aspect:action, family:selected?.family || "cariad", method:selected?.method || "POST",
       path:selected?.path || "/vehicle/v1/vehicles/{VIN}/"+capability+"/"+action,
       variables:selected?.method==="PUT"?{}:selected?.request_variables||{}, body:selected?.method==="PUT"?null:body,
@@ -578,7 +587,8 @@ class AudiConnectV3Panel extends HTMLElement {
     const selected = this.readRoutes.find(r=>r.id===this.readChoice);
     const source = selected?.kind === "shared_batch"
       ? this.readRoutes.find(r=>r.kind==="targeted_job" && r.family===selected.family) || selected : selected;
-    return JSON.stringify({id:"user.read.new_mapping", attribute:this.attribute,
+    const slug=this.attribute.toLowerCase().replace(/[^a-z0-9_]/g,"_").slice(0,28);
+    return JSON.stringify({id:this.nextVariantId("user.read."+(slug||"attribute")+"_mapping",this.readRoutes), attribute:this.attribute,
       family:source?.family || "cariad", method:"GET",
       path:source?.path || "",
       response_path:source?.response_paths?.[0] || (entry?.path !== "-" ? entry?.path || "" : ""),
