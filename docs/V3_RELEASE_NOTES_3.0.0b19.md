@@ -1,6 +1,6 @@
 # Audi Connect 3.0.0b19 — Product closure and community diagnostics
 
-**Development candidate; not yet authorized for publication.** This is one integrated candidate above b18. The existing published b18 remains available for HACS testing. V2 remains the default and rollback choice. Normal completeness, parity, stable and upstream gates are not waived.
+**Explicitly authorized experimental HACS test prerelease.** This is one integrated candidate above b18. Publication requires both HA compatibility jobs and exact-SHA release validation to pass. V2 remains the default and rollback choice. Normal completeness, parity, stable and upstream gates are not waived.
 
 ## Changes
 
@@ -18,3 +18,7 @@
 Full static V2 parity and upstream reconciliation, live manufacturer identity and schema/attribute disposition, representative vehicle and browser acceptance, reload/restart and V2 rollback remain open. Existing governance gates are unchanged. A passing CI run alone is not a release authorization.
 
 Reference b18 owner evidence: 125 registered entities, 95 projected known including buttons, 392 normalized trips, six stored locally verified controls. Charging writes did not work in either V2 or V3 on the current Q8 configuration. Do not force them or label them globally unsupported. See [community diagnostics](V3_COMMUNITY_DIAGNOSTICS.md) and the [completeness gate](../governance/V3_COMPLETENESS_GATE.json).
+
+## Install and test
+
+Back up Home Assistant, open Audi Connect in HACS, select `3.0.0b19` via Redownload (show prereleases), then restart HA. Keep the existing account and V3 selection; do not delete registry entries or the private profile store. Verify identity, SOC/range, trip count, charging read-only status, supported climate/access controls and restart recovery. Do not force unsupported charging writes or repeat unconfirmed commands. Download the native integration diagnostics and inspect before sharing. V2 remains the rollback runtime.

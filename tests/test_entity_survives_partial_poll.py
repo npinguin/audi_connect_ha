@@ -24,6 +24,8 @@ this poll.
 
 from __future__ import annotations
 
+from os.path import join
+
 import pytest
 from homeassistant.helpers import entity_registry as er
 
@@ -59,7 +61,8 @@ class StubHass:
 
     def __init__(self):
         self.data = {}
-        self.config = type("C", (), {"config_dir": "/tmp"})()
+        self.config = type("C", (), {"config_dir": "/tmp",
+                                     "path": lambda self, *parts: join(self.config_dir, *parts)})()
         self.bus = type(
             "B",
             (),
