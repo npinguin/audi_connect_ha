@@ -146,12 +146,17 @@ class GraphQLExecutor:
             raise ValueError("GraphQL supports only the fixed Audi vehicle-list endpoint")
         if not isinstance(body, dict) or set(body) != {"query"} or not isinstance(body["query"], str):
             raise ValueError("Unexpected vehicle-list GraphQL request")
+        from .transport import IDENTITY_QUERIES, _GRAPHQL_MODERN_QUERY
+        if body["query"] not in IDENTITY_QUERIES.values():
+            raise ValueError("Unreviewed GraphQL document")
         host = "app-api.my.aoa.audi.com" if auth.country == "US" else "app-api.live-my.audi.com"
         headers = _headers(auth.access_token(self.family))
         headers.update({"X-User-Country": auth.country,
                         "Accept-Language": _inventory_locale(auth),
                         "Accept-Charset": "utf-8",
                         "Content-Type": "application/json; charset=utf-8"})
+        if body["query"] == _GRAPHQL_MODERN_QUERY:
+            headers.update({"X-App-Version": "5.5.1", "User-Agent": "myAudi/5.5.1 Android/34"})
         return RequestPlan(self.family, method, f"https://{host}{path}", headers, body)
 
 

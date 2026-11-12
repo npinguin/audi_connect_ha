@@ -79,6 +79,7 @@ class V3Engine:
         self._known_vehicle_inventory = False
         self._image_probe_attempted = False
         self._image_probe_count = 0
+        self._identity_fallback_attempted = False
         from .integration_health import IntegrationHealth
         self.health = IntegrationHealth()
         self.cloud_refresh_vin: str | None = None
@@ -116,6 +117,27 @@ class V3Engine:
         excluded = {x.strip().lower() for x in str(options.get(
             CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
         )).split(",") if x.strip()}
+        from .transport import identity_rows, selected_identity_response
+        fallback = None
+        reader = getattr(self.transport, "test_identity_query", None)
+        remaining = getattr(self.transport, "remaining_calls", None)
+        missing_model = False
+        for row in found:
+            try:
+                parsed = V3Vehicle.from_graphql(row, self.auth.country)
+            except (ValueError, TypeError, AttributeError):
+                continue
+            missing_model |= parsed.vin.lower() not in excluded and not parsed.model
+        if (reader is not None and missing_model and not self._identity_fallback_attempted
+                and (remaining is None or remaining > 20)):
+            self._identity_fallback_attempted = True
+            try:
+                async with asyncio.timeout(8):
+                    fallback = await reader("graphql.inventory.extended")
+            except Exception:
+                fallback = None
+        alternatives = {str(row.get("vin", "")).lower(): row for row in identity_rows(fallback.data)
+                        if isinstance(row, dict)} if fallback is not None and 200 <= fallback.status < 300 else {}
         known: dict[str, V3Vehicle] = {}
         inventory_items = {}
         complete = bool(found)
@@ -127,6 +149,14 @@ class V3Engine:
                 continue
             if parsed.vin.lower() in excluded:
                 continue
+            alternative = alternatives.get(parsed.vin.lower())
+            if not parsed.model and alternative is not None:
+                candidate = V3Vehicle.from_graphql(alternative, self.auth.country)
+                if candidate.model:
+                    parsed.model, parsed.model_family, parsed.model_source = candidate.model, candidate.model_family, candidate.model_source
+                    parsed.model_year = parsed.model_year or candidate.model_year
+                    parsed.car_type = parsed.car_type or candidate.car_type
+                    parsed.name = parsed.model if parsed.name == "Audi vehicle" else parsed.name
             from .identity_cache import apply_cached_identity
             if parsed.vin.lower() not in self.vehicles and not parsed.model:
                 loader = getattr(self.storage, "async_identity", None)
@@ -213,10 +243,14 @@ class V3Engine:
             for vin, item in inventory_items.items():
                 # The exact decoded row for this vehicle only. Do not expose
                 # another vehicle's inventory even in an admin inspector.
-                response = V3Response(metadata.status, {"data": {"userVehicles": [item]}},
+                errors = getattr(self.transport, "last_inventory_errors", {}).get(vin, [])
+                response = V3Response(metadata.status, {"data": {"userVehicles": [item]}, "errors": errors},
                                       metadata.observed_at, metadata.remaining_calls, metadata.request)
                 self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
                                  response, known[vin].vin)
+                if fallback is not None:
+                    self._api_record(self.profiles[vin], "graphql.inventory.extended", "graphql", "POST",
+                                     selected_identity_response(fallback, known[vin].vin), known[vin].vin)
         # One bounded best-effort read per runtime. The image response is
         # intentionally excluded from API observations and engineering exports.
         image_reader = getattr(self.transport, "discover_vehicle_images", None)
@@ -358,8 +392,9 @@ class V3Engine:
             # Use original decoded types; an admin-preview cap is not a schema cap.
             payload = response.data
             groups = {job: {job: payload[job]} for job in V2_JOBS if job in payload} if method == "GET" and isinstance(payload, dict) else {}
-            if operation == INVENTORY_OPERATION:
-                groups = {"inventory": payload}
+            from .transport import IDENTITY_QUERIES
+            if operation in IDENTITY_QUERIES:
+                groups = {"inventory" if operation == INVENTORY_OPERATION else operation: payload}
             elif method == "GET" and operation in STANDALONE_READS:
                 groups[operation] = payload if isinstance(payload, dict) else {"response": payload}
             for job, data in groups.items():
@@ -389,6 +424,29 @@ class V3Engine:
             while len(profile.engineering_responses) > MAX_ENGINEERING_ROUTES:
                 profile.engineering_responses.pop(next(iter(profile.engineering_responses)))
 
+    async def test_identity_operation(self, vin: str, operation: str) -> dict[str, Any]:
+        """One reviewed read, selected vehicle evidence, no activation."""
+        from .transport import IDENTITY_QUERIES, selected_identity_response, identity_rows
+        if operation not in IDENTITY_QUERIES:
+            raise ValueError("Unknown reviewed GraphQL operation")
+        car = self.require_vehicle(vin)
+        if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+            raise RuntimeError("Audi quota is low")
+        response = await self.transport.test_identity_query(operation)
+        selected = selected_identity_response(response, car.vin)
+        profile = self.profiles[car.vin.lower()]
+        self._api_record(profile, operation, "graphql", "POST", selected, car.vin)
+        await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
+        rows = identity_rows(selected.data)
+        candidate = V3Vehicle.from_graphql(rows[0], car.country) if rows else None
+        return {"operation": operation, "http_status": response.status,
+                "errors": selected.data["errors"], "vehicle_present": bool(rows),
+                "model_present": bool(candidate and candidate.model),
+                "year_present": bool(candidate and candidate.model_year),
+                "drive_type_present": bool(candidate and candidate.car_type),
+                "note": "Read-only candidate evidence; no automatic activation."}
+
     async def test_family_reads(self, vin: str, family: str, *, full: bool = False) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.
 
@@ -397,6 +455,18 @@ class V3Engine:
         The API cloud budget remains enforced by V3Transport.
         """
         vehicle = self.require_vehicle(vin)
+        if family == "graphql":
+            from .transport import IDENTITY_QUERIES
+            routes = list(IDENTITY_QUERIES) if full else [INVENTORY_OPERATION]
+            results = []
+            for operation in routes:
+                if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+                    break
+                results.append(await self.test_identity_operation(vin, operation))
+                if results[-1]["http_status"] in (401, 403, 429):
+                    break
+            return {"family": family, "results": results, "request_count": len(results),
+                    "note": "Reviewed read-only GraphQL queries; no automatic activation."}
         expected = "mbb" if vehicle.context.auth == "legacy" else "cariad"
         if family != expected and not (family=="cariad" and vehicle.legacy_cariad):
             raise ValueError("API family is not applicable to this vehicle")

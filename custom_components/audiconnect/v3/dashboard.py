@@ -479,7 +479,7 @@ async def ws_engineering_response(hass, connection, msg):
 @websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/test_family_reads",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("family"): vol.In(("cariad", "mbb")),
+    vol.Required("family"): vol.In(("cariad", "mbb", "graphql")),
     vol.Optional("full", default=False): bool,
 })
 @websocket_api.async_response
@@ -492,6 +492,20 @@ async def ws_test_family_reads(hass, connection, msg):
     except (ValueError, KeyError, RuntimeError, OSError, TimeoutError) as exc:
         connection.send_error(msg["id"], "v3_family_read_test_failed", str(exc))
 
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/test_identity_operation",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("operation"): str,
+})
+@websocket_api.async_response
+async def ws_test_identity_operation(hass, connection, msg):
+    try:
+        result = await _engine(hass, msg["entry_id"]).test_identity_operation(msg["vin"], msg["operation"])
+        connection.send_result(msg["id"], result)
+    except (ValueError, KeyError, RuntimeError, OSError, TimeoutError):
+        connection.send_error(msg["id"], "v3_identity_test_failed", "Reviewed identity read failed")
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
@@ -532,7 +546,7 @@ async def async_setup_dashboard(hass) -> None:
             ws_review, ws_review_normal_command, ws_select, ws_save_candidate, ws_disable,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
-            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads, ws_trip_history,
+            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads, ws_test_identity_operation, ws_trip_history,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True
@@ -540,7 +554,7 @@ async def async_setup_dashboard(hass) -> None:
         hass,
         webcomponent_name="audiconnect-v3-panel",
         frontend_url_path=_PANEL,
-        module_url="/audiconnect_v3/panel.js?v=3.0.0b12-dashboard2",
+        module_url="/audiconnect_v3/panel.js?v=3.0.0b16",
         sidebar_title="Audi Engineering Dashboard",
         sidebar_icon="mdi:car-cog",
         require_admin=True,

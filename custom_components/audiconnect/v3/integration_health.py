@@ -46,9 +46,12 @@ class IntegrationHealth:
     def observe(self, vehicle, operation, method, response, operations):
         discovery = operation.startswith("cariad.discovery.")
         jobs = operation.removeprefix("cariad.discovery.").split("_") if discovery else []
-        if operation not in operations and not (discovery and jobs and all(j in V2_JOBS for j in jobs)):
+        from .transport import IDENTITY_QUERIES
+        if (operation not in operations and operation not in IDENTITY_QUERIES
+                and operation not in ("cariad.discovery.full", "cariad.selectivestatus.batch")
+                and not (discovery and jobs and all(j in V2_JOBS for j in jobs))):
             return
-        if method != "GET" and operation != "graphql.inventory.vehicleList":
+        if method != "GET" and operation not in IDENTITY_QUERIES:
             return
         status = getattr(response, "status", None)
         if status is None or not 200 <= status < 300:
@@ -78,6 +81,10 @@ class IntegrationHealth:
 
     def snapshot(self, engine, car):
         key = car.vin.lower()
+        if not car.model and "vehicle_identity" not in self.findings.get(key, {}):
+            self._record(key, "vehicle_identity", "vehicle_identity_missing")
+        elif car.model:
+            self._recover(key, "vehicle_identity")
         findings = list(self.findings.get(key, {}).values())
         remaining = getattr(engine.transport, "remaining_calls", None)
         quota = getattr(engine.transport, "quota", None)
