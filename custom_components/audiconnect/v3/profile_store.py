@@ -43,6 +43,8 @@ def restore_profile(
                        (old_context.region, old_context.vehicle_type, old_context.model_family))):
             raise DevelopmentProfileError("Invalid saved vehicle context")
     profile = DevelopmentProfile(catalog, old_context, cooldown_seconds=cooldown_seconds)
+    from .identity_cache import validate_identity
+    profile.manufacturer_identity = validate_identity(saved.get("manufacturer_identity"), context.region)
     custom = saved.get("custom_routes", [])
     read = saved.get("read_evidence", {})
     control = saved.get("control_evidence", {})
@@ -301,6 +303,13 @@ class V3ProfileStorage:
             raise DevelopmentProfileError("Missing HA entry identifier")
         self._store = Store(hass, 1, f"audiconnect_v3_{entry_id}_profiles")
         self._write_lock = asyncio.Lock()
+
+    async def async_identity(self, vehicle_key: str, region: str) -> dict:
+        from .identity_cache import validate_identity
+        saved = await self._store.async_load() or {}
+        records = saved.get("profiles", {}) if isinstance(saved, dict) else {}
+        row = records.get(vehicle_key, {}) if isinstance(records, dict) else {}
+        return validate_identity(row.get("manufacturer_identity") if isinstance(row, dict) else None, region)
 
     async def async_load(
         self, catalog: CapabilityRegistry,

@@ -45,7 +45,8 @@ def identity_retry_due(vehicles, poll_cycle, remaining_calls):
             remaining_calls is not None and remaining_calls <= 12):
         return False
     return any(car.inventory_present and
-               not all((car.model, car.model_family, car.model_year, car.car_type))
+               (getattr(car, "identity_restored", False) or getattr(car, "image_status", None) == "inconclusive"
+                or not all((car.model, car.model_family, car.model_year, car.car_type)))
                for car in vehicles.values())
 
 

@@ -159,6 +159,8 @@ class V3Vehicle:
     inventory_misses: int = 0
     image_url: str | None = None
     image_status: str = "not_assessed"
+    identity_restored: bool = False
+    identity_observed_at: str | None = None
 
     @classmethod
     def from_graphql(cls, item: dict[str, Any], country: str) -> "V3Vehicle":

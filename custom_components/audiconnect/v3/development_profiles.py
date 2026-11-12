@@ -266,6 +266,7 @@ class DevelopmentProfile:
         self.control_results: dict[str, str] = {}
         # Historical physical reviews are evidence only, never authorization.
         self.historical_control_evidence: list[dict[str, Any]] = []
+        self.manufacturer_identity: dict[str, Any] = {}
         self.last_command: CommandRecord | None = None
         self.command_journal: list[CommandRecord] = []
         self.invalidated_attempt_sequence: int | None = None
@@ -520,6 +521,7 @@ class DevelopmentProfile:
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),
             "historical_control_evidence": deepcopy(self.historical_control_evidence),
+            "manufacturer_identity": deepcopy(self.manufacturer_identity),
             "last_command": legacy_snapshot(self.last_command) if self.last_command else None,
             "command_journal": [row.snapshot() for row in self.command_journal],
             "attribute_routes": dict(self.attribute_routes),

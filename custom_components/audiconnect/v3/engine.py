@@ -78,6 +78,7 @@ class V3Engine:
         self.profiles: dict[str, DevelopmentProfile] = {}
         self._known_vehicle_inventory = False
         self._image_probe_attempted = False
+        self._image_probe_count = 0
         self.cloud_refresh_vin: str | None = None
         self.projected_entities: dict[str, set[str]] = {}
         self.commands = CommandEngine(
@@ -124,13 +125,22 @@ class V3Engine:
                 continue
             if parsed.vin.lower() in excluded:
                 continue
+            from .identity_cache import apply_cached_identity
+            if parsed.vin.lower() not in self.vehicles and not parsed.model:
+                loader = getattr(self.storage, "async_identity", None)
+                if loader is not None:
+                    apply_cached_identity(parsed, await loader(parsed.vin.lower(), parsed.country))
             vehicle = self.vehicles.get(parsed.vin.lower(), parsed)
             old_context = vehicle.context
-            if parsed.model:
+            if parsed.model and not parsed.identity_restored:
+                vehicle.identity_restored = False
+                vehicle.identity_observed_at = datetime.now(UTC).isoformat()
                 vehicle.model = parsed.model
                 vehicle.model_source = parsed.model_source
                 if parsed.model_family:
                     vehicle.model_family = parsed.model_family
+            elif vehicle.model:
+                vehicle.identity_restored = True
             if parsed.car_type:
                 vehicle.car_type = parsed.car_type
             if parsed.model_year:
@@ -138,7 +148,7 @@ class V3Engine:
             vehicle.country = parsed.country
             vehicle.inventory_present = True
             vehicle.inventory_misses = 0
-            vehicle.name = parsed.name
+            vehicle.name = parsed.name if parsed.name != "Audi vehicle" else vehicle.model or parsed.name
             vehicle.auth_family = "auth0" if self.auth.uses_auth0 else "legacy"
             vehicle.legacy_cariad = not self.auth.uses_auth0 and bool(getattr(self.auth,"has_cariad_bearer",False))
             vehicle.legacy_api_level = getattr(self.auth,"legacy_api_level",0)
@@ -189,6 +199,11 @@ class V3Engine:
                 await self.trip_archive.restore({key: known[key] for key in missing})
             except (OSError, ValueError):
                 _LOGGER.warning("Unable to restore private Audi trip archive")
+        from .identity_cache import capture_identity
+        for key, car in known.items():
+            identity = capture_identity(car)
+            if identity:
+                self.profiles[key].manufacturer_identity = identity
         self.vehicles.update(known)
         self._known_vehicle_inventory = True
         metadata = getattr(self.transport, "last_inventory_metadata", None)
@@ -204,9 +219,11 @@ class V3Engine:
         # intentionally excluded from API observations and engineering exports.
         image_reader = getattr(self.transport, "discover_vehicle_images", None)
         remaining = getattr(self.transport, "remaining_calls", None)
-        if (image_reader is not None and not self._image_probe_attempted
+        if (image_reader is not None and self._image_probe_count < 3
+                and (not self._image_probe_attempted or any(car.image_status == "inconclusive" for car in known.values()))
                 and (remaining is None or remaining > 20)):
             self._image_probe_attempted = True
+            self._image_probe_count += 1
             try:
                 async with asyncio.timeout(8):
                     images = await image_reader()
@@ -869,6 +886,8 @@ class V3Engine:
                 },
                 "identity_evidence": {"manufacturer_model_present": bool(car.model),
                                       "model_source": car.model_source or None,
+                                      "identity_restored": car.identity_restored,
+                                      "identity_observed_at": car.identity_observed_at,
                                       "vehicle_image_present": bool(car.image_url),
                                       "vehicle_image_status": car.image_status,
                                       "model_year_present": bool(car.model_year),
