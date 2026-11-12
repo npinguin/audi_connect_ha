@@ -14,5 +14,5 @@ def test_generic_control_endpoints_exist_and_are_admin_only():
 def test_control_action_catalog_includes_wakeup_and_lock_even_if_current_car_cannot_do_them():
     catalog=CapabilityRegistry.from_json_file(catalog_path())
     assert catalog.operations_for("remote","wake")==["cariad.remote.wake"]
-    assert catalog.operations_for("access","lock")==["cariad.access.lock"]
+    assert catalog.operations_for("access","lock")==["cariad.access.lock","mbb.access.lock"]
     assert catalog.resolve("remote","wake",VehicleContext(auth="legacy"))["available_operations"]==[]

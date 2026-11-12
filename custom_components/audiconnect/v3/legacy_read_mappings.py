@@ -15,6 +15,8 @@ FIELDS: dict[str, tuple[str, str]] = {
     "actualChargeRate": ("charger", "charger.status.chargingStatusData.actualChargeRate.content"),
     "chargingPower": ("charger", "charger.status.chargingStatusData.chargingPower.content"),
     "chargeMode": ("charger", "charger.status.chargingStatusData.chargingMode.content"),
+    "energy_flow": ("charger", "charger.status.chargingStatusData.energyFlow.content"),
+    "max_charge_current": ("charger", "charger.settings.maxChargeCurrent.content"),
     "plugState": ("charger", "charger.status.plugStatusData.plugState.content"),
     "plugLockState": ("charger", "charger.status.plugStatusData.plugLockState.content"),
     "externalPower": ("charger", "charger.status.plugStatusData.externalPower.content"),
@@ -27,6 +29,7 @@ FIELDS: dict[str, tuple[str, str]] = {
     "engineTypeSecondEngine": ("charger", "charger.status.cruisingRangeStatusData.engineTypeSecondEngine.content"),
     "climatisationState": ("climater", "climater.status.climatisationStatusData.climatisationState.content"),
     "remainingClimatisationTime": ("climater", "climater.status.climatisationStatusData.remainingClimatisationTime.content"),
+    "glass_surface_heating": ("climater", "climater.status.climatisationStatusData.climatisationElementStates.isMirrorHeatingActive.content"),
 }
 
 

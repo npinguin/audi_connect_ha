@@ -53,12 +53,16 @@ class V3Transport:
     async def request(
         self, family: str, method: str, path: str, *,
         body: Any = None, explicit_action: bool = False,
+        security_token: str | None = None,
     ) -> V3Response:
         if family not in self.executors:
             raise ValueError("Unknown or unsupported V3 executor")
         await self.auth.ensure_ready()
+        if security_token is not None and family != "mbb":
+            raise ValueError("Security token is only valid for MBB RLU")
+        kwargs = {"security_token": security_token} if security_token is not None else {}
         plan = self.executors[family].plan(
-            self.auth, method, path, body, explicit_action=explicit_action
+            self.auth, method, path, body, explicit_action=explicit_action, **kwargs
         )
         async with self._request_lock:
             if self.remaining_calls is not None and self.remaining_calls <= 8:

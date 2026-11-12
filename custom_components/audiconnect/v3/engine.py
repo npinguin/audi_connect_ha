@@ -167,6 +167,8 @@ class V3Engine:
             VIN=vehicle.vin, COUNTRY=vehicle.country,
             TYPE="Audi", JOBS=",".join(planned_jobs(vehicle, profile)),
         )
+        if op["family"] == "mbb" and vehicle.country == "US" and "/climater/actions" in path:
+            path = f"/api/bs/climatisation/v1/vehicles/{vehicle.vin}/climater/actions"
         body = op.get("request_body")
         if op.get("request_mode") == "secure_spin" and body is None:
             body = {"spin": "{SPIN}"}  # Support older immutable catalogs.
@@ -179,13 +181,25 @@ class V3Engine:
         family, method, path, body = self._operation_request(car, ident, params)
         op = self.profiles[car.vin.lower()].registry.operations[ident]
         mode = op.get("request_mode")
-        if mode in {"charging_settings_update", "charge_mode",
+        if mode in ("mbb_climate_start", "mbb_climate_stop"):
+            from .legacy_commands import climate_body
+            body = climate_body(mode, params or {})
+        elif mode in {"charging_settings_update", "charge_mode",
                     "charging_profile_update", "climate_settings_update",
                     "climate_start_settings", "flash", "auxiliary_start",
                     "engine_start"}:
             from .command_payloads import build
             body = await build(self, car, mode, params or {})
         return family, method, path, body
+
+    async def _dispatch_command(self, car, family, method, path, body):
+        if family == "mbb" and path.endswith(("/lock", "/unlock")):
+            from .legacy_commands import security_token
+            token = await security_token(self.transport, car.vin, path.rsplit("/", 1)[-1],
+                                         getattr(self.auth.service, "_spin", None))
+            return await self.transport.request(family, method, path, body=body,
+                                                explicit_action=True, security_token=token)
+        return await self.transport.request(family, method, path, body=body, explicit_action=True)
 
     def _api_record(self, profile: DevelopmentProfile, operation: str,
                     family: str, method: str, response: V3Response | None,
@@ -657,7 +671,7 @@ class V3Engine:
                 and not p.custom.get(ident, {}).get("variables")
                 and (not restricted or ident == allowed)):
             return ident
-        if car.context.auth != "auth0" or len(p.registry.capabilities) <= 1:
+        if len(p.registry.capabilities) <= 1:
             return None
         # Historical V2 routes, not exploratory alternatives, are selectable
         # on the vehicle's own declared capability or reviewed status shape.
@@ -717,8 +731,9 @@ class V3Engine:
         """One user-triggered control request, never automatic POST discovery."""
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vin.lower()]
-        if not self.auth.uses_auth0:
-            raise ValueError("CARIAD vehicle controls need Auth0")
+        family = profile.registry.operations.get(operation, {}).get("family")
+        if family != ("cariad" if self.auth.uses_auth0 else "mbb"):
+            raise ValueError("Control is not applicable to this authentication family")
         if operation not in profile.registry.resolve(
             capability, aspect, vehicle.context
         )["available_operations"]:
@@ -749,9 +764,7 @@ class V3Engine:
             )
             await self.storage.async_save(self.profiles)
             try:
-                response = await self.transport.request(
-                    family, method, path, body=body, explicit_action=True,
-                )
+                response = await self._dispatch_command(vehicle, family, method, path, body)
                 profile.observe_http(attempt.sequence, response.status)
                 self._api_record(profile, operation, family, method, response, vehicle.vin)
             except (TimeoutError, OSError, RuntimeError):
@@ -909,10 +922,8 @@ class V3Engine:
             self._reserve_wake(vin, ident)
             self._normal_action_at[vin.lower()] = now
             try:
-                response = await self.transport.request(
-                    family, method, path, body=body, explicit_action=True
-                )
-            except (TimeoutError, OSError, RuntimeError) as err:
+                response = await self._dispatch_command(car, family, method, path, body)
+            except (TimeoutError, OSError, RuntimeError, ValueError) as err:
                 self._api_record(p, ident, family, method, None, car.vin)
                 await self.storage.async_save(self.profiles)
                 car.last_command_result = "transport_uncertain"
@@ -935,6 +946,11 @@ class V3Engine:
                         raise RuntimeError(
                             "Audi vehicle rejected the command; no automatic retry"
                         )
+            elif family == "mbb":
+                from .legacy_commands import confirm
+                car.last_command_result = await confirm(self.transport, path, response.data)
+                if car.last_command_result == "rejected":
+                    raise RuntimeError("Audi legacy command rejected; no automatic retry")
             # Even 'backend_completed' means command execution confirmed by
             # Audi's backend, not proof of actual vehicle state. Scheduled
             # V3 read-only polling remains the physical state source.

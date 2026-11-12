@@ -25,6 +25,12 @@ def approval_group(capability: str, action: str, operation: dict) -> str:
     """
     if operation.get("method") == "GET":
         return "read_only"
+    if operation.get("family") == "mbb":
+        if operation.get("request_mode") == "mbb_rlu":
+            return "spin"
+        if operation.get("request_mode") in ("mbb_climate_start", "mbb_climate_stop"):
+            return "non_spin"
+        return "unsupported"
     if operation.get("family") != "cariad":
         return "unsupported"
     if operation.get("method") not in ("POST", "PUT"):

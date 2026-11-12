@@ -11,7 +11,7 @@
     "mbb": {
       "auth": "legacy",
       "host_owner": "legacy_home_region",
-      "notes": "Legacy home-region and authentication retained in existing adapter.",
+      "notes": "Independent V3 legacy executor, reviewed home region, climate and RLU controls.",
       "executor": "mbb_legacy_v1"
     }
   },
@@ -60,7 +60,8 @@
         },
         "start_with_settings": {
           "operations": [
-            "cariad.climate.start.vehicle_settings"
+            "cariad.climate.start.vehicle_settings",
+            "mbb.climate.start"
           ]
         },
         "preheater_start": {
@@ -106,12 +107,14 @@
       "control": {
         "lock": {
           "operations": [
-            "cariad.access.lock"
+            "cariad.access.lock",
+            "mbb.access.lock"
           ]
         },
         "unlock": {
           "operations": [
-            "cariad.access.unlock"
+            "cariad.access.unlock",
+            "mbb.access.unlock"
           ]
         }
       }
@@ -270,7 +273,7 @@
       "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater/actions",
       "delivery": "manual",
       "priority": 0,
-      "request_mode": "existing_adapter",
+      "request_mode": "mbb_climate_start",
       "confirmation": "legacy_request_poll"
     },
     "mbb.climate.stop": {
@@ -279,7 +282,7 @@
       "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater/actions",
       "delivery": "manual",
       "priority": 0,
-      "request_mode": "existing_adapter",
+      "request_mode": "mbb_climate_stop",
       "confirmation": "legacy_request_poll"
     },
     "cariad.status.access": {
@@ -860,6 +863,24 @@
       "priority": 0,
       "request_mode": "bodyless",
       "confirmation": "vehicle_readback"
+    },
+    "mbb.access.lock": {
+      "family": "mbb",
+      "method": "POST",
+      "path": "/api/bs/rlu/v1/vehicles/{VIN}/lock",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "mbb_rlu",
+      "confirmation": "legacy_request_poll"
+    },
+    "mbb.access.unlock": {
+      "family": "mbb",
+      "method": "POST",
+      "path": "/api/bs/rlu/v1/vehicles/{VIN}/unlock",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "mbb_rlu",
+      "confirmation": "legacy_request_poll"
     }
   },
   "source": "v2_historical_catalog_plus_climate_pilot",

@@ -17,7 +17,7 @@ def test_critical_cariad_controls_registered_but_never_auto_triggered():
         assert allowed
         assert all(model.operations[op]["method"]=="POST" and
                    model.operations[op]["delivery"]=="manual" for op in allowed)
-    assert model.resolve("access","lock",VehicleContext(auth="legacy"))["available_operations"]==[]
+    assert model.resolve("access","lock",VehicleContext(auth="legacy"))["available_operations"]==["mbb.access.lock"]
 
 
 def test_wake_can_only_become_active_after_physical_user_review():

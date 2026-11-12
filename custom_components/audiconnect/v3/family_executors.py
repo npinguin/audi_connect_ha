@@ -2,7 +2,7 @@
 
 All executors consume scoped tokens from V3Auth; none creates sessions, reads
 HA config entries, calls the V2 vehicle API, or chooses arbitrary remote hosts.
-MBB writes remain blocked until separately proven with S-PIN and readback.
+MBB mutations are limited to the reviewed climate and RLU contracts.
 """
 from __future__ import annotations
 
@@ -137,25 +137,71 @@ class MBBLegacyExecutor:
         self._trusted_hosts[vin.upper()] = "https://" + parts.hostname
 
     def plan(self, auth: Any, method: str, path: str, body: Any = None,
-             *, explicit_action: bool = False) -> RequestPlan:
-        if method != "GET" or body is not None:
-            raise ValueError("Legacy MBB controls are not yet verified; GET only")
+             *, explicit_action: bool = False, security_token: str | None = None) -> RequestPlan:
+        import re
         if auth.uses_auth0:
             raise ValueError("Legacy MBB must not be probed on an Auth0 vehicle")
         resource = _checked_path(path)
-        if not resource.startswith(("/fs-car/bs/", "/fs-car/vehicleMgmt/")) or "?" in path:
+        if "?" in path or method not in ("GET", "POST"):
             raise ValueError("Unreviewed MBB route")
-        components = resource.split("/")
-        if "vehicles" not in components:
-            raise ValueError("Legacy MBB route must include a vehicle")
-        idx = components.index("vehicles") + 1
-        if idx >= len(components) or len(components[idx]) != 17 or not components[idx].isalnum():
+        match = re.search(r"/vehicles/([A-Za-z0-9]{17})(?:/|$)", resource)
+        if not match and resource != "/api/rolesrights/authorization/v2/security-pin-auth-completed":
             raise ValueError("Invalid MBB vehicle route")
-        vin = components[idx].upper()
+        vin = match[1].upper() if match else None
+        # Reads and setter requests are deliberately isolated. The default
+        # region is the historical upstream default, never an arbitrary URL.
         host = self._trusted_hosts.get(vin, LEGACY_BASE)
+        setter = self._trusted_hosts.get(vin, "https://mal-1a.prd.ece.vwg-connect.com")
+        if setter.startswith("https://fal-"):
+            setter = setter.replace("https://fal-", "https://mal-", 1)
+        if host.startswith("https://mal-") and host != "https://mal-3a.prd.eu.dp.vwg-connect.com":
+            host = host.replace("https://mal-", "https://fal-", 1)
         headers = _headers(auth.access_token(self.family))
-        headers["Accept"] = "application/json"
-        return RequestPlan(self.family, method, host + path, headers)
+        climate = re.fullmatch(
+            r"/(?:fs-car/bs/climatisation/v1/Audi/[A-Z]{2}/vehicles|api/bs/climatisation/v1/vehicles)/[A-Za-z0-9]{17}/climater/actions(?:/[A-Za-z0-9_-]{1,100})?", resource)
+        rlu = re.fullmatch(r"/api/bs/rlu/v1/vehicles/[A-Za-z0-9]{17}/(?:lock|unlock|requests/[A-Za-z0-9_-]{1,100}/status)", resource)
+        challenge = re.fullmatch(r"/api/rolesrights/authorization/v2/vehicles/[A-Za-z0-9]{17}/services/rlu_v1/operations/(LOCK|UNLOCK)/security-pin-auth-requested", resource)
+        complete = resource == "/api/rolesrights/authorization/v2/security-pin-auth-completed"
+        home = re.fullmatch(r"/api/cs/vds/v1/vehicles/[A-Za-z0-9]{17}/homeRegion", resource)
+        if home:
+            if method != "GET" or body is not None:
+                raise ValueError("Unreviewed MBB home-region request")
+            host = "https://mal-1a.prd.ece.vwg-connect.com"
+        elif challenge or complete or rlu:
+            host = setter
+            if not explicit_action:
+                raise ValueError("MBB security/action routes require explicit user intent")
+            if challenge and (method != "GET" or body is not None):
+                raise ValueError("Invalid MBB challenge")
+            if complete:
+                if method != "POST" or not isinstance(body, dict) or set(body) != {"securityPinAuthentication"}:
+                    raise ValueError("Invalid MBB security completion")
+                headers["Content-Type"] = "application/json"
+            if rlu:
+                if resource.endswith(("/lock", "/unlock")):
+                    if method != "POST" or body is not None or not security_token:
+                        raise ValueError("MBB lock requires a completed S-PIN challenge")
+                    headers["Content-Type"] = "application/vnd.vwg.mbb.RemoteLockUnlock_v1_0_0+xml"
+                    headers["x-securityToken"] = security_token
+                elif method != "GET" or body is not None:
+                    raise ValueError("Invalid MBB RLU status request")
+        elif climate:
+            if resource.startswith("/api/"):
+                host = "https://mal-3a.prd.eu.dp.vwg-connect.com"
+            if resource.endswith("/actions"):
+                if (method != "POST" or not explicit_action or not isinstance(body, dict)
+                        or set(body) != {"action"} or not isinstance(body["action"], dict)
+                        or body["action"].get("type") not in ("startClimatisation", "stopClimatisation")):
+                    raise ValueError("Invalid MBB climate action")
+                headers["Content-Type"] = "application/json"
+            elif method != "GET" or body is not None:
+                raise ValueError("Invalid MBB climate status")
+        elif (method != "GET" or body is not None or not resource.startswith(
+                ("/fs-car/bs/", "/fs-car/vehicleMgmt/"))):
+            raise ValueError("Unreviewed MBB route; GET only outside approved controls")
+        if security_token and not (rlu and resource.endswith(("/lock", "/unlock"))):
+            raise ValueError("MBB security token outside approved lock command")
+        return RequestPlan(self.family, method, host + path, headers, body)
 
 
 def build_family_executors() -> dict[str, FamilyExecutor]:
