@@ -59,8 +59,6 @@ class V3Engine:
         self.vehicles: dict[str, V3Vehicle] = {}
         self.profiles: dict[str, DevelopmentProfile] = {}
         self._known_vehicle_inventory = False
-        self._image_probe_attempted = False
-        self._image_probe_count = 0
         from .integration_health import IntegrationHealth
         self.health = IntegrationHealth()
         self.cloud_refresh_vin: str | None = None
@@ -153,13 +151,16 @@ class V3Engine:
             if parsed.vin.lower() in excluded:
                 continue
             from .identity_cache import apply_cached_identity
-            if parsed.vin.lower() not in self.vehicles and not parsed.model:
+            if parsed.vin.lower() not in self.vehicles:
                 loader = getattr(self.storage, "async_identity", None)
                 if loader is not None:
                     apply_cached_identity(parsed, await loader(parsed.vin.lower(), parsed.country))
             vehicle = self.vehicles.get(parsed.vin.lower(), parsed)
             old_context = vehicle.context
             if parsed.model and not parsed.identity_restored:
+                if vehicle.model and vehicle.model != parsed.model:
+                    vehicle.image_url = None
+                    vehicle.image_status = "not_assessed"
                 vehicle.identity_restored = False
                 vehicle.identity_observed_at = datetime.now(UTC).isoformat()
                 vehicle.identity_operation = parsed.identity_operation or INVENTORY_OPERATION
@@ -234,61 +235,35 @@ class V3Engine:
                                       metadata.observed_at, metadata.remaining_calls, metadata.request)
                 self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
                                  response, known[vin].vin)
-        # Refresh only previously observed, explicitly adopted reviewed sources.
-        # One account request per distinct source, not one request per VIN.
-        await self._refresh_adopted_identity(known)
-        # One bounded best-effort read per runtime. The image response is
-        # intentionally excluded from API observations and engineering exports.
+        # Save fresh identity before the optional image request. The only
+        # unattended source is the standard inventory; old experiments are evidence.
+        fresh = {key: car for key, car in known.items() if car.model and not car.identity_restored}
+        if fresh:
+            await self.storage.async_save(self.profiles)
         image_reader = getattr(self.transport, "discover_vehicle_images", None)
         remaining = getattr(self.transport, "remaining_calls", None)
-        if (image_reader is not None and self._image_probe_count < 3
-                and (not self._image_probe_attempted or any(car.image_status == "inconclusive" for car in known.values()))
-                and (remaining is None or remaining > 20)):
-            self._image_probe_attempted = True
-            self._image_probe_count += 1
+        targets = {key: car for key, car in fresh.items() if not car.image_url}
+        if targets and image_reader is not None and (remaining is None or remaining > 12):
             try:
                 async with asyncio.timeout(8):
                     images = await image_reader()
             except Exception:  # Optional media must not interrupt valid identity.
-                for car in known.values():
+                for car in targets.values():
                     car.image_status = "inconclusive"
             else:
-                for key, car in known.items():
-                    url = images.get(key)
+                from .identity_cache import validated_image
+                changed = False
+                for key, car in targets.items():
+                    url = validated_image(images.get(key), car.vin)
                     if url:
                         car.image_url = url
                         car.image_status = "observed"
-                    elif not car.image_url:
+                        self.profiles[key].manufacturer_identity = capture_identity(car)
+                        changed = True
+                    else:
                         car.image_status = "not_observed"
-
-    async def _refresh_adopted_identity(self, known):
-        from .transport import IDENTITY_QUERIES, GARAGE_OPERATION
-        sources = {}
-        for key, car in known.items():
-            operation = car.identity_operation
-            if car.identity_restored and operation != INVENTORY_OPERATION and (
-                    operation == GARAGE_OPERATION or operation in IDENTITY_QUERIES):
-                sources.setdefault(operation, []).append((key, car))
-        for operation, cars in sources.items():
-            if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
-                break
-            try:
-                response = await self.transport.test_identity_query(operation)
-            except (RuntimeError, ValueError, OSError, TimeoutError):
-                continue
-            if not 200 <= response.status < 300:
-                if response.status in (401, 403, 429) or response.status >= 500:
-                    break
-                continue
-            async with self.commands._actions:
-                for key, car in cars:
-                    profile = self.profiles[key]
-                    if profile.discovery._active is not None:
-                        continue
-                    selected, candidate = self._identity_candidate(response, car, operation)
-                    self._apply_identity_candidate(car, profile, candidate, operation, response.observed_at)
-                    self._api_record(profile, operation, "cariad" if operation == GARAGE_OPERATION else "graphql",
-                                     "GET" if operation == GARAGE_OPERATION else "POST", selected, car.vin)
+                if changed:
+                    await self.storage.async_save(self.profiles)
 
     @staticmethod
     def _identity_candidate(response, car, operation):

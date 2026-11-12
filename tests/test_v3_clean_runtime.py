@@ -114,7 +114,7 @@ async def test_first_v3_poll_discovers_one_car_and_learns_climate_get():
     assert cars[0].model_family == "q8"
     assert cars[0].climate_state == "off"
     assert store.loads == 1
-    assert len(store.writes) == 1
+    assert len(store.writes) >= 1
     assert transport.calls[0] == ("inventory",)
     assert len([c for c in transport.calls if len(c) > 1]) == 1
     assert all(c[1] == "GET" for c in transport.calls if len(c) > 1)
@@ -499,7 +499,7 @@ async def test_standalone_schema_evidence_and_discovery_export_without_trip_valu
 
 
 @pytest.mark.asyncio
-async def test_optional_vehicle_render_failure_does_not_break_identity_and_retries_are_bounded():
+async def test_optional_vehicle_render_failure_does_not_break_identity_and_retries_follow_fresh_inventory():
     engine, transport, _ = engine_for()
     from unittest.mock import AsyncMock
     transport.discover_vehicle_images = AsyncMock(side_effect=RuntimeError("denied"))
@@ -510,7 +510,7 @@ async def test_optional_vehicle_render_failure_does_not_break_identity_and_retri
     await engine.discover()
     await engine.discover()
     await engine.discover()
-    assert transport.discover_vehicle_images.await_count == 3
+    assert transport.discover_vehicle_images.await_count == 4
     assert car.model_family == "q8"
 
 
@@ -846,7 +846,7 @@ async def test_reviewed_identity_activation_uses_matching_fresh_oem_metadata():
 
 
 @pytest.mark.asyncio
-async def test_adopted_identity_source_is_refreshed_on_inventory_without_research_chain():
+async def test_adopted_identity_is_retained_without_repeating_experimental_query():
     from unittest.mock import AsyncMock
     from custom_components.audiconnect.v3.transport import GARAGE_OPERATION
     engine, transport, store = engine_for()
@@ -861,9 +861,9 @@ async def test_adopted_identity_source_is_refreshed_on_inventory_without_researc
     transport.test_identity_query.reset_mock()
     await engine.discover()
     car = engine.require_vehicle(VIN)
-    assert car.model == "Audi Q8" and not car.identity_restored
+    assert car.model == "Audi Q8" and car.identity_restored
     assert car.identity_operation == GARAGE_OPERATION
-    transport.test_identity_query.assert_awaited_once_with(GARAGE_OPERATION)
+    transport.test_identity_query.assert_not_awaited()
     assert GARAGE_OPERATION in engine.profiles[VIN.lower()].api_observations
 
 
@@ -996,3 +996,49 @@ async def test_golden_configure_discover_use_restart_without_workbench():
     assert restored_entities[switch_key].is_on is True
     assert sum(call[1]=="POST" for call in transport.calls if len(call)>1) == 1
     assert restarted.profiles[VIN.lower()].last_command.state == "verified"
+
+
+def test_identity_refresh_is_periodic_quota_aware_and_session_aware():
+    from custom_components.audiconnect.v3.status_engine import identity_refresh_due
+    car = V3Vehicle(VIN, "Audi", "", "", "DE")
+    cars = {VIN.lower(): car}
+    assert not identity_refresh_due(cars, 1799, 100)
+    assert identity_refresh_due(cars, 1800, 100)
+    assert identity_refresh_due(cars, 1, 100, token_renewed=True)
+    assert not identity_refresh_due(cars, 3600, 12, token_renewed=True)
+    car.model, car.model_family, car.model_year, car.car_type = "Audi Q8", "q8", "2022", "phev"
+    car.image_url = "https://mediaservice.audi.com/render/example.png"
+    assert not identity_refresh_due(cars, 86399, 100, token_renewed=True)
+    assert identity_refresh_due(cars, 86400, 100)
+    car.identity_restored = True
+    assert identity_refresh_due(cars, 1800, 100)
+
+
+@pytest.mark.asyncio
+async def test_identity_image_waits_for_real_model_then_caches_across_restart():
+    from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3.identity_cache import apply_cached_identity
+    engine, transport, store = engine_for()
+    original = transport.discover_vehicles
+    async def incomplete():
+        return [{"vin": VIN, "vehicle": {"media": None, "core": None}}]
+    url = "https://mediaservice.audi.com/render/example.png"
+    transport.discover_vehicle_images = AsyncMock(return_value={VIN.lower(): url})
+    transport.discover_vehicles = incomplete
+    await engine.discover()
+    transport.discover_vehicle_images.assert_not_awaited()
+    transport.discover_vehicles = original
+    await engine.discover()
+    car = engine.require_vehicle(VIN)
+    assert car.model and car.image_url == url
+    transport.discover_vehicle_images.assert_awaited_once()
+    cached = store.records[VIN.lower()]["manufacturer_identity"]
+    assert cached["image_url"] == url
+    restored = V3Vehicle(VIN, "Audi vehicle", "", "", "DE")
+    apply_cached_identity(restored, cached)
+    assert restored.identity_restored and restored.image_url == url
+    transport.discover_vehicles = incomplete
+    await engine.discover()
+    assert car.model and car.image_url == url
+    transport.discover_vehicle_images.assert_awaited_once()
+    assert url not in json.dumps(engine.diagnostics())

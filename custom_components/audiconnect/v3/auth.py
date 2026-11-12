@@ -101,6 +101,13 @@ class V3Auth:
             )
 
     @property
+    def session_generation(self):
+        """Local login/renewal marker, never a credential or exported claim."""
+        if self._shared_connection is not None:
+            return self._shared_connection._logintime
+        return self._last_login
+
+    @property
     def uses_auth0(self) -> bool:
         return self.service.uses_auth0
 

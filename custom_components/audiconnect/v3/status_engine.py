@@ -22,16 +22,16 @@ from .status_planner import status_groups
 
 
 
-def identity_retry_due(vehicles, poll_cycle, remaining_calls):
-    """Bounded read-only inventory recovery after an incomplete first result."""
-    if poll_cycle not in (2, 4, 8) or (
-            remaining_calls is not None and remaining_calls <= 12):
+def identity_refresh_due(vehicles, elapsed_seconds, remaining_calls, *, token_renewed=False):
+    """Account-wide read-only inventory recovery; no extra scheduler."""
+    if remaining_calls is not None and remaining_calls <= 12:
         return False
-    return any(car.inventory_present and
-               (getattr(car, "identity_restored", False) or getattr(car, "image_status", None) == "inconclusive"
-                or not all((car.model, car.model_family, car.model_year, car.car_type)))
-               for car in vehicles.values())
-
+    present = [car for car in vehicles.values() if car.inventory_present]
+    incomplete = any(car.identity_restored or not car.image_url or
+                     not all((car.model, car.model_family, car.model_year, car.car_type))
+                     for car in present)
+    return (elapsed_seconds >= (1800 if incomplete else 86400)
+            or (incomplete and token_renewed))
 
 class StatusEngine:
     def __init__(self, *, hass, entry, auth, transport, storage, vehicles, profiles,
@@ -51,6 +51,8 @@ class StatusEngine:
         self.last_cloud_poll_attempt = None
         self.last_cloud_poll_succeeded = None
         self._poll_cycles = 0
+        self._identity_attempt_at = None
+        self._identity_session = None
         self._trip_poll_at = {}
         self._legacy_route_backoff = {}
 
@@ -172,13 +174,21 @@ class StatusEngine:
         self.last_cloud_poll_attempt = datetime.now(UTC)
         self.last_cloud_poll_succeeded = False
         self._poll_cycles += 1
-        if not self._inventory_ready() or self._poll_cycles % 24 == 0:
-            await self.discover()
-        elif identity_retry_due(self.vehicles, self._poll_cycles, self.transport.remaining_calls):
+        now = time.monotonic()
+        initial = not self._inventory_ready()
+        session = getattr(self.auth, "session_generation", None)
+        elapsed = now - self._identity_attempt_at if self._identity_attempt_at is not None else float("inf")
+        if initial or identity_refresh_due(
+                self.vehicles, elapsed, self.transport.remaining_calls,
+                token_renewed=session is not None and session != self._identity_session):
+            self._identity_attempt_at = now
             try:
                 await self.discover()
             except (RuntimeError, ValueError, OSError, TimeoutError):
-                pass  # An optional identity retry must not stop normal telemetry.
+                if initial:
+                    raise
+            finally:
+                self._identity_session = getattr(self.auth, "session_generation", None)
         cloud_reachable = False
         # Reuse identical GET responses across capabilities on the same car.
         # API family + VIN + exact path is the request identity; a route change

@@ -456,8 +456,10 @@ def _cockpit(vehicle, profile, rows, controls):
             operation["family"] = "cariad" if ident == GARAGE_OPERATION else "graphql"
             operation["path"] = GARAGE_PATH if ident == GARAGE_OPERATION else "/vgql/v1/graphql"
             operation["read_only"] = True
-            if ident == POST_GARAGE_OPERATION:
+            if ident not in (INVENTORY_OPERATION, "graphql.inventory.images"):
                 operation["reference_only"] = True
+                operation["retired_experiment"] = True
+                operation["active"] = False
             operation["graphql_errors"] = evidence.get("graphql_errors", [])
             operation["auth_context"] = evidence.get("auth_context")
             fields = [{**field,
@@ -520,7 +522,7 @@ def _cockpit(vehicle, profile, rows, controls):
         if any(field["mapping"] == "review_unmapped" for field in fields):
             reasons.append("unmapped_response_fields_review")
         operations.append(operation)
-        for reason in reasons:
+        for reason in ([] if operation.get("retired_experiment") else reasons):
             findings.append({"id": "operation:" + ident + ":" + reason, "severity": "review",
                              "capability": caps[0] if caps else None,
                              "operation": ident, "reason": reason})

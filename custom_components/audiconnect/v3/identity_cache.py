@@ -1,8 +1,13 @@
 """Private VIN-scoped manufacturer metadata; never an authorization source."""
 from datetime import datetime
-from .vehicle import model_family_from_name
+from .vehicle import model_family_from_name, select_vehicle_image
 
-def validate_identity(row, region):
+
+def validated_image(url, vin=None):
+    return select_vehicle_image({"renderPictures": [{"url": url, "mediaType": "MYAPN8NB"}]},
+                                vin or "{VIN_NOT_AVAILABLE}")
+
+def validate_identity(row, region, vin=None):
     if not isinstance(row, dict) or row.get("region") != region:
         return {}
     model, source, year = row.get("model"), row.get("source"), row.get("year", "")
@@ -26,10 +31,14 @@ def validate_identity(row, region):
     if year_operation not in IDENTITY_OPERATIONS or year_operation.endswith(".images"):
         year_operation = operation if year else None
     return {"model": model, "source": source, "year": year, "region": region, "operation": operation,
-            "family": model_family_from_name(model), "observed_at": stamp, "year_operation": year_operation}
+            "family": model_family_from_name(model), "observed_at": stamp, "year_operation": year_operation,
+            **({"image_url": image} if (image := validated_image(row.get("image_url"), vin)) else {})}
 
 def apply_cached_identity(car, row):
-    identity = validate_identity(row, car.country)
+    identity = validate_identity(row, car.country, car.vin)
+    if identity and (not car.model or car.model == identity["model"]) and identity.get("image_url"):
+        car.image_url = identity["image_url"]
+        car.image_status = "observed"
     if not car.model and identity:
         car.model = identity["model"]
         car.model_family = identity["family"]
@@ -48,7 +57,8 @@ def capture_identity(car):
         return {}
     return validate_identity({"model": car.model, "source": car.model_source,
         "year": car.model_year, "region": car.country,
-        "observed_at": car.identity_observed_at, "operation": car.identity_operation, "year_operation": car.year_operation}, car.country)
+        "observed_at": car.identity_observed_at, "operation": car.identity_operation, "year_operation": car.year_operation,
+                              "image_url": car.image_url}, car.country, car.vin)
 
 
 def previous_registry_model(hass, entry, vin):
