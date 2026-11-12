@@ -1000,5 +1000,9 @@
     "switch.climate_quick_control",
     "sensor.climatisation_state",
     "sensor.hybrid_range"
+  ],
+  "retired_legacy_buttons": [
+    "start_climate_car_settings",
+    "stop_climate"
   ]
 }

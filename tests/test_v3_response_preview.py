@@ -77,3 +77,13 @@ def test_engineering_response_keeps_large_batch_values_and_bounds_oversize():
     oversized = engineering_response({"first": 15.5, "large": ["x"*1000]*1000})
     assert oversized["truncated"] and oversized["payload"]["first"] == 15.5
     assert len(json.dumps(oversized)) <= MAX_ENGINEERING_CHARS
+
+def test_engineering_response_preserves_public_capability_and_timer_identifiers():
+    from custom_components.audiconnect.v3.response_preview import engineering_response
+    raw = {"userCapabilities": {"capabilities": [{"id": "charging", "status": "enabled"}]},
+           "locationBasedCharging": {"timers": [{"id": 1, "enabled": True}]},
+           "requestId": "12345"}
+    detail = engineering_response(raw)["payload"]
+    assert detail["userCapabilities"] == raw["userCapabilities"]
+    assert detail["locationBasedCharging"] == raw["locationBasedCharging"]
+    assert detail["requestId"] == "{ID}"

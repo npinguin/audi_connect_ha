@@ -150,10 +150,11 @@ _JWT = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
 _AUTH_VALUE = re.compile(r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]+")
 _SECRET_QUERY = re.compile(r"(?i)([?&](?:access_token|refresh_token|id_token|token|password|code|spin|s-pin|client_secret|authorization)=)[^&#\s]+")
 _UUID = re.compile(r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
+_ENGINEERING_VIN = re.compile(r"(?i)\b(?=[A-HJ-NPR-Z0-9]{0,16}[0-9])[A-HJ-NPR-Z0-9]{17}\b")
 _SECRET_KEY = re.compile(r"(?i)authorization|password|token|credential|secret|challenge|bearer|cookie|api.?key|private.?key|security.?code|user.?prompt.?proof|secured.?activation.?data|^pin$|^s.?pin$|^spin$")
-_LOCATION_KEY = re.compile(r"(?i)latitude|longitude|coordinates|location|position|street|address|^lat$|^lon$|^lng$")
+_LOCATION_KEY = re.compile(r"(?i)latitude|longitude|coordinates|^location$|^position$|street|address|^lat$|^lon$|^lng$")
 _PERSON_KEY = re.compile(r"(?i)email|phone|account.?id|user.?id|username|nickname|first.?name|last.?name|full.?name|customer.?id|device.?id")
-_IDENTIFIER_KEY = re.compile(r"(?i)request.?id|session.?id|correlation.?id|transaction.?id|command.?id|^id$")
+_IDENTIFIER_KEY = re.compile(r"(?i)request.?id|session.?id|correlation.?id|transaction.?id|command.?id")
 
 
 def engineering_response(payload: Any, *, vehicle_vin: str = "",
@@ -176,7 +177,7 @@ def engineering_response(payload: Any, *, vehicle_vin: str = "",
     def redact_text(value: str) -> str:
         if vehicle_vin:
             value = re.sub(re.escape(vehicle_vin), "{VIN}", value, flags=re.I)
-        value = _VIN.sub("{VIN}", value)
+        value = _ENGINEERING_VIN.sub("{VIN}", value)
         for secret, marker in replacements:
             # Short PINs/credentials are matched only as a complete value or
             # a delimited token, not embedded in ordinary timestamps/numbers.
@@ -213,6 +214,7 @@ def engineering_response(payload: Any, *, vehicle_vin: str = "",
         cost = len(json.dumps(value, ensure_ascii=True, allow_nan=False)) + 8
         if cost > remaining:
             truncated = True
+            remaining = 0
             return False
         remaining -= cost
         return True
@@ -221,6 +223,7 @@ def engineering_response(payload: Any, *, vehicle_vin: str = "",
         nonlocal truncated
         if depth >= 40 or remaining < 64:
             truncated = True
+            consume("[TRUNCATED]")
             return "[TRUNCATED]"
         if isinstance(value, dict):
             result = {}
@@ -234,7 +237,9 @@ def engineering_response(payload: Any, *, vehicle_vin: str = "",
                     break
                 marker = mask_for(original)
                 if marker is not None:
-                    consume(marker)
+                    if not consume(marker):
+                        result["[TRUNCATED]"] = True
+                        break
                     result[name] = marker
                 else:
                     result[name] = visit(child, depth + 1)
@@ -260,4 +265,8 @@ def engineering_response(payload: Any, *, vehicle_vin: str = "",
         return value
 
     response = visit(payload)
-    return {"payload": response, "truncated": truncated}
+    detail = {"payload": response, "truncated": truncated}
+    # Defensive bound including markers and serialization overhead.
+    if len(json.dumps(detail, ensure_ascii=True, allow_nan=False)) > MAX_ENGINEERING_CHARS:
+        return {"payload": "[TRUNCATED: response exceeds inspection limit]", "truncated": True}
+    return detail

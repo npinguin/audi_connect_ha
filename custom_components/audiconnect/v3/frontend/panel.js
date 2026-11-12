@@ -903,9 +903,9 @@ class AudiConnectV3Panel extends HTMLElement {
             <p>Select a function from Capabilities to inspect or test its route. <button data-action="step-2">Browse capabilities</button></p>
           </section>`:""}
           <section class="card" style="margin-bottom:18px;display:${this.step===4?"block":"none"}">
-            <div class="eyebrow">Diagnostics / Persisted API evidence</div>
+            <div class="eyebrow">Engineering / API evidence</div>
             <h2>Last result and response by API route</h2>
-            <p>Timestamp · API family · HTTP status · bounded redacted GET response. Only the latest result per route is kept per vehicle, including after a Home Assistant restart.</p>
+            <p>Inspect the latest masked JSON from existing requests, including command responses. Detailed responses are session-only; restricted diagnostics previews survive a restart.</p>
             ${records.map(r=>`<details class="record">
               <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · ${escapeHTML(r.at)}</summary>
               <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b> · ${escapeHTML(r.result)}</div>

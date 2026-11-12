@@ -43,8 +43,8 @@ async def async_apply_v3_entity_visibility(
                 and current.disabled_by == er.RegistryEntryDisabler.INTEGRATION):
             registry.async_update_entity(entity_id, disabled_by=None)
 
-    # Retire only source-proven V3 pilot IDs, never a historical V2 entity.
-    # Keep registry records and user choices for rollback and manual recovery.
+    # Retire exact source-proven pilot IDs and the two climate buttons
+    # removed from both current V2 and V3. Keep registry records and user choices.
     runtime = getattr(entry, "runtime_data", None)
     engine = getattr(runtime, "v3", None)
     primary = None
@@ -98,21 +98,23 @@ async def async_apply_v3_entity_visibility(
         if engine is None:
             continue
         car = engine.vehicles.get(uid.split("_", 1)[0].lower())
-        if car is None:
+        definition = product_inventory()["entities"].get(key)
+        if car is None and (not definition or definition.get("scope") != "account"):
             continue
         updates = {}
         desired = canonical_entity_category(key)
-        if key in product_inventory()["entities"]:
+        if definition is not None:
             category = EntityCategory(desired) if desired else None
             if current.entity_category != category:
                 updates["entity_category"] = category
-        if uid not in reviewed and compatibility_hidden(car, key):
+        if car is not None and uid not in reviewed and compatibility_hidden(car, key):
             reviewed.add(uid)
             if current.hidden_by is None and current.disabled_by is None:
                 updates["hidden_by"] = er.RegistryEntryHider.INTEGRATION
                 hidden.add(uid)
-        if "entity_category" in updates and uid not in categories:
-            categories[uid] = [getattr(current.entity_category, "value", None), getattr(updates["entity_category"], "value", None)]
+        if "entity_category" in updates:
+            previous = categories.get(uid, [getattr(current.entity_category, "value", None)])[0]
+            categories[uid] = [previous, getattr(updates["entity_category"], "value", None)]
         if updates:
             registry.async_update_entity(entity_id, **updates)
     if not enabled:

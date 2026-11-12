@@ -133,6 +133,9 @@ def test_exact_pilot_retirement_and_single_account_refresh_anchor(monkeypatch):
         "button.vehicle": (vin + "_button_refresh_vehicle_data", None),
         "sensor.user_pilot": (other + "_sensor_v3_climate_capability", er.RegistryEntryDisabler.USER),
         "sensor.other_entry": (vin + "_sensor_v3_poll_status", None),
+        "button.old_start": (vin + "_button_start_climate_car_settings", None),
+        "button.old_stop": (vin + "_button_stop_climate", None),
+        "button.user_old": (other + "_button_stop_climate", er.RegistryEntryDisabler.USER),
     }
     entries = {eid: NS(entity_id=eid, unique_id=uid, disabled_by=disabled)
                for eid, (uid, disabled) in names.items()}
@@ -149,7 +152,9 @@ def test_exact_pilot_retirement_and_single_account_refresh_anchor(monkeypatch):
     entry = NS(entry_id="abc", runtime_data=NS(v3=engine))
     asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, True))
     assert engine.cloud_refresh_vin == vin
-    assert set(updates) == {"sensor.pilot", "sensor.health_pilot", "button.duplicate"}
+    assert set(updates) == {"sensor.pilot", "sensor.health_pilot", "button.duplicate",
+                            "button.old_start", "button.old_stop"}
+    assert entries["button.user_old"].disabled_by == er.RegistryEntryDisabler.USER
     assert entries["sensor.v2"].disabled_by is None
     assert entries["button.vehicle"].disabled_by is None
     assert entries["sensor.user_pilot"].disabled_by == er.RegistryEntryDisabler.USER

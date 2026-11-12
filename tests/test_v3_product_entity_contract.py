@@ -23,6 +23,10 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
     for key in inventory["retired_v3_sensors"]:
         assert retired_pilot_entity(VIN+"_sensor_"+key)
     assert not retired_pilot_entity(VIN+"_sensor_charging_mode")
+    for key in ("start_climate_car_settings", "stop_climate"):
+        assert retired_pilot_entity(VIN+"_button_"+key)
+        assert entity_key(VIN+"_button_"+key, "example") == "button."+key
+    assert not retired_pilot_entity(VIN+"_button_start_charging_modern")
 
 
 def test_actual_and_preferred_charging_modes_never_share_a_sensor():

@@ -21,11 +21,17 @@ def retired_sensor_keys():
 
 
 def retired_pilot_entity(unique_id: str) -> bool:
-    """Match exact historical V3-only identity suffix and a valid VIN prefix."""
+    """Match exact retired pilot sensor or superseded climate-button identities."""
     if not isinstance(unique_id, str):
         return False
-    vin, separator, key = unique_id.partition("_sensor_")
-    return bool(separator and len(vin) == 17 and vin.isalnum() and key in retired_sensor_keys())
+    vin, separator, suffix = unique_id.partition("_")
+    if not separator or len(vin) != 17 or not vin.isalnum():
+        return False
+    if suffix.startswith("sensor_"):
+        return suffix.removeprefix("sensor_") in retired_sensor_keys()
+    if suffix.startswith("button_"):
+        return suffix.removeprefix("button_") in product_inventory().get("retired_legacy_buttons", ())
+    return False
 
 
 def account_cloud_refresh_vin(vehicles):
@@ -98,6 +104,8 @@ def entity_key(unique_id, entry_id):
         if candidate in product_inventory()["entities"]:
             return candidate
         if platform == "sensor" and key in retired_sensor_keys():
+            return candidate
+        if platform == "button" and key in product_inventory().get("retired_legacy_buttons", ()):
             return candidate
         return None
     return None
