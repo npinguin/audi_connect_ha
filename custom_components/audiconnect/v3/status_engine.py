@@ -8,7 +8,7 @@ from typing import Any
 from .development_profiles import DevelopmentProfile
 from .transport import V3Response
 from .vehicle import V3Vehicle
-from .freshness import timestamp_is_fresh
+from .freshness import timestamp_is_fresh, capture_field_timestamp as _captured
 from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation, record_invalid_observation
 from .attribute_contracts import semantic_value_issue
 from .custom_attributes import attributes_for, normalize_local_value
@@ -20,23 +20,6 @@ from .read_discovery import (record_jobs, pending_groups, reserve_group,
                              MAX_EXTRA_INITIAL_REQUESTS, MAX_EXTRA_PERIODIC_REQUESTS, read_excluded)
 from .status_planner import status_groups
 
-
-def _captured(data: Any, path: str | None) -> str | None:
-    """A status field's own timestamp, not HTTP receipt time."""
-    if not path or not isinstance(data, dict):
-        return None
-    prefix = path.rsplit(".", 1)[0]
-    value = data
-    for key in prefix.split("."):
-        if not isinstance(value, dict):
-            return None
-        value = value.get(key)
-    if not isinstance(value, dict):
-        return None
-    for key in ("carCapturedTimestamp", "timestamp"):
-        if isinstance(value.get(key), str):
-            return value[key]
-    return None
 
 
 def identity_retry_due(vehicles, poll_cycle, remaining_calls):

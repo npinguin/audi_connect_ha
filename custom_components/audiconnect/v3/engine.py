@@ -25,7 +25,7 @@ from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
 from .transport import V3Response, V3Transport, INVENTORY_OPERATION
 from .vehicle import V3Vehicle
-from .freshness import timestamp_is_fresh
+from .freshness import timestamp_is_fresh, capture_field_timestamp as _captured
 from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
 from .custom_attributes import MAX_CUSTOM_ATTRIBUTES, attributes_for, descriptor, validate_definition
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
@@ -42,23 +42,6 @@ from ..const import (CONF_FILTER_VINS, CONF_REFRESH_AFTER_ACTION, CONF_UPDATE_SL
 
 _LOGGER = logging.getLogger(__name__)
 
-
-def _captured(data: Any, path: str | None) -> str | None:
-    """A status field's own timestamp, not HTTP receipt time."""
-    if not path or not isinstance(data, dict):
-        return None
-    prefix = path.rsplit(".", 1)[0]
-    value = data
-    for key in prefix.split("."):
-        if not isinstance(value, dict):
-            return None
-        value = value.get(key)
-    if not isinstance(value, dict):
-        return None
-    for key in ("carCapturedTimestamp", "timestamp"):
-        if isinstance(value.get(key), str):
-            return value[key]
-    return None
 
 
 class V3Engine:
@@ -380,34 +363,22 @@ class V3Engine:
         params: dict[str, Any] | None = None,
     ) -> tuple[str, str, str, Any]:
         profile = self.profiles[vehicle.vin.lower()]
-        if ident in profile.custom:
-            preview = profile.preview_request(
-                ident, vehicle_values={
-                    "VIN": vehicle.vin, "COUNTRY": vehicle.country,
-                    "TYPE": "Audi", "JOBS": "climatisation",
-                }, user_values=params or {},
-            )
-            return (
-                preview["family"], preview["method"],
-                preview["relative_path"], self._resolve_secure_body(
-                    vehicle, ident, preview["family"], preview["method"],
-                    preview["relative_path"], preview["json_body"],
-                ),
-            )
         op = profile.registry.operations[ident]
         if op.get("request_mode") == "verified_vehicle_target":
             raise ValueError("Pilot stored-settings adapter not implemented; use the full V3 catalog")
-        path = op["path"].format(
-            VIN=vehicle.vin, COUNTRY=vehicle.country,
-            TYPE="Audi", JOBS=",".join(planned_jobs(vehicle, profile)),
+        preview = profile.preview_request(
+            ident, vehicle_values={
+                "VIN": vehicle.vin, "COUNTRY": vehicle.country, "TYPE": "Audi",
+                "JOBS": ("climatisation" if ident in profile.custom
+                         else ",".join(planned_jobs(vehicle, profile))),
+            }, user_values=params or {},
         )
-        if op["family"] == "mbb" and vehicle.country == "US" and "/climater/actions" in path:
+        family, method, path = (preview["family"], preview["method"], preview["relative_path"])
+        # Retain the existing built-in MBB US endpoint exception.
+        if ident not in profile.custom and family == "mbb" and vehicle.country == "US" and "/climater/actions" in path:
             path = f"/api/bs/climatisation/v1/vehicles/{vehicle.vin}/climater/actions"
-        body = op.get("request_body")
-        if op.get("request_mode") == "secure_spin" and body is None:
-            body = {"spin": "{SPIN}"}  # Support older immutable catalogs.
-        return op["family"], op["method"], path, self._resolve_secure_body(
-            vehicle, ident, op["family"], op["method"], path, body
+        return family, method, path, self._resolve_secure_body(
+            vehicle, ident, family, method, path, preview["json_body"]
         )
 
     async def _command_request(self, car, ident, params=None):

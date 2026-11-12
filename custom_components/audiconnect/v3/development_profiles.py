@@ -567,10 +567,14 @@ class DevelopmentProfile:
         self, operation: str, *, vehicle_values: Mapping[str, str],
         user_values: Mapping[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Render the route without resolving secrets; S-PIN stays a marker."""
-        if operation not in self.custom:
-            raise DevelopmentProfileError("Only custom routes may be previewed here")
-        data = self.custom[operation]
+        """Render built-in and local definitions through the same registry contract.
+
+        S-PIN remains a marker; protocol-specific preparation is owned by dispatch.
+        """
+        data = self.registry.operations.get(operation)
+        if data is None:
+            raise DevelopmentProfileError("Unknown operation")
+        experimental = operation in self.custom
         values: dict[str, Any] = {}
         for key in _SYSTEM - {"SPIN"}:
             if key in vehicle_values:
@@ -579,7 +583,7 @@ class DevelopmentProfile:
         # inside an approved command immediately before dispatch; previews
         # and persisted custom route definitions never contain the credential.
         values["SPIN"] = "{SPIN}"
-        for key, kind in data["variables"].items():
+        for key, kind in data.get("request_variables", {}).items():
             if key not in (user_values or {}):
                 raise DevelopmentProfileError("Missing custom request parameter")
             values[key] = _typed_value(user_values[key], kind)
@@ -587,16 +591,18 @@ class DevelopmentProfile:
         if not required <= set(values):
             raise DevelopmentProfileError("Missing vehicle context placeholder")
         encoded = {
-            k: quote(str(v).lower() if type(v) is bool else str(v), safe="")
+            k: quote(str(v).lower() if type(v) is bool else str(v),
+                     safe="," if k == "JOBS" and not experimental else "")
             for k, v in values.items()
         }
         path = data["path"].format_map(encoded)
-        # Approved host and current token are selected by the future V3-only
-        # adapter, never by custom template data or local control parameters.
+        body = data.get("request_body")
+        if data.get("request_mode") == "secure_spin" and body is None:
+            body = {"spin": "{SPIN}"}  # Older immutable catalogs.
         return {
             "method": data["method"],
             "family": data["family"],
             "relative_path": path,
-            "json_body": _fill_request(data["body"], values),
-            "experimental_only": True,
+            "json_body": _fill_request(body, values),
+            "experimental_only": experimental,
         }

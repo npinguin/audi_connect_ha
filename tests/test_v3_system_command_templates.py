@@ -111,3 +111,17 @@ def test_vin_is_available_in_normal_non_security_command_body():
     assert (f,m)==("cariad","POST")
     assert VIN in path
     assert body=={"vehicle":VIN}
+
+
+def test_builtin_preview_uses_registry_renderer_without_resolving_spin():
+    engine, car, profile = setup()
+    values = {"VIN": car.vin, "COUNTRY": car.country, "TYPE": "Audi",
+              "JOBS": "access,charging"}
+    lock = profile.preview_request("cariad.access.lock", vehicle_values=values)
+    assert lock["json_body"] == {"spin": "{SPIN}"}
+    assert lock["experimental_only"] is False
+    batch = profile.preview_request("cariad.climate.status.batch", vehicle_values=values)
+    assert batch["relative_path"].endswith("?jobs=access,charging")
+    assert batch["json_body"] is None
+    combined = profile.preview_request("cariad.charging.start.combined", vehicle_values=values)
+    assert combined["json_body"] == {"action": "start"}

@@ -69,3 +69,14 @@ Apply the [80/20 operation rule](V3_ARCHITECTURE_CLOSURE.md#8020-rule--one-gener
 | Genuine exceptions | MBB security token, engine proof, settings-preserving PUTs, structured trips | Keep narrow reviewed handlers; extract common primitives only from proven multiple uses |
 
 Baseline `d2b31e9`: catalog has 62 built-in operations; a validated generic/parameterized/exceptional classification of supported variants is still required before reporting an 80% coverage number. Do not claim that target has been achieved. No new renderer, workflow engine or transform language is authorized by this audit.
+
+## Cleanup slice 1 — shared built-in/local request rendering
+
+Built-in and local operation definitions now use the existing registry-backed
+profile renderer. Secure markers stay unresolved in previews, and dispatch
+retains exact existing credential and family checks. Built-in batch job commas
+and the reviewed MBB US endpoint exception are preserved. Removed duplicated
+immediate-parent capture timestamp extraction from Engine and StatusEngine;
+ancestor capture extraction retains its separate semantics. Regression evidence:
+existing template/security tests plus built-in preview parity. No release
+intent, catalog activation policy, or frontend redesign in this slice.

@@ -61,3 +61,21 @@ def capture_coverage(vehicle, now: datetime | None = None) -> dict[str, dict]:
             previous = group[key]
             group[key] = age if previous is None else compare(previous, age)
     return groups
+
+
+def capture_field_timestamp(data: Any, path: str | None) -> str | None:
+    """A status field's own timestamp, not HTTP receipt time."""
+    if not path or not isinstance(data, dict):
+        return None
+    prefix = path.rsplit(".", 1)[0]
+    value = data
+    for key in prefix.split("."):
+        if not isinstance(value, dict):
+            return None
+        value = value.get(key)
+    if not isinstance(value, dict):
+        return None
+    for key in ("carCapturedTimestamp", "timestamp"):
+        if isinstance(value.get(key), str):
+            return value[key]
+    return None
