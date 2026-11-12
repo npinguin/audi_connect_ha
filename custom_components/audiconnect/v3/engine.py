@@ -324,7 +324,7 @@ class V3Engine:
         """Explicit, bounded read-only API-family sweep, never remote commands.
 
         CARIAD: one 23-job GET plus at most two targeted mapped GET groups.
-        Legacy MBB: at most charger and climater GETs, only for legacy auth.
+        Legacy MBB: at most five reviewed GETs, only for legacy auth.
         The API cloud budget remains enforced by V3Transport.
         """
         vehicle = self.require_vehicle(vin)
@@ -361,13 +361,9 @@ class V3Engine:
                 if outcome == "http_ok":
                     observe_read_only(vehicle, profile, response.data, response.observed_at)
             elif outcome == "http_ok":
+                from .legacy_values import observe_legacy
                 kind = route_id.rsplit(".", 1)[-1]
-                for attribute, (mapped_kind, field) in MBB_FIELDS.items():
-                    if kind == mapped_kind:
-                        self._record_attribute_response(
-                            vehicle, profile, attribute, f"mbb.{kind}.readonly",
-                            [field], response,
-                        )
+                observe_legacy(vehicle, profile, kind, response)
             outcomes.append({"operation": route_id, "http_status": response.status,
                              "result": outcome})
             return outcome == "http_ok"

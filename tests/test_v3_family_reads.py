@@ -59,5 +59,6 @@ async def test_legacy_scan_never_attempts_modern_endpoint_or_post():
     engine.vehicles[car.vin.lower()]=car
     engine.profiles[car.vin.lower()]=DevelopmentProfile(model,car.context)
     result=await engine.test_family_reads(car.vin,"mbb")
-    assert len(calls)==2
-    assert result["request_count"]==2
+    assert len(calls)==5
+    assert result["request_count"]==5
+    assert len({path for _,_,path in calls})==5

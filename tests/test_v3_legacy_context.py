@@ -52,9 +52,9 @@ async def test_legacy_context_selects_only_mbb_route_in_engine_poll():
     engine.profiles[legacy.vin.lower()] = DevelopmentProfile(catalog,legacy.context)
     engine._known_vehicle_inventory = True
     await engine.poll()
-    assert len(called)==1
-    assert called[0][0:2]==("mbb","GET")
-    assert "/fs-car/bs/climatisation/" in called[0][2]
+    assert len(called)==5
+    assert all(x[0:2]==("mbb","GET") for x in called)
+    assert sum("/fs-car/bs/climatisation/" in x[2] for x in called)==1
     assert legacy.climate_state=="off"
     assert legacy.climate_captured is None
 
@@ -84,7 +84,8 @@ async def test_shared_mbb_climater_get_is_reused_for_selected_attribute():
     engine.profiles[legacy.vin.lower()]=profile
     engine._known_vehicle_inventory=True
     await engine.poll()
-    assert len(calls)==1
+    assert len(calls)==5
+    assert sum("/fs-car/bs/climatisation/" in x[2] for x in calls)==1
     assert legacy.readings["climatisationState"]["value"]=="off"
     assert legacy.readings["climatisationState"]["family"]=="mbb"
     assert profile.attribute_evidence["climatisationState"]["source"]=="mbb.legacy"

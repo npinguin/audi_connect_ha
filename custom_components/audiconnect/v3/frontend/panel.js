@@ -746,7 +746,7 @@ class AudiConnectV3Panel extends HTMLElement {
           <section class="card" style="margin-bottom:18px;display:${this.step===3?"block":"none"}">
             <div class="eyebrow">Step 3 / Read-only API family</div>
             <h2>Test all applicable GET functions · ${escapeHTML(family==="all"?vehicleFamily.toUpperCase():family.toUpperCase())}</h2>
-            <p>Up to three safe CARIAD GET requests (one batch and two targeted probes), or two MBB legacy GETs. No POST commands, no wake-up, no automatic fallback, and no repeated route spraying.</p>
+            <p>Up to three safe CARIAD GET requests (one batch and two targeted probes), or five MBB legacy GETs. No POST commands, no wake-up, no automatic fallback, and no repeated route spraying.</p>
             ${!applicableFamily?'<div class="warn">This API family does not apply to the selected vehicle.</div>':""}
             <div class="actions"><button data-action="family-test" class="primary"
               ${this.loading||!applicableFamily?"disabled":""}>Test read-only API family</button></div>
