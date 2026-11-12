@@ -417,14 +417,24 @@ class DevelopmentProfile:
 
     def begin_test(self, capability: str, action: str, operation: str, *, now: float):
         """Called only after an authenticated user clicks Test."""
+        history = list(self.discovery.history)
+        sequence = self.discovery._sequence
         attempt = self.discovery.begin(
             capability, action, operation, user_initiated=True, now=now
         )
-        self.track_command(CommandRecord.begin(
-            capability, action, operation, now, origin="workbench",
-            engineering_sequence=attempt.sequence,
-            operation_revision=operation_revision(self.registry.operations[operation]),
-        ))
+        try:
+            self.track_command(CommandRecord.begin(
+                capability, action, operation, now, origin="workbench",
+                engineering_sequence=attempt.sequence,
+                operation_revision=operation_revision(self.registry.operations[operation]),
+            ))
+        except Exception:
+            # No dispatch has occurred. Restore the discovery transaction,
+            # including history entries trimmed by begin().
+            self.discovery.history[:] = history
+            self.discovery._sequence = sequence
+            self.discovery._active = None
+            raise
         return attempt
 
     def observe_http(self, sequence: int, status: int | None) -> None:
