@@ -71,3 +71,17 @@ def test_rejected_stop_preserves_preceding_accepted_start():
     start=record("climate","start")
     stop=record("climate","stop",state="rejected")
     assert projected_state(NS(command_journal=[start,stop]),"climate","off",OLD,now=NOW)==("on","command_pending")
+
+
+@pytest.mark.parametrize("cap,action",[("climate","start"),("charging","start"),("access","lock")])
+def test_normal_command_cooldown_expires_after_ten_seconds(cap,action):
+    from custom_components.audiconnect.v3.command_journal import check_command_sequence
+    start=CommandRecord.begin("climate","start","cariad.climate.start.stored",1000)
+    start.state="backend_completed"
+    profile=NS(last_command=start,command_journal=[start])
+    with pytest.raises(RuntimeError,match="try again in 1s"):
+        check_command_sequence(profile,1009,capability=cap,action=action)
+    check_command_sequence(profile,1010,capability=cap,action=action)
+    start.state="uncertain"
+    with pytest.raises(RuntimeError,match="uncertain"):
+        check_command_sequence(profile,1100,capability=cap,action=action)
