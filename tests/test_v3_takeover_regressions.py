@@ -155,3 +155,28 @@ def test_profile_variants_are_normalized_without_location_or_invalid_soc():
     assert row["options"] == {"usePreferredChargingTimes": True}
     assert "position" not in row
     assert car.readings["charging_profile_context_detail"]["value"]["vehicle_time"] is None
+
+
+def test_health_warning_and_campaign_details_keep_explicit_information_only():
+    car = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    now = datetime.now(UTC)
+    observe_structured(car, {"vehicleHealthWarnings": {"warningLights": {"value": {
+        "carCapturedTimestamp": now.isoformat(), "mileage_km": 12345,
+        "warningLights": [{"messageId": "warning.example", "text": "Example warning",
+            "iconColor": "YELLOW", "icon": "data:image/svg+xml;base64,private"}],
+        "campaigns": [{"eventId": "TEST", "text": "Example campaign",
+            "type": "customerServiceCampaign"}]}}},
+        "readiness": {"readinessStatus": {"value": {
+            "connectionState": {"isOnline": True, "isActive": False,
+                "batteryPowerLevel": "comfort", "dailyPowerBudgetAvailable": True},
+            "connectionWarning": {"insufficientBatteryLevelWarning": False,
+                "dailyPowerBudgetWarning": False}}}}},
+        now, _accept_observation)
+    detail = details_for(car, "health_warning_evidence_detail", "readiness_detail")
+    health = detail["health_warning_evidence"]["data"]
+    assert health["warning_state"] == "reported"
+    assert health["warnings"]["items"][0]["icon_color"] == "YELLOW"
+    assert health["campaigns"]["items"][0]["event_id"] == "TEST"
+    assert "base64" not in str(health)
+    assert detail["readiness"]["data"]["insufficient_battery_warning"] is False
+    assert detail["readiness"]["vehicle_captured"] is None
