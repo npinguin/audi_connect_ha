@@ -54,8 +54,13 @@ def test_completed_command_cooldown_survives_restart():
     record.state = "backend_completed"
     restored = CommandRecord.restore(record.snapshot())
     with pytest.raises(RuntimeError, match="cooldown"):
-        restored.check_next(1089)
-    restored.check_next(1090)
+        restored.check_next(1009)
+    restored.check_next(1010)
+    # Engineering experiments deliberately retain the stricter guard.
+    from custom_components.audiconnect.v3.command_journal import ENGINEERING_COMMAND_COOLDOWN_SECONDS
+    with pytest.raises(RuntimeError, match="cooldown"):
+        restored.check_next(1089, cooldown=ENGINEERING_COMMAND_COOLDOWN_SECONDS)
+    restored.check_next(1090, cooldown=ENGINEERING_COMMAND_COOLDOWN_SECONDS)
 
 
 def test_status_evidence_roundtrips_for_non_climate_capability():
