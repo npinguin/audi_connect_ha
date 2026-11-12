@@ -132,5 +132,7 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         fresh_count += int(fresh)
     from .derived_values import observe_derived
     observe_derived(vehicle, profile, payload, observed_at, _accept_observation)
+    from .structured_details import observe_structured
+    observe_structured(vehicle, payload, observed_at, _accept_observation)
     vehicle.v2_initial_discovery_completed = True
     return {"mapped": mapped, "fresh": fresh_count}
