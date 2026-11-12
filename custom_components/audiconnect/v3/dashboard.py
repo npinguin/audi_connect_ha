@@ -118,6 +118,10 @@ async def ws_status(hass, connection, msg):
                         and product_inventory()["entities"].get(key, {}).get("scope") != "account"):
                     continue
                 if key:
+                    if key in ("sensor.custom_attribute", "binary_sensor.custom_attribute"):
+                        # Admin index needs the exact local contract; public diagnostics
+                        # intentionally keep all local attributes anonymous.
+                        key = entity.domain + "." + entity.unique_id.split("_", 1)[1].removeprefix(entity.domain + "_")
                     actual.setdefault(key, []).append(entity.entity_id)
             from .entity_traceability import link_entities
             link_entities(report, actual)
