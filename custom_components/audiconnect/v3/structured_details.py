@@ -234,6 +234,16 @@ def observe_structured(vehicle, payload, observed_at, accepts):
             mode = care.get("batteryCareMode")
             if mode in ("activated", "deactivated"):
                 put("battery_care_detail", {"mode": mode}, care.get("carCapturedTimestamp"), care_path)
+    # Shared CARIAD reference schema; not evidence of Audi support unless read.
+    for detail_key, path in (
+        ("low_voltage_battery_detail", "lvBattery.lvBatteryStatus.value"),
+        ("battery_support_detail", "batterySupport.batterySupportStatus.value"),
+    ):
+        value = read_json_path(payload, path)
+        if isinstance(value, dict):
+            state = value.get("batterySupport")
+            if state in ("notAllowed", "pendingDisable", "disabled", "pendingEnable", "enabled"):
+                put(detail_key, {"battery_support": state}, value.get("carCapturedTimestamp"), path)
     block = read_json_path(payload, "access.accessStatus.value")
     if isinstance(block, dict):
         put("access_overall_detail", _token(block.get("overallStatus")),
