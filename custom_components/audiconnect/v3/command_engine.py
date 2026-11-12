@@ -187,7 +187,7 @@ class CommandEngine:
             if profile.discovery._active is not None:
                 raise ValueError("Review the previous action before trying another")
             if profile.last_command is not None:
-                check_command_sequence(profile, time.time(), capability=capability, action=aspect)
+                profile.last_command.check_next(time.time())
             if f"{capability}.{aspect}" in profile.discovery.disabled:
                 raise ValueError("This action has been disabled by the user")
             if (profile.discovery.history and
