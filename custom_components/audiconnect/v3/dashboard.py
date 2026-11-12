@@ -499,6 +499,7 @@ async def ws_test_family_reads(hass, connection, msg):
     vol.Required("operation"): str,
     vol.Optional("query"): vol.All(str, vol.Length(min=1, max=4096)),
     vol.Optional("variables"): dict,
+    vol.Optional("activate", default=False): bool,
 })
 @websocket_api.async_response
 async def ws_test_identity_operation(hass, connection, msg):
@@ -513,9 +514,11 @@ async def ws_test_identity_operation(hass, connection, msg):
         defaults = identity_request_body(operation).get("variables", {}) if operation in IDENTITY_QUERIES else {}
         if query is not None and (query != IDENTITY_QUERIES.get(operation)
                                   or (variables is not None and variables != defaults)):
+            if msg.get("activate"):
+                raise ValueError("Only reviewed identity sources can be activated")
             result = await engine.experiment_identity_query(msg["vin"], operation, query, variables)
         else:
-            result = await engine.test_identity_operation(msg["vin"], operation)
+            result = await engine.test_identity_operation(msg["vin"], operation, activate=msg.get("activate", False))
             result["execution"] = engine.engineering_response_for(msg["vin"], operation)
         connection.send_result(msg["id"], result)
     except (ValueError, KeyError, RuntimeError, OSError, TimeoutError):
