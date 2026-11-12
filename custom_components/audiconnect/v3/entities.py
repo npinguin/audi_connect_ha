@@ -19,12 +19,11 @@ from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, Sen
 from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime, PERCENTAGE
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
-from .vehicle import V3Vehicle
+from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
 from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category
 
@@ -58,8 +57,8 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
         )
 
 
-_CLIMATE_OFF = frozenset(("off", "stopped", "inactive"))
-_CLIMATE_ON = frozenset(("heating", "cooling", "ventilation", "on", "active"))
+_CLIMATE_OFF = frozenset(CLIMATE_OFF_STATES)
+_CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
 def _climate_reported_state(coordinator, vehicle):
@@ -173,7 +172,9 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
             "start_evidence": _binding_status(profile, "climate.start"),
             "stop_evidence": _binding_status(profile, "climate.stop"),
             "last_command": self.vehicle.last_command_result,
-            "target_temperature_source": "local_pending" if self._requested_temperature is not None else "vehicle",
+            "target_temperature_source": ("local_pending" if self._requested_temperature is not None
+                                          else "vehicle" if self.native_target_temperature is not None else "unknown"),
+            "last_reported_climate_state": self.vehicle.climate_state,
             "active_paths": len(profile.active) if profile else 0,
         }
 
@@ -211,13 +212,12 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
                 raise HomeAssistantError("No reported or explicitly selected climate target")
             await _send_climate(self.coordinator, self.vehicle, "start_with_settings", {"temp_c": value})
             self._requested_temperature = None
-        elif self.hvac_mode != HVACMode.HEAT_COOL:
+        else:
             await _send_climate(self.coordinator, self.vehicle, "start")
         self.async_write_ha_state()
 
     async def async_turn_off(self) -> None:
-        if self.hvac_mode != HVACMode.OFF:
-            await _send_climate(self.coordinator, self.vehicle, "stop")
+        await _send_climate(self.coordinator, self.vehicle, "stop")
         self.async_write_ha_state()
 
 
@@ -1017,7 +1017,8 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
         super().__init__(coordinator, vehicle)
         key, self.reading, self.field = descriptor
         self._attr_unique_id = f"{vehicle.vin.lower()}_switch_{key}"
-        self._attr_name = contract_for(self.reading and key.replace("climatisation_window_heating", "climatisation_window_heating_enabled")).get("name") or key.replace("_", " ").capitalize()
+        metadata_key = "climatisation_window_heating_enabled" if key == "climatisation_window_heating" else key
+        self._attr_name = contract_for(metadata_key).get("name") or key.replace("_", " ").capitalize()
 
     @property
     def is_on(self):

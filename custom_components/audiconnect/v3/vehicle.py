@@ -8,6 +8,8 @@ from typing import Any
 from .registry import VehicleContext
 
 _INVALID = frozenset({"", "invalid", "unsupported", "unknown", "error", "unavailable"})
+CLIMATE_OFF_STATES = ("off", "stopped", "inactive")
+CLIMATE_ON_STATES = ("heating", "cooling", "ventilation", "on", "active")
 
 
 @dataclass
@@ -106,4 +108,6 @@ class V3Vehicle:
     def capture_age_minutes(self) -> int | None:
         if self.climate_captured is None:
             return None
-        return max(0, int((datetime.now(UTC) - self.climate_captured).total_seconds() / 60))
+        from .freshness import capture_age_minutes
+        age = capture_age_minutes(self.climate_captured.isoformat())
+        return int(age) if age is not None else None

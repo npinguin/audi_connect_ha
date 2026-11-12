@@ -64,8 +64,10 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
                async_on_unload=lambda cb:None)
     setup("climate",entry,offered.extend)
     setup("button",entry,offered.extend)
-    assert len(offered) == 1
-    entity = offered[0]
+    climates = [entity for entity in offered if isinstance(entity, V3ClimateEntity)]
+    assert len(climates) == 1
+    assert not any(entity.unique_id.endswith(("_button_start_climate_car_settings", "_button_stop_climate")) for entity in offered)
+    entity = climates[0]
     entity.async_write_ha_state=lambda:None
     assert entity.unique_id == VIN.lower()+"_climate_climatisation"
     assert entity.available and entity.hvac_mode is None

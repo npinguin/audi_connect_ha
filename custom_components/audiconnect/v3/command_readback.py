@@ -9,14 +9,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from .attribute_runtime import _capture_in_utc
+from .vehicle import CLIMATE_ON_STATES, CLIMATE_OFF_STATES
 
 
 def configure_readback(record, params):
     values = params or {}
     lookup = {
-        ("climate", "start"): ("climate", ["heating", "cooling", "ventilation", "on", "active"]),
-        ("climate", "start_with_settings"): ("climate", ["heating", "cooling", "ventilation", "on", "active"]),
-        ("climate", "stop"): ("climate", ["off", "stopped", "inactive"]),
+        ("climate", "start"): ("climate", list(CLIMATE_ON_STATES)),
+        ("climate", "start_with_settings"): ("climate", list(CLIMATE_ON_STATES)),
+        ("climate", "stop"): ("climate", list(CLIMATE_OFF_STATES)),
         ("charging", "start"): ("chargingState", ["charging"]),
         ("charging", "stop"): ("chargingState", ["off", "stopped", "notcharging", "not_charging"]),
         ("access", "lock"): ("doorLockStatus", ["locked"]),
