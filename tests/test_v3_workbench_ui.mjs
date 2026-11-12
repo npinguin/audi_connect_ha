@@ -46,7 +46,7 @@ test("Read candidate survives route selection and rerender without the obsolete 
   assert.equal(calls.includes("attribute_activate"),false);
 });
 
-test("Workbench keeps four views and V2 backlog separate from verified attributes", async () => {
+test("Workbench keeps engineering views and V2 backlog separate from verified attributes", async () => {
   const panel = new Panel();
   panel.step = 1;
   panel.entries = [{entry_id:"entry", vehicles:[{vin:"TESTVIN",name:"Audi",model:"Q8"}]}];
@@ -574,4 +574,22 @@ test("Portable definition JSON reuses editor and never executes a request", asyn
   assert.throws(()=>p.loadDefinitionJSON("read",template,JSON.stringify({...value,attribute:"different"})),/matching attribute/);
   assert.throws(()=>p.loadDefinitionJSON("read",template,JSON.stringify({...value,id:"user.read.changed",capture_path:123})),/Expected text/);
   assert.equal(p.definitionValue("read",template).id,"user.read.imported");
+});
+
+
+test("End-user validation projects native progress and does not execute on opening", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  p.capabilityStatus={rows:[],end_user_progress:{read_assessed:22,read_total:28,read_assessment_percent:78.6,
+    controls_catalog_applicable:1,controls_physically_verified:0,controls:[{capability:"climate",action:"start",eligible:true,status:"catalog_matched",physical:"not_tested"}]},
+    end_user_candidates:[{label:"Start cabin climate",capability:"climate",action:"start",operation:"cariad.climate.start.stored",approval_group:"non_spin"}],
+    integration_health:{status:"operational",quota_remaining:50},end_user_timing:{poll_interval_seconds:900}};
+  const calls=[];p.api=async(name)=>{calls.push(name);return {routes:[{id:"cariad.climate.start.stored",approval_group:"non_spin"}],active:"cariad.climate.start.stored"};};
+  await p._click({target:{closest:()=>({dataset:{action:"step-5"}})}});
+  assert.match(p.shadowRoot.innerHTML,/22\/28 assessed/);
+  assert.match(p.shadowRoot.innerHTML,/15 min/);
+  assert.equal(calls.length,0);
+  await p._click({target:{closest:()=>({dataset:{action:"end-user-select",operation:"cariad.climate.start.stored"}})}});
+  assert.equal(p.step,5);assert.deepEqual(calls,["control_routes"]);
+  assert.match(p.shadowRoot.innerHTML,/I accept this specific action/);
 });
