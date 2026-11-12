@@ -254,15 +254,28 @@ class CommandEngine:
 
     async def send_control(
         self, vin: str, aspect: str, capability: str = "climate",
-        *, params: dict[str, Any] | None = None,
-    ) -> None:
-        """One normal mutation, persisted before dispatch; never replay."""
+        *, params: dict[str, Any] | None = None, _follow_up_to: str | None = None,
+    ) -> CommandRecord:
+        """One journaled mutation, persisted before dispatch; never replay.
+
+        Only an opt-in, linked refresh after a completed user command may
+        bypass the general command cooldown. It still needs its own route,
+        security policy, wake budget and durable journal entry.
+        """
         car = self.require_vehicle(vin)
         p = self.profiles[vin.lower()]
         async with self._actions:
             if p.discovery._active is not None:
                 raise RuntimeError("A vehicle control experiment is awaiting physical confirmation")
-            if p.last_command is not None:
+            if _follow_up_to is not None:
+                parent = p.last_command
+                if (capability != "remote" or aspect != "refresh" or parent is None
+                        or parent.command_id != _follow_up_to
+                        or parent.state not in ("backend_completed", "verified")
+                        or parent.parent_command_id is not None
+                        or (parent.capability == "remote" and parent.action in ("refresh", "wake"))):
+                    raise RuntimeError("No eligible completed parent command for vehicle refresh")
+            elif p.last_command is not None:
                 p.last_command.check_next(time.time())
             if p.discovery.history and time.time() < (
                 p.discovery.history[-1].started_at + p.discovery.cooldown_seconds
@@ -280,7 +293,8 @@ class CommandEngine:
                 family, method, path, body = await self._command_request(car, ident, params)
             self._reserve_wake(vin, ident)
             record = CommandRecord.begin(capability, aspect, ident, time.time(),
-                                         operation_revision=operation_revision(p.registry.operations[ident]))
+                                         operation_revision=operation_revision(p.registry.operations[ident]),
+                                         parent_command_id=_follow_up_to)
             configure_readback(record, params)
             p.track_command(record)
             # If storage fails here, no physical action is attempted.
@@ -331,6 +345,7 @@ class CommandEngine:
             self._notify_discovery_change()
             if record.state in ("rejected", "uncertain"):
                 raise RuntimeError("Audi command rejected or uncertain; no automatic retry")
+            return record
 
     async def review_normal_command(self, vin: str, command_id: str) -> None:
         """Explicit acknowledgement after inspecting the car; never dispatch."""
@@ -345,7 +360,7 @@ class CommandEngine:
             await self.storage.async_save(self.profiles)
             self._notify_discovery_change()
 
-    async def send_setting(self, vin: str, kind: str, value: Any) -> None:
+    async def send_setting(self, vin: str, kind: str, value: Any) -> CommandRecord:
         """Typed V3-owned write through an explicitly verified route.
 
         This method cannot invoke V2. OEM method, path and body are owned by
@@ -360,5 +375,5 @@ class CommandEngine:
                 raise ValueError("Audi charge mode must be manual or timer")
         else:
             raise ValueError("Unsupported V3 setting")
-        await self.send_control(vin, kind, "charging", params={"value": value})
+        return await self.send_control(vin, kind, "charging", params={"value": value})
 

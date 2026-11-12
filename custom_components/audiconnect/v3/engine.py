@@ -6,6 +6,7 @@ The auth facade is the only bridge to existing Audi credential code.
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 import time
 from typing import Any
@@ -32,7 +33,11 @@ from .legacy_read_mappings import ROUTES as MBB_ROUTES
 from .api_value_mappings import normalize_api_value
 from .historical_catalog import V2_JOBS
 from .read_discovery import record_jobs, pending_groups, reserve_group, summary as discovery_summary
-from ..const import CONF_FILTER_VINS
+from ..const import (CONF_FILTER_VINS, CONF_REFRESH_AFTER_ACTION, CONF_UPDATE_SLEEP,
+                     DOMAIN, REFRESH_VEHICLE_DATA_COMPLETED_EVENT,
+                     REFRESH_VEHICLE_DATA_FAILED_EVENT, UPDATE_SLEEP)
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _captured(data: Any, path: str | None) -> str | None:
@@ -463,15 +468,80 @@ class V3Engine:
         p.disable(capability, aspect)
         await self.storage.async_save(self.profiles)
 
+    def _refresh_event(self, vin: str, record) -> None:
+        """Retain historical event IDs, never report an unconfirmed refresh as complete."""
+        bus = getattr(self.hass, "bus", None)
+        if bus is None:
+            return
+        completed = record.state in ("backend_completed", "verified")
+        event = REFRESH_VEHICLE_DATA_COMPLETED_EVENT if completed else REFRESH_VEHICLE_DATA_FAILED_EVENT
+        bus.async_fire(f"{DOMAIN}_{event}", {
+            "vin": "*" * max(0, len(vin) - 4) + vin[-4:],
+            "outcome": record.state,
+        })
+
+    async def _follow_up_cloud(self) -> None:
+        """One read-only coordinator refresh, never a second polling owner."""
+        coordinator = getattr(getattr(self.entry, "runtime_data", None), "coordinator", None)
+        if coordinator is None or not hasattr(coordinator, "async_request_refresh"):
+            return
+        try:
+            delay = float(getattr(self.entry, "options", {}).get(CONF_UPDATE_SLEEP, UPDATE_SLEEP))
+        except (TypeError, ValueError):
+            delay = UPDATE_SLEEP
+        try:
+            await asyncio.sleep(max(0, min(delay, 300)))
+            await coordinator.async_request_refresh()
+        except Exception:
+            # A follow-up read must not turn an already accepted command into a
+            # failed service call (which could prompt an unsafe user retry).
+            _LOGGER.warning("Audi command follow-up cloud read failed")
+
+    async def _after_command(self, vin: str, record) -> None:
+        if getattr(getattr(self.entry, "runtime_data", None), "coordinator", None) is None:
+            return
+        remote_refresh = record.capability == "remote" and record.action == "refresh"
+        if remote_refresh:
+            self._refresh_event(vin, record)
+        elif (getattr(self.entry, "options", {}).get(CONF_REFRESH_AFTER_ACTION, False)
+              and record.state in ("backend_completed", "verified")
+              and not (record.capability == "remote" and record.action == "wake")):
+            # The existing opt-in V2 option permits one explicit refresh after
+            # an accepted action. Never send it after uncertainty, recurse, or
+            # bypass the wake quota/security/evidence checks.
+            try:
+                refresh = await self.commands.send_control(vin, "refresh", "remote",
+                                                           _follow_up_to=record.command_id)
+            except (RuntimeError, ValueError):
+                profile = self.profiles.get(vin.lower())
+                refresh = getattr(profile, "last_command", None)
+                if refresh is not None and refresh.parent_command_id == record.command_id:
+                    self._refresh_event(vin, refresh)
+                _LOGGER.debug("Audi optional vehicle refresh skipped or unconfirmed")
+            else:
+                self._refresh_event(vin, refresh)
+        await self._follow_up_cloud()
+
     async def send_control(self, vin: str, aspect: str, capability: str = "climate", *,
                            params: dict[str, Any] | None = None) -> None:
-        await self.commands.send_control(vin, aspect, capability, params=params)
+        profile = self.profiles.get(vin.lower())
+        previous = getattr(profile, "last_command", None)
+        try:
+            record = await self.commands.send_control(vin, aspect, capability, params=params)
+        except (RuntimeError, ValueError):
+            current = getattr(profile, "last_command", None)
+            if capability == "remote" and aspect == "refresh" and current is not None and current is not previous:
+                self._refresh_event(vin, current)
+                await self._follow_up_cloud()
+            raise
+        await self._after_command(vin, record)
 
     async def review_normal_command(self, vin: str, command_id: str) -> None:
         await self.commands.review_normal_command(vin, command_id)
 
     async def send_setting(self, vin: str, kind: str, value: Any) -> None:
-        await self.commands.send_setting(vin, kind, value)
+        record = await self.commands.send_setting(vin, kind, value)
+        await self._after_command(vin, record)
 
     def attribute_routes_for(self, vin: str, attribute: str) -> dict[str, Any]:
         car = self.require_vehicle(vin)

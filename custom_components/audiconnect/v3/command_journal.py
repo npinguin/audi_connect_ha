@@ -29,6 +29,7 @@ class CommandRecord:
     operation_revision: str | None = None
     backend_result: str | None = None
     completed_at: float | None = None
+    parent_command_id: str | None = None
 
     @classmethod
     def begin(cls, capability: str, action: str, operation: str, now: float, **metadata):
@@ -64,6 +65,12 @@ class CommandRecord:
             or not math.isfinite(record.started_at) or record.started_at < 0
             or record.state not in _STATES
             or record.origin not in ("home_assistant", "workbench")
+            or (record.parent_command_id is not None and (
+                not isinstance(record.parent_command_id, str)
+                or not re.fullmatch(r"[a-f0-9]{32}", record.parent_command_id)
+                or record.parent_command_id == record.command_id
+                or record.capability != "remote" or record.action != "refresh"
+                or record.origin != "home_assistant"))
             or (record.engineering_sequence is not None and (type(record.engineering_sequence) is not int or record.engineering_sequence < 1))
             or (record.origin == "workbench") != (record.engineering_sequence is not None)
             or (record.operation_revision is not None and (not isinstance(record.operation_revision, str) or not re.fullmatch(r"[a-f0-9]{64}", record.operation_revision)))
