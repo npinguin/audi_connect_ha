@@ -207,6 +207,7 @@ class GuidedActionDiscovery:
         result: Result,
         inspected_vehicle: bool,
         now: float,
+        readback_verified: bool = False,
     ) -> ActionAttempt:
         """User can record worked/failed only after reviewing real vehicle.
 
@@ -216,7 +217,8 @@ class GuidedActionDiscovery:
         record = self._require_active(sequence)
         if result not in ("worked", "failed", "uncertain"):
             raise DiscoveryError("Unknown physical-action outcome")
-        if result in ("worked", "failed") and inspected_vehicle is not True:
+        if result in ("worked", "failed") and inspected_vehicle is not True and not (
+                result == "worked" and readback_verified is True):
             raise DiscoveryError("Physical outcome requires vehicle confirmation")
         if now < record.started_at:
             raise DiscoveryError("Feedback timestamp precedes request")
