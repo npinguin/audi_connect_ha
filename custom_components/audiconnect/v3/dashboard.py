@@ -384,13 +384,6 @@ async def ws_control_routes(hass, connection, msg):
 async def ws_control_test(hass, connection, msg):
     try:
         engine = _engine(hass, msg["entry_id"])
-        if msg.get("end_user"):
-            from .read_discovery import user_test_candidates
-            car = engine.require_vehicle(msg["vin"])
-            profile = engine.profiles[car.vin.lower()]
-            candidate = user_test_candidates(engine, car, profile, include_verified=msg.get("expert", False)).get(msg["capability"] + "." + msg["action"])
-            if candidate is None or candidate[3:] != (msg["operation"], msg["approval"]) or msg.get("parameters"):
-                raise ValueError("End-user control changed or requires parameters; refresh discovery before testing")
         value = await engine.approved_control_discovery(
             msg["vin"], msg["action"], msg["operation"],
             capability=msg["capability"], approval=msg["approval"],
