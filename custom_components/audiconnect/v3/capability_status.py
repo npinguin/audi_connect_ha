@@ -26,31 +26,7 @@ from .read_discovery import summary as discovery_summary
 
 # Source: V2 capability_jobs.BASE_SELECTIVE_JOBS and api_probe.py.
 # This is a migration backlog, not 24 proven V3 capabilities.
-_V2_SELECTIVE_JOBS = {
-    "access": "remote",
-    "activeVentilation": "climate",
-    "auxiliaryHeating": "climate",
-    "batteryChargingCare": "charging",
-    "batterySupport": "charging",
-    "charging": "charging",
-    "chargingProfiles": "charging",
-    "chargingTimers": "charging",
-    "climatisation": "climate",
-    "climatisationTimers": "climate",
-    "departureProfiles": "charging",
-    "departureTimers": "charging",
-    "fuelStatus": "vehicle_status",
-    "honkAndFlash": "remote",
-    "hybridCarAuxiliaryHeating": "climate",
-    "lvBattery": "vehicle_status",
-    "measurements": "vehicle_status",
-    "oilLevel": "vehicle_status",
-    "readiness": "vehicle_status",
-    "userCapabilities": "vehicle_status",
-    "vehicleHealthInspection": "vehicle_status",
-    "vehicleHealthWarnings": "vehicle_status",
-    "vehicleLights": "vehicle_status",
-}
+_V2_SELECTIVE_JOBS = {row["id"]: row["capability"] for row in INVENTORY["jobs"]}
 _V2_ADDITIONAL_GET = {
     "parkingPosition": "/vehicle/v1/vehicles/{VIN}/parkingposition",
     "pendingRequests": "/vehicle/v1/vehicles/{VIN}/pendingrequests",
@@ -447,3 +423,62 @@ def _cockpit(vehicle, profile, rows, controls):
                                  "active": sum(r["active"] for r in operations),
                                  "attention": sum(bool(r["attention"]) for r in operations),
                                  "historical_references": len(references)}}
+
+
+def diagnostic_route_label(ident, registry):
+    """Keep known discovery identifiers, never export custom route names."""
+    if ident in registry.operations or ident in ("cariad.discovery.full", "cariad.selectivestatus.batch"):
+        return ident
+    if ident.startswith("cariad.discovery."):
+        jobs = ident.removeprefix("cariad.discovery.").split("_")
+        if jobs and all(job in _V2_SELECTIVE_JOBS for job in jobs):
+            return ident
+    if ident.startswith("mbb.discovery."):
+        from .legacy_read_mappings import ROUTES
+        if ident.removeprefix("mbb.discovery.") in ROUTES:
+            return ident
+    return "custom_or_discovery_route"
+
+
+def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
+    """Safe diagnostic projection of the same capability model as the dashboard.
+
+    No nickname, user route, VIN, payload, setting values or custom identifiers.
+    Catalog compatibility, current command eligibility and physical evidence
+    remain independent. This is a read-only computation from current state.
+    """
+    from .control_resolution import control_decision
+    report = build_status_report(vehicle, profile)
+    known = base_registry.capabilities
+    summaries = [row for row in report["capability_summary"] if row["capability"] in known]
+    controls = []
+    for capability, definition in known.items():
+        for action in definition.get("control", {}):
+            decision = control_decision(vehicle, profile, auth, capability, action)
+            operation = decision["operation"]
+            controls.append({
+                "capability": capability, "action": action,
+                "binding_status": decision["status"], "eligible": operation is not None,
+                "operation": diagnostic_route_label(operation, base_registry) if operation else None,
+                "physical_evidence": profile.control_results.get(operation, "not_tested") if operation else "not_tested",
+            })
+    for row in summaries:
+        actions = [item for item in controls if item["capability"] == row["capability"]]
+        row["enabled_controls"] = sum(item["eligible"] for item in actions)
+        row["locally_verified_controls"] = sum(item["binding_status"] == "local_verified" for item in actions)
+    operations = [
+        {key: item.get(key) for key in ("operation", "family", "method", "applicability",
+            "tested", "http_status", "schema", "physical", "last_command_state",
+            "active", "job_evidence", "fields_truncated")}
+        for item in report["operations"] if item["operation"] in base_registry.operations
+    ]
+    return {
+        "capabilities": summaries,
+        "controls": controls,
+        "operations": operations,
+        "job_capture_coverage": {
+            job: data for job, data in report["job_capture_coverage"].items()
+            if job in _V2_SELECTIVE_JOBS or job == "unclassified"
+        },
+        "operation_counts": report["operation_counts"],
+    }

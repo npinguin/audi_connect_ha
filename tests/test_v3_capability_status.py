@@ -107,3 +107,11 @@ def test_cockpit_exposes_oil_type_issue_and_schema_fields():
     operation = next(o for o in report["operations"] if o["operation"] == route)
     assert operation["partial_http"]
     assert any(f["mapping"] == "derived_binary" for f in operation["fields"])
+
+
+def test_diagnostic_jobs_follow_canonical_capability_ownership():
+    from custom_components.audiconnect.v3.historical_catalog import INVENTORY
+    from custom_components.audiconnect.v3.capability_status import _V2_SELECTIVE_JOBS
+    assert _V2_SELECTIVE_JOBS == {row["id"]: row["capability"] for row in INVENTORY["jobs"]}
+    assert _V2_SELECTIVE_JOBS["access"] == "access"
+    assert _V2_SELECTIVE_JOBS["vehicleHealthInspection"] == "service"

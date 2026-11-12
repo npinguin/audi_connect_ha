@@ -365,3 +365,23 @@ async def test_engineering_execution_history_pairs_actual_request_and_response()
     assert rows[0]["request"]["payload"]["body"] == {"spin": "{SPIN}", "target": 1}
     assert VIN not in json.dumps(rows)
     assert "engineering_history" not in profile.snapshot()
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_cover_all_product_capabilities_without_private_route_names():
+    engine, _, _ = engine_for(status())
+    await engine.poll()
+    profile = engine.profiles[VIN.lower()]
+    from custom_components.audiconnect.v3.api_observations import record_for, save_record
+    for operation in ("cariad.discovery.full", "cariad.discovery.batterySupport", "private_custom_route"):
+        save_record(profile, operation, record_for(family="cariad",method="GET",
+                    http_status=207,payload={},vin=VIN))
+    snapshot=engine.diagnostics()["vehicles"][0]
+    evidence=snapshot["capability_evidence"]
+    assert {row["capability"] for row in evidence["capabilities"]} >= set(engine.registry.capabilities)
+    assert all(row["operation"] in engine.registry.operations for row in evidence["operations"])
+    names={row["operation"] for row in snapshot["climate"]["last_api_results"]}
+    assert {"cariad.discovery.full","cariad.discovery.batterySupport","custom_or_discovery_route"} <= names
+    encoded=json.dumps(snapshot)
+    assert "private_custom_route" not in encoded and VIN not in encoded
+    assert "engineering_history" not in encoded

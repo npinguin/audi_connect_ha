@@ -765,6 +765,7 @@ class V3Engine:
 
     def diagnostics(self) -> dict[str, Any]:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
+        from .capability_status import diagnostic_capability_summary, diagnostic_route_label
         vehicles = []
         for index, car in enumerate(self.vehicles.values(), 1):
             p = self.profiles.get(car.vin.lower())
@@ -775,6 +776,7 @@ class V3Engine:
                     "auth": car.context.auth,
                     "region": car.country, "model_family": car.model_family,
                 },
+                "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "climate": {
                     "readable": car.climate_state is not None,
                     "capture_age_minutes": car.capture_age_minutes,
@@ -817,8 +819,7 @@ class V3Engine:
                     "disabled_controls": sorted(p.discovery.disabled) if p else [],
                     "automatic_read_discovery": discovery_summary(p) if p else {},
                     "last_api_results": [
-                        {"operation": ident if ident in self.registry.operations
-                         else "custom_or_discovery_route", **entry}
+                        {"operation": diagnostic_route_label(ident, self.registry), **entry}
                         for ident, entry in reversed(list(p.api_observations.items()))
                     ][:24] if p else [],
                 },
