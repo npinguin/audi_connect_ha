@@ -211,3 +211,29 @@ def test_retry_budget_survives_profile_restore():
     restored = restore_profile(registry, context, profile.snapshot())
     assert restored.job_probe_attempts["chargingProfiles"] == MAX_TARGETED_PROBE_ATTEMPTS
     assert restored.job_discovery["chargingProfiles"] == "inconclusive"
+
+
+def test_read_discovery_distinguishes_exhaustion_from_success():
+    from pathlib import Path
+    from custom_components.audiconnect.v3.read_discovery import user_progress, MAX_TARGETED_PROBE_ATTEMPTS
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    registry = CapabilityRegistry.from_json_file(root / "full_catalog.json")
+    car = V3Vehicle("WAUZZZ4M0MD123456", "Audi", "Q8", "q8", "DE")
+    auth = SimpleNamespace(uses_auth0=True, service=SimpleNamespace(_spin=None))
+    profile = DevelopmentProfile(registry, car.context)
+    assert user_progress(car, profile, auth)["read_state"] == "discovering"
+    profile.job_discovery = {job: "observed" for job in V2_JOBS}
+    profile.job_discovery["chargingProfiles"] = "inconclusive"
+    profile.job_probe_attempts["chargingProfiles"] = MAX_TARGETED_PROBE_ATTEMPTS
+    progress = user_progress(car, profile, auth)
+    assert progress["read_retry_exhausted_jobs"] == ["chargingProfiles"]
+    assert progress["read_state"] == "awaiting_data"
+    profile.standalone_discovery = {op: 200 for op in progress["standalone_http"]}
+    progress = user_progress(car, profile, auth)
+    assert progress["read_state"] == "complete_with_unresolved"
+    assert progress["read_assessed"] < progress["read_total"]
+    profile.job_discovery["chargingProfiles"] = "observed"
+    assert user_progress(car, profile, auth)["read_state"] == "complete"
