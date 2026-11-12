@@ -22,6 +22,8 @@ def configure_readback(record, params):
         ("charging", "stop"): ("chargingState", list(CHARGING_OFF_STATES)),
         ("climate", "window_heating_start"): ("windowHeatingActive", [True]),
         ("climate", "window_heating_stop"): ("windowHeatingActive", [False]),
+        ("climate", "preheater_start"): ("preheater_active", [True]),
+        ("climate", "preheater_stop"): ("preheater_active", [False]),
         ("access", "lock"): ("doorLockStatus", ["locked"]),
         ("access", "unlock"): ("doorLockStatus", ["unlocked"]),
     }
@@ -34,6 +36,17 @@ def configure_readback(record, params):
         value = values.get("value")
         if value in ("manual", "timer"):
             match = ("preferredChargeMode", [value])
+    if (record.capability, record.action) == ("climate", "set_settings"):
+        fields = {"windowHeatingEnabled": "climatisationWindowHeatingEnabled",
+                  "climatizationAtUnlock": "climatisationAtUnlock",
+                  "zoneFrontLeftEnabled": "climatisationZoneFrontLeft",
+                  "zoneFrontRightEnabled": "climatisationZoneFrontRight",
+                  "zoneRearLeftEnabled": "climatisationZoneRearLeft",
+                  "zoneRearRightEnabled": "climatisationZoneRearRight"}
+        if len(values) == 1:
+            field, value = next(iter(values.items()))
+            if field in fields and type(value) is bool:
+                match = (fields[field], [value])
     if match:
         record.readback_attribute, record.readback_values = match
 
@@ -56,12 +69,94 @@ def reconcile_readback(record, car, now=None) -> bool:
         return False
     if isinstance(value, str):
         value = value.strip().lower()
-    if type(value) is bool and record.readback_attribute != "windowHeatingActive":
-        return False
-    if record.readback_attribute == "windowHeatingActive" and type(value) is not bool:
+    expects_bool = all(type(v) is bool for v in record.readback_values)
+    if (type(value) is bool) != expects_bool:
         return False
     if value not in record.readback_values:
         return False
     record.state = "verified"
     record.completed_at = max(record.started_at, now.timestamp())
     return True
+
+
+# UI projection is separate from actual telemetry and physical evidence.
+# Only explicit, successfully accepted HA actions are eligible.
+OPTIMISTIC_TTL_SECONDS = 30 * 60
+_ACCEPTED = frozenset({"accepted_unconfirmed", "backend_completed"})
+_OPTIMISTIC = {
+    "climate": ("on", "off"),
+    "chargingState": ("charging", "off"),
+}
+
+
+def latest_readback_command(profile, attribute):
+    return next((record for record in reversed(getattr(profile, "command_journal", ()))
+                 if getattr(record, "readback_attribute", None) == attribute), None)
+
+
+def projected_state(profile, attribute, reported, captured, *, now=None, optimistic=True):
+    """Return (effective value, source). A newer valid report always wins.
+
+    No optimistic write to readings, no physical verification from HTTP,
+    no replay, and no optimism for workbench, rejected or uncertain commands.
+    """
+    record = latest_readback_command(profile, attribute)
+    if record is None:
+        return reported, "vehicle" if reported is not None else "unknown"
+    stamp = captured if isinstance(captured, datetime) else _capture_in_utc(captured)
+    if reported is not None and stamp is not None and stamp.timestamp() > record.started_at:
+        return reported, "vehicle"
+    if record.state not in _ACCEPTED | {"pending", "uncertain"}:
+        return reported, "vehicle" if reported is not None else "unknown"
+    if record.origin != "home_assistant":
+        return reported, "vehicle" if reported is not None else "unknown"
+    age = (now or datetime.now(UTC)).timestamp() - record.started_at
+    if record.state not in _ACCEPTED or not 0 <= age < OPTIMISTIC_TTL_SECONDS:
+        return None, "unknown"
+    if not optimistic:
+        return None, "command_pending"
+    values = record.readback_values or []
+    if not values:
+        return None, "unknown"
+    if attribute in _OPTIMISTIC:
+        value = _OPTIMISTIC[attribute][1 if record.action == "stop" else 0]
+    elif len(values) == 1:
+        value = values[0]
+    else:
+        return None, "unknown"
+    return value, "command_pending"
+
+
+def observe_command_response(record, car, profile, family, response):
+    """Consume only reviewed actual telemetry envelopes, never request status."""
+    if family != "cariad" or not isinstance(response.data, dict):
+        return
+    from .attribute_runtime import observe_read_only
+    from .registry import read_json_path
+    paths = {"climate": ("climatisation", "climatisationStatus"),
+             "chargingState": ("charging", "chargingStatus"),
+             "windowHeatingActive": ("climatisation", "windowHeatingStatus"),
+             "doorLockStatus": ("access", "accessStatus"),
+             "targetstateOfCharge": ("charging", "chargingSettings"),
+             "preferredChargeMode": ("charging", "chargeMode")}
+    if record.readback_attribute in ("climatisationWindowHeatingEnabled", "climatisationAtUnlock",
+            "climatisationZoneFrontLeft", "climatisationZoneFrontRight",
+            "climatisationZoneRearLeft", "climatisationZoneRearRight"):
+        paths[record.readback_attribute] = ("climatisation", "climatisationSettings")
+    path = paths.get(record.readback_attribute)
+    if not path:
+        return
+    job, group = path
+    envelope = read_json_path(response.data, f"{job}.{group}")
+    if not isinstance(envelope, dict):
+        return
+    value = envelope.get("value")
+    captured = _capture_in_utc(value.get("carCapturedTimestamp")) if isinstance(value, dict) else None
+    if captured is None or captured.timestamp() <= record.started_at:
+        return
+    observe_read_only(car, profile, {job: {group: envelope}}, response.observed_at)
+    if record.readback_attribute == "climate":
+        row = car.readings.get("climatisationState", {})
+        car.set_climate(row.get("value"), row.get("captured"), route=record.operation,
+                        observed_at=response.observed_at, http_status=response.status)
+    reconcile_readback(record, car, response.observed_at)

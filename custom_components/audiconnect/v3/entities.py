@@ -24,6 +24,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
+from .command_readback import projected_state
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
 from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category, canonical_entity_name, stateful_controls, stateful_reading, superseded_control_button
 
@@ -61,24 +62,31 @@ _CLIMATE_OFF = frozenset(CLIMATE_OFF_STATES)
 _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
-def _climate_reported_state(coordinator, vehicle):
-    """A pre-command capture is not a confirmation of the new command."""
+def _command_projection(coordinator, vehicle, attribute, reported, captured, *, optimistic=True):
+    profile = getattr(coordinator.engine, "profiles", {}).get(vehicle.vin.lower())
+    return projected_state(profile, attribute, reported, captured, optimistic=optimistic)
+
+
+def _reading_projection(coordinator, vehicle, attribute, *, allow_last_known=False, optimistic=True):
+    row = vehicle.readings.get(attribute) or {}
+    reported = row.get("value") if _reading_available(row, allow_last_known=allow_last_known) else None
+    return _command_projection(coordinator, vehicle, attribute, reported, row.get("captured"),
+                               optimistic=optimistic)
+
+
+def _climate_projection(coordinator, vehicle):
     state = vehicle.climate_state
     age = vehicle.capture_age_minutes
     legacy = vehicle.context.auth == "legacy" and _reading_available(
         vehicle.readings.get("climatisationState"))
-    if state is None or (age is None and not legacy) or (age is not None and age > 60):
-        return None
-    profile = getattr(coordinator.engine, "profiles", {}).get(vehicle.vin.lower())
-    for record in reversed(getattr(profile, "command_journal", ())):
-        if record.capability != "climate" or record.action not in ("start", "start_with_settings", "stop"):
-            continue
-        if record.state in ("pending", "uncertain", "accepted_unconfirmed", "backend_completed"):
-            if vehicle.climate_captured is None or vehicle.climate_captured.timestamp() <= record.started_at:
-                return None
-        break
-    return state if state in _CLIMATE_ON | _CLIMATE_OFF else None
+    if (state not in _CLIMATE_ON | _CLIMATE_OFF or (age is None and not legacy)
+            or (age is not None and age > 60)):
+        state = None
+    return _command_projection(coordinator, vehicle, "climate", state, vehicle.climate_captured)
 
+
+def _climate_reported_state(coordinator, vehicle):
+    return _climate_projection(coordinator, vehicle)[0]
 
 async def _send_climate(coordinator, vehicle, action, params=None):
     engine = coordinator.engine
@@ -172,6 +180,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         state = _climate_reported_state(self.coordinator, self.vehicle)
         if state in _CLIMATE_OFF:
             return HVACAction.OFF
+        # A requested ON is not proof of heating rather than cooling.
         return {"heating": HVACAction.HEATING, "cooling": HVACAction.COOLING,
                 "ventilation": HVACAction.FAN}.get(state)
 
@@ -198,6 +207,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
                 if self.pending_dispatched_temperature is not None else
                 "vehicle" if self.reported_target_temperature is not None else "unknown"),
             "last_reported_climate_state": self.vehicle.climate_state,
+            "state_source": _climate_projection(self.coordinator, self.vehicle)[1],
             "active_paths": len(profile.active) if profile else 0,
         }
 
@@ -767,28 +777,21 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
                 and self.coordinator.last_update_success
                 and (self._enabled("on") or self._enabled("off")))
 
+    def _projection(self):
+        from .vehicle import charging_active
+        value, source = _reading_projection(self.coordinator, self.vehicle, self.definition["attribute"])
+        state = charging_active(value) if self.key == "charging" else value if type(value) is bool else None
+        return state, source
+
     @property
     def is_on(self):
-        from .attribute_runtime import _capture_in_utc
-        row, state = stateful_reading(self.vehicle, self.key)
-        if state is None or not _reading_available(row):
-            return None
-        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
-        stamp = _capture_in_utc(row.get("captured"))
-        for command in reversed(getattr(profile, "command_journal", ())):
-            if command.capability != self.definition["capability"] or command.action not in (
-                    self.definition["on"], self.definition["off"]):
-                continue
-            if command.state in ("pending", "uncertain", "accepted_unconfirmed", "backend_completed"):
-                if stamp is None or stamp.timestamp() <= command.started_at:
-                    return None
-            break
-        return state
+        return self._projection()[0]
 
     @property
     def extra_state_attributes(self):
         row, state = stateful_reading(self.vehicle, self.key)
         return {"last_reported_state": state, "vehicle_captured": row.get("captured"),
+                "state_source": self._projection()[1],
                 "on_enabled": self._enabled("on"), "off_enabled": self._enabled("off")}
 
     async def _send(self, action):
@@ -883,10 +886,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
     @property
     def is_locked(self) -> bool | None:
         # No silent assumption that an unavailable lock status means unlocked.
-        row = self.vehicle.readings.get("doorLockStatus")
-        if not _reading_available(row):
-            return None
-        raw = row.get("value")
+        raw, _ = _reading_projection(self.coordinator, self.vehicle, "doorLockStatus", optimistic=False)
         if not isinstance(raw, str):
             return None
         value = raw.strip().lower()
@@ -909,6 +909,21 @@ class V3LockEntity(V3BaseEntity, LockEntity):
                     engine.control_enabled(self.vehicle.vin, "lock", "access") or
                     engine.control_enabled(self.vehicle.vin, "unlock", "access")
                 ))
+
+    def _pending_action(self, action):
+        from .command_readback import latest_readback_command
+        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
+        record = latest_readback_command(profile, "doorLockStatus")
+        _, source = _reading_projection(self.coordinator, self.vehicle, "doorLockStatus", optimistic=False)
+        return bool(record and record.action == action and source == "command_pending")
+
+    @property
+    def is_locking(self):
+        return self._pending_action("lock")
+
+    @property
+    def is_unlocking(self):
+        return self._pending_action("unlock")
 
     async def async_lock(self, **kwargs) -> None:
         if not self.available or not self.coordinator.engine.control_enabled(
@@ -1019,8 +1034,7 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
 
     @property
     def native_value(self) -> float | None:
-        reading = self.vehicle.readings.get("targetstateOfCharge") or {}
-        value = reading.get("value")
+        value, _ = _reading_projection(self.coordinator, self.vehicle, "targetstateOfCharge", allow_last_known=True)
         return float(value) if (isinstance(value, (int, float))
                                 and not isinstance(value, bool)) else None
 
@@ -1032,6 +1046,7 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
         await self.coordinator.engine.send_setting(
             self.vehicle.vin, "set_target_soc", int(value)
         )
+        self.async_write_ha_state()
 
 
 class V3LocationChargeTargetNumber(V3ChargeTargetNumber):
@@ -1092,10 +1107,7 @@ class V3PreheaterSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def is_on(self):
-        row = self.vehicle.readings.get("preheater_active")
-        if not _reading_available(row):
-            return None
-        value = row.get("value")
+        value, _ = _reading_projection(self.coordinator, self.vehicle, "preheater_active")
         return value if type(value) is bool else None
 
     @property
@@ -1135,7 +1147,7 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def is_on(self):
-        value = self.vehicle.readings.get(self.reading, {}).get("value")
+        value, _ = _reading_projection(self.coordinator, self.vehicle, self.reading, allow_last_known=True)
         return value if type(value) is bool else None
 
     @property
@@ -1152,6 +1164,7 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
             self.vehicle.vin, "set_settings", "climate",
             params={self.field: value},
         )
+        self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs):
         await self._write(True)
@@ -1199,8 +1212,7 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
-        reading = self.vehicle.readings.get("preferredChargeMode") or {}
-        value = reading.get("value")
+        value, _ = _reading_projection(self.coordinator, self.vehicle, "preferredChargeMode", allow_last_known=True)
         if (not isinstance(value, str) or value.lower() in
                 {"", "invalid", "unknown", "unsupported"}):
             return None
@@ -1214,3 +1226,4 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
         await self.coordinator.engine.send_setting(
             self.vehicle.vin, "set_charge_mode", option
         )
+        self.async_write_ha_state()

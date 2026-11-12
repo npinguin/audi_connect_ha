@@ -28,7 +28,9 @@ def test_stale_climate_readback_is_never_reported_as_current():
     now = datetime.now(UTC)
     car.set_climate("off", (now - timedelta(hours=2)).isoformat(),
                     route="test", observed_at=now, http_status=200)
-    assert entity.hvac_mode is None
+    assert entity.hvac_mode == HVACMode.HEAT_COOL
+    assert entity.hvac_action is None
+    assert entity.extra_state_attributes["state_source"] == "command_pending"
     car.set_climate("heating", now.isoformat(), route="test",
                     observed_at=now, http_status=200)
     assert entity.hvac_mode is not None
@@ -102,6 +104,8 @@ def test_old_capture_does_not_claim_command_confirmation():
                     route="test", observed_at=now, http_status=200)
     command = CommandRecord.begin("climate","start","route",(now-timedelta(minutes=1)).timestamp())
     command.state = "accepted_unconfirmed"
+    from custom_components.audiconnect.v3.command_readback import configure_readback
+    configure_readback(command,{})
     coordinator = NS(engine=NS(control_enabled=lambda *args: True,
                                  profiles={VIN.lower():NS(command_journal=[command])}))
     entity = V3ClimateEntity(coordinator, car)

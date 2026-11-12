@@ -13,7 +13,7 @@ from .action_discovery import approval_group
 from .command_journal import CommandRecord
 from .operation_revision import operation_revision
 from .command_parameters import map_parameters, runtime_ready
-from .command_readback import configure_readback, reconcile_readback
+from .command_readback import configure_readback, reconcile_readback, observe_command_response
 from .control_resolution import control_decision, resolve_control
 from .response_preview import safe_response_preview
 from .vehicle import V3Vehicle
@@ -276,7 +276,7 @@ class CommandEngine:
                         or (parent.capability == "remote" and parent.action in ("refresh", "wake"))):
                     raise RuntimeError("No eligible completed parent command for vehicle refresh")
             elif p.last_command is not None:
-                p.last_command.check_next(time.time())
+                p.last_command.check_next(time.time(), capability=capability, action=aspect)
             if p.discovery.history and time.time() < (
                 p.discovery.history[-1].started_at + p.discovery.cooldown_seconds
             ):
@@ -341,6 +341,10 @@ class CommandEngine:
                 self._api_record(p, ident, family, method, None, car.vin)
                 await self.storage.async_save(self.profiles)
                 raise RuntimeError("Audi command outcome uncertain; check the car") from err
+            if record.state in ("accepted_unconfirmed", "backend_completed"):
+                observe_command_response(record, car, p, family, response)
+                if record.state == "verified":
+                    car.last_command_result = "verified"
             await self.storage.async_save(self.profiles)
             self._notify_discovery_change()
             if record.state in ("rejected", "uncertain"):

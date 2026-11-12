@@ -10,7 +10,10 @@ from uuid import uuid4
 _UNRESOLVED = frozenset({"pending", "uncertain"})
 _STATES = _UNRESOLVED | {"accepted_unconfirmed", "backend_completed", "verified", "rejected", "reviewed", "physical_failed"}
 HISTORY_LIMIT = 50
-_READBACKS = {"climate", "chargingState", "doorLockStatus", "targetstateOfCharge", "preferredChargeMode", "windowHeatingActive"}
+_READBACKS = {"climate", "chargingState", "doorLockStatus", "targetstateOfCharge", "preferredChargeMode", "windowHeatingActive", "preheater_active",
+              "climatisationWindowHeatingEnabled", "climatisationAtUnlock",
+              "climatisationZoneFrontLeft", "climatisationZoneFrontRight",
+              "climatisationZoneRearLeft", "climatisationZoneRearRight"}
 
 
 @dataclass
@@ -39,10 +42,26 @@ class CommandRecord:
     def unresolved(self) -> bool:
         return self.state in _UNRESOLVED
 
-    def check_next(self, now: float, cooldown: float = 90) -> None:
+    def check_next(self, now: float, cooldown: float = 90, *, capability=None, action=None) -> None:
         if self.unresolved:
             raise RuntimeError("Previous vehicle command outcome uncertain; inspect and review it")
         if now < self.started_at + cooldown:
+            # A user can explicitly stop a just-accepted comfort/charging
+            # operation. No bypass for repeated starts, locks, engine or
+            # unresolved commands; a subsequent start still waits.
+            reversible = {
+                ("climate", "start"): "stop",
+                ("climate", "start_with_settings"): "stop",
+                ("climate", "window_heating_start"): "window_heating_stop",
+                ("charging", "start"): "stop",
+                ("climate", "preheater_start"): "preheater_stop",
+            }
+            if (self.origin == "home_assistant" and self.state in
+                    ("accepted_unconfirmed", "backend_completed", "verified")
+                    and capability == self.capability
+                    and reversible.get((self.capability, self.action)) == action
+                    and action is not None):
+                return
             raise RuntimeError("Vehicle command cooldown active; verify vehicle state")
 
     def snapshot(self) -> dict:

@@ -1,4 +1,4 @@
-"""Stateful controls: real evidence, independent commands, no optimistic state."""
+"""Stateful controls: actual evidence and bounded command projection."""
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock
@@ -63,9 +63,14 @@ def test_switch_projection_and_actions(key,reading,capability,on,off,button,raw)
     asyncio.run(switch.async_turn_on())
     engine.send_control.assert_awaited_once_with(VIN,on,capability)
     assert switch.is_on is False  # no optimistic mutation of actual status
-    engine.profiles[VIN.lower()]=NS(command_journal=[NS(capability=capability,action=on,
-        state="accepted_unconfirmed",started_at=now.timestamp()+1)])
-    assert switch.is_on is None
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    car.readings[reading]["captured"]=(now-timedelta(seconds=2)).isoformat()
+    command = CommandRecord.begin(capability,on,"route",now.timestamp()-1)
+    command.state = "accepted_unconfirmed"
+    configure_readback(command,{})
+    engine.profiles[VIN.lower()]=NS(command_journal=[command])
+    assert switch.is_on is True
+    assert switch.extra_state_attributes["state_source"] == "command_pending"
     enabled.remove(on)
     assert not stateful_control_supported(engine,car,key)
     assert switch.available

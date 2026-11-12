@@ -1,0 +1,67 @@
+"""Shared command projection, not fabricated physical state."""
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace as NS
+import pytest
+from custom_components.audiconnect.v3.command_journal import CommandRecord
+from custom_components.audiconnect.v3.command_readback import configure_readback, projected_state
+
+NOW=datetime.now(UTC)
+OLD=NOW-timedelta(minutes=2)
+NEW=NOW+timedelta(seconds=1)
+
+def record(cap,action,params=None,state="accepted_unconfirmed"):
+    row=CommandRecord.begin(cap,action,"route",(NOW-timedelta(seconds=1)).timestamp())
+    row.state=state
+    configure_readback(row,params or {})
+    return row
+
+@pytest.mark.parametrize("cap,action,params,attribute,reported,expected",[
+    ("climate","start",{},"climate","off","on"),
+    ("climate","stop",{},"climate","heating","off"),
+    ("charging","start",{},"chargingState","off","charging"),
+    ("climate","window_heating_start",{},"windowHeatingActive",False,True),
+    ("climate","preheater_stop",{},"preheater_active",True,False),
+    ("climate","set_settings",{"windowHeatingEnabled":True},"climatisationWindowHeatingEnabled",False,True),
+    ("charging","set_target_soc",{"value":80},"targetstateOfCharge",70,80),
+    ("charging","set_charge_mode",{"value":"timer"},"preferredChargeMode","manual","timer"),
+])
+def test_accepted_projection_reconciles_even_contradictory_new_data(cap,action,params,attribute,reported,expected):
+    row=record(cap,action,params)
+    profile=NS(command_journal=[row])
+    assert projected_state(profile,attribute,reported,OLD,now=NOW)==(expected,"command_pending")
+    assert projected_state(profile,attribute,reported,NEW,now=NEW)==(reported,"vehicle")
+    assert row.state=="accepted_unconfirmed"
+    assert projected_state(profile,attribute,reported,OLD,now=NOW+timedelta(minutes=31))==(None,"unknown")
+    row.state="uncertain"
+    assert projected_state(profile,attribute,reported,OLD,now=NOW)==(None,"unknown")
+    row.state="rejected"
+    assert projected_state(profile,attribute,reported,OLD,now=NOW)==(reported,"vehicle")
+
+def test_security_sensitive_lock_does_not_claim_locked():
+    row=record("access","lock")
+    profile=NS(command_journal=[row])
+    assert projected_state(profile,"doorLockStatus","unlocked",OLD,now=NOW,optimistic=False)==(None,"command_pending")
+    assert projected_state(profile,"doorLockStatus","unlocked",NEW,now=NEW,optimistic=False)==("unlocked","vehicle")
+
+def test_stop_supersedes_start_but_other_cooldowns_remain():
+    start=record("climate","start")
+    start.check_next(NOW.timestamp(),capability="climate",action="stop")
+    for cap,action in [("climate","start"),("charging","stop"),("access","unlock")]:
+        with pytest.raises(RuntimeError,match="cooldown"):
+            start.check_next(NOW.timestamp(),capability=cap,action=action)
+    start.state="uncertain"
+    with pytest.raises(RuntimeError,match="uncertain"):
+        start.check_next(NOW.timestamp(),capability="climate",action="stop")
+    start.state="accepted_unconfirmed"
+    stop=record("climate","stop")
+    profile=NS(command_journal=[start,stop])
+    assert projected_state(profile,"climate","heating",OLD,now=NOW)==("off","command_pending")
+    with pytest.raises(RuntimeError,match="cooldown"):
+        stop.check_next(NOW.timestamp(),capability="climate",action="start")
+
+def test_restart_and_unrelated_commands_never_replay_or_replace_projection():
+    start=record("climate","start")
+    charge=record("charging","start")
+    assert projected_state(NS(command_journal=[start,charge]),"climate","off",OLD,now=NOW)==("on","command_pending")
+    restored=CommandRecord.restore(start.snapshot())
+    assert projected_state(NS(command_journal=[restored]),"climate","off",OLD,now=NOW)==(None,"unknown")
