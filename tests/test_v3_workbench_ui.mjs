@@ -577,35 +577,21 @@ test("Portable definition JSON reuses editor and never executes a request", asyn
 });
 
 
-test("End-user validation projects native progress and does not execute on opening", async () => {
+test("End-user discovery advances on No and only Yes sends the displayed action", async () => {
   const p=new Panel();p.selected="entry";p.vin="VIN1";
   p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
-  p.capabilityStatus={rows:[],end_user_progress:{read_assessed:22,read_total:28,read_assessment_percent:78.6,
-    controls_catalog_applicable:1,controls_physically_verified:0,controls:[{capability:"climate",action:"start",eligible:true,status:"catalog_matched",physical:"not_tested"}]},
-    end_user_candidates:[{label:"Start cabin climate",capability:"climate",action:"start",operation:"cariad.climate.start.stored",approval_group:"non_spin"}],
-    integration_health:{status:"operational",quota_remaining:50},end_user_timing:{poll_interval_seconds:900}};
-  const calls=[];p.api=async(name)=>{calls.push(name);return {routes:[{id:"cariad.climate.start.stored",family:"cariad",method:"POST",approval_group:"non_spin"}],active:"cariad.climate.start.stored"};};
-  await p._click({target:{closest:()=>({dataset:{action:"step-5"}})}});
-  assert.match(p.shadowRoot.innerHTML,/22\/28 assessed/);
-  assert.match(p.shadowRoot.innerHTML,/15 min/);
-  assert.equal(calls.length,0);
-  await p._click({target:{closest:()=>({dataset:{action:"end-user-select",operation:"cariad.climate.start.stored"}})}});
-  assert.equal(p.step,5);assert.deepEqual(calls,["control_routes"]);
-  assert.match(p.shadowRoot.innerHTML,/I accept this specific action/);
-});
-
-
-test("End-user control test ignores hidden engineering inputs and requires separate explicit consent", async () => {
-  const p=new Panel();p.selected="entry";p.vin="VIN1";p.step=5;p.controlCapability="climate";p.controlAction="start";p.controlChoice="cariad.climate.start.stored";
-  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
-  p.controlRoutes=[{id:p.controlChoice,family:"cariad",approval_group:"non_spin"}];
-  p.capabilityStatus={rows:[],end_user_progress:{controls:[]},end_user_candidates:[]};
-  const calls=[];p.api=async(name,args)=>{calls.push([name,args]);if(name==="control_test")return {sequence:1};if(name==="status")return p.capabilityStatus;if(name==="control_routes")return {routes:p.controlRoutes};if(name==="api_results")return {records:[]};if(name==="list")return {integrations:p.entries};throw Error(name);};
-  const click=()=>p._click({target:{closest:()=>({dataset:{action:"control-test"}})}});
-  p.shadowRoot.getElementById=id=>id==="control-approval"?{checked:true}:id==="control-route"?{value:"wrong.route"}:null;
-  await click();assert.equal(calls.length,0);assert.match(p.error,/Approve this exact/);
-  p.shadowRoot.getElementById=id=>id==="end-user-approval"?{checked:true}:id==="control-route"?{value:"wrong.route"}:null;
-  await click();
-  const sent=calls.find(([name])=>name==="control_test")[1];
-  assert.equal(sent.operation,"cariad.climate.start.stored");assert.equal(sent.end_user,true);assert.deepEqual(sent.parameters,{});
+  const first={label:"Start cabin climate",capability:"climate",action:"start",operation:"cariad.climate.start.stored",approval_group:"non_spin"};
+  const second={label:"Stop cabin climate",capability:"climate",action:"stop",operation:"cariad.climate.stop",approval_group:"non_spin"};
+  p.capabilityStatus={rows:[],end_user_progress:{read_assessed:22,read_total:28,read_assessment_percent:78.6,controls:[]},
+    end_user_candidates:[first,second],end_user_timing:{poll_interval_seconds:900}};
+  const calls=[];p.api=async(name,args)=>{calls.push([name,args]);if(name==="status")return p.capabilityStatus;if(name==="api_results")return {records:[]};if(name==="control_test")return {sequence:1};throw Error(name);};
+  const click=async(action,c={})=>p._click({target:{closest:()=>({dataset:{action,operation:c.operation,capability:c.capability,control:c.action}})}});
+  await click("step-5");assert.equal(calls.length,0);assert.match(p.shadowRoot.innerHTML,/22\/28 assessed/);
+  assert.match(p.shadowRoot.innerHTML,/Discover Start cabin climate/);
+  await click("end-user-no",first);assert.equal(calls.length,0);assert.match(p.shadowRoot.innerHTML,/Discover Stop cabin climate/);
+  await click("end-user-yes",first);assert.equal(calls.length,0);
+  await click("end-user-yes",second);
+  const sent=calls.filter(([name])=>name==="control_test");assert.equal(sent.length,1);
+  assert.equal(sent[0][1].operation,second.operation);assert.equal(sent[0][1].end_user,true);
+  p._resetVehicleSelection();assert.equal(p.skippedControls.size,0);
 });
