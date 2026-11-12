@@ -22,6 +22,13 @@ def charging_active(value):
     return True if value in CHARGING_ON_STATES else False if value in CHARGING_OFF_STATES else None
 
 
+def charging_ready(value):
+    """Only explicit OEM readiness statuses, not a command permission."""
+    if not isinstance(value, str):
+        return None
+    return {"readyforcharging": True, "notreadyforcharging": False}.get(value.strip().lower())
+
+
 def window_heating_active(rows):
     """Actual window state only: a positive is conclusive; off requires both known."""
     if not isinstance(rows, list) or not rows:
@@ -194,6 +201,7 @@ class V3Vehicle:
             model_family=family, country=country,
             car_type=drive.strip().lower() if isinstance(drive, str) and drive.strip().lower() not in _INVALID else "",
             model_year=year, model_source=source,
+            year_operation="graphql.inventory.vehicleList" if year else None,
         )
 
     @classmethod

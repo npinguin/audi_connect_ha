@@ -40,3 +40,11 @@ def test_graphql_exchange_denial_classification():
     result = identity_errors({"errors":[{"message":"client does not have access to the IDP for token exchange: private",
                  "extensions":{"code":"FORBIDDEN"}}]}, VIN)
     assert result == [{"code":"FORBIDDEN","field":"","reason":"token_exchange_denied"}]
+
+
+def test_explicit_readiness_not_active_charging_or_unknown():
+    from custom_components.audiconnect.v3.vehicle import charging_ready, charging_active
+    assert charging_ready("readyForCharging") is True
+    assert charging_ready("notReadyForCharging") is False
+    assert charging_ready("charging") is None and charging_active("charging") is True
+    assert charging_ready("invalid") is None

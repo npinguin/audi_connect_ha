@@ -46,7 +46,7 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
         "sensor.longterm_trip_zero_emission_distance",
         "sensor.trip_history",
         "sensor.integration_status", "sensor.last_error", "binary_sensor.integration_problem",
-        "sensor.door_status", "sensor.window_status",
+        "sensor.door_status", "sensor.window_status", "binary_sensor.charging_ready",
     }
     assert all("sensor."+key not in historical for key in inventory["retired_v3_sensors"])
     for key in inventory["retired_v3_sensors"]:

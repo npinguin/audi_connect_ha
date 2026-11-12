@@ -479,6 +479,9 @@ def _cockpit(vehicle, profile, rows, controls):
                 for target in sorted(targets):
                     links.append({"attribute": "control." + action, "capability": cap, "field": None,
                                   "entity_key": target, "status": row["status"], "active": row["selected"]})
+            for link in list(links):
+                if link["attribute"] == "chargingState":
+                    links.append({**link, "entity_key": "binary_sensor.charging_ready", "attribute": "charging_ready"})
             operation["mappings"] = links
             operation["capabilities"] = sorted(set(operation["capabilities"]) | {m["capability"] for m in links})
         operation["fields"] = fields

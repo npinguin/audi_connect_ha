@@ -1441,6 +1441,16 @@
       "metadata_contract": null,
       "freshness": "native_entity_contract",
       "name": "Window status"
+    },
+    "binary_sensor.charging_ready": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [
+        "chargingState"
+      ],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "name": "Charging ready"
     }
   },
   "retired_v3_sensors": [

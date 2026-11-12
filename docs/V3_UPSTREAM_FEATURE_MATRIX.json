@@ -2599,6 +2599,16 @@
       "category": null,
       "scope": "vehicle",
       "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.charging_ready",
+      "origin": "v3_product_extension",
+      "source_attributes": [
+        "chargingState"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
     }
   ],
   "observed_b12_fields": [

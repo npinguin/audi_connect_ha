@@ -182,9 +182,11 @@ class V3Engine:
                         candidate = V3Vehicle.from_graphql(row, self.auth.country)
                     except (ValueError, TypeError, AttributeError):
                         continue
-                    if candidate.vin.lower() not in excluded and not candidate.model:
+                    if candidate.vin.lower() not in excluded and not (candidate.model and candidate.model_year):
                         missing.append(candidate.vin.lower())
-                if all(key in alternatives for key in missing):
+                if all((key in alternatives and alternatives[key][0].model and alternatives[key][0].model_year)
+                       or (key in garage_candidates and garage_candidates[key].model and garage_candidates[key].model_year)
+                       for key in missing):
                     break
         known: dict[str, V3Vehicle] = {}
         inventory_items = {}

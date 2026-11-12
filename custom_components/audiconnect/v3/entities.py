@@ -328,6 +328,35 @@ class V3IntegrationProblem(V3BaseEntity, BinarySensorEntity):
         return self.coordinator.engine.health.snapshot(self.coordinator.engine, self.vehicle)["problem"]
 
 
+class V3ChargingReady(V3BaseEntity, BinarySensorEntity):
+    """Explicit reported readiness, not charging active or authorization."""
+    _attr_name = "Charging ready"
+    _attr_icon = "mdi:ev-plug-type2"
+
+    def __init__(self, coordinator, vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_binary_sensor_charging_ready"
+
+    @property
+    def _reading(self):
+        return self.vehicle.readings.get("chargingState", {})
+
+    @property
+    def is_on(self):
+        from .vehicle import charging_ready
+        return charging_ready(self._reading.get("value"))
+
+    @property
+    def available(self):
+        return super().available and _reading_available(self._reading) and self.is_on is not None
+
+    @property
+    def extra_state_attributes(self):
+        return {"source_attribute": "chargingState", "vehicle_captured": self._reading.get("captured"),
+                "age_minutes": _reading_age_minutes(self._reading.get("captured")),
+                "semantics": "explicit_readiness_not_charging_active_or_permission"}
+
+
 class V3AccessSummary(V3BaseEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = ["open", "closed", "stale", "unknown_data"]
