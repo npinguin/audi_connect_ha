@@ -12,31 +12,34 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "GraphQL locale and inventory schema; stable model entity even when missing; verify actual model label and registry refresh."
+      "implementation_evidence": "Locale/inventory projection, retry, independent drivetrain classification and tests passed; actual manufacturer label on target vehicle absent in b12. Need fresh target diagnostics. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "command_projection",
       "capability": "climate",
       "acceptance": "Immediate accepted-command projection, actual response precedence, opposite action, stale/failed/timeout reconciliation",
-      "status": "implemented_pending_validation",
+      "status": "closed",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "closure_evidence": "Accepted-command projection, contradictory fresh readback, stop supersession, timeout/restart and 10-second cooldown regression tests: tests/test_v3_command_projection.py, tests/test_v3_refresh_followup.py, tests/test_v3_closure_reliability.py. Physical candidate confirmation remains live_acceptance. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "operational_switches",
       "capability": "charging",
       "acceptance": "Native charging and window-heating controls, no duplicate primary controls, status mapping evidence",
-      "status": "implemented_pending_validation",
+      "status": "closed",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "closure_evidence": "Native switch projection, separate operational versus settings states, both controls observed, reversible registry visibility: tests/test_v3_operational_switches.py and tests/test_v3_entity_identity_and_categories.py. Physical candidate confirmation remains live_acceptance. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "trip_coverage",
       "capability": "mobility",
       "acceptance": "All observed trip fields accessible, native metrics and bounded history; dedup and units validated",
-      "status": "implemented_pending_validation",
+      "status": "closed",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "closure_evidence": "Observed trip units, timestamps, source ordering, native metrics, deduplicated bounded rows: tests/test_v3_trip_restore.py and tests/test_v3_trip_archive.py. OEM endpoint completeness remains trip_durable_history. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "trip_durable_history",
@@ -45,94 +48,100 @@
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Private per-entry trip archive, save/restore, 10000 record cap, 50 entity rows, paginated admin access, regression tests. Endpoint coverage and CI still open."
+      "implementation_evidence": "Archive merge/dedup/roundtrip tested; 10000-record bounded retention, 50 entity rows. OEM history endpoint completeness cannot be demonstrated from capped b12 response. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "range_soc",
       "capability": "vehicle_status",
       "acceptance": "Explicit alternative range, SOC and odometer sources; correct fuel/electric roles and capture ordering",
-      "status": "implemented_pending_validation",
+      "status": "closed",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "closure_evidence": "Alternative range/SOC/odometer role and capture tests: tests/test_v3_complementary_telemetry.py and tests/test_v3_entity_identity_and_categories.py. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "oil_boolean",
       "capability": "vehicle_status",
       "acceptance": "Boolean oil warning and numeric legacy level separated; verify polarity and migration",
-      "status": "implemented_pending_validation",
+      "status": "closed",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "closure_evidence": "Boolean polarity matches existing V2 implementation (not OEM boolean); numeric legacy level separate. Metadata and recorder regression coverage; live polarity confirmation remains live_acceptance. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "structured_details",
       "capability": "charging",
       "acceptance": "Charging profiles and charging/climate/departure timers as normalized native entity attributes",
-      "status": "open",
+      "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Typed charging/climate/ventilation timers and charging profiles projected on existing entities. Departure profile/timer and complete field schemas need evidence."
+      "implementation_evidence": "Typed Audi charging profiles, recurring/single and departure timers, readiness and battery care; fixtures from upstream issue 760 and JSON Data Structures wiki. Unknown departureProfiles response remains unobserved; no invented mapping. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "access_details",
       "capability": "access",
       "acceptance": "Individual door/window/lock/light states and access aggregate; resolve icons and partial array invalidation",
-      "status": "open",
+      "status": "closed",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Component identity, structured doors/windows/lights, partial/contradictory invalidation; validate actual parking-light component labels and registry metadata."
+      "implementation_evidence": "Component identity, structured doors/windows/lights, partial/contradictory invalidation; validate actual parking-light component labels and registry metadata.",
+      "closure_evidence": "Explicit component labels, left/right parking lights, partial/contradictory invalidation and registry regression coverage: tests/test_v3_takeover_regressions.py, tests/test_v3_restored_derived_and_recorder.py and tests/test_v3_entity_identity_and_categories.py. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "health_details",
       "capability": "service",
       "acceptance": "Health warnings, inspection and low-voltage battery evidence; normalize only supported values",
-      "status": "open",
+      "status": "implemented_pending_validation",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Warnings/campaigns and readiness from public Audi schema; low-voltage battery support enum from shared CARIAD WeConnect-python reference, not Audi vehicle proof. No unsupported voltage inferred. Fresh target response required. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "capability_details",
       "capability": "vehicle_status",
       "acceptance": "Connected-service availability, expiration and disable eligibility as normalized attributes",
-      "status": "implemented_pending_validation",
+      "status": "closed",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Connected service ID, expiry and disable eligibility normalized and projected; safe source fields, no authority inferred from metadata."
+      "implementation_evidence": "Connected service ID, expiry and disable eligibility normalized and projected; safe source fields, no authority inferred from metadata.",
+      "closure_evidence": "Typed service ID, expiry and disable eligibility, separate provenance and no write authorization: tests/test_v3_takeover_regressions.py. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "discovery",
       "capability": "remote",
       "acceptance": "Unobserved jobs and read-only routes: complete reviewed catalog scan; document context/quota exclusions, no silent unsupported inference",
-      "status": "open",
+      "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Alternative activeVentilation timer namespace recognized as read evidence. Complete reviewed GET coverage still open."
+      "implementation_evidence": "All 23 reviewed shared jobs plus reviewed standalone GET routes scheduled without mutation consent. Explicit unsupported persists; context change resets it. Tests pass; actual complete target scan not yet captured. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "schema_disposition",
       "capability": "vehicle_status",
       "acceptance": "All observed response leaves assigned native state, normalized attribute, metadata or explicit unresolved disposition; resolve truncated schema",
-      "status": "open",
+      "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Per-job and GraphQL structural evidence, safe windowLocation path and extended bounded traversal. Full untruncated inventory remains required."
+      "implementation_evidence": "Eight formerly open observed paths mapped or sentinel excluded. Original b12 inventory remains truncated. New per-job original-type collector supports 512 rows/64000 chars, reports remaining truncation. Fresh full target schema required. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "registry_lifecycle",
       "capability": "vehicle_status",
       "acceptance": "Clean install and upgrade; preserve IDs and user choices; verify remaining unprojected/disabled identities",
-      "status": "open",
+      "status": "closed",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Model projection preserved and actual device class/state class/unit metadata reported; upgrade and rollback tests pending."
+      "implementation_evidence": "Model projection preserved and actual device class/state class/unit metadata reported; upgrade and rollback tests pending.",
+      "closure_evidence": "V2→V3 identity preservation, reversible migration and user name/visibility choices: tests/test_v3_entity_identity_and_categories.py and tests/test_v3_product_entity_contract.py. Real device registry behavior remains part of live acceptance. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "upstream_matrix",
       "capability": "vehicle_status",
       "acceptance": "Per capability/API/model evidence; distinguish code tests, HTTP/schema, readback and physical confirmation",
-      "status": "open",
+      "status": "implemented_pending_validation",
       "blocks_hacs": true,
       "blocks_upstream": true,
-      "implementation_evidence": "Separate code/HTTP/schema/physical evidence. Add explicit matrix with baseline and candidate validation."
+      "implementation_evidence": "Baseline/candidate evidence matrix documented in docs/V3_COMPLETENESS_TAKEOVER.md; no physical or multi-model claim. Actual target evidence still incomplete. CI: https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194"
     },
     {
       "id": "live_acceptance",
