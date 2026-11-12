@@ -865,3 +865,29 @@ async def test_adopted_identity_source_is_refreshed_on_inventory_without_researc
     assert car.identity_operation == GARAGE_OPERATION
     transport.test_identity_query.assert_awaited_once_with(GARAGE_OPERATION)
     assert GARAGE_OPERATION in engine.profiles[VIN.lower()].api_observations
+
+
+@pytest.mark.asyncio
+async def test_guided_command_automatically_confirms_only_fresh_changed_readback():
+    from types import SimpleNamespace as NS
+    from custom_components.audiconnect.v3.runtime import catalog_path
+    from datetime import timedelta
+    engine, transport, store = engine_for()
+    engine.registry = CapabilityRegistry.from_json_file(catalog_path())
+    engine.auth.service = NS(_spin=None)
+    await engine.discover()
+    car = engine.require_vehicle(VIN)
+    profile = engine.profiles[VIN.lower()]
+    car.climate_state = "off"
+    car.climate_captured = datetime.now(UTC) - timedelta(minutes=1)
+    stamp = datetime.now(UTC) + timedelta(seconds=1)
+    transport._responses.append(V3Response(202, {"climatisation": {"climatisationStatus": {"value": {
+        "climatisationState": "heating", "carCapturedTimestamp": stamp.isoformat()}}}}, stamp))
+    result = await engine.approved_control_discovery(VIN, "start", "cariad.climate.start.stored",
+                                                      approval="non_spin", guided=True)
+    assert result["physical_result"] == "verified"
+    assert profile.discovery._active is None
+    assert profile.control_results["cariad.climate.start.stored"] == "worked"
+    assert profile.active["climate.start"] == "cariad.climate.start.stored"
+    assert profile.command_journal[-1].state == "verified"
+    assert transport.request_count == 1
