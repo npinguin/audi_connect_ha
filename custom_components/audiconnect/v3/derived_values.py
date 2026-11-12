@@ -137,6 +137,17 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         names = {"frontLeft": "left_front", "frontRight": "right_front",
                  "rearLeft": "left_rear", "rearRight": "right_rear"}
         opened, unlocked, windows = {}, {}, {}
+        def component_state(states, positive, negative):
+            if not isinstance(states, list) or "unsupported" in states:
+                return None
+            if (positive in states) == (negative in states):
+                return None
+            return positive in states
+
+        def invalidate_missing(ident):
+            from .attribute_runtime import record_invalid_observation
+            record_invalid_observation(car, ident, captured, observed_at, path,
+                                       "access", "partial_or_unknown_component_state")
         trunk_open = trunk_unlocked = None
         for row in block.get("doors", []) if isinstance(block.get("doors"), list) else []:
             if not isinstance(row, dict):
@@ -144,8 +155,8 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
             name, states = row.get("name"), row.get("status")
             if not isinstance(states, list) or "unsupported" in states:
                 continue
-            open_state = True if "open" in states else False if "closed" in states else None
-            lock_state = True if "unlocked" in states else False if "locked" in states else None
+            open_state = component_state(states, "open", "closed")
+            lock_state = component_state(states, "unlocked", "locked")
             if name in names:
                 record(names[name] + "_door_open", open_state, captured, "access", path)
                 opened[name] = open_state
@@ -156,6 +167,14 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 trunk_open, trunk_unlocked = open_state, lock_state
             elif name == "bonnet":
                 record("hood_open", open_state, captured, "access", path)
+        if isinstance(block.get("doors"), list):
+            for name, key in names.items():
+                if opened.get(name) is None:
+                    invalidate_missing(key + "_door_open")
+            if trunk_open is None:
+                invalidate_missing("trunk_open")
+            if trunk_unlocked is None:
+                invalidate_missing("trunk_unlocked")
         # Positive is conclusive even if other components are not present.
         # Negative requires complete, known evidence; no fabricated safe state.
         for key, values in (("any_door_open", opened), ("any_door_unlocked", unlocked)):
@@ -182,13 +201,17 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
             name, states = row.get("name"), row.get("status")
             if not isinstance(states, list) or "unsupported" in states:
                 continue
-            state = True if "open" in states else False if "closed" in states else None
+            state = component_state(states, "open", "closed")
             key = (names[name] + "_window_open" if name in names else
                    {"sunRoof": "sun_roof", "roofCover": "roof_cover"}.get(name))
             if key:
                 record(key, state, captured, "access", path)
                 if name in names:
                     windows[name] = state
+        if isinstance(block.get("windows"), list):
+            for name, key in names.items():
+                if windows.get(name) is None:
+                    invalidate_missing(key + "_window_open")
         value = True if True in windows.values() else False if len(windows) == 4 and all(x is False for x in windows.values()) else None
         if value is None:
             if accepts(car.readings.get("any_window_open"), captured):
