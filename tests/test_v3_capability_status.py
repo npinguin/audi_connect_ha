@@ -200,3 +200,16 @@ def test_current_control_action_and_reconciled_hybrid_do_not_require_inventory_m
                for f in report["next_actions"])
     profile.fast_bindings["climate.start"] = {"status": "local_verified", "operation": "cariad.climate.start.stored"}
     assert not any(f.get("action") == "start" for f in build_status_report(car, profile)["next_actions"])
+
+
+def test_retired_identity_experiments_are_historical_only():
+    car, profile = _fixture()
+    report = build_status_report(car, profile)
+    operations = {op["operation"]: op for op in report["operations"]}
+    for key in ("graphql.inventory.extended", "graphql.inventory.modern",
+                "graphql.inventory.webOrdered", "cariad.inventory.vehicles"):
+        assert operations[key]["reference_only"]
+        assert operations[key]["retired_experiment"]
+        assert not operations[key]["active"]
+    assert not operations["graphql.inventory.vehicleList"].get("retired_experiment")
+    assert not operations["graphql.inventory.images"].get("retired_experiment")

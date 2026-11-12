@@ -112,6 +112,9 @@ class V3Engine:
         if car.model and not car.identity_restored and car.model != candidate.model:
             return False  # Do not replace a current canonical label with conflicting metadata.
         old_context = car.context
+        if car.model and car.model != candidate.model:
+            car.image_url = None
+            car.image_status = "not_assessed"
         car.model = candidate.model
         car.model_family = candidate.model_family
         car.model_source = candidate.model_source

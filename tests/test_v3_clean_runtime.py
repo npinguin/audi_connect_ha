@@ -1042,3 +1042,13 @@ async def test_identity_image_waits_for_real_model_then_caches_across_restart():
     assert car.model and car.image_url == url
     transport.discover_vehicle_images.assert_awaited_once()
     assert url not in json.dumps(engine.diagnostics())
+    async def load_identity(key, country):
+        return store.records[key]["manufacturer_identity"]
+    store.async_identity = load_identity
+    restarted = V3Engine(SimpleNamespace(), SimpleNamespace(entry_id="example"),
+                         engine.registry, auth=engine.auth, transport=transport, storage=store)
+    await restarted.discover()
+    restored_car = restarted.require_vehicle(VIN)
+    assert restored_car.identity_restored
+    assert restored_car.model == car.model and restored_car.image_url == url
+    transport.discover_vehicle_images.assert_awaited_once()
