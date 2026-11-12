@@ -422,3 +422,14 @@ test("save and test read template executes only GET test and keeps new route sel
   assert.equal(p.readChoice,"user.read.new_mapping");
   assert.deepEqual(calls.filter(n=>/attribute_(add|test|activate)/.test(n)),["attribute_add","attribute_test"]);
 });
+
+
+test("typed command parameters use backend schema without JSON editing", () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  const route={id:"cariad.charging.mode",parameter_schema:{value:{type:"string",enum:["manual","timer"],required:true}}};
+  assert.match(p.parameterFields(route),/<select/);
+  assert.throws(()=>p.parameterValues(route,"{}"),/Required parameter/);
+  const key=p.definitionKey("parameters",JSON.stringify([route.id,route.parameter_schema]));
+  p.definitionEdits.set(key+":value","timer");
+  assert.equal(p.parameterValues(route,"{}").value,"timer");
+});

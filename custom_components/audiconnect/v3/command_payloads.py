@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 from .registry import read_json_path
+from .command_parameters import SOC, CHARGE_MODE, DURATION, validate_parameter, temperature_celsius
 
 CHARGE_FIELDS = frozenset({
     "maxChargeCurrentAC_A", "maxChargeCurrentAC",
@@ -28,9 +29,7 @@ PASSTHROUGH = CLIMATE_FIELDS - {
 
 
 def target_soc(value: Any) -> int:
-    if type(value) is not int or value not in range(20, 101, 5):
-        raise ValueError("Audi target SoC must be 20..100 in steps of 5")
-    return value
+    return validate_parameter(value, SOC)
 
 
 async def settings(transport: Any, vin: str, job: str, path: str) -> dict:
@@ -47,10 +46,7 @@ async def settings(transport: Any, vin: str, job: str, path: str) -> dict:
 async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
     vin, transport = car.vin, engine.transport
     if mode == "charge_mode":
-        value = params.get("value")
-        if value not in ("manual", "timer"):
-            raise ValueError("Audi charge mode must be manual or timer")
-        return {"preferredChargeMode": value}
+        return {"preferredChargeMode": validate_parameter(params.get("value"), CHARGE_MODE)}
     if mode == "charging_settings_update":
         value = target_soc(params.get("value"))
         current = await settings(transport, vin, "charging",
@@ -88,13 +84,7 @@ async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
                        if k != "carCapturedTimestamp"}, **params}
         if set(params) - set(OVERRIDES) - {"temp_c", "temp_f", "climatisation_mode"}:
             raise ValueError("Unknown climate start parameter")
-        target = current.get("targetTemperature_C")
-        if params.get("temp_f") is not None:
-            target = (params["temp_f"] - 32) * 5 / 9
-        elif params.get("temp_c") is not None:
-            target = params["temp_c"]
-        if isinstance(target, bool) or not isinstance(target, (int, float)) or not 15 <= target <= 30:
-            raise ValueError("No valid 15..30 C climate target")
+        target = temperature_celsius(params, current.get("targetTemperature_C"))
         body = {k: current[k] for k in PASSTHROUGH if k in current}
         body.update(targetTemperature=target, targetTemperatureUnit="celsius",
                     climatisationMode=params.get("climatisation_mode")
@@ -133,8 +123,8 @@ async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
         return {"securedActivationData": proof, "spin": spin}
     if mode == "auxiliary_start":
         spin = getattr(engine.auth.service, "_spin", None)
-        duration = params.get("duration", 30)
-        if not spin or type(duration) is not int or duration not in range(10, 61, 10):
-            raise ValueError("Auxiliary heating needs S-PIN and duration 10..60 minutes")
+        if not spin:
+            raise ValueError("Auxiliary heating needs S-PIN")
+        duration = validate_parameter(params.get("duration", DURATION["default"]), DURATION)
         return {"duration_min": duration, "spin": spin}
     raise ValueError("Unrecognized V3 request mode")

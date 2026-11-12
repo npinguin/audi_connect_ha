@@ -483,7 +483,7 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("control_test", {
           ...this.selection, capability: this.controlCapability,
           action: this.controlAction, operation: controlRoute,
-          approval: approvalGroup, parameters: JSON.parse(controlParameters)
+          approval: approvalGroup, parameters: this.parameterValues(this.controlRoutes.find(r=>r.id===controlRoute),controlParameters)
         });
       } else if (action === "control-select") {
         this.lastResult = await this.api("select", {...this.selection,
@@ -612,6 +612,39 @@ class AudiConnectV3Panel extends HTMLElement {
         try { result[field] = JSON.parse(edited); }
         catch { throw new Error("Invalid JSON in " + field); }
       }
+    }
+    return result;
+  }
+
+  parameterFields(route) {
+    const schema=route?.parameter_schema||{};
+    const key=this.definitionKey("parameters",JSON.stringify([route?.id,schema]));
+    return Object.entries(schema).map(([name,rule])=>{
+      const value=this.definitionEdits.get(key+":"+name)??String(rule.default??"");
+      const attrs=`data-definition="${escapeHTML(key)}" data-field="${escapeHTML(name)}"`;
+      const choices=rule.enum|| (rule.type==="boolean"?["true","false"]:null);
+      const field=choices?`<select ${attrs}><option value="">${rule.required?"Choose":"Unchanged"}</option>${choices.map(x=>`<option value="${escapeHTML(x)}" ${String(x)===value?"selected":""}>${escapeHTML(x)}</option>`).join("")}</select>`:
+        `<input ${attrs} type="${["integer","number"].includes(rule.type)?"number":"text"}" value="${escapeHTML(value)}" ${rule.minimum!=null?`min="${rule.minimum}"`:""} ${rule.maximum!=null?`max="${rule.maximum}"`:""} step="${rule.step??(rule.type==="integer"?1:"any")}">`;
+      return `<div class="definition-row"><label>${escapeHTML(name.replaceAll("_"," "))}${rule.required?" *":""}</label>${field}</div>`;
+    }).join("");
+  }
+
+  parameterValues(route, fallback) {
+    const schema=route?.parameter_schema||{};
+    if (!Object.keys(schema).length) return JSON.parse(fallback);
+    const key=this.definitionKey("parameters",JSON.stringify([route.id,schema]));
+    const result={};
+    for (const [name,rule] of Object.entries(schema)) {
+      const raw=this.definitionEdits.get(key+":"+name)??String(rule.default??"");
+      if (raw==="") {
+        if (rule.required) throw Error("Required parameter: "+name);
+        continue;
+      }
+      if (["integer","number"].includes(rule.type)) {
+        const number=Number(raw);
+        if (!Number.isFinite(number)||(rule.type==="integer"&&!Number.isInteger(number))) throw Error("Invalid number: "+name);
+        result[name]=number;
+      } else result[name]=rule.type==="boolean"?raw==="true":raw;
     }
     return result;
   }
@@ -1031,9 +1064,8 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>
             <p><b>Approval group:</b> ${escapeHTML(group==="spin"?"S-PIN protected":group==="non_spin"?"Without S-PIN":"Not available")}</p>
             ${group==="spin"&&!this.spinConfigured?'<p class="warn">Configure your S-PIN in the Audi account before protected discovery.</p>':""}
-            ${selectedControl?.parameters_required?`<label for="control-parameters">Action parameters (JSON; never enter a PIN)</label>
-              <textarea id="control-parameters" rows="3">{}</textarea>
-              ${Object.keys(selectedControl.parameter_bindings||{}).length?`<p>Semantic inputs: ${escapeHTML(Object.values(selectedControl.parameter_bindings).join(", "))}</p>`:""}`:""}
+            ${selectedControl?.parameters_required?`<label>Action parameters (never enter a PIN)</label>
+              ${Object.keys(selectedControl.parameter_schema||{}).length?this.parameterFields(selectedControl):'<textarea id="control-parameters" rows="3">{}</textarea>'}`:""}
             <label style="display:flex;gap:8px;align-items:center">
               <input id="control-approval" type="checkbox" style="width:auto">
               I approve this exact action on the selected car and will verify its effect.

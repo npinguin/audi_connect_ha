@@ -8,6 +8,7 @@ import asyncio
 import hashlib
 import re
 from .registry import read_json_path
+from .command_parameters import temperature_celsius
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 
@@ -20,13 +21,7 @@ def climate_body(mode, params):
                "seat_fl","seat_fr","seat_rl","seat_rr","climatisation_mode"}
     if set(params) - allowed or params.get("climatisation_mode") not in (None,"comfort"):
         raise ValueError("Unsupported legacy climate parameter")
-    temp = params.get("temp_c")
-    if params.get("temp_f") is not None:
-        temp = (params["temp_f"] - 32) * 5 / 9
-    if temp is None:
-        temp = 21
-    if type(temp) not in (int,float) or not 15 <= temp <= 30:
-        raise ValueError("Legacy climate target must be 15..30 C")
+    temp = temperature_celsius(params, 21)
     for key in allowed - {"temp_c","temp_f","climatisation_mode"}:
         if key in params and type(params[key]) is not bool:
             raise ValueError("Legacy climate flags must be boolean")

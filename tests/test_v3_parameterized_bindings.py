@@ -65,3 +65,18 @@ def test_put_alias_preserves_code_owned_read_modify_write_handler():
                      {"path": "/vehicle/v1/vehicles/{VIN}/charging/other"}, {"handler": None}):
         with pytest.raises(DevelopmentProfileError):
             workspace().add({**row, **override})
+
+
+def test_shared_parameter_contracts_reject_bad_types_and_supply_ui_schema():
+    from custom_components.audiconnect.v3.command_parameters import parameter_schema, validate_parameter, temperature_celsius
+    p = workspace()
+    mode = parameter_schema(p.registry.operations["cariad.charging.mode"], {})
+    assert mode["value"]["enum"] == ["manual", "timer"]
+    assert validate_parameter("manual", mode["value"]) == "manual"
+    with pytest.raises(ValueError):
+        validate_parameter("invalid", mode["value"])
+    soc = parameter_schema(p.registry.operations["cariad.charging.settings"], {})["value"]
+    for invalid in (True, 21, 101, 85.0):
+        with pytest.raises(ValueError):
+            validate_parameter(invalid, soc)
+    assert temperature_celsius({"temp_f": 68}, None) == pytest.approx(20)

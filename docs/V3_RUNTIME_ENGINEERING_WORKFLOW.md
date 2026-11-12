@@ -94,3 +94,7 @@ Direct read template editing now supports Save & test GET in one explicit action
 ## Cleanup slice 4 — canonical attribute status
 
 Discovery progress and detailed capability reports now use the same attribute-status calculation, including runtime-derived readings, freshness and invalid values. Persisted route outcomes remain distinct from current vehicle observations. Counts exclude local additions in historical-catalog progress; scope remains explicit. No new module or extra API call.
+
+## Cleanup slice 5 — shared command parameter contracts
+
+Charge mode, target SoC, auxiliary duration and CARIAD/MBB climate temperature use shared typed validators and the existing HA unit conversion mechanism. Workbench displays backend-provided parameter schemas as field/value inputs, not independent UI capability rules. Raw JSON remains for the exceptional heterogeneous settings update. Existing custom binding restrictions remain intact. No new modules.

@@ -13,7 +13,7 @@ from .action_discovery import approval_group
 from .command_journal import (CommandRecord, check_command_sequence, ENGINEERING_COMMAND_COOLDOWN_SECONDS,
                               unresolved_normal_commands, blocking_normal_command)
 from .operation_revision import operation_revision
-from .command_parameters import map_parameters, runtime_ready
+from .command_parameters import map_parameters, runtime_ready, parameter_schema
 from .command_readback import configure_readback, reconcile_readback, observe_command_response
 from .control_resolution import control_decision, resolve_control
 from .response_preview import safe_response_preview
@@ -79,10 +79,9 @@ class CommandEngine:
                 "method": profile.registry.operations[op]["method"],
                 "path": profile.registry.operations[op]["path"],
                 "approval_group": approval_group(capability, action, profile.registry.operations[op]),
-                "parameters_required": bool(profile.registry.operations[op].get("request_variables")) or profile.registry.operations[op].get("request_mode") in (
-                    "charge_mode", "charging_settings_update", "charging_profile_update",
-                    "climate_settings_update", "climate_start_settings"
-                ),
+                "parameters_required": bool(parameter_schema(profile.registry.operations[op], profile.custom.get(op, {})))
+                    or profile.registry.operations[op].get("request_mode") == "climate_settings_update",
+                "parameter_schema": parameter_schema(profile.registry.operations[op], profile.custom.get(op, {})),
                 "status": profile.control_results.get(op, "not_tested"),
                 "active": profile.active.get(f"{capability}.{action}") == op,
                 "runtime_ready": runtime_ready(profile.custom.get(op, {})),
