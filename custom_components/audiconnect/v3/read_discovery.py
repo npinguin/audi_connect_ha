@@ -185,7 +185,12 @@ def user_progress(car, profile, auth):
     if modern:
         for job in V2_JOBS:
             status = profile.job_discovery.get(job, "not_scanned")
-            jobs[job] = {"status": status, "assessed": status == "observed" or (
+            schema = getattr(profile, "job_schema", {}).get(job, {})
+            schema_status = ("truncated" if schema.get("truncated") else
+                             "captured" if schema.get("fields") else "not_captured")
+            jobs[job] = {"status": status, "schema_inventory": schema_status,
+                         "schema_field_count": len(schema.get("fields", [])),
+                         "assessed": status == "observed" or (
                 status == "not_observed" and profile.job_probe_attempts.get(job, 0) > 0)}
     reads = {}
     if "mobility" in profile.registry.capabilities and modern:
@@ -229,7 +234,11 @@ def user_progress(car, profile, auth):
     assessed = sum(row["assessed"] for row in jobs.values()) + sum(assessed_http(s) for s in reads.values())
     applicable = [row for row in controls if row["catalog_applicable"]]
     verified = sum(row["physical"] == "worked" for row in applicable)
+    schema_captured = sum(row["schema_inventory"] == "captured" for row in jobs.values())
     return {"read_assessment_percent": round(100 * assessed / total, 1) if total else None,
+        "schema_inventory_captured_jobs": schema_captured, "schema_inventory_total_jobs": len(jobs),
+        "schema_inventory_percent": round(100 * schema_captured / len(jobs), 1) if jobs else None,
+        "schema_inventory_scope": "current_session_untruncated_capture_not_semantic_completeness",
         "read_assessed": assessed, "read_total": total, "jobs": jobs,
         "standalone_http": reads, "model_present": bool(car.model),
         "controls_catalog_applicable": len(applicable), "controls_physically_verified": verified,
