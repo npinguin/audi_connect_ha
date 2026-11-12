@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
 from homeassistant.components.device_tracker import TrackerEntity
 from homeassistant.components.device_tracker.const import SourceType
 from homeassistant.components.number import NumberEntity, NumberDeviceClass, NumberMode
@@ -25,7 +25,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle
-from .attribute_contracts import contract_for
+from .attribute_contracts import contract_for, binary_contract_for
 
 
 class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
@@ -571,7 +571,13 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
         super().__init__(coordinator, vehicle)
         self.attribute = attribute
         self._attr_unique_id = f'{vehicle.vin.lower()}_binary_sensor_{attribute["entity_key"]}'
-        self._attr_name = attribute.get("contract", {}).get("name") or attribute["entity_key"].replace("_", " ").capitalize()
+        contract = attribute.get("contract") or binary_contract_for(attribute["entity_key"])
+        self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
+        if contract.get("device_class"):
+            self._attr_device_class = BinarySensorDeviceClass(contract["device_class"])
+        self._attr_icon = contract.get("icon")
+        if contract.get("category") == "diagnostic":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def available(self) -> bool:

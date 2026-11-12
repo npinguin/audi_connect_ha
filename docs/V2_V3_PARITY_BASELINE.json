@@ -92,7 +92,8 @@
       "mapped_conditional": 87,
       "candidate_after_manual_proof": 22
     },
-    "v3_api_operations": 59
+    "v3_api_operations": 59,
+    "binary_metadata_contracts": 23
   },
   "entities": [
     {
@@ -118,7 +119,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/engine.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.shortterm_current",
@@ -143,7 +149,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/trips.py, v3/engine.py, v3/entities.py",
-      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established."
+      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.shortterm_reset",
@@ -168,7 +179,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/trips.py, v3/engine.py, v3/entities.py",
-      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established."
+      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.longterm_current",
@@ -193,7 +209,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/trips.py, v3/engine.py, v3/entities.py",
-      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established."
+      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.longterm_reset",
@@ -218,7 +239,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/trips.py, v3/engine.py, v3/entities.py",
-      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established."
+      "remaining_gap": "MBB current/reset and CARIAD current/last supported; CARIAD reset history not established.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.model",
@@ -243,7 +269,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/engine.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.mileage",
@@ -271,7 +302,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.service_adblue_distance",
@@ -299,7 +335,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.range",
@@ -327,7 +368,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.hybrid_range",
@@ -354,7 +400,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.service_inspection_time",
@@ -382,7 +433,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.service_inspection_distance",
@@ -410,7 +466,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.oil_change_time",
@@ -438,7 +499,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.oil_change_distance",
@@ -466,7 +532,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.oil_level",
@@ -494,7 +565,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_state",
@@ -521,7 +597,14 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "chargingState"
+        ],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_mode",
@@ -550,7 +633,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_type",
@@ -575,7 +663,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.energy_flow",
@@ -600,7 +693,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py",
-      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it."
+      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.max_charge_current",
@@ -625,7 +723,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_current_limit_a",
@@ -652,7 +755,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_current_limit_mode",
@@ -679,7 +787,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_plug_auto_unlock",
@@ -706,7 +819,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.vehicle_reported_online",
@@ -733,7 +851,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.vehicle_reported_active",
@@ -760,7 +883,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.primary_engine_type",
@@ -785,7 +913,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.secondary_engine_type",
@@ -810,7 +943,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.primary_engine_range",
@@ -837,7 +975,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.secondary_engine_range",
@@ -864,7 +1007,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.primary_engine_range_percent",
@@ -891,7 +1039,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.car_type",
@@ -918,7 +1071,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.secondary_engine_range_percent",
@@ -945,7 +1103,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_power",
@@ -972,7 +1135,14 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "chargingPower"
+        ],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.actual_charge_rate",
@@ -999,7 +1169,14 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "actualChargeRate"
+        ],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.tank_level",
@@ -1027,7 +1204,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.state_of_charge",
@@ -1054,7 +1236,14 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "stateOfCharge"
+        ],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.remaining_charging_time",
@@ -1081,7 +1270,14 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "remainingChargingTime"
+        ],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_complete_time",
@@ -1106,7 +1302,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.target_state_of_charge",
@@ -1133,7 +1334,14 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "targetstateOfCharge"
+        ],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.external_power",
@@ -1160,7 +1368,14 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "externalPower"
+        ],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.plug_led_color",
@@ -1185,7 +1400,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.doors_trunk_status",
@@ -1210,7 +1430,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.climatisation_state",
@@ -1238,7 +1463,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.outdoor_temperature",
@@ -1263,7 +1493,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py",
-      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it."
+      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.park_time",
@@ -1288,7 +1523,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/engine.py, v3/entities.py",
-      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS."
+      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.position_last_updated",
@@ -1313,7 +1553,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/engine.py, v3/entities.py",
-      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS."
+      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.remaining_climatisation_time",
@@ -1340,7 +1585,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.preheater_duration",
@@ -1365,7 +1615,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration."
+      "remaining_gap": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.preheater_remaining",
@@ -1390,7 +1645,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration."
+      "remaining_gap": "CARIAD auxiliary-heating or MBB preheater status payload required; no invented duration.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.active_charging_profile_target_soc",
@@ -1415,7 +1675,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.active_charging_profile_name",
@@ -1440,7 +1705,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.active_charging_profile_min_soc",
@@ -1465,7 +1735,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.preferred_charging_time_start",
@@ -1490,7 +1765,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.preferred_charging_time_end",
@@ -1515,7 +1795,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.climatisation_timer_enabled_count",
@@ -1540,7 +1825,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.next_climatisation_timer_local",
@@ -1565,7 +1855,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.charging_timer_enabled_count",
@@ -1590,7 +1885,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.vehicle_data_freshness",
@@ -1613,7 +1913,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.vehicle_data_age",
@@ -1636,7 +1941,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.cloud_last_successful_poll",
@@ -1659,7 +1969,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.local_dealer",
@@ -1682,7 +1997,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.service_overview",
@@ -1705,7 +2025,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "sensor.api_requests_remaining",
@@ -1728,7 +2053,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/transport.py",
-      "remaining_gap": "Live quota or restored display-only quota; actual HA restart verification pending."
+      "remaining_gap": "Live quota or restored display-only quota; actual HA restart verification pending.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.plug_state",
@@ -1749,7 +2079,14 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "plugState"
+        ],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.plug_lock_state",
@@ -1770,7 +2107,14 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py",
-      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof."
+      "remaining_gap": "Requires applicable Audi response and actual HA state/readback; no live proof.",
+      "automated_evidence": {
+        "raw_parser_fixture": [
+          "plugLockState"
+        ],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.glass_surface_heating",
@@ -1789,7 +2133,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py",
-      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it."
+      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.sun_roof",
@@ -1808,7 +2157,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.roof_cover",
@@ -1827,7 +2181,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.parking_light",
@@ -1846,7 +2205,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.any_window_open",
@@ -1865,7 +2229,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.any_door_unlocked",
@@ -1884,7 +2253,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.any_door_open",
@@ -1903,7 +2277,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.trunk_unlocked",
@@ -1922,7 +2301,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.trunk_open",
@@ -1941,7 +2325,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.hood_open",
@@ -1960,7 +2349,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.left_front_door_open",
@@ -1979,7 +2373,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.right_front_door_open",
@@ -1998,7 +2397,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.left_rear_door_open",
@@ -2017,7 +2421,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.right_rear_door_open",
@@ -2036,7 +2445,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.left_front_window_open",
@@ -2055,7 +2469,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.right_front_window_open",
@@ -2074,7 +2493,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.left_rear_window_open",
@@ -2093,7 +2517,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.right_rear_window_open",
@@ -2112,7 +2541,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.braking_status",
@@ -2131,7 +2565,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py",
-      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it."
+      "remaining_gap": "Historical MBB source; modern equivalent not established where the source does not expose it.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.oil_level_binary",
@@ -2150,7 +2589,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/derived_values.py, v3/legacy_values.py, v3/entities.py",
-      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states."
+      "remaining_gap": "Source-dependent normalized/derived values; complete component evidence required for negative security states.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "binary_sensor.is_moving",
@@ -2169,7 +2613,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/engine.py, v3/entities.py",
-      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS."
+      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "v2_binary_description_comparison",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.refresh_vehicle_data",
@@ -2186,7 +2635,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.flash_lights",
@@ -2203,7 +2657,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.start_charging_modern",
@@ -2220,7 +2679,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.stop_charging_modern",
@@ -2237,7 +2701,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.start_window_heating_modern",
@@ -2254,7 +2723,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.stop_window_heating_modern",
@@ -2271,7 +2745,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.wake_vehicle_modern",
@@ -2288,7 +2767,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.start_engine",
@@ -2305,7 +2789,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "button.stop_engine",
@@ -2322,7 +2811,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "switch.preheater_active",
@@ -2339,7 +2833,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "switch.climatisation_window_heating",
@@ -2356,7 +2855,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "switch.climatisation_at_unlock",
@@ -2373,7 +2877,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "switch.climatisation_zone_front_left",
@@ -2390,7 +2899,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "switch.climatisation_zone_front_right",
@@ -2407,7 +2921,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "switch.climatisation_zone_rear_left",
@@ -2424,7 +2943,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "switch.climatisation_zone_rear_right",
@@ -2441,7 +2965,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "number.target_state_of_charge",
@@ -2458,7 +2987,12 @@
       "priority": "P0",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "number.active_charging_profile_target_soc",
@@ -2475,7 +3009,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "number.charge_profile_{profile_id}_target_soc",
@@ -2492,7 +3031,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "select.charge_mode",
@@ -2509,7 +3053,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "climate.climatisation",
@@ -2526,7 +3075,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "lock.lock",
@@ -2543,7 +3097,12 @@
       "priority": "P1",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json",
-      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required."
+      "remaining_gap": "Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     },
     {
       "id": "device_tracker.position",
@@ -2560,7 +3119,12 @@
       "priority": "P2",
       "q8_v3_verified": false,
       "implementation_evidence": "v3/engine.py, v3/entities.py",
-      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS."
+      "remaining_gap": "Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS.",
+      "automated_evidence": {
+        "raw_parser_fixture": [],
+        "ha_metadata": "not_assessed_by_this_check",
+        "physical_q8": "not_verified"
+      }
     }
   ],
   "source_references": [
@@ -4444,7 +5008,7 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "b8 is immutable. Architecture-closure continuation: generated operation inventory, current source comparison and fixture-based parity tests. Static/live parity remains unproven.",
+  "latest_candidate_notes": "Post-b8: independent V3 catalog, local read-only extensions, typed reviewed controls, command history, context invalidation, 59-operation inventory, raw Q8 fixture and binary metadata comparison; static/live parity remain unproven.",
   "product_scope_exclusions": {
     "temporary_runtime_probes": [
       "probe_api_paths",
@@ -4467,5 +5031,24 @@
       "remaining_gap": "CARIAD last-trip response required; no fabricated fallback"
     }
   ],
-  "reviewed_implementation_ref": "da0a3e8f3639d30103970de7cc25b305e3f8fa7d"
+  "reviewed_implementation_ref": "04de25996372fec825c0118b86ba48fb3800d70b",
+  "automated_evidence_scope": {
+    "raw_q8_parser_fields": [
+      "stateOfCharge",
+      "chargingState",
+      "chargingPower",
+      "actualChargeRate",
+      "chargeType",
+      "targetstateOfCharge",
+      "plugState",
+      "plugLockState",
+      "externalPower",
+      "plugledColor",
+      "remainingChargingTime",
+      "doorLockStatus"
+    ],
+    "raw_q8_parser_test": "tests/test_v3_differential_parity.py",
+    "binary_metadata_test": "tests/test_v3_binary_metadata_parity.py",
+    "limitations": "Raw values and HA binary metadata are separate from entity state behavior, actual HA recorder migration and physical acceptance."
+  }
 }

@@ -59,7 +59,8 @@
         "api_value_mappings.py",
         "attribute_routes.py",
         "operation_revision.py",
-        "custom_attributes.py"
+        "custom_attributes.py",
+        "binary_contracts.json"
       ],
       "responsibility": "operation and attribute definitions/validation"
     },

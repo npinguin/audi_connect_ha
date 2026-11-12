@@ -14,15 +14,15 @@ Implemented:
 - Removed obsolete V3Runtime, inherited coordinator and first climate implementation/catalog from production. Minimal catalog remains test-only; persisted runtime selector stays unchanged.
 
 Still open:
-- Fully generic catalog/attribute schema and HA projection, custom parameterized operation activation/PUT; current historical attribute/job mapping remains.
-- Complete bounded command journal history and single lifecycle representation for engineering and normal commands; current normal context is last-command only, readback covers known stateful actions and does not prove transient actions.
-- Context-change migration and full HA integration acceptance. Inventory removal and return are implemented.
+- Arbitrary new control semantics remain intentionally closed until a reviewed handler exists; local typed read-only attributes, HA projection and reviewed parameterized/PUT templates are implemented. Historical V2 source mappings remain for compatibility.
+- Shared bounded journal is implemented; physical readback covers known stateful actions and cannot prove all transient actions.
+- Full HA integration acceptance and physical rollback. Context migration, inventory removal and return are implemented.
 - Complete semantic review of retained V2 deviations, CI type/coverage gates and actual vehicle/recorder/rollback proof.
 - Review actual catalog eligibility across supported vehicle families. Catalog match is not physical proof.
 
 Do not mark static parity or release gates complete.
 
-- Vehicle inventory reconciliation retains object/entity identity, blocks excluded or repeatedly missing VINs, and restores them on rediscovery. Empty/malformed responses do not revoke existing vehicles. Context-change migration remains a separate acceptance item.
+- Vehicle inventory reconciliation retains object/entity identity, blocks excluded or repeatedly missing VINs, and restores them on rediscovery. Empty/malformed responses do not revoke existing vehicles. Context-change migration now invalidates old evidence and preserves unresolved commands; physical acceptance remains open.
 
 ## Post-b8 V2 parity work
 
@@ -39,3 +39,7 @@ A bounded 50-record private command journal now records both HA and Workbench ex
 ### Post-b8 declarative local attributes and ownership
 
 The admin Workbench can define a new vehicle-local read-only attribute and capability presentation group with a namespaced identifier, typed value, HA metadata and GET response/capture mappings. A draft is not an HA entity; a successful test and explicit activation are required. Selected reads are deduplicated and rotated within the four-route poll budget. This is not arbitrary new control authorization. Historical V2 identity and the 59-operation global catalog are unchanged. Ownership completeness and the core domain-to-composition import boundary now have executable regression checks. Full dependency-cycle, typing/coverage and physical parity acceptance remain separate gates.
+
+### HA binary metadata parity
+
+All 23 V2 binary sensor names, device classes, icons and categories are captured independently and compared against actual V2 descriptions in the HA projection tests. The baseline distinguishes raw fixture values, metadata and physical Q8 evidence. Legacy timer payloads and CARIAD reset-history semantics remain unverified; do not fabricate data or promote static/full parity flags.

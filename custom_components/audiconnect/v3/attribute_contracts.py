@@ -18,3 +18,13 @@ def attribute_contracts() -> dict[str, dict[str, Any]]:
 
 def contract_for(entity_key: str) -> dict[str, Any]:
     return attribute_contracts().get(entity_key, {})
+
+
+def binary_contract_for(entity_key: str) -> dict[str, Any]:
+    return binary_contracts().get(entity_key, {})
+
+
+@lru_cache(maxsize=1)
+def binary_contracts() -> dict[str, dict[str, Any]]:
+    path = Path(__file__).with_name("binary_contracts.json")
+    return json.loads(path.read_text(encoding="utf-8"))["attributes"]
