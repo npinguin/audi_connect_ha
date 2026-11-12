@@ -78,3 +78,17 @@ def test_timed_charge_is_mode_preference_not_start_post():
     asyncio.run(execute(obj, "VIN", "start_timed_charger"))
     obj.send_control.assert_awaited_once_with(
         "VIN", "set_charge_mode", "charging", params={"value": "timer"})
+
+
+def test_shared_climate_patch_preserves_existing_fields_and_rejects_unreported_updates():
+    obj = engine({"climatisation": {"climatisationSettings": {"value": {
+        "targetTemperature_C": 20.5, "windowHeatingEnabled": False,
+        "futureSetting": "preserve", "carCapturedTimestamp": "old",
+    }}}})
+    result = asyncio.run(build(obj, car(), "climate_settings_update",
+                               {"windowHeatingEnabled": True}))
+    assert result == {"targetTemperature_C": 20.5, "windowHeatingEnabled": True,
+                      "futureSetting": "preserve"}
+    with pytest.raises(ValueError, match="not reported"):
+        asyncio.run(build(obj, car(), "climate_settings_update",
+                          {"zoneFrontLeftEnabled": True}))

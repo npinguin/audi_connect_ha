@@ -43,20 +43,35 @@ async def settings(transport: Any, vin: str, job: str, path: str) -> dict:
     return value
 
 
+# Reviewed settings contracts: preserve all unrelated fields according to the
+# OEM endpoint's established behavior; never allow arbitrary replacement PUTs.
+_SETTINGS_PATCHES = {
+    "charging_settings_update": ("charging", "charging.chargingSettings.value", CHARGE_FIELDS, True),
+    "climate_settings_update": ("climatisation", "climatisation.climatisationSettings.value", CLIMATE_FIELDS, False),
+}
+
+
+async def patch_settings(transport, vin, mode, params):
+    job, path, allowed, strict = _SETTINGS_PATCHES[mode]
+    updates = {"targetSOC_pct": target_soc(params.get("value"))} if strict else params
+    current = await settings(transport, vin, job, path)
+    if not updates or set(updates) - allowed:
+        raise ValueError("Unknown climatisation setting")
+    if strict and set(current) - allowed - {"carCapturedTimestamp"}:
+        raise ValueError("Unrecognized charging settings; refusing destructive PUT")
+    if not strict and any(key not in current for key in updates):
+        raise ValueError("Setting is not reported by this vehicle")
+    return {**{key: value for key, value in current.items()
+               if key != "carCapturedTimestamp" and
+               (not strict or key in allowed and value is not None)}, **updates}
+
+
 async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
     vin, transport = car.vin, engine.transport
     if mode == "charge_mode":
         return {"preferredChargeMode": validate_parameter(params.get("value"), CHARGE_MODE)}
-    if mode == "charging_settings_update":
-        value = target_soc(params.get("value"))
-        current = await settings(transport, vin, "charging",
-                                 "charging.chargingSettings.value")
-        if set(current) - CHARGE_FIELDS - {"carCapturedTimestamp"}:
-            raise ValueError("Unrecognized charging settings; refusing destructive PUT")
-        body = {k: current[k] for k in CHARGE_FIELDS
-                if k in current and current[k] is not None}
-        body["targetSOC_pct"] = value
-        return body
+    if mode in _SETTINGS_PATCHES:
+        return await patch_settings(transport, vin, mode, params)
     if mode == "charging_profile_update":
         value = target_soc(params.get("value"))
         current = await settings(transport, vin, "chargingProfiles",
@@ -72,16 +87,9 @@ async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
         if profile is None:
             raise ValueError("Audi charging profile not found")
         return {"profile": {**profile, "targetSOC_pct": value}}
-    if mode in ("climate_settings_update", "climate_start_settings"):
+    if mode == "climate_start_settings":
         current = await settings(transport, vin, "climatisation",
                                  "climatisation.climatisationSettings.value")
-        if mode == "climate_settings_update":
-            if not params or set(params) - CLIMATE_FIELDS:
-                raise ValueError("Unknown climatisation setting")
-            if any(k not in current for k in params):
-                raise ValueError("Setting is not reported by this vehicle")
-            return {**{k: v for k, v in current.items()
-                       if k != "carCapturedTimestamp"}, **params}
         if set(params) - set(OVERRIDES) - {"temp_c", "temp_f", "climatisation_mode"}:
             raise ValueError("Unknown climate start parameter")
         target = temperature_celsius(params, current.get("targetTemperature_C"))

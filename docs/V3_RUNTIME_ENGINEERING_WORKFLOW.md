@@ -106,3 +106,7 @@ HA and Workbench reuse command preparation, including deferred OEM security proo
 ## Cleanup slice 7 — shared response extraction and scalar mapping
 
 Registry, historical batch mappings and targeted attribute routes now share ordered response-path extraction. Batch and targeted scalar normalization share type/unit checks, sentinel handling, empty/error-envelope rejection and size limits. False/zero and meaningful externalPower `unavailable` remain valid. Structured and legacy domain normalizers remain explicit exceptions. No new module or additional cloud call.
+
+## Cleanup slice 8 — shared settings-preserving update
+
+Charging and climate settings updates now share a single reviewed read/validate/patch implementation. The two endpoints retain their existing distinct preservation policies (charging rejects unknown fields; climate preserves unrelated reported fields). Charging profiles and climate start with settings retain their specific domain handlers. No arbitrary PUT or generic workflow language added.
