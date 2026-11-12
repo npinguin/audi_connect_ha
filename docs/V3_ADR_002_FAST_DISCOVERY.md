@@ -82,3 +82,7 @@ Delivery order: after consolidation of the shared engineering editor (step 2), p
 7. Timing and errors: show actual configured polling cadence, cooldown and known quota retry time; distinguish cloud reachability from stale vehicle data; no made-up finish time.
 
 Use existing observed job/route evidence and command outcomes for counts. A guided session is a presentation of the remaining eligible actions, not a second test registry. If a physical action cannot be verified safely or lacks prerequisites, skip it and explain why. Do not weaken ADR 002's automatic discovery safety boundary. This section defines required outcomes and known gaps, not proof of completed implementation or authorization to release.
+
+### Engineering validation of the end-user experience
+
+The Workbench additionally has a dedicated End-user validation view (explicit exception to the four engineering views). Use the same `discovery_progress`, health snapshot, native options-flow candidate selection, command executor, consent/review and timing as normal HA users. The engineer can inspect the actual configured vehicle, verify read and control coverage, perform one explicitly accepted eligible test, and navigate to API evidence or the actual native HA setup. Opening or refreshing the view must not send a vehicle command or force a poll. The view is a validation projection, not a replacement onboarding flow. End-user acceptance includes comparing both surfaces and proving matching eligibility, progress, recovery and outcomes.
