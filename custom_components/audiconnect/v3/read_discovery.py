@@ -178,7 +178,7 @@ def record_standalone_read(profile, operation, status):
 
 def user_progress(car, profile, auth):
     """Read coverage and control evidence are independent, never proof of support."""
-    from .historical_catalog import INVENTORY
+    from .historical_catalog import INVENTORY, CANONICAL_ATTRIBUTES
     from .control_resolution import control_decision
     modern = car.context.auth == "auth0" or car.legacy_cariad
     jobs = {}
@@ -216,7 +216,11 @@ def user_progress(car, profile, auth):
     for name in profile.registry.capabilities:
         subset = [row for job, row in jobs.items() if owners.get(job) == name]
         actions = [row for row in controls if row["capability"] == name]
+        attrs = [attr for attr in CANONICAL_ATTRIBUTES.values() if attr["capability"] == name]
+        from collections import Counter
+        evidence = Counter(profile.attribute_evidence.get(attr["id"], {}).get("status", "not_tested") for attr in attrs)
         capabilities[name] = {"jobs_total": len(subset),
+            "attributes_total": len(attrs), "attribute_evidence": dict(evidence),
             "jobs_assessed": sum(row["assessed"] for row in subset),
             "jobs_observed": sum(row["status"] == "observed" for row in subset),
             "controls_catalog_applicable": sum(row["catalog_applicable"] for row in actions),
@@ -231,4 +235,5 @@ def user_progress(car, profile, auth):
         "controls_catalog_applicable": len(applicable), "controls_physically_verified": verified,
         "control_verification_percent": round(100 * verified / len(applicable), 1) if applicable else None,
         "controls": controls, "capabilities": capabilities,
-        "scope": "reviewed_read_assessment_not_vehicle_support; location excluded"}
+        "excluded_reads": ["parkingPosition (tracker policy)", "tripStatistics (separate catalog route)", "custom and reference-only routes"],
+        "scope": "selective-status jobs and reviewed standard trip/legacy resources; not vehicle support"}
