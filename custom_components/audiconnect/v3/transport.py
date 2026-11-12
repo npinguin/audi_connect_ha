@@ -19,6 +19,7 @@ from .quota import QuotaBudget
 INVENTORY_OPERATION = "graphql.inventory.vehicleList"
 GARAGE_OPERATION = "cariad.inventory.vehicles"
 GARAGE_PATH = "/vehicle/v1/vehicles"
+POST_GARAGE_OPERATION = "graphql.inventory.afterGarage"
 _GRAPHQL_QUERY = """query vehicleList {
   userVehicles {
     vin
@@ -52,6 +53,7 @@ _GRAPHQL_EXTENDED_QUERY = """query vehicleList {
 _GRAPHQL_MODERN_QUERY = _GRAPHQL_QUERY.replace("query vehicleList", "query vehicleMetadata")
 IDENTITY_QUERIES = {
     INVENTORY_OPERATION: _GRAPHQL_QUERY,
+    POST_GARAGE_OPERATION: _GRAPHQL_QUERY,
     "graphql.inventory.extended": _GRAPHQL_EXTENDED_QUERY,
     "graphql.inventory.modern": _GRAPHQL_MODERN_QUERY,
     "graphql.inventory.images": _GRAPHQL_IMAGES_QUERY,

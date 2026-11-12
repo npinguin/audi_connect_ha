@@ -117,7 +117,7 @@ class V3Engine:
         excluded = {x.strip().lower() for x in str(options.get(
             CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
         )).split(",") if x.strip()}
-        from .transport import (identity_rows, selected_identity_response, GARAGE_OPERATION,
+        from .transport import (identity_rows, selected_identity_response, GARAGE_OPERATION, POST_GARAGE_OPERATION,
                                 garage_rows, selected_garage_response)
         fallbacks = {}
         garage = None
@@ -131,7 +131,7 @@ class V3Engine:
                 parsed = V3Vehicle.from_graphql(row, self.auth.country)
             except (ValueError, TypeError, AttributeError):
                 continue
-            missing_model |= parsed.vin.lower() not in excluded and not parsed.model
+            missing_model |= parsed.vin.lower() not in excluded and not (parsed.model and parsed.model_year)
         if (reader is not None and missing_model and not self._identity_fallback_attempted
                 and (remaining is None or remaining > 20)):
             self._identity_fallback_attempted = True
@@ -152,7 +152,9 @@ class V3Engine:
                         garage_candidates[candidate.vin.lower()] = candidate
             # Repeat the original exact query after garage discovery to isolate
             # request ordering from query/header variants.
-            for operation in (INVENTORY_OPERATION, "graphql.inventory.extended", "graphql.inventory.modern"):
+            for operation in (POST_GARAGE_OPERATION, "graphql.inventory.extended", "graphql.inventory.modern"):
+                if garage is not None and garage.status in (401, 403, 429):
+                    break
                 if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 20:
                     break
                 try:
@@ -170,8 +172,10 @@ class V3Engine:
                         candidate = V3Vehicle.from_graphql(row, self.auth.country)
                     except (ValueError, TypeError, AttributeError):
                         continue
-                    if candidate.model and candidate.vin.lower() not in excluded:
-                        alternatives.setdefault(candidate.vin.lower(), (candidate, operation))
+                    if (candidate.model or candidate.model_year or candidate.car_type) and candidate.vin.lower() not in excluded:
+                        prior = alternatives.get(candidate.vin.lower())
+                        if prior is None or (not prior[0].model and candidate.model):
+                            alternatives[candidate.vin.lower()] = (candidate, operation)
                 missing = []
                 for row in found:
                     try:
@@ -194,15 +198,15 @@ class V3Engine:
             if parsed.vin.lower() in excluded:
                 continue
             alternative = alternatives.get(parsed.vin.lower())
-            if not parsed.model and alternative is not None:
+            if alternative is not None:
                 candidate, operation = alternative
-                parsed.identity_operation = operation
-                if candidate.model:
+                if not parsed.model and candidate.model:
+                    parsed.identity_operation = operation
                     parsed.model, parsed.model_family, parsed.model_source = candidate.model, candidate.model_family, candidate.model_source
-                    if not parsed.model_year and candidate.model_year:
-                        parsed.model_year, parsed.year_operation = candidate.model_year, operation
-                    parsed.car_type = parsed.car_type or candidate.car_type
                     parsed.name = parsed.model if parsed.name == "Audi vehicle" else parsed.name
+                if not parsed.model_year and candidate.model_year:
+                    parsed.model_year, parsed.year_operation = candidate.model_year, operation
+                parsed.car_type = parsed.car_type or candidate.car_type
             candidate = garage_candidates.get(parsed.vin.lower())
             if candidate is not None:
                 if not parsed.model and candidate.model:
@@ -434,6 +438,7 @@ class V3Engine:
                                                    spin=settings.get(CONF_SPIN), secrets=tuple(known))
             except (TypeError, ValueError, OverflowError, RecursionError):
                 detail = {"payload": "[RESPONSE INSPECTION UNAVAILABLE]", "truncated": True}
+        from .transport import GARAGE_OPERATION
         record = record_for(
             family=family, method=method,
             http_status=response.status if response else None,
@@ -443,6 +448,8 @@ class V3Engine:
         if (operation.startswith("cariad.mobility.status.") and operation != "cariad.mobility.status.parkingPosition") or operation.startswith("mbb.trip."):
             if method == "GET":
                 record["preview"] = "[trip values withheld: private history]"
+        if operation == GARAGE_OPERATION:
+            record["preview"] = "[garage metadata withheld: selected vehicle structure only]"
         save_record(profile, operation, record)
         if method == "GET":
             from .read_discovery import record_standalone_read
@@ -475,6 +482,8 @@ class V3Engine:
                 if operation in IDENTITY_OPERATIONS:
                     profile.job_schema[job]["latest_identity_fields"] = fields
                     profile.job_schema[job]["graphql_errors"] = payload.get("errors", [])
+                    if response.request and response.request.get("auth_context"):
+                        profile.job_schema[job]["auth_context"] = response.request["auth_context"]
         profile.engineering_responses.pop(operation, None)
         if detail is not None:
             profile.engineering_responses[operation] = {
@@ -492,13 +501,21 @@ class V3Engine:
 
     async def test_identity_operation(self, vin: str, operation: str) -> dict[str, Any]:
         """One reviewed read, selected vehicle evidence, no activation."""
-        from .transport import (IDENTITY_OPERATIONS, GARAGE_OPERATION, selected_garage_response,
+        from .transport import (IDENTITY_OPERATIONS, GARAGE_OPERATION, POST_GARAGE_OPERATION, selected_garage_response,
                                 garage_rows, selected_identity_response, identity_rows)
         if operation not in IDENTITY_OPERATIONS:
             raise ValueError("Unknown reviewed GraphQL operation")
         car = self.require_vehicle(vin)
         if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
             raise RuntimeError("Audi quota is low")
+        if operation == POST_GARAGE_OPERATION:
+            garage = await self.transport.test_identity_query(GARAGE_OPERATION)
+            self._api_record(self.profiles[car.vin.lower()], GARAGE_OPERATION, "cariad", "GET",
+                             selected_garage_response(garage, car.vin), car.vin)
+            if garage.status in (401, 403, 429):
+                raise RuntimeError("Garage request refused; comparison stopped")
+            if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+                raise RuntimeError("Audi quota is low")
         response = await self.transport.test_identity_query(operation)
         is_garage = operation == GARAGE_OPERATION
         selected = selected_garage_response(response, car.vin) if is_garage else selected_identity_response(response, car.vin)
@@ -529,8 +546,8 @@ class V3Engine:
         """
         vehicle = self.require_vehicle(vin)
         if family == "graphql":
-            from .transport import IDENTITY_QUERIES
-            routes = list(IDENTITY_QUERIES) if full else [INVENTORY_OPERATION]
+            from .transport import IDENTITY_QUERIES, POST_GARAGE_OPERATION
+            routes = [op for op in IDENTITY_QUERIES if op != POST_GARAGE_OPERATION] if full else [INVENTORY_OPERATION]
             results = []
             for operation in routes:
                 if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:

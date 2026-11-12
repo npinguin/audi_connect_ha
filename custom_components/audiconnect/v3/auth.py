@@ -143,7 +143,7 @@ class V3Auth:
             iat = claims.get("iat")
             if type(iat) in (int, float) and 0 <= time.time() - iat <= 86400 * 365:
                 result["age_minutes"] = int((time.time() - iat) / 60)
-        except (ValueError, TypeError, IndexError, OverflowError):
+        except (ValueError, TypeError, IndexError, OverflowError, UnicodeError):
             pass
         return result
 

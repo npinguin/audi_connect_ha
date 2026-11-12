@@ -434,6 +434,7 @@ def _cockpit(vehicle, profile, rows, controls):
             operation["path"] = GARAGE_PATH if ident == GARAGE_OPERATION else "/vgql/v1/graphql"
             operation["read_only"] = True
             operation["graphql_errors"] = evidence.get("graphql_errors", [])
+            operation["auth_context"] = evidence.get("auth_context")
             fields = [{**field,
                        "mapping": "declared_mapping" if any(field["path"] == spec[0] for spec in identity_fields.values()) else
                                   "container" if field["type"] in ("array", "object") else "review_unmapped",
@@ -520,7 +521,7 @@ def _cockpit(vehicle, profile, rows, controls):
 
 def diagnostic_route_label(ident, registry):
     """Keep known discovery identifiers, never export custom route names."""
-    if ident in registry.operations or ident in ("cariad.discovery.full", "cariad.selectivestatus.batch", INVENTORY_OPERATION):
+    if ident in registry.operations or ident in IDENTITY_OPERATIONS or ident in ("cariad.discovery.full", "cariad.selectivestatus.batch"):
         return ident
     if ident.startswith("cariad.discovery."):
         jobs = ident.removeprefix("cariad.discovery.").split("_")
