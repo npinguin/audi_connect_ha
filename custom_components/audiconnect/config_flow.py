@@ -609,40 +609,6 @@ class OptionsFlowHandler(OptionsFlow):
         car = engine.require_vehicle(self._discovery_vin)
         return engine, car, engine.profiles[car.vin.lower()]
 
-    def _user_test_candidates(self, engine, car, profile):
-        """Only simple, reviewed, currently eligible native operations."""
-        from .v3.control_resolution import control_decision
-        from .v3.action_discovery import approval_group
-        labels = {
-            ("climate", "start"): "Start cabin climate",
-            ("climate", "stop"): "Stop cabin climate",
-            ("climate", "window_heating_start"): "Start window heating",
-            ("climate", "window_heating_stop"): "Stop window heating",
-            ("charging", "start"): "Start charging",
-            ("charging", "stop"): "Stop charging",
-            ("access", "lock"): "Lock vehicle",
-            ("access", "unlock"): "Unlock vehicle",
-            ("remote", "flash"): "Flash vehicle lights",
-            ("remote", "wake"): "Wake vehicle",
-        }
-        result = {}
-        for (capability, action), label in labels.items():
-            if capability not in profile.registry.capabilities:
-                continue
-            definition = profile.registry.capabilities[capability].get("control", {})
-            if action not in definition:
-                continue
-            decision = control_decision(car, profile, engine.auth, capability, action)
-            operation = decision["operation"]
-            if not operation or operation in profile.custom:
-                continue
-            op = profile.registry.operations[operation]
-            group = approval_group(capability, action, op)
-            if group not in ("non_spin", "spin") or op.get("request_variables"):
-                continue
-            result[capability + "." + action] = (label, capability, action, operation, group)
-        return result
-
     async def async_step_discovery_vehicle(self, user_input=None):
         engine = self._discovery_engine()
         if engine is None:
@@ -661,7 +627,7 @@ class OptionsFlowHandler(OptionsFlow):
             vol.Required("vehicle"): vol.In(dict(vehicles))}))
 
     async def async_step_discovery(self, user_input=None):
-        from .v3.read_discovery import user_progress
+        from .v3.read_discovery import user_test_candidates
         engine, car, profile = self._discovery_context()
         active = profile.discovery._active
         if active is not None:
@@ -669,7 +635,7 @@ class OptionsFlowHandler(OptionsFlow):
             return await self.async_step_discovery_review()
         if profile.last_command is not None and profile.last_command.unresolved:
             return await self.async_step_discovery_recover()
-        candidates = self._user_test_candidates(engine, car, profile)
+        candidates = user_test_candidates(engine, car, profile)
         if user_input is not None:
             choice = user_input.get("action")
             if choice == "finish":
@@ -681,7 +647,7 @@ class OptionsFlowHandler(OptionsFlow):
                 self._discovery_action = choice
                 self._discovery_candidate = candidates[choice]
                 return await self.async_step_discovery_consent()
-        progress = user_progress(car, profile, engine.auth)
+        progress = engine.discovery_progress(car, profile)
         controls = {key: value[0] for key, value in candidates.items()}
         return self.async_show_form(step_id="discovery", data_schema=vol.Schema({
             vol.Required("action", default="finish"): vol.In({
@@ -693,8 +659,9 @@ class OptionsFlowHandler(OptionsFlow):
                 "controls": str(progress["controls_catalog_applicable"])})
 
     async def async_step_discovery_consent(self, user_input=None):
+        from .v3.read_discovery import user_test_candidates
         engine, car, profile = self._discovery_context()
-        candidate = self._user_test_candidates(engine, car, profile).get(self._discovery_action)
+        candidate = user_test_candidates(engine, car, profile).get(self._discovery_action)
         if candidate is None or candidate != self._discovery_candidate:
             # Do not reuse a consent when discovery changed the actual route.
             self._discovery_candidate = None
