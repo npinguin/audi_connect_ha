@@ -107,54 +107,123 @@ def is_reviewed_identity_body(body: Any) -> bool:
         body == identity_request_body(op) for op in IDENTITY_QUERIES)
 
 
-def validate_identity_query(query: str) -> None:
-    """Bounded field-selection subset: one query, userVehicles, unaliased VIN.
+def validate_identity_query(query: str, variables: dict | None = None,
+                            operation_name: str | None = None) -> None:
+    """One bounded read-only userVehicles query, with reviewed argument forms.
 
-    No mutations, fragments, variables, arguments, directives, introspection,
-    arbitrary hosts or authorization headers. Unknown metadata fields may be
-    explored, but their values are not exposed by the experiment inspector.
+    Field selection is editable at runtime. No aliases, mutations, fragments,
+    directives, arbitrary hosts, account queries or credential-bearing arguments.
+    Only the HAR-observed orderBy and renderPictures mediaTypes are parameterized.
     """
     if not isinstance(query, str) or not 0 < len(query) <= 4096:
         raise ValueError("Identity query length is invalid")
-    tokens = re.findall(r"[A-Za-z_][A-Za-z0-9_]*|[{}]|[^\s,]", query)
+    variables = {} if variables is None else variables
+    if not isinstance(variables, dict) or set(variables) - {"orderBy"}:
+        raise ValueError("Unsupported identity variables")
+    enum = r"[A-Z][A-Z0-9_]{0,63}"
+    if "orderBy" in variables and (not isinstance(variables["orderBy"], str)
+            or not re.fullmatch(enum, variables["orderBy"])):
+        raise ValueError("Invalid orderBy enum")
+    tokens = re.findall(r'"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|[^\s,]', query)
     index = count = 0
-    def take():
+    declares_order = uses_order = False
+
+    def take(expected=None):
         nonlocal index
         if index >= len(tokens):
             raise ValueError("Incomplete identity query")
         token = tokens[index]
         index += 1
+        if expected is not None and token != expected:
+            raise ValueError("Unsupported identity query syntax")
         return token
+
     def peek():
         return tokens[index] if index < len(tokens) else None
+
     def name(token):
         return bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", token)) and not token.startswith("__")
-    def selection(depth):
+
+    def arguments(path):
+        nonlocal uses_order
+        take("(")
+        if path == ("userVehicles",):
+            take("orderBy")
+            take(":")
+            if peek() == "$":
+                take("$")
+                take("orderBy")
+                uses_order = True
+            elif not re.fullmatch(enum, take()):
+                raise ValueError("Invalid orderBy enum")
+        elif path == ("userVehicles", "vehicle", "renderPictures"):
+            take("mediaTypes")
+            take(":")
+            take("[")
+            n = 0
+            while peek() != "]":
+                token = take()
+                if not re.fullmatch(r'"[A-Z0-9_]{1,32}"', token) or n >= 16:
+                    raise ValueError("Invalid media type")
+                n += 1
+            take("]")
+            if not n:
+                raise ValueError("Empty media types")
+        else:
+            raise ValueError("Unsupported identity argument")
+        take(")")
+
+    def selection(depth, path=()):
         nonlocal count
-        if depth > 8 or take() != "{":
+        if depth > 8:
             raise ValueError("Invalid identity selection")
+        take("{")
         fields = {}
         while peek() != "}":
             field = take()
             count += 1
-            if not name(field) or count > 64 or field in fields:
+            if (not name(field) and not (field == "__typename" and depth > 1)
+                    or count > 64 or field in fields):
                 raise ValueError("Invalid or duplicate identity field")
-            fields[field] = selection(depth + 1) if peek() == "{" else None
-        take()
+            child = (*path, field)
+            if peek() == "(":
+                arguments(child)
+            fields[field] = selection(depth + 1, child) if peek() == "{" else None
+        take("}")
         if not fields:
             raise ValueError("Empty identity selection")
         return fields
+
+    query_name = None
     if peek() == "query":
-        take()
+        take("query")
         if peek() != "{":
-            if not name(take()):
+            query_name = take()
+            if not name(query_name):
                 raise ValueError("Invalid query name")
+        if peek() == "(":
+            for token in ("(", "$", "orderBy", ":", "VehicleSortOrder", "!", ")"):
+                take(token)
+            declares_order = True
     tree = selection(1)
     if index != len(tokens) or set(tree) != {"userVehicles"}:
         raise ValueError("Only a single userVehicles query is supported")
     vehicle = tree["userVehicles"]
     if not isinstance(vehicle, dict) or "vin" not in vehicle or vehicle["vin"] is not None:
         raise ValueError("Include the unaliased vin field for selected-vehicle isolation")
+    if declares_order != uses_order or declares_order != ("orderBy" in variables):
+        raise ValueError("Declare and supply the orderBy variable exactly once")
+    if operation_name is not None and (not query_name or operation_name != query_name):
+        raise ValueError("operationName must match the query")
+
+
+def validate_identity_body(body: Any) -> None:
+    if (not isinstance(body, dict) or "query" not in body
+            or set(body) - {"query", "variables", "operationName"}
+            or ("variables" in body and not isinstance(body["variables"], dict))
+            or ("operationName" in body and not isinstance(body["operationName"], str))):
+        raise ValueError("Unexpected identity request body")
+    validate_identity_query(body["query"], body.get("variables"), body.get("operationName"))
 
 
 def garage_rows(payload):
@@ -316,10 +385,10 @@ class V3Transport:
                 family == "graphql" and method == "POST"
                 and path == "/vgql/v1/graphql"
                 and (is_reviewed_identity_body(body) or (
-                    explicit_action and isinstance(body, dict) and set(body) == {"query"}))
+                    explicit_action and isinstance(body, dict)))
             )
             if family == "graphql" and read_only and not is_reviewed_identity_body(body):
-                validate_identity_query(body["query"])
+                validate_identity_body(body)
             self.quota.authorize(datetime.now(UTC), read_only=read_only)
             await self.auth.ensure_ready()
             plan = self.executors[family].plan(
@@ -381,10 +450,13 @@ class V3Transport:
         return await self.request("graphql", "POST", "/vgql/v1/graphql",
                                   body=identity_request_body(operation), explicit_action=True)
 
-    async def experiment_identity_query(self, query: str) -> V3Response:
-        validate_identity_query(query)
+    async def experiment_identity_query(self, query: str, variables: dict | None = None) -> V3Response:
+        body = {"query": query}
+        if variables is not None:
+            body["variables"] = variables
+        validate_identity_body(body)
         return await self.request("graphql", "POST", "/vgql/v1/graphql",
-                                  body={"query": query}, explicit_action=True)
+                                  body=body, explicit_action=True)
 
     async def discover_vehicle_images(self) -> dict[str, str]:
         """One optional fixed read query; no token exchange or fallback login."""

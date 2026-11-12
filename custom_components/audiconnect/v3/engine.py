@@ -501,17 +501,18 @@ class V3Engine:
             while len(profile.engineering_responses) > MAX_ENGINEERING_ROUTES:
                 profile.engineering_responses.pop(next(iter(profile.engineering_responses)))
 
-    async def experiment_identity_query(self, vin: str, operation: str, query: str) -> dict[str, Any]:
+    async def experiment_identity_query(self, vin: str, operation: str, query: str,
+                                        variables: dict | None = None) -> dict[str, Any]:
         """Session-only evidence; never overwrite canonical route or activate a mapping."""
         from .transport import IDENTITY_QUERIES, selected_identity_response, identity_rows, validate_identity_query
         from .response_preview import engineering_response, safe_schema_inventory
         if operation not in IDENTITY_QUERIES:
             raise ValueError("Choose a GraphQL identity template")
-        validate_identity_query(query)
+        validate_identity_query(query, variables)
         car = self.require_vehicle(vin)
         if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
             raise RuntimeError("Audi quota is low")
-        response = await self.transport.experiment_identity_query(query)
+        response = await self.transport.experiment_identity_query(query, variables) if variables is not None else await self.transport.experiment_identity_query(query)
         selected = selected_identity_response(response, car.vin)
         rows = [row for row in identity_rows(response.data) if isinstance(row, dict)
                 and isinstance(row.get("vin"), str) and row["vin"].lower() == car.vin.lower()]

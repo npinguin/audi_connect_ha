@@ -152,13 +152,12 @@ class GraphQLExecutor:
              *, explicit_action: bool = False) -> RequestPlan:
         if method != "POST" or _checked_path(path) != "/vgql/v1/graphql" or "?" in path:
             raise ValueError("GraphQL supports only the fixed Audi vehicle-list endpoint")
-        from .transport import is_reviewed_identity_body, _GRAPHQL_MODERN_QUERY, validate_identity_query
+        from .transport import is_reviewed_identity_body, _GRAPHQL_MODERN_QUERY, validate_identity_body
         if not is_reviewed_identity_body(body):
-            if (not explicit_action or not isinstance(body, dict)
-                    or set(body) != {"query"} or not isinstance(body["query"], str)):
+            if not explicit_action:
                 raise ValueError("Unexpected or unreviewed vehicle-list GraphQL request")
             try:
-                validate_identity_query(body["query"])
+                validate_identity_body(body)
             except ValueError as err:
                 raise ValueError("Unreviewed GraphQL document") from err
         host = "app-api.my.aoa.audi.com" if auth.country == "US" else "app-api.live-my.audi.com"

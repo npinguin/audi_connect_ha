@@ -67,7 +67,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.searchText = "";
     this.entityFilter = "";
     this.focusOperation = "";
-    this.identityOperation = ""; this.identityQuery = ""; this.identityExecution = null;
+    this.identityOperation = ""; this.identityQuery = ""; this.identityVariables = "{}"; this.identityExecution = null;
     this.operationMethod = "all";
     this.readRoutes = [];
     this.readChoice = "";
@@ -258,7 +258,7 @@ class AudiConnectV3Panel extends HTMLElement {
 
   _resetVehicleSelection() {
     this.entityFilter = "";
-    this.identityOperation = ""; this.identityQuery = ""; this.identityExecution = null;
+    this.identityOperation = ""; this.identityQuery = ""; this.identityVariables = "{}"; this.identityExecution = null;
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
@@ -297,6 +297,7 @@ class AudiConnectV3Panel extends HTMLElement {
   openIdentityEditor(operation) {
     this.identityOperation = operation;
     this.identityQuery = this.identityTemplate(operation);
+    this.identityVariables = JSON.stringify(this.capabilityStatus.identity_fixed_parameters?.[operation]?.variables || {}, null, 2);
     this.identityExecution = null;
     this.attribute = ""; this.controlAction = "";
     this.category = "vehicle_identity"; this.step = 3; this.render();
@@ -398,7 +399,10 @@ class AudiConnectV3Panel extends HTMLElement {
     // Capture edits BEFORE re-render: otherwise the textarea is reset and a
     // custom request silently loses its parameters or entire definition.
     const rawParameters = this.shadowRoot.getElementById("parameters")?.value || "{}";
-    if (action === "identity-submit") this.identityQuery = this.shadowRoot.getElementById("identity-query")?.value || "";
+    if (action === "identity-submit") {
+      this.identityQuery = this.shadowRoot.getElementById("identity-query")?.value || "";
+      this.identityVariables = this.shadowRoot.getElementById("identity-variables")?.value || "{}";
+    }
     const rawDefinition = this.shadowRoot.getElementById("definition")?.value || "";
     this.loading = true; this.error = ""; this.render();
     try {
@@ -431,7 +435,10 @@ class AudiConnectV3Panel extends HTMLElement {
         });
       } else if (action === "identity-submit") {
         const args = {...this.selection, operation:this.identityOperation};
-        if (this.identityOperation.startsWith("graphql.")) args.query = this.identityQuery;
+        if (this.identityOperation.startsWith("graphql.")) {
+          args.query = this.identityQuery;
+          args.variables = JSON.parse(this.identityVariables);
+        }
         const result = await this.api("test_identity_operation", args);
         this.identityExecution = result.execution || result;
         this.lastResult = result; this.step = 3;
@@ -782,7 +789,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>
           </div>
         </section>`:""}
-        ${car&&coverage.normal_command && ["pending","uncertain"].includes(coverage.normal_command.state)?`<section class="card warn" style="margin-bottom:18px"><b>Vehicle command needs review</b><p>Inspect the vehicle before acknowledging uncertainty. No command is replayed.</p><button data-action="review-normal">I inspected the vehicle — acknowledge uncertainty</button></section>`:""}
+        ${car&&coverage.normal_command && ["pending","uncertain"].includes(coverage.normal_command.state)?`<section class="card warn" style="margin-bottom:18px"><b>Vehicle controls temporarily blocked</b><p>Previous command: <b>${escapeHTML(coverage.normal_command.operation)}</b> · ${escapeHTML(coverage.normal_command.state)} · ${escapeHTML(this.localTime(new Date(coverage.normal_command.started_at*1000).toISOString()))}</p><p>Inspect the actual vehicle before acknowledging uncertainty. Read-only polling and query experiments remain available. No command is replayed and acknowledgement does not mark it successful.</p><button data-action="review-normal" ${this.loading?"disabled":""}>I inspected the vehicle — acknowledge uncertainty</button></section>`:""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `
           <section style="display:${this.step===1?"block":"none"}" data-view="overview">
             <div class="metrics">
@@ -989,9 +996,9 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="section-head"><h2>Configure &amp; test</h2><button data-action="step-2">‹ Capabilities</button></div>
             <label>Vehicle Identity · API operation<select id="identity-operation"><option value="">Choose a source</option>${identityOps.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.identityOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
             ${this.identityOperation?`<p><b>${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.method)} ${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.path)}</b> · Read-only</p>
-              ${this.identityOperation.startsWith("graphql.")?`<label>Query template<textarea id="identity-query" rows="10" spellcheck="false" ${this.capabilityStatus.identity_fixed_parameters?.[this.identityOperation]?"readonly":""}>${escapeHTML(this.identityQuery)}</textarea></label>${this.capabilityStatus.identity_fixed_parameters?.[this.identityOperation]? `<p>Fixed myAudi web document tested using native Audi bearer authentication; not a web session replay.</p><pre>${escapeHTML(JSON.stringify(this.capabilityStatus.identity_fixed_parameters[this.identityOperation],null,2))}</pre>`:""}`:"<p>Fixed read-only garage inventory GET.</p>"}
+              ${this.identityOperation.startsWith("graphql.")?`<label>Query template<textarea id="identity-query" rows="10" spellcheck="false">${escapeHTML(this.identityQuery)}</textarea></label><label>Variables (JSON)<textarea id="identity-variables" rows="3" spellcheck="false">${escapeHTML(this.identityVariables)}</textarea></label>${this.capabilityStatus.identity_fixed_parameters?.[this.identityOperation]? `<p>myAudi web document tested using native Audi bearer authentication; not a web session replay.</p>`:""}`:"<p>Fixed read-only garage inventory GET.</p>"}
               <div class="actions"><button class="primary" data-action="identity-submit" ${this.loading?"disabled":""}>Submit</button><button data-action="identity-reset">Reset template</button><button data-action="identity-evidence" data-operation="${escapeHTML(this.identityOperation)}">API Log</button></div>
-              <p class="helper">Experiments do not change active mappings. Edited GraphQL supports one userVehicles selection with vin, no mutations, arguments or directives.</p>
+              <p class="helper">Experiments do not change active mappings. Edited GraphQL supports one userVehicles selection with vin, orderBy and renderPictures mediaTypes. No mutations, arbitrary hosts or directives.</p>
               ${this.identityExecution?this.responseInspector(this.identityOperation,this.identityExecution):this.responseInspector(this.identityOperation)}
               ${this.identityExecution?.fields?.length?`<details open><summary>Discovered fields · ${this.identityExecution.fields.length}</summary>${this.identityExecution.fields.map(f=>`<div class="subline"><code>${escapeHTML(f.path)}</code> · ${escapeHTML(f.type)}</div>`).join("")}</details>`:""}
               <h3>Linked capability · Vehicle Identity</h3>${(identityOps.find(o=>o.operation===this.identityOperation)?.mappings||[]).map(m=>`<div class="subline">${escapeHTML(m.name)} → ${this.entityLinks(m.entity_ids)||escapeHTML(m.entity_key)} · ${escapeHTML(m.status)}</div>`).join("")}`:"<p>Select an identity API operation above, or browse other capabilities.</p>"}

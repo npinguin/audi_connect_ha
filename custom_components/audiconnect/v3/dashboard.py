@@ -520,16 +520,22 @@ async def ws_test_family_reads(hass, connection, msg):
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("operation"): str,
     vol.Optional("query"): vol.All(str, vol.Length(min=1, max=4096)),
+    vol.Optional("variables"): dict,
 })
 @websocket_api.async_response
 async def ws_test_identity_operation(hass, connection, msg):
     try:
-        from .transport import IDENTITY_QUERIES
+        from .transport import IDENTITY_QUERIES, identity_request_body
         engine = _engine(hass, msg["entry_id"])
         operation = msg["operation"]
         query = msg.get("query")
-        if query is not None and query != IDENTITY_QUERIES.get(operation):
-            result = await engine.experiment_identity_query(msg["vin"], operation, query)
+        variables = msg.get("variables")
+        if variables is not None and (query is None or operation not in IDENTITY_QUERIES):
+            raise ValueError("Variables require a GraphQL query")
+        defaults = identity_request_body(operation).get("variables", {}) if operation in IDENTITY_QUERIES else {}
+        if query is not None and (query != IDENTITY_QUERIES.get(operation)
+                                  or (variables is not None and variables != defaults)):
+            result = await engine.experiment_identity_query(msg["vin"], operation, query, variables)
         else:
             result = await engine.test_identity_operation(msg["vin"], operation)
             result["execution"] = engine.engineering_response_for(msg["vin"], operation)

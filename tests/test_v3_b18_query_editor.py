@@ -13,7 +13,7 @@ def test_read_only_query_editor_accepts_selection(query):
     "{ userVehicles { vehicle { core { modelYear } } } }",
     "{ userVehicles { vin alias: vehicle { core { modelYear } } } }",
     "{ userVehicles { vin } } { userVehicles { vin } }",
-    "{ userVehicles { vin __typename } }",
+    "{ userVehicles { vin __schema } }",
     "{ userVehicles { vin vehicle(arg: 1) { core } } }",
     "{ userVehicles { vin @skip(if: true) } }",
     "{ userVehicles { vin } account { email } }",
@@ -46,3 +46,32 @@ def test_har_ordered_query_is_exact_fixed_read_only_body():
         assert not is_reviewed_identity_body(modified)
         with pytest.raises(ValueError):
             executor.plan(auth, "POST", "/vgql/v1/graphql", modified, explicit_action=True)
+
+
+def test_runtime_identity_query_can_edit_har_fields_and_variables():
+    from types import SimpleNamespace
+    from custom_components.audiconnect.v3.transport import validate_identity_body
+    from custom_components.audiconnect.v3.family_executors import GraphQLExecutor
+    query = """query Explore($orderBy: VehicleSortOrder!) {
+      userVehicles(orderBy: $orderBy) {
+        vin vehicle { core { modelYear } renderPictures(mediaTypes: ["MYAPN8NB"]) { url __typename } }
+      }
+    }"""
+    body = {"query": query, "variables": {"orderBy": "FAVORITE_AND_REGISTRATION"}}
+    validate_identity_body(body)
+    auth = SimpleNamespace(country="DE", access_token=lambda family: "test")
+    plan = GraphQLExecutor().plan(auth, "POST", "/vgql/v1/graphql", body, explicit_action=True)
+    assert plan.body == body
+    for bad in (
+        {**body, "variables": {"orderBy": "secret bearer"}},
+        {**body, "variables": {"orderBy": "VALID", "token": "secret"}},
+        {**body, "query": query.replace("mediaTypes", "unknownArg")},
+        {**body, "query": query.replace("userVehicles(orderBy: $orderBy)", "userVehicles")},
+        {**body, "query": query.replace('MYAPN8NB', 'https://example.org')},
+        {**body, "operationName": "Other"},
+        {**body, "query": query + " mutation { userVehicles { vin } }"},
+    ):
+        with pytest.raises(ValueError):
+            validate_identity_body(bad)
+    with pytest.raises(ValueError):
+        GraphQLExecutor().plan(auth, "POST", "/vgql/v1/graphql", body)

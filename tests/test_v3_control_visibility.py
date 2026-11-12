@@ -52,3 +52,16 @@ def test_native_charging_settings_require_vehicle_read_and_write_evidence():
         car.vin.lower() + "_select_charge_mode",
     }
     assert all(e.entity_category.value == "config" for e in offered)
+
+
+def test_pending_control_reason_distinguishes_uncertain_from_inflight():
+    from types import SimpleNamespace as NS
+    from custom_components.audiconnect.v3.control_resolution import control_decision
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    record = CommandRecord.begin("climate", "window_heating_start", "cariad.climate.window_heating_start", 10)
+    profile = NS(discovery=NS(disabled=set(), _active=None), last_command=record)
+    assert control_decision(None, profile, None, "access", "lock")["reason"] == "vehicle_command_in_progress"
+    record.state = "uncertain"
+    result = control_decision(None, profile, None, "access", "lock")
+    assert result["status"] == "pending_review" and result["operation"] is None
+    assert result["reason"] == "previous_vehicle_command_uncertain"

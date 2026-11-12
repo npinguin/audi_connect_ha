@@ -337,6 +337,21 @@ test("HAR identity template exposes fixed variables without browser credentials"
     identity_fixed_parameters:{[op]:{operationName:"GET_USER_VEHICLES_ORDERED_BY",variables:{orderBy:"FAVORITE_AND_REGISTRATION"}}}};
   p.openIdentityEditor(op);
   assert.match(p.shadowRoot.innerHTML,/FAVORITE_AND_REGISTRATION/);
-  assert.match(p.shadowRoot.innerHTML,/readonly/);
+  assert.match(p.shadowRoot.innerHTML,/identity-variables/);
+  assert.doesNotMatch(p.shadowRoot.innerHTML,/<textarea id="identity-query"[^>]*readonly/);
   assert.match(p.shadowRoot.innerHTML,/not a web session replay/);
+});
+
+
+test("uncertain vehicle command identifies blocker and leaves read-only workbench accessible", () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  p.capabilityStatus={counts:{},rows:[],normal_command:{
+    operation:"cariad.climate.window_heating_start",state:"uncertain",started_at:1794500000
+  }};
+  p.render();
+  assert.match(p.shadowRoot.innerHTML,/Vehicle controls temporarily blocked/);
+  assert.match(p.shadowRoot.innerHTML,/cariad.climate.window_heating_start/);
+  assert.match(p.shadowRoot.innerHTML,/acknowledge uncertainty/);
+  assert.match(p.shadowRoot.innerHTML,/Read-only polling and query experiments remain available/);
 });
