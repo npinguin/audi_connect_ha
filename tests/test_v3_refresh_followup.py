@@ -153,8 +153,8 @@ def test_wake_does_not_hide_previous_command_readback():
     wake = CommandRecord.begin("remote", "refresh", "cariad.remote.refresh", time.time() - 5)
     wake.state = "accepted_unconfirmed"
     profile.track_command(wake)
-    car.climate_state = "heating"
-    car.climate_captured = datetime.now(UTC)
+    now = datetime.now(UTC)
+    car.set_climate("heating", now.isoformat(), route="test", observed_at=now, http_status=200)
     engine.commands.reconcile_commands()
     assert start.state == "verified"
     assert wake.state == "accepted_unconfirmed"

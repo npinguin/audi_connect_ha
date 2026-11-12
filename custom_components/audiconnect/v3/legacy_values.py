@@ -18,6 +18,9 @@ def observe_legacy(car,profile,kind,response):
     payload=response.data
     if not isinstance(payload,dict): return
     def record(key,value,stamp=None,path=None):
+        selected = getattr(profile, "attribute_routes", {}).get(key)
+        if selected and selected != f"mbb.{kind}.readonly":
+            return
         if value is None or (isinstance(value,str) and value.lower() in ("","invalid","unknown","unsupported","unavailable")):
             return
         descriptor = ATTRIBUTES.get(key, {})
@@ -30,7 +33,8 @@ def observe_legacy(car,profile,kind,response):
         fresh=timestamp_is_fresh(stamp,response.observed_at)
         status="verified" if fresh else "readable_but_stale"
         car.readings[key]={"value":value,"captured":stamp,"observed":response.observed_at.isoformat(),
-            "status":status,"family":"mbb","path":path or kind,"job":None}
+            "status":status,"family":"mbb","path":path or kind,"job":None,
+            "operation":f"mbb.{kind}.readonly"}
         # Persist only evidence that the existing route-schema validator can
         # reconstruct. Derived values remain in memory, like CARIAD derived
         # readings; do not corrupt the saved profile with raw field IDs.

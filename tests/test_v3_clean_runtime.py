@@ -627,3 +627,19 @@ async def test_targeted_external_power_uses_same_meaningful_unavailable_state_as
         "cariad.selectivestatus.targeted", [path], V3Response(200, payload, now))
     assert result["result"] == "verified"
     assert car.readings["externalPower"]["value"] == "unavailable"
+
+
+@pytest.mark.asyncio
+async def test_selected_climate_mapping_is_the_single_native_state_source():
+    engine, _, _ = engine_for(status(value="off"), status(value="heating"),
+                              status(value="off"), status(value="heating"))
+    await engine.poll()
+    car = engine.require_vehicle(VIN)
+    assert car.climate_state == car.readings["climatisationState"]["value"] == "off"
+    route = "cariad.selectivestatus.targeted"
+    result = await engine.test_attribute_route(VIN, "climatisationState", route)
+    assert result["value"] == "heating" and car.climate_state == "off"
+    await engine.activate_attribute_route(VIN, "climatisationState", route)
+    await engine.poll()
+    assert car.climate_state == car.readings["climatisationState"]["value"] == "heating"
+    assert car.climate_source == route

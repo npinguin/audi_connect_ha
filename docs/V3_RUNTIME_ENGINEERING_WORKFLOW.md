@@ -146,3 +146,7 @@ Manual quick/full API-family scans record evidence without publishing live attri
 ## Audit 02 — remaining acceptance work
 
 This remediation does not establish zero technical debt. Remaining work includes removing the runtime distinctions based on the single-capability pilot fixture, consolidating climate reported state with canonical attribute observations, resolving duplicate operation/evidence identifiers, completing template-driven authoring and portable draft/release lifecycle, and validating actual target-vehicle identity, HA lifecycle and rollback. Retain security checks, stable entity identifiers, reviewed legacy support and historical evidence. Do not publish or merge on the basis of passing unit tests alone.
+
+## Audit 02 — canonical native climate state
+
+Native climate state, capture time and path derive from the canonical climatisationState reading; separate mutable climate fields and mirrored writes are removed. The normal climatisationStatus mapping precedes the historical auxiliary fallback. Selected attribute routes take precedence over default and legacy reads. A previously selected capability-level status route retains a narrow compatibility fallback until old profile selections are migrated.

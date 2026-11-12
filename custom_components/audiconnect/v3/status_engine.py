@@ -90,11 +90,6 @@ class StatusEngine:
                 continue
             reachable = True
             observe_legacy(car, profile, kind, response)
-            if kind == "climater":
-                row = car.readings.get("climatisationState", {})
-                car.set_climate(row.get("value"), row.get("captured"),
-                    route="mbb.climate.status", observed_at=response.observed_at,
-                    http_status=response.status)
         return reachable
 
     async def _poll_trips(self, car: V3Vehicle) -> None:
@@ -205,8 +200,6 @@ class StatusEngine:
                         polled_responses[(key,"cariad",path)] = reply
                         observe_read_only(vehicle,profile,reply.data,reply.observed_at)
                         record_jobs(profile,tuple(path.rsplit("jobs=",1)[-1].split(",")),status=reply.status,payload=reply.data)
-                        row=vehicle.readings.get("climatisationState",{})
-                        vehicle.set_climate(row.get("value"),row.get("captured"),route="cariad.climate.status.batch",observed_at=reply.observed_at,http_status=reply.status)
                         cloud_reachable = True
                 if await self._poll_legacy(vehicle, profile, polled_responses):
                     cloud_reachable = True
@@ -273,12 +266,16 @@ class StatusEngine:
                     captured = _captured(response.data, field)
                     valid = 200 <= response.status < 300 and value is not None
                     if capability == "climate" and valid:
-                        valid = vehicle.set_climate(
-                            value, captured, route=ident,
-                            observed_at=response.observed_at, http_status=response.status,
-                        )
-                        if valid:
-                            vehicle.climate_field = field
+                        value, issue = normalize_attribute_value(ATTRIBUTES["climatisationState"], value, None)
+                        valid = isinstance(value, str) and not issue
+                        # Batch and legacy attribute extraction already own their
+                        # observations. Only a selected older capability-level
+                        # route may supply a fallback, never over an explicit attribute route.
+                        if (valid and ident not in (batch, "mbb.climate.status")
+                                and chosen == ident
+                                and profile.attribute_routes.get("climatisationState") in (None, "cariad.selectivestatus.batch")):
+                            vehicle.set_climate(value, captured, route=ident, path=field,
+                                observed_at=response.observed_at, http_status=response.status)
                     elif valid:
                         if isinstance(value, str) and value.strip().lower() in (
                             "", "unknown", "invalid", "unsupported", "unavailable", "error"
@@ -348,11 +345,6 @@ class StatusEngine:
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     observe_read_only(car, profile, response.data, response.observed_at)
-                    if "climatisation" in jobs:
-                        row = car.readings.get("climatisationState", {})
-                        car.set_climate(row.get("value"), row.get("captured"),
-                            route="cariad.status.climatisation", observed_at=response.observed_at,
-                            http_status=response.status)
                 record_jobs(profile, jobs, status=response.status, payload=response.data)
                 polled_responses[(key, "cariad", path)] = response
 
@@ -540,6 +532,7 @@ class StatusEngine:
     def _record_attribute_response(self, car: V3Vehicle, profile: DevelopmentProfile,
                                    attribute: str, operation: str, mappings: list[str],
                                    response: V3Response, *, publish: bool = True) -> dict[str, Any]:
+        publish = publish and profile.attribute_routes.get(attribute) in (None, operation)
         raw, matched_path = extract_first(response.data, mappings)
         field = matched_path or mappings[0]
         variant = get_read_variant(attribute, operation, profile.attribute_custom, attributes_for(profile))
@@ -569,7 +562,7 @@ class StatusEngine:
         if publish and 200 <= response.status < 300 and value is not None:
             record_observation(car, profile, attribute, value, captured,
                                response.observed_at, field, definition["job"], family,
-                               fresh=fresh)
+                               fresh=fresh, operation=operation)
         return {
             "attribute": attribute, "route": operation, "result": outcome,
             "http_status": response.status, "mapping": field,

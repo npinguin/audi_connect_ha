@@ -517,8 +517,8 @@ INVENTORY: dict[str, Any] = json.loads(r'''{
       "entity_key": "climatisation_state",
       "platform": "sensor",
       "paths": [
-        "climatisation.auxiliaryHeatingStatus.value.climatisationState",
-        "climatisation.climatisationStatus.value.climatisationState"
+        "climatisation.climatisationStatus.value.climatisationState",
+        "climatisation.auxiliaryHeatingStatus.value.climatisationState"
       ],
       "source": "v2_audi_models",
       "sensitivity": "vehicle_state"

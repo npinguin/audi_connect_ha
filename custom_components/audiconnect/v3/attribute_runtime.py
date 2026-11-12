@@ -55,7 +55,7 @@ def record_invalid_observation(vehicle: Any, ident: str, captured: Any, observed
 
 
 def record_observation(vehicle, profile, ident, value, captured, observed_at,
-                       path, job, family, *, fresh):
+                       path, job, family, *, fresh, operation=None):
     """Commit value and evidence together, only if the vehicle sample is accepted."""
     if not _accept_observation(vehicle.readings.get(ident), captured):
         return False
@@ -63,6 +63,7 @@ def record_observation(vehicle, profile, ident, value, captured, observed_at,
     vehicle.readings[ident] = {
         "value": value, "captured": captured, "observed": observed_at.isoformat(),
         "fresh": fresh, "path": path, "job": job, "status": status, "family": family,
+        "operation": operation or ("mbb.legacy" if family == "mbb" else "cariad.selectivestatus.batch"),
     }
     profile.attribute_evidence[ident] = {
         "status": status, "path": path, "job": job,

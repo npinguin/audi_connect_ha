@@ -156,8 +156,4 @@ def observe_command_response(record, car, profile, family, response):
     if captured is None or captured.timestamp() <= record.started_at:
         return
     observe_read_only(car, profile, {job: {group: envelope}}, response.observed_at)
-    if record.readback_attribute == "climate":
-        row = car.readings.get("climatisationState", {})
-        car.set_climate(row.get("value"), row.get("captured"), route=record.operation,
-                        observed_at=response.observed_at, http_status=response.status)
     reconcile_readback(record, car, response.observed_at)

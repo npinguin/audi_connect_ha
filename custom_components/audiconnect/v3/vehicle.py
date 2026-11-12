@@ -144,12 +144,6 @@ class V3Vehicle:
     auth_family: str = "auth0"
     legacy_cariad: bool = False
     legacy_api_level: int = 0
-    climate_state: str | None = None
-    climate_captured: datetime | None = None
-    last_status_observed: datetime | None = None
-    climate_source: str | None = None
-    climate_field: str | None = None
-    climate_http_status: int | None = None
     last_command_result: str | None = None
     readings: dict[str, dict[str, Any]] = field(default_factory=dict)
     capability_readings: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -263,24 +257,46 @@ class V3Vehicle:
         """No hard unsupported verdict from merely missing cloud data."""
         return True if self.climate_state is not None else None
 
+    @property
+    def climate_state(self) -> str | None:
+        value = self.readings.get("climatisationState", {}).get("value")
+        if isinstance(value, str) and value.strip().lower() not in _INVALID:
+            return value.strip().lower()
+        return None
+
+    @property
+    def climate_captured(self) -> datetime | None:
+        from .attribute_runtime import _capture_in_utc
+        return _capture_in_utc(self.readings.get("climatisationState", {}).get("captured"))
+
+    @property
+    def climate_source(self) -> str | None:
+        return self.readings.get("climatisationState", {}).get("operation")
+
+    @property
+    def climate_field(self) -> str | None:
+        return self.readings.get("climatisationState", {}).get("path")
+
     def set_climate(
         self, value: Any, captured: Any, *,
         route: str, observed_at: datetime, http_status: int,
+        path: str | None = None,
     ) -> bool:
-        """Preserve previous readable data on partial or invalid responses."""
-        self.climate_http_status = http_status
-        if not isinstance(value, str) or value.strip().lower() in _INVALID:
+        """Compatibility for selected status routes: write the canonical reading."""
+        from .attribute_runtime import _accept_observation
+        from .freshness import timestamp_is_fresh
+        if not 200 <= http_status < 300 or not isinstance(value, str) or value.strip().lower() in _INVALID:
             return False
-        from .attribute_runtime import _capture_in_utc
-        incoming = _capture_in_utc(captured)
-        if self.climate_captured is not None and (
-            incoming is None or incoming < self.climate_captured
-        ):
+        if not _accept_observation(self.readings.get("climatisationState"), captured):
             return False
-        self.climate_state = value.strip().lower()
-        self.climate_source = route
-        self.last_status_observed = observed_at
-        self.climate_captured = incoming
+        fresh = timestamp_is_fresh(captured, observed_at)
+        self.readings["climatisationState"] = {
+            "value": value.strip().lower(), "captured": captured,
+            "observed": observed_at.isoformat(), "fresh": fresh,
+            "path": path, "job": "climatisation", "operation": route,
+            "status": "verified" if fresh else "readable_but_stale",
+            "family": "mbb" if route.startswith("mbb.") else "cariad",
+        }
         return True
 
     @property

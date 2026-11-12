@@ -147,7 +147,6 @@ class V3Engine:
                 vehicle.impaired_capabilities.clear()
                 vehicle.readings.clear()
                 vehicle.capability_readings.clear()
-                vehicle.climate_state = vehicle.climate_captured = None
                 vehicle.position = None
                 vehicle.charging_profiles.clear()
                 vehicle.active_charging_profile_id = None

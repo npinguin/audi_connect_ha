@@ -85,5 +85,5 @@ def test_preheater_uses_own_state_and_historical_unique_id():
     assert switch.available and switch.is_on is True
     assert car.readings["preheater_remaining"]["value"] == 12
     car.readings.clear()
-    car.climate_state = "heating"
+    car.set_climate("heating", now.isoformat(), route="test", observed_at=now, http_status=200)
     assert switch.is_on is None

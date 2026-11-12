@@ -53,8 +53,7 @@ def test_parked_state_unknown_does_not_hide_authorized_control():
     car,co,now=context()
     stamp=(now-timedelta(hours=4)).isoformat()
     car.readings["doorLockStatus"]={"value":"locked","captured":stamp,"status":"readable_but_stale"}
-    car.climate_state="off"
-    car.climate_captured=now-timedelta(hours=4)
+    car.set_climate("off", stamp, route="test", observed_at=now, http_status=200)
     lock=V3LockEntity(co,car)
     quick=V3ClimateQuickSwitch(co,car)
     assert lock.available and lock.is_locked is None

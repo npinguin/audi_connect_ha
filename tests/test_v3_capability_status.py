@@ -55,9 +55,9 @@ def test_only_actual_extracted_attribute_counts_as_discovered():
         "climate", route, http_status=200,
         schema_valid=True, fresh=True,
     )
-    car.climate_field = (
-        "climatisation.climatisationStatus.value.climatisationState"
-    )
+    car.readings["climatisationState"] = {
+        "path": "climatisation.climatisationStatus.value.climatisationState",
+    }
     rows = [x for x in build_status_report(car, profile)["rows"]
             if x["operation"] == route]
     assert [r["status"] for r in rows].count("worked") == 1
