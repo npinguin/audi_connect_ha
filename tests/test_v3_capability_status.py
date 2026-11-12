@@ -133,3 +133,24 @@ def test_discovery_coverage_matches_dashboard_for_derived_and_invalid_attributes
     summary = next(row for row in report["capability_summary"] if row["capability"] == "climate")
     assert progress["capabilities"]["climate"]["attribute_evidence"] == summary["read_status"]
     assert next(row for row in report["rows"] if row.get("attribute") == "stateOfCharge")["status"] == "verified"
+
+def test_untested_read_candidates_are_linked_to_entities_before_any_api_call():
+    from custom_components.audiconnect.v3.custom_attributes import validate_definition
+
+    car, profile = _fixture()
+    profile.attribute_definitions["user.attribute.pressure"] = validate_definition({
+        "id": "user.attribute.pressure", "capability": "local", "name": "Pressure",
+        "type": "number", "unit": "bar", "device_class": "pressure"})
+    profile.attribute_custom["user.read.pressure"] = {
+        "id": "user.read.pressure", "attribute": "user.attribute.pressure",
+        "family": "cariad", "method": "GET",
+        "path": "/vehicle/v1/vehicles/{VIN}/pressure", "response_path": "pressure.value"}
+    report = build_status_report(car, profile)
+    operations = {o["operation"]: o for o in report["operations"]}
+    custom = operations["user.read.pressure"]
+    assert custom["capabilities"] == ["local"]
+    assert not custom["tested"] and not custom["active"]
+    assert custom["mappings"][0]["entity_key"] == "sensor.v3_custom_pressure"
+    assert custom["mappings"][0]["status"] == "not_tested"
+    charging = operations["cariad.status.charging"]
+    assert any(m["attribute"] == "stateOfCharge" and not m["active"] for m in charging["mappings"])
