@@ -620,6 +620,13 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
     return True
 
 
+async def async_remove_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    """Remove the private trip archive on explicit integration removal only."""
+    from homeassistant.helpers.storage import Store
+
+    await Store(hass, 1, f"audiconnect_v3_{config_entry.entry_id}_trips", private=True).async_remove()
+
+
 async def async_remove_config_entry_device(
     hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry
 ) -> bool:
