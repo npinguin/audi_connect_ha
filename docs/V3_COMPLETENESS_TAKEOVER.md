@@ -61,3 +61,18 @@ semantics, registry lifecycle and V2 rollback, candidate regression tests,
 and upstream evidence matrix. Physical validation remains separate.
 
 The new tests are committed; this record does not assert a successful CI run.
+
+
+## Additional b12 runtime finding: wake cooldown (12 November)
+
+A user explicitly woke the Q8, received a successful cloud poll, then could
+not set HVAC mode because the preceding wake activated the 90-second global
+mutation cooldown. Reviewed CARIAD wake/refresh acceptance now permits the
+next normal HA action without a wake-induced cooldown. An earlier actual
+mutation still owns its cooldown and immediate stop exception. Uncertain
+commands, stricter engineering experiment gates, serialized dispatch and the
+existing wake-specific 30-minute/four-per-day budget remain unchanged.
+Readback of the preceding actual action is not hidden by a linked refresh.
+Regression tests cover both wake endpoints, HTTP 204, repeated wake limits,
+uncertainty and linked-refresh masking. Candidate CI and live acceptance
+remain pending.
