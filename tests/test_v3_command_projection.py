@@ -99,3 +99,12 @@ def test_readback_selection_ignores_workbench_and_rejected_actions():
     profile = NS(command_journal=[start, engineering, rejected])
     assert latest_readback_command(profile, "climate") is start
     assert projected_state(profile, "climate", "off", OLD, now=NOW) == ("on", "command_pending")
+
+
+@pytest.mark.parametrize("value,expected", [("off", True), ("unknown", False), ("heating", False), (None, False)])
+def test_guided_readback_only_uses_known_changed_comfort_state(value, expected):
+    from custom_components.audiconnect.v3.command_readback import configure_discovery_readback
+    car = NS(climate_state=value, climate_captured=NOW, readings={})
+    row = CommandRecord.begin("climate", "start", "route", NOW.timestamp())
+    configure_discovery_readback(row, car, {})
+    assert bool(row.readback_attribute) is expected
