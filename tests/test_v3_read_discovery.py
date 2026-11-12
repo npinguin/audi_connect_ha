@@ -1,3 +1,4 @@
+import pytest
 """Automated CARIAD GET discovery keeps absent fields as inconclusive, not unsupported."""
 from types import SimpleNamespace
 from custom_components.audiconnect.v3.read_discovery import (
@@ -237,3 +238,22 @@ def test_read_discovery_distinguishes_exhaustion_from_success():
     assert progress["read_assessed"] < progress["read_total"]
     profile.job_discovery["chargingProfiles"] = "observed"
     assert user_progress(car, profile, auth)["read_state"] == "complete"
+
+
+@pytest.mark.asyncio
+async def test_recovery_resets_only_unresolved_read_attempts():
+    from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3.engine import V3Engine
+    profile = SimpleNamespace(job_probe_attempts={"charging": 3, "batterySupport": 1, "chargingProfiles": 3},
+                              job_discovery={"charging": "observed", "batterySupport": "unsupported",
+                                             "chargingProfiles": "inconclusive"})
+    car = SimpleNamespace(vin="WAUZZZ4M0MD123456")
+    coordinator = SimpleNamespace(async_request_refresh=AsyncMock())
+    engine = SimpleNamespace(require_vehicle=lambda vin: car, profiles={car.vin.lower():profile},
+        storage=SimpleNamespace(async_save=AsyncMock()), entry=SimpleNamespace(runtime_data=SimpleNamespace(coordinator=coordinator)),
+        health=SimpleNamespace(snapshot=lambda *args: {"status":"operational"}),
+        discovery_progress=lambda *args: {"read_state":"discovering"})
+    result = await V3Engine.resume_read_discovery(engine, car.vin)
+    assert result["read_state"] == "discovering"
+    assert profile.job_probe_attempts == {"charging":3, "batterySupport":1}
+    coordinator.async_request_refresh.assert_awaited_once()
