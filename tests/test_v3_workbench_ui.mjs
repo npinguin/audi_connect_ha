@@ -571,4 +571,7 @@ test("Portable definition JSON reuses editor and never executes a request", asyn
   assert.equal(p.definitionValue("read",template).id,"user.read.imported");
   assert.equal(p.definitionValue("read",template).capture_path,"charging.time");
   assert.throws(()=>p.loadDefinitionJSON("read",template,JSON.stringify({...value,credentials:"forbidden"})),/Unknown definition fields/);
+  assert.throws(()=>p.loadDefinitionJSON("read",template,JSON.stringify({...value,attribute:"different"})),/matching attribute/);
+  assert.throws(()=>p.loadDefinitionJSON("read",template,JSON.stringify({...value,id:"user.read.changed",capture_path:123})),/Expected text/);
+  assert.equal(p.definitionValue("read",template).id,"user.read.imported");
 });
