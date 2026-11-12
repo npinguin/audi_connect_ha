@@ -188,7 +188,9 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         engine = self.coordinator.engine
         profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
+        from .structured_details import details_for
         return {
+            **details_for(self.vehicle, "climate_timers_detail", "ventilation_timers_detail", "window_heating_detail"),
             "v3_capability": "climate",
             "api_route": self.vehicle.climate_source,
             "vehicle_captured": self.vehicle.climate_captured.isoformat()
@@ -588,8 +590,10 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         if self.attribute.get("entity_key") == "car_type" and not self.attribute.get("local"):
             from .vehicle import powertrain_identity
             evidence = powertrain_identity(self.vehicle)
+            from .structured_details import details_for
             return {"classification_sources": evidence["sources"],
-                    "classification_conflict": evidence["conflict"]}
+                    "classification_conflict": evidence["conflict"],
+                    **details_for(self.vehicle, "connected_services_detail")}
         source, reading = projection_reading(self.vehicle, self.attribute)
         reading = reading or {}
         captured_age = _reading_age_minutes(reading.get("captured"))
@@ -598,7 +602,18 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             else "fresh" if captured_age <= 60
             else "stale_last_known" if self._allow_last_known else "stale"
         )
-        details = {}
+        from .structured_details import details_for
+        detail_keys = {
+            "doors_trunk_status": ("door_detail", "window_detail", "access_overall_detail", "light_detail"),
+            "charging_timer_enabled_count": ("charging_timers_detail",),
+            "climatisation_timer_enabled_count": ("climate_timers_detail", "ventilation_timers_detail"),
+            "charging_state": ("charging_timers_detail",),
+        }
+        details = details_for(self.vehicle, *detail_keys.get(self.attribute.get("entity_key"), ()))
+        if self.attribute.get("entity_key") == "charging_timer_enabled_count":
+            details.update({"charging_profiles": self.vehicle.charging_profiles,
+                            "active_charging_profile_id": self.vehicle.active_charging_profile_id,
+                            "charging_profiles_captured": self.vehicle.charging_profiles_captured})
         if self.attribute.get("entity_key") == "range":
             from .product_contract import normalized_range_details
             details = normalized_range_details(self.vehicle)
