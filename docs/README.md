@@ -19,3 +19,5 @@ The upstream [Audi Connect README](../readme.md) remains the authoritative user 
 This documentation is **research**, not an active deployment or a manufacturer-endorsed API contract. Do not assume unverified cross-brand endpoints work for Audi.
 
 - [b10 release notes](V3_RELEASE_NOTES_3.0.0b10.md) — authorized experimental HACS test; stable gate remains closed.
+
+- [b11 release notes](V3_RELEASE_NOTES_3.0.0b11.md) — experimental HACS test, exact-SHA validation required.

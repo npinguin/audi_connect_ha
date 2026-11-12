@@ -1,17 +1,17 @@
 # Audi Connect Integration for Home Assistant
 
 > [!WARNING]
-> **Audi V3 3.0.0b10 is explicitly authorized as an experimental HACS test prerelease.**
+> **Audi V3 3.0.0b11 is explicitly authorized as an experimental HACS test prerelease.**
 > V2 remains the default and rollback choice. V3 has its own vehicle API,
 > polling, commands and nine HA platforms with shared account authentication.
-> Architecture closure and static parity are not complete. Back up HA, select b10
+> Architecture closure and static parity are not complete. Back up HA, select b11
 > explicitly as a beta in HACS, and keep V2 as fallback. Not stable.
 > Engineering uses an opt-in administrator Workbench for explicit control tests;
 > the end-user target is automatic fast discovery of known eligible controls,
 > with no automatic physical vehicle actions. See [architecture](docs/V3_ARCHITECTURE.md),
 > [closure plan](docs/V3_ARCHITECTURE_CLOSURE.md), [fast discovery ADR](docs/V3_ADR_002_FAST_DISCOVERY.md),
 > [configuration](docs/V3_CONFIGURATION.md), [test matrix](docs/V3_TEST_MATRIX.md)
-> and [3.0.0b10 release notes](docs/V3_RELEASE_NOTES_3.0.0b10.md).
+> and [3.0.0b11 release notes](docs/V3_RELEASE_NOTES_3.0.0b11.md).
 
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)

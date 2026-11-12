@@ -65,3 +65,7 @@ Numeric contracts reject booleans, invalid percentage ranges and invalid negativ
 ## b10 — product entity rationalisation and Audi Engineering Dashboard
 
 Vehicle binary properties are functional sensors, not diagnostics. Compatibility entities remain available for existing automations and are hidden by default when redundant evidence is present. Existing registry categories and integration-owned visibility changes are tracked for V2 rollback. Native climate is primary; charging controls require read/write eligibility. No physical acceptance claim.
+
+## b11 — maintainability and capture quality
+
+Native category policy and migration resolve shared product metadata. Behavioral projection and registry tests replace brittle implementation checks. Observed-job freshness is conservative while historical age retains newest-capture meaning. Bounded response inventory declares truncation and timestamps are metadata, not missing sensors. Legacy observation schemas remain readable. Physical acceptance remains open.

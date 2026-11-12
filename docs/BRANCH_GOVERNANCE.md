@@ -27,3 +27,7 @@ The maintainer requested the next HACS test release after the Q8 audit. `governa
 ## Explicit experimental HACS test exception — 3.0.0b10
 
 Maintainer requested rationalisation and a new test release. `governance/B10_EXPERIMENTAL_TEST_RELEASE.json` authorizes only the parent-bound b10 release-intent commit after complete CI. No stable promotion, main merge, tag replacement or parity gate change.
+
+## Explicit experimental HACS test exception — 3.0.0b11
+
+Maintainer requested the next test release. B11 authorization is exact-parent-bound; existing release gates and immutable prior tags remain unchanged.
