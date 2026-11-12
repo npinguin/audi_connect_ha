@@ -307,16 +307,19 @@ class V3Engine:
             from .read_discovery import record_standalone_read
             record_standalone_read(profile, operation, record["http_status"], response.data if response else None)
         # Share structural evidence per reviewed job, not private response values.
-        if response is not None and detail is not None and isinstance(detail["payload"], dict):
+        if response is not None and isinstance(response.data, dict):
             from .response_preview import safe_schema_inventory
-            payload = detail["payload"]
+            # Structural walker redacts key names and never exports values.
+            # Use original decoded types; an admin-preview cap is not a schema cap.
+            payload = response.data
             groups = {job: {job: payload[job]} for job in V2_JOBS if job in payload} if method == "GET" else {}
             if operation == INVENTORY_OPERATION:
                 groups = {"inventory": payload}
             for job, data in groups.items():
-                fields, truncated = safe_schema_inventory(data, vehicle_vin=vin, all_items=True)
+                fields, truncated = safe_schema_inventory(data, vehicle_vin=vin, all_items=True,
+                                                         field_limit=512, char_limit=64000)
                 profile.job_schema[job] = {"fields": fields,
-                    "truncated": truncated or bool(detail.get("truncated")),
+                    "truncated": truncated,
                     "http_status": record["http_status"], "source": operation if operation in self.registry.operations or operation == INVENTORY_OPERATION else "reviewed_read"}
         profile.engineering_responses.pop(operation, None)
         if detail is not None:
