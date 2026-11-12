@@ -277,6 +277,8 @@ class CommandEngine:
                 if record.state == "verified" and attempt.sequence != profile.invalidated_attempt_sequence:
                     self._confirm_working_readback(profile, attempt, record)
             await self.storage.async_save(self.profiles)
+            if guided and attempt.result == "worked":
+                self._notify_discovery_change()
             return {
                 "sequence": attempt.sequence, "operation": operation,
                 "transport": attempt.transport,
@@ -296,7 +298,6 @@ class CommandEngine:
         if (profile.control_results.get(attempt.operation) == "worked"
                 and runtime_ready(profile.custom.get(attempt.operation, {}))):
             profile.choose_working(attempt.capability, attempt.action, attempt.operation)
-        self._notify_discovery_change()
 
     async def review_action(
         self, vin: str, sequence: int, outcome: str,
