@@ -473,3 +473,20 @@ test("Execution history combines capability, entity, method, outcome, time and p
   p._resetVehicleSelection();
   assert.equal(p.logCapability,""); assert.equal(p.logFrom,""); assert.equal(p.searchText,"");
 });
+
+
+test("Missing entity trace and actual HA state use existing links without a request", async () => {
+  const p = new Panel();
+  p._hass = {states: {"sensor.audi_soc": {state:"80", attributes:{unit_of_measurement:"%"}}}};
+  p.capabilityStatus = {rows:[{attribute:"stateOfCharge",entity_keys:["sensor.state_of_charge"],status:"verified",normalized_value:80,path:"charging.soc"}],
+    entity_links:[{contract_key:"sensor.state_of_charge",entity_ids:["sensor.audi_soc"],capabilities:["charging"],operations:["cariad.status.charging"]}]};
+  p.entityFilter="sensor.audi_soc";
+  assert.match(p.entityInspector(p.selectedEntityLink()), /80 %/);
+  assert.match(p.entityInspector(p.selectedEntityLink()), /charging.soc/);
+  p.api = async ()=>{throw Error("Entity trace must not execute API");};
+  await p._click({target:{closest:()=>({dataset:{action:"open-operation",operation:"cariad.status.charging"}})}});
+  assert.equal(p.step,4); assert.equal(p.focusOperation,"cariad.status.charging");
+  p.capabilityStatus.entity_links[0].entity_ids=[];
+  p.entityFilter="sensor.state_of_charge";
+  assert.match(p.entityInspector(p.selectedEntityLink()), /Entity not registered/);
+});
