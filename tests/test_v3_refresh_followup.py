@@ -153,3 +153,19 @@ def test_wake_does_not_hide_previous_command_readback():
     engine.commands.reconcile_commands()
     assert start.state == "verified"
     assert wake.state == "accepted_unconfirmed"
+
+
+def test_acknowledged_wake_survives_restart_without_blocking_climate():
+    from custom_components.audiconnect.v3.command_journal import restore_history, check_command_sequence
+    wake = CommandRecord.begin("remote", "wake", "cariad.remote.wake", 1000)
+    wake.state = wake.backend_result = "accepted_unconfirmed"
+    rows, latest = restore_history([wake.snapshot()])
+    assert latest.state == "accepted_unconfirmed"
+    check_command_sequence(NS(last_command=latest, command_journal=rows), 1001,
+                           capability="climate", action="start")
+    wake.backend_result = None  # interrupted before durable acknowledgement
+    rows, latest = restore_history([wake.snapshot()])
+    assert latest.unresolved
+    with pytest.raises(RuntimeError, match="uncertain"):
+        check_command_sequence(NS(last_command=latest, command_journal=rows), 1001,
+                               capability="climate", action="start")
