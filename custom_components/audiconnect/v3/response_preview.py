@@ -10,7 +10,7 @@ from typing import Any
 
 _SENSITIVE = re.compile(
     r"vin|authorization|password|access.?token|refresh.?token|bearer|spin|s.?pin|"
-    r"secret|email|phone|location|latitude|longitude|position|"
+    r"secret|security.?token|challenge|email|phone|location|latitude|longitude|position|"
     r"coordinates|street|address|request.?id|session.?id|user.?prompt.?proof|secured.?activation.?data|^lat$|^lon$|^lng$",
     re.IGNORECASE,
 )

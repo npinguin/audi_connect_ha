@@ -69,6 +69,7 @@ class V3Engine:
         self._normal_action_at: dict[str, float] = {}
         self._wake_attempts: dict[str, list[float]] = {}
         self._trip_poll_at: dict[str, float] = {}
+        self._legacy_route_backoff: dict[tuple[str, str], int] = {}
         self._known_vehicle_inventory = False
         self._poll_cycles = 0
 
@@ -211,6 +212,39 @@ class V3Engine:
             at=response.observed_at if response else None,
         ))
 
+    async def _poll_legacy(self, car, profile, cache) -> bool:
+        """Normal MBB polling, one GET per resource, with no mutations."""
+        from .legacy_read_mappings import ROUTES
+        from .legacy_values import observe_legacy
+        reachable = False
+        for kind, template in ROUTES.items():
+            key = (car.vin.lower(), kind)
+            if self._poll_cycles < self._legacy_route_backoff.get(key, 0):
+                continue
+            if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+                break
+            path = template.format(VIN=car.vin, COUNTRY=car.country, TYPE="Audi")
+            try:
+                response = await self.transport.request("mbb", "GET", path)
+            except (RuntimeError, ValueError, OSError, TimeoutError):
+                break
+            cache[(car.vin.lower(), "mbb", path)] = response
+            if response.status in (404, 410):
+                self._legacy_route_backoff[key] = self._poll_cycles + 96
+                continue
+            if response.status in (401, 403, 429) or response.status >= 500:
+                break
+            if not 200 <= response.status < 300:
+                continue
+            reachable = True
+            observe_legacy(car, profile, kind, response)
+            if kind == "climater":
+                row = car.readings.get("climatisationState", {})
+                car.set_climate(row.get("value"), row.get("captured"),
+                    route="mbb.climate.status", observed_at=response.observed_at,
+                    http_status=response.status)
+        return reachable
+
     async def _poll_trips(self, car: V3Vehicle) -> None:
         """Normal read-only trip data refresh; not a diagnostic probe service.
 
@@ -351,6 +385,10 @@ class V3Engine:
         polled_responses: dict[tuple[str, str, str], V3Response] = {}
         for key, vehicle in self.vehicles.items():
             profile = self.profiles[key]
+            if vehicle.context.auth == "legacy" and len(profile.registry.capabilities) > 1:
+                if await self._poll_legacy(vehicle, profile, polled_responses):
+                    cloud_reachable = True
+                continue
             routes = profile.registry.resolve(
                 "climate", "status", vehicle.context
             )["available_operations"]
@@ -767,7 +805,7 @@ class V3Engine:
                 response = await self._dispatch_command(vehicle, family, method, path, body)
                 profile.observe_http(attempt.sequence, response.status)
                 self._api_record(profile, operation, family, method, response, vehicle.vin)
-            except (TimeoutError, OSError, RuntimeError):
+            except (TimeoutError, OSError, RuntimeError, ValueError):
                 profile.observe_http(attempt.sequence, None)
                 response = None
                 self._api_record(profile, operation, family, method, None, vehicle.vin)

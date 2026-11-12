@@ -95,11 +95,15 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
             status_current or bool(self.supported_features)
         )
 
+    def _recent_legacy_status(self):
+        return self.vehicle.context.auth == "legacy" and _reading_available(
+            self.vehicle.readings.get("climatisationState"))
+
     @property
     def hvac_mode(self) -> HVACMode | None:
         state = self.vehicle.climate_state
         age = self.vehicle.capture_age_minutes
-        if state is None or age is None or age > 60:
+        if state is None or (age is None and not self._recent_legacy_status()) or (age is not None and age > 60):
             return None
         return HVACMode.OFF if state in ("off", "stopped", "inactive") else HVACMode.HEAT_COOL
 
@@ -107,7 +111,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     def hvac_action(self) -> HVACAction | None:
         state = self.vehicle.climate_state
         age = self.vehicle.capture_age_minutes
-        if state is None or age is None or age > 60:
+        if state is None or (age is None and not self._recent_legacy_status()) or (age is not None and age > 60):
             return None
         return {
             "off": HVACAction.OFF, "stopped": HVACAction.OFF,
