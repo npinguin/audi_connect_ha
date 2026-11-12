@@ -494,6 +494,7 @@ class OptionsFlowHandler(OptionsFlow):
     _discovery_action: str | None = None
     _discovery_candidate: tuple | None = None
     _discovery_sequence: int | None = None
+    _discovery_skipped: set[str] | None = None
 
     def _dealer_vehicles(self) -> list[tuple[str, str]]:
         """Vehicles already loaded in this account; no extra Audi API request."""
@@ -635,7 +636,10 @@ class OptionsFlowHandler(OptionsFlow):
             return await self.async_step_discovery_review()
         if profile.last_command is not None and profile.last_command.unresolved:
             return await self.async_step_discovery_recover()
-        candidates = user_test_candidates(engine, car, profile)
+        if self._discovery_skipped is None:
+            self._discovery_skipped = set()
+        candidates = {key: value for key, value in user_test_candidates(engine, car, profile).items()
+                      if key not in self._discovery_skipped}
         if user_input is not None:
             choice = user_input.get("action")
             if choice == "finish":
@@ -643,12 +647,11 @@ class OptionsFlowHandler(OptionsFlow):
             if choice == "refresh":
                 await self.config_entry.runtime_data.coordinator.async_request_refresh()
                 return await self.async_step_discovery()
-            if choice in candidates:
-                self._discovery_action = choice
-                self._discovery_candidate = candidates[choice]
-                return await self.async_step_discovery_consent()
+        if candidates:
+            self._discovery_action, self._discovery_candidate = next(iter(candidates.items()))
+            return await self.async_step_discovery_consent()
         progress = engine.discovery_progress(car, profile)
-        controls = {key: value[0] for key, value in candidates.items()}
+        controls = {}
         return self.async_show_form(step_id="discovery", data_schema=vol.Schema({
             vol.Required("action", default="finish"): vol.In({
                 "finish": "Finish", "refresh": "Refresh read discovery", **controls})}),
@@ -670,6 +673,10 @@ class OptionsFlowHandler(OptionsFlow):
         errors = {}
         if user_input is not None:
             if user_input.get("accept") is not True:
+                if self._discovery_skipped is None:
+                    self._discovery_skipped = set()
+                self._discovery_skipped.add(self._discovery_action)
+                self._discovery_candidate = None
                 return await self.async_step_discovery()
             self._discovery_candidate = None  # Single-use explicit action approval.
             try:
@@ -680,6 +687,8 @@ class OptionsFlowHandler(OptionsFlow):
                 if profile.discovery._active is not None:
                     self._discovery_sequence = profile.discovery._active.sequence
                     return await self.async_step_discovery_review()
+                # Keep the same question available for an explicit retry after cooldown.
+                self._discovery_candidate = candidate
             else:
                 self._discovery_sequence = result["sequence"]
                 return await self.async_step_discovery_review()
@@ -706,7 +715,7 @@ class OptionsFlowHandler(OptionsFlow):
                     return await self.async_step_discovery()
         return self.async_show_form(step_id="discovery_review", data_schema=vol.Schema({
             vol.Required("outcome", default="uncertain"): vol.In({
-                "worked": "Inspected vehicle: worked", "failed": "Inspected vehicle: failed",
+                "worked": "OK", "failed": "Not OK",
                 "uncertain": "Not sure — retain pending review"})}), errors=errors,
             description_placeholders={"vehicle": car.name, "action": active.action,
                                       "transport": active.transport})
