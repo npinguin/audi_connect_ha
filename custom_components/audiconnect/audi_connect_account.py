@@ -16,6 +16,8 @@ from .audi_services import AudiAuthError, AudiService
 from .util import get_attr, log_exception, parse_datetime, parse_float, parse_int
 import builtins
 
+POSITION_404_MAX_BACKOFF_SECONDS = 3600
+
 _LOGGER = logging.getLogger(__name__)
 
 MAX_RESPONSE_ATTEMPTS = 10
@@ -24,10 +26,6 @@ REQUEST_STATUS_SLEEP = 5
 # Ceiling for the exponential backoff between login attempts, so a larger retry
 # count can never stretch a single login into an unbounded wait.
 MAX_LOGIN_RETRY_DELAY = 60
-
-# A single parking-position 404 is not proof of missing capability. Retry with
-# a bounded cooldown on normal polls; no additional Audi requests are scheduled.
-POSITION_404_MAX_BACKOFF_SECONDS = 3600
 
 ACTION_LOCK = "lock"
 ACTION_CLIMATISATION = "climatisation"
@@ -88,7 +86,9 @@ class AudiConnectAccount:
         self._readonly_probe_attempted: dict[str, float] = {}
         self._readonly_probe_lock = asyncio.Lock()
 
-    async def probe_read_only_api(self, vin: str, *, extended: bool = False) -> dict[str, Any]:
+    async def probe_read_only_api(
+        self, vin: str, *, extended: bool = False
+    ) -> dict[str, Any]:
         """Explicit, rate-limited diagnostic GET probes; never a vehicle action."""
         vin_key = vin.lower()
         if not self._loggedin:
@@ -104,7 +104,9 @@ class AudiConnectAccount:
                 expected_mode = "extended" if extended else "core"
                 if report is not None and report.get("mode") == expected_mode:
                     return report
-                raise RuntimeError("API diagnostic probe cooldown is active; retry later")
+                raise RuntimeError(
+                    "API diagnostic probe cooldown is active; retry later"
+                )
             # Record before dispatch so repeated failed scans cannot hammer Audi.
             self._readonly_probe_attempted[vin_key] = now
             report = await self._audi_service.probe_known_read_only_paths(
@@ -392,28 +394,23 @@ class AudiConnectAccount:
 
             _LOGGER.debug(
                 "Audi %s request acknowledged by gateway; physical door state "
-                "awaiting verification", "lock" if lock else "unlock",
+                "awaiting verification",
+                "lock" if lock else "unlock",
             )
 
             return True
 
         except Exception as exception:
-            log_exception(
-                exception,
-                "Unable to %s vehicle %s" % (
-                    "lock" if lock else "unlock",
-                    "*" * max(0, len(vin) - 4) + vin[-4:],
-                ),
-            )
+            action = "lock" if lock else "unlock"
+            masked_vin = "*" * max(0, len(vin) - 4) + vin[-4:]
+            log_exception(exception, f"Unable to {action} vehicle {masked_vin}")
             return False
         finally:
             if refresh:
                 try:
                     await self.notify(vin, ACTION_LOCK)
                 except Exception:
-                    _LOGGER.warning(
-                        "Cloud refresh after Audi access request failed"
-                    )
+                    _LOGGER.warning("Cloud refresh after Audi access request failed")
 
     async def set_location_charge_target(self, vin: str, profile_id, target_soc: int):
         """Set a location charging profile's target SoC (the governing value)."""
@@ -997,8 +994,17 @@ class AudiConnectVehicle:
                     self._vehicle.vin,
                 )
                 return
+            if not status.data_fields and not status.states:
+                # HTTP 200/207 may still carry no usable vehicle measurement.
+                # Never discard cached fields or claim a fully refreshed car.
+                self._no_error = False
+                _LOGGER.debug(
+                    "Vehicle status response contained no usable data; "
+                    "keeping previous state and fields."
+                )
+                return
             new_fields = {field.name: field.value for field in status.data_fields}
-            if status.error_count:
+            if status.error_count or getattr(status, "partial_response", False):
                 # Some CARIAD jobs may fail while other ones succeed with HTTP 200.
                 # Preserve unaffected fields rather than removing sensors after
                 # every partial response. A cached value is NOT freshly measured.
@@ -1011,8 +1017,8 @@ class AudiConnectVehicle:
             # vehicle to the 1970 sentinel or claim a fresh car reading.
             prior = self._vehicle.state.get("last_update_time")
             last_observed = (
-                prior if isinstance(prior, datetime) and prior.tzinfo
-                and prior.year >= 2020
+                prior
+                if isinstance(prior, datetime) and prior.tzinfo and prior.year >= 2020
                 else datetime(1970, 1, 1, tzinfo=UTC)
             )
             for field in status.data_fields:

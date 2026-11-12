@@ -17,7 +17,12 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import AudiRuntimeData
-from .audi_entity import AudiEntity, entity_unique_id, is_entity_supported, should_create_entity
+from .audi_entity import (
+    AudiEntity,
+    entity_unique_id,
+    is_entity_supported,
+    should_create_entity,
+)
 from .coordinator import AudiDataUpdateCoordinator
 
 
@@ -109,6 +114,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
+    from .v3.engine import V3Engine
+    if isinstance(runtime_data.v3, V3Engine):
+        from .v3.ha_platforms import setup as v3_setup
+        v3_setup("switch", config_entry, async_add_entities)
+        return
+
     entities = [
         AudiSwitch(runtime_data.coordinator, description, vehicle)
         for config_vehicle in runtime_data.account.config_vehicles
@@ -121,20 +132,7 @@ async def async_setup_entry(
             description.attr_key,
         )
     ]
-    # One stateful ON/OFF control for the two physically verified Q8 climate
-    # commands. Existing climate and button unique IDs are left untouched.
-    for config_vehicle in runtime_data.account.config_vehicles:
-        vehicle = config_vehicle.vehicle
-        service = getattr(vehicle, "_audi_service", None)
-        if (
-            getattr(service, "uses_auth0", False)
-            and is_entity_supported(vehicle, "climatisation_state", "climatisation")
-            and should_create_entity(
-                hass, "switch", "climate_quick_control",
-                vehicle, "climatisation_state",
-            )
-        ):
-            entities.append(AudiClimateQuickSwitch(runtime_data.coordinator, vehicle))
+    # Experimental quick-control is V3-owned; never create it in V2.
     async_add_entities(entities)
 
 
@@ -150,9 +148,7 @@ class AudiClimateQuickSwitch(AudiEntity, SwitchEntity):
     _attr_icon = "mdi:car-air-conditioner"
     _backing_attr = "climatisation_state"
 
-    def __init__(
-        self, coordinator: AudiDataUpdateCoordinator, vehicle: Any
-    ) -> None:
+    def __init__(self, coordinator: AudiDataUpdateCoordinator, vehicle: Any) -> None:
         super().__init__(coordinator, vehicle)
         self._attr_unique_id = entity_unique_id(
             vehicle, "switch", "climate_quick_control"

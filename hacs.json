@@ -1,6 +1,4 @@
 {
-  "name": "Audi Connect (community test)",
-  "zip_release": true,
-  "filename": "audiconnect-hacs.zip",
-  "hide_default_branch": true
+  "name": "Audi connect",
+  "homeassistant": "2026.7.0"
 }

@@ -1,0 +1,659 @@
+{
+  "schema_version": 1,
+  "source": "upstream_v2_sensor_descriptions",
+  "attributes": {
+    "range": {
+      "name": "Range",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "measurement",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "tank_level": {
+      "name": "Tank level",
+      "unit": "%",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "mileage": {
+      "name": "Mileage",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "total_increasing",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "service_inspection_time": {
+      "name": "Service inspection time",
+      "unit": "d",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "service_inspection_distance": {
+      "name": "Service inspection distance",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "measurement",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "oil_change_time": {
+      "name": "Oil change time",
+      "unit": "d",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "oil_change_distance": {
+      "name": "Oil change distance",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "measurement",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "oil_level": {
+      "name": "Oil level",
+      "unit": "%",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "service_adblue_distance": {
+      "name": "AdBlue range",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "measurement",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "vehicle_lights": {
+      "name": "vehicle lights",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "door_lock_status": {
+      "name": "door lock status",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "car_type": {
+      "name": "Car Type",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "engine_type_first_engine": {
+      "name": "engine type first engine",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "primary_engine_range": {
+      "name": "Primary engine range",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "measurement",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "primary_engine_range_percent": {
+      "name": "Primary engine Percent",
+      "unit": "%",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "engine_type_second_engine": {
+      "name": "engine type second engine",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "secondary_engine_range": {
+      "name": "Secondary engine range",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "measurement",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "secondary_engine_range_percent": {
+      "name": "Secondary engine Percent",
+      "unit": "%",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "hybrid_range": {
+      "name": "hybrid Range",
+      "unit": "km",
+      "device_class": "distance",
+      "state_class": "measurement",
+      "precision": 0,
+      "category": null,
+      "display_last_known": true
+    },
+    "state_of_charge": {
+      "name": "State of charge",
+      "unit": "%",
+      "device_class": "battery",
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "charging_state": {
+      "name": "Charging state",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "charging_mode": {
+      "name": "Charging mode",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "charging_power": {
+      "name": "Charging power",
+      "unit": "kW",
+      "device_class": "power",
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "actual_charge_rate": {
+      "name": "Charging rate",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "unit_resolution": "api_route",
+      "display_last_known": false
+    },
+    "charge_type": {
+      "name": "charge type",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "target_state_of_charge": {
+      "name": "Target State of charge",
+      "unit": "%",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "remaining_charging_time": {
+      "name": "Remaining charge time",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "unit_resolution": "api_route",
+      "display_last_known": false
+    },
+    "external_power": {
+      "name": "External Power",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "plugled_color": {
+      "name": "plugled color",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "climatisation_state": {
+      "name": "Climatisation state",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "remaining_climatisation_time": {
+      "name": "Remaining Climatisation Time",
+      "unit": "min",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "climatisation_target_temperature_c": {
+      "name": "climatisation target temperature c",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_target_temperature_f": {
+      "name": "climatisation target temperature f",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_window_heating_enabled": {
+      "name": "climatisation window heating enabled",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_at_unlock": {
+      "name": "climatisation at unlock",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_without_external_power": {
+      "name": "climatisation without external power",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_zone_front_left": {
+      "name": "climatisation zone front left",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_zone_front_right": {
+      "name": "climatisation zone front right",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_zone_rear_left": {
+      "name": "climatisation zone rear left",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_zone_rear_right": {
+      "name": "climatisation zone rear right",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "charging_current_limit_a": {
+      "name": "Charging AC current limit",
+      "unit": "A",
+      "device_class": "current",
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "charging_current_limit_mode": {
+      "name": "Charging current mode",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "charging_plug_auto_unlock": {
+      "name": "Unlock charging plug after charge",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "vehicle_reported_online": {
+      "name": "Vehicle reported connectivity",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "vehicle_reported_active": {
+      "name": "Vehicle reported activity",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "last_update_time": {
+      "name": "Last Update",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "shortterm_current": {
+      "name": "ShortTerm Trip Data",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "shortterm_reset": {
+      "name": "ShortTerm Trip User Reset",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "longterm_current": {
+      "name": "LongTerm Trip Data",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "longterm_reset": {
+      "name": "LongTerm Trip User Reset",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "model": {
+      "name": "Model",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "charging_type": {
+      "name": "Charging type",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "energy_flow": {
+      "name": "Energy flow",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "max_charge_current": {
+      "name": "Max charge current",
+      "unit": "A",
+      "device_class": "current",
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "primary_engine_type": {
+      "name": "Primary engine type",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "secondary_engine_type": {
+      "name": "Secondary engine type",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "charging_complete_time": {
+      "name": "Charging Complete Time",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "plug_led_color": {
+      "name": "Plug LED Color",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "doors_trunk_status": {
+      "name": "Doors/trunk state",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "outdoor_temperature": {
+      "name": "Outdoor Temperature",
+      "unit": "°C",
+      "device_class": "temperature",
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "park_time": {
+      "name": "Park Time",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "position_last_updated": {
+      "name": "Position Last Updated",
+      "unit": null,
+      "device_class": "timestamp",
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "preheater_duration": {
+      "name": "Preheater runtime",
+      "unit": "min",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "preheater_remaining": {
+      "name": "Preheater remaining",
+      "unit": "min",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": false
+    },
+    "active_charging_profile_target_soc": {
+      "name": "Active Charging Profile Target SoC",
+      "unit": "%",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "active_charging_profile_name": {
+      "name": "Active Charging Profile",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "active_charging_profile_min_soc": {
+      "name": "Active Charging Profile Min SoC",
+      "unit": "%",
+      "device_class": null,
+      "state_class": "measurement",
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "preferred_charging_time_start": {
+      "name": "Preferred Charging Window Start",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "preferred_charging_time_end": {
+      "name": "Preferred Charging Window End",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "climatisation_timer_enabled_count": {
+      "name": "Climate Timers Enabled",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "next_climatisation_timer_local": {
+      "name": "Next Climate Timer (Car Local Time)",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    },
+    "charging_timer_enabled_count": {
+      "name": "Charging Timers Enabled",
+      "unit": null,
+      "device_class": null,
+      "state_class": null,
+      "precision": null,
+      "category": null,
+      "display_last_known": true
+    }
+  },
+  "description": "display_last_known is an attribute-contract presentation policy, never an API freshness override. Active/safety states require recent vehicle capture.",
+  "presentation_rule": "All vehicle readings/settings (including odometer, service and charging profiles) are normal HA entities; EntityCategory.DIAGNOSTIC is reserved for cloud/integration health. Keep platform and unique_id unchanged.",
+  "metadata_source": "Historical V2 repair metadata from feature/restore-audi-data (bc1a8a3); explicit sensor descriptors, not guessed state classes."
+}

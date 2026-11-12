@@ -29,7 +29,11 @@ from homeassistant.helpers.selector import (
 
 from .audi_connect_account import AudiConnectAccount
 from .audi_services import AudiAuthError, AudiTokenRefreshError
-from .local_extensions import DEALER_FIELDS, get_local_dealer, update_local_dealer_options
+from .local_extensions import (
+    DEALER_FIELDS,
+    get_local_dealer,
+    update_local_dealer_options,
+)
 from .const import (
     API_LEVELS,
     AUTH0_REDIRECT_URI,
@@ -491,13 +495,24 @@ class OptionsFlowHandler(OptionsFlow):
         """Vehicles already loaded in this account; no extra Audi API request."""
         runtime = getattr(self.config_entry, "runtime_data", None)
         items: list[tuple[str, str]] = []
-        for config_vehicle in getattr(getattr(runtime, "account", None), "config_vehicles", []):
+        for config_vehicle in getattr(
+            getattr(runtime, "account", None), "config_vehicles", []
+        ):
             vehicle = getattr(config_vehicle, "vehicle", None)
             vin = getattr(vehicle, "vin", None)
             if not isinstance(vin, str) or not vin:
                 continue
-            name = getattr(vehicle, "title", None) or getattr(vehicle, "model", None) or "Audi"
+            name = (
+                getattr(vehicle, "title", None)
+                or getattr(vehicle, "model", None)
+                or "Audi"
+            )
             items.append((vin, f"{name} (…{vin[-4:]})"))
+        # V3 owns its own vehicle inventory and no longer creates AudiAccount.
+        if not items:
+            v3 = getattr(runtime, "v3", None)
+            for vehicle in getattr(v3, "vehicles", {}).values():
+                items.append((vehicle.vin, f"{vehicle.name} (…{vehicle.vin[-4:]})"))
         return items
 
     async def async_step_dealer_vehicle(
@@ -514,20 +529,28 @@ class OptionsFlowHandler(OptionsFlow):
             if vin not in {key for key, _ in vehicles}:
                 return self.async_show_form(
                     step_id="dealer_vehicle",
-                    data_schema=vol.Schema({vol.Required("vehicle"): vol.In(dict(vehicles))}),
+                    data_schema=vol.Schema(
+                        {vol.Required("vehicle"): vol.In(dict(vehicles))}
+                    ),
                     errors={"base": "invalid_vehicle"},
                 )
             self._dealer_vin = vin
             return await self.async_step_dealer()
         return self.async_show_form(
             step_id="dealer_vehicle",
-            data_schema=vol.Schema({
-                vol.Required("vehicle", default=vehicles[0][0]):
-                    SelectSelector(SelectSelectorConfig(
-                        options=[{"value": vin, "label": label} for vin, label in vehicles],
-                        mode=SelectSelectorMode.DROPDOWN,
-                    )),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("vehicle", default=vehicles[0][0]): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                {"value": vin, "label": label}
+                                for vin, label in vehicles
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            ),
         )
 
     async def async_step_dealer(
@@ -539,7 +562,9 @@ class OptionsFlowHandler(OptionsFlow):
         pending = self._pending_options or dict(self.config_entry.options)
         errors: dict[str, str] = {}
         if user_input is not None:
-            updates = {key: user_input[key] for key in DEALER_FIELDS if key in user_input}
+            updates = {
+                key: user_input[key] for key in DEALER_FIELDS if key in user_input
+            }
             try:
                 options = update_local_dealer_options(
                     pending, vin, updates, clear=bool(user_input.get("clear", False))
@@ -549,16 +574,22 @@ class OptionsFlowHandler(OptionsFlow):
             else:
                 return self.async_create_entry(title="", data=options)
         existing = get_local_dealer(pending, vin)
-        data_schema = vol.Schema({
-            **{
-                vol.Optional(key, default=(
-                    user_input.get(key, existing.get(key, "")) if user_input is not None
-                    else existing.get(key, "")
-                )): TextSelector()
-                for key in DEALER_FIELDS
-            },
-            vol.Optional("clear", default=False): bool,
-        })
+        data_schema = vol.Schema(
+            {
+                **{
+                    vol.Optional(
+                        key,
+                        default=(
+                            user_input.get(key, existing.get(key, ""))
+                            if user_input is not None
+                            else existing.get(key, "")
+                        ),
+                    ): TextSelector()
+                    for key in DEALER_FIELDS
+                },
+                vol.Optional("clear", default=False): bool,
+            }
+        )
         return self.async_show_form(
             step_id="dealer", data_schema=data_schema, errors=errors
         )
@@ -567,11 +598,41 @@ class OptionsFlowHandler(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            user_input = dict(user_input)
+            # Keep historical V2 options while the clean V3 form only
+            # exposes integration-level runtime, interval and vehicle filter.
+            # A switch back to V2 must recover those V2 preferences.
+            user_input = {**self.config_entry.options, **user_input}
+            user_input.setdefault("runtime_version", "v2")
+            # Workbench is opt-in and belongs only to the V3 runtime. Leave
+            # existing custom API profiles untouched when it is turned off.
+            if user_input["runtime_version"] != "v3_climate":
+                user_input["v3_development_workbench"] = False
+            else:
+                user_input.setdefault("v3_development_workbench", False)
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
-            user_input[CONF_SCAN_INTERVAL] = max(
-                int(user_input[CONF_SCAN_INTERVAL]), MIN_UPDATE_INTERVAL
+            # On runtime switch, some HA clients submit only the changed
+            # fields. Never let an absent interval prevent saving the choice.
+            interval = user_input.get(
+                CONF_SCAN_INTERVAL,
+                self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL,
+                    self.config_entry.data.get(
+                        CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
+                    ),
+                ),
             )
+            try:
+                user_input[CONF_SCAN_INTERVAL] = max(
+                    int(interval), MIN_UPDATE_INTERVAL
+                )
+            except (TypeError, ValueError):
+                # Re-display an actionable form error instead of a silent
+                # failure while the modal stays on the previous runtime.
+                return self.async_show_form(
+                    step_id="init",
+                    errors={"base": "invalid_scan_interval"},
+                    data_schema=self._options_schema(user_input),
+                )
             # OptionsFlow replaces all options; preserve per-vehicle metadata.
             if "local_dealers" in self.config_entry.options:
                 user_input["local_dealers"] = self.config_entry.options["local_dealers"]
@@ -580,56 +641,67 @@ class OptionsFlowHandler(OptionsFlow):
                 return await self.async_step_dealer_vehicle()
             return self.async_create_entry(title="", data=user_input)
 
+        # V3 owns API routes and experimental actions in its development
+        # dashboard, never inside this account configuration wizard.
         return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional("edit_local_dealer", default=False): bool,
-                    vol.Required(
-                        CONF_SCAN_INITIAL,
-                        default=self.config_entry.options.get(CONF_SCAN_INITIAL, True),
-                    ): bool,
-                    vol.Required(
-                        "climate_quick_start",
-                        default=self.config_entry.options.get("climate_quick_start", False),
-                    ): bool,
-                    vol.Required(
-                        "experimental_commands",
-                        default=self.config_entry.options.get("experimental_commands", False),
-                    ): bool,
-                    vol.Required(
-                        CONF_REFRESH_AFTER_ACTION,
-                        default=self.config_entry.options.get(
-                            CONF_REFRESH_AFTER_ACTION, False
-                        ),
-                    ): bool,
-                    vol.Required(
-                        CONF_UPDATE_SLEEP,
-                        default=self.config_entry.options.get(
-                            CONF_UPDATE_SLEEP, UPDATE_SLEEP
-                        ),
-                    ): NumberSelector(NumberSelectorConfig(min=0, mode="box")),
-                    vol.Required(
-                        CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_SCAN_INTERVAL,
-                            self.config_entry.data.get(
-                                CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
-                            ),
-                        ),
-                    ): NumberSelector(
-                        NumberSelectorConfig(min=MIN_UPDATE_INTERVAL, mode="box")
-                    ),
-                    vol.Optional(
-                        CONF_FILTER_VINS,
-                        default=self.config_entry.options.get(
-                            CONF_FILTER_VINS,
-                            self.config_entry.data.get(CONF_FILTER_VINS, ""),
-                        ),
-                    ): TextSelector(),
-                }
-            ),
+            step_id="init", data_schema=self._options_schema(
+                self.config_entry.options
+            )
         )
+
+    def _options_schema(self, values: dict[str, Any]) -> vol.Schema:
+        """Build the form from the persisted mode, preserving legacy V2 UX."""
+        schema = {
+            vol.Required(
+                "runtime_version",
+                default=values.get("runtime_version", "v2"),
+            ): vol.In({"v2": "V2 — Stable", "v3_climate": "V3 — Experimental"}),
+            vol.Required(
+                CONF_SCAN_INITIAL,
+                default=self.config_entry.options.get(CONF_SCAN_INITIAL, True),
+            ): bool,
+            vol.Required(
+                CONF_SCAN_INTERVAL,
+                default=self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL,
+                    self.config_entry.data.get(
+                        CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
+                    ),
+                ),
+            ): NumberSelector(
+                NumberSelectorConfig(min=MIN_UPDATE_INTERVAL, mode="box")
+            ),
+            vol.Optional(
+                CONF_FILTER_VINS,
+                default=self.config_entry.options.get(
+                    CONF_FILTER_VINS,
+                    self.config_entry.data.get(CONF_FILTER_VINS, ""),
+                ),
+            ): TextSelector(),
+        }
+
+        if values.get("runtime_version", "v2") == "v3_climate":
+            schema[vol.Optional("edit_local_dealer", default=False)] = bool
+            schema[vol.Required(
+                "v3_development_workbench",
+                default=self.config_entry.options.get(
+                    "v3_development_workbench", False
+                ),
+            )] = bool
+        else:
+            # Preserve every historical V2 option and user metadata.
+            # API route editing is reserved for the opt-in V3 Workbench.
+            schema.update({
+                vol.Required(
+                    CONF_REFRESH_AFTER_ACTION,
+                    default=self.config_entry.options.get(CONF_REFRESH_AFTER_ACTION, False),
+                ): bool,
+                vol.Required(
+                    CONF_UPDATE_SLEEP,
+                    default=self.config_entry.options.get(CONF_UPDATE_SLEEP, UPDATE_SLEEP),
+                ): NumberSelector(NumberSelectorConfig(min=0, mode="box")),
+            })
+        return vol.Schema(schema)
 
 
 __all__ = ["AudiConfigFlow", "OptionsFlowHandler"]

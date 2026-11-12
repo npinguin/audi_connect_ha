@@ -145,7 +145,9 @@ class AudiAPI:
                         if DEBUG_VERBOSE:
                             _LOGGER.debug("Parsed JSON data (full): %s", json_data)
                         else:
-                            _LOGGER.debug("Returning parsed JSON response (payload redacted)")
+                            _LOGGER.debug(
+                                "Returning parsed JSON response (payload redacted)"
+                            )
                         return json_data
 
                     else:
@@ -172,6 +174,11 @@ class AudiAPI:
                             status=response.status,
                             message=response.reason,
                         )
+
+        except asyncio.CancelledError:
+            if DEBUG_VERBOSE:
+                _LOGGER.debug("Request cancelled (CancelledError).")
+            raise
 
         except builtins.TimeoutError:
             if DEBUG_VERBOSE:

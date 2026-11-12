@@ -1,0 +1,153 @@
+name: V3 Clean Beta — validate and publish
+
+on:
+  push:
+    branches:
+      - feature/v3-clean-discovery
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Publish a code-complete test prerelease after static parity sign-off"
+        required: true
+        type: choice
+        default: do-not-publish
+        options:
+          - do-not-publish
+          - publish-code-complete-test
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audi-v3-beta-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/feature/v3-clean-discovery' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Match beta manifest, README and documentation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          expected = "3.0.0b8"
+          manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
+          model = json.loads(Path("custom_components/audiconnect/v3/climate.json").read_text())
+          assert manifest["domain"] == "audiconnect"
+          assert manifest["version"] == expected
+          assert list(model["capabilities"]) == ["climate"]
+          full = json.loads(Path("custom_components/audiconnect/v3/full_catalog.json").read_text())
+          assert full["schema_version"] == 1
+          assert {"climate", "charging", "vehicle_status", "access", "service", "mobility"} <= set(full["capabilities"])
+          assert {"cariad", "mbb"} <= set(full["api_families"])
+          assert "class GraphQLExecutor:" in Path("custom_components/audiconnect/v3/family_executors.py").read_text()
+          assert Path("docs/V3_ARCHITECTURE.md").is_file()
+          assert Path("docs/V3_CONFIGURATION.md").is_file()
+          assert Path("docs/V3_TEST_MATRIX.md").is_file()
+          assert Path(f"docs/V3_RELEASE_NOTES_{expected}.md").is_file()
+          print(f"Manifest / catalog / documentation: {expected}")
+          PY
+
+      - name: Compile all integration code and tests
+        run: python -m compileall -q custom_components/audiconnect tests
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      - name: All regression tests
+        run: pytest -q
+
+      - name: Development Workbench UI selection regression
+        run: |
+          node --check custom_components/audiconnect/v3/frontend/panel.js
+          node --test tests/test_v3_workbench_ui.mjs
+
+      - name: Home Assistant hassfest
+        uses: home-assistant/actions/hassfest@master
+
+      - name: HACS integration validation
+        uses: hacs/action@main
+        with:
+          category: integration
+
+      - name: Package only the HA integration
+        run: |
+          cd custom_components
+          zip -qr "../audi_connect_v3_3.0.0b8.zip" audiconnect -x "*/__pycache__/*" "*.pyc"
+          cd ..
+          test -s audi_connect_v3_3.0.0b8.zip
+          sha256sum audi_connect_v3_3.0.0b8.zip > SHA256SUMS_V3_3.0.0b8.txt
+
+      - name: Upload manual-install test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: audi-connect-v3-3.0.0b8-validated
+          path: |
+            audi_connect_v3_3.0.0b8.zip
+            SHA256SUMS_V3_3.0.0b8.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-prerelease:
+    # Physical Q8 acceptance requires an installable test release. Stable promotion is separate.
+    if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-code-complete-test' && github.ref == 'refs/heads/feature/v3-clean-discovery'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: audi-connect-v3-3.0.0b8-validated
+
+      - name: Reject test release without code-complete V2 parity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          baseline = json.loads(Path("docs/V2_V3_PARITY_BASELINE.json").read_text())
+          gate = baseline["release_gate"]
+          assert gate["v3_static_parity_proven"] is True, "Static V2 parity not proven"
+          assert gate.get("test_release_code_complete") is True, "Code-complete test sign-off missing"
+          # Q8 physical and rollback evidence belong to the stable release gate.
+          PY
+
+      - name: Prevent prerelease replacement
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/3.0.0b8" >/dev/null 2>&1; then
+            echo "Refusing to replace already-published 3.0.0b8." >&2
+            exit 1
+          fi
+          if gh release view 3.0.0b8 >/dev/null 2>&1; then
+            echo "Refusing to replace existing prerelease 3.0.0b8." >&2
+            exit 1
+          fi
+
+      - name: Publish exact tested SHA as GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create 3.0.0b8 audi_connect_v3_3.0.0b8.zip SHA256SUMS_V3_3.0.0b8.txt \
+            --target "${GITHUB_SHA}" \
+            --title "Audi Connect 3.0.0b8 — V3 V2-compatibility fixes (experimental)" \
+            --notes-file docs/V3_RELEASE_NOTES_3.0.0b8.md \
+            --prerelease

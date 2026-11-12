@@ -21,6 +21,8 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import AudiRuntimeData
 from .audi_entity import AudiEntity, entity_unique_id, should_create_entity
 from .coordinator import AudiDataUpdateCoordinator
+from .v3.climate import AudiV3Climate
+from .v3.runtime import context_for
 
 _ATTR_KEY = "climatisation_state"
 # services.yaml bounds the temp_c field the same way.
@@ -44,13 +46,44 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     runtime_data: AudiRuntimeData = config_entry.runtime_data
-    async_add_entities(
-        AudiClimate(runtime_data.coordinator, config_vehicle.vehicle)
-        for config_vehicle in runtime_data.account.config_vehicles
-        if should_create_entity(
-            hass, "climate", "climatisation", config_vehicle.vehicle, _ATTR_KEY
+    from .v3.engine import V3Engine
+    if isinstance(runtime_data.v3, V3Engine):
+        from .v3.ha_platforms import setup as v3_setup
+        v3_setup("climate", config_entry, async_add_entities)
+        return
+
+    entities = []
+    for config_vehicle in runtime_data.account.config_vehicles:
+        vehicle = config_vehicle.vehicle
+        modern_v3 = (
+            runtime_data.v3 is not None
+            and context_for(vehicle, config_entry).auth == "auth0"
         )
-    )
+        # A known positive capability can create control-only climate even
+        # without a current status value. But an *omitted* capability in a
+        # partial Audi list is not proof that an existing status entity must
+        # disappear: preserve its registry ID/state, gate commands separately.
+        create = should_create_entity(
+            hass, "climate", "climatisation", vehicle, _ATTR_KEY
+        )
+        if modern_v3:
+            # Capability aspects are optional and independent. Control-only
+            # climate must be constructible without a current status reading,
+            # including after the user explicitly opts into testing an UNKNOWN
+            # capability. An explicit negative verdict still blocks control.
+            entity = AudiV3Climate(
+                runtime_data.coordinator, vehicle, runtime_data.v3
+            )
+            create = create or entity._may_control
+        if not create:
+            continue
+        # Preserve the same unique ID and registry history. Other V2 climate
+        # features remain untouched until individually migrated.
+        if modern_v3:
+            entities.append(entity)
+        else:
+            entities.append(AudiClimate(runtime_data.coordinator, vehicle))
+    async_add_entities(entities)
 
 
 class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
@@ -166,20 +199,9 @@ class AudiClimate(AudiEntity, ClimateEntity, RestoreEntity):
 
     async def async_turn_on(self, *, force_temperature: bool = False) -> None:
         connection = self.coordinator.account.connection
-        # Some CARIAD cars accept start only with no body: use stored car
-        # settings when explicitly enabled. Never silently override user temp.
-        entry = getattr(self.coordinator, "config_entry", None)
-        options = getattr(entry, "options", {}) if entry is not None else {}
-        data = getattr(entry, "data", {}) if entry is not None else {}
-        quick_start = bool(options.get("climate_quick_start", False))
-        service = getattr(connection, "_audi_service", None)
-        modern_api = bool(getattr(service, "uses_auth0", False)) or data.get(
-            "api_level", 0
-        ) == 1
-        temperature = (
-            None if quick_start and modern_api and not force_temperature
-            else self.native_target_temperature
-        )
+        # V2 always uses its historical temperature-bearing start.
+        # Bodyless route discovery belongs to the experimental V3 workbench.
+        temperature = self.native_target_temperature
         if not await connection.start_climate_control(
             self._vehicle.vin, temp_c=temperature
         ):
