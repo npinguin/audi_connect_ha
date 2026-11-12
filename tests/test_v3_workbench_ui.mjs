@@ -451,3 +451,25 @@ test("disabled inventory is global and permits inspection without candidates", a
   assert.equal(p.apiFamily,"all");assert.equal(p.functionMode,"all");assert.equal(p.discoveryGroup,"read_only");
   assert.match(p.shadowRoot.innerHTML,/data-control="set_target_soc"\s*>Inspect/);
 });
+
+test("Execution history combines capability, entity, method, outcome, time and payload filters", () => {
+  const p = new Panel();
+  const operations = [
+    {operation:"charge", capabilities:["charging"]},
+    {operation:"climate", capabilities:["climate"]},
+  ];
+  p.engineeringHistory = [
+    {operation:"charge", family:"cariad", method:"GET", at:"2026-11-12T10:00:00Z", http_status:200, payload:{soc:80}},
+    {operation:"charge", family:"cariad", method:"GET", at:"2026-11-11T10:00:00Z", http_status:500, payload:{soc:"error"}},
+    {operation:"climate", family:"cariad", method:"POST", at:"2026-11-12T10:00:00Z", http_status:200, payload:{soc:80}},
+  ];
+  p.logCapability="charging"; p.operationMethod="GET"; p.logOutcome="success";
+  p.logFrom="2026-11-12"; p.logTo="2026-11-12"; p.searchText="soc";
+  const records=[{...p.engineeringHistory[0],preview:"duplicate"}];
+  const rows=p.executionRows(operations,records,"cariad",{operations:["charge"]});
+  assert.equal(rows.length,1); assert.equal(rows[0].record.operation,"charge");
+  assert.equal(rows[0].detail.payload.soc,80);
+  assert.equal(p.executionRows(operations,records,"mbb",null).length,0);
+  p._resetVehicleSelection();
+  assert.equal(p.logCapability,""); assert.equal(p.logFrom,""); assert.equal(p.searchText,"");
+});
