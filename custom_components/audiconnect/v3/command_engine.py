@@ -92,6 +92,7 @@ class CommandEngine:
                 "request_body": profile.registry.operations[op].get("request_body"),
                 "request_variables": profile.registry.operations[op].get("request_variables", {}),
                 "handler": profile.registry.operations[op].get("handler"),
+                "scope": profile.registry.operations[op].get("scope", {}),
             }
             for op in applicable if profile.registry.operations[op]["method"] in ("POST", "PUT")
         ]

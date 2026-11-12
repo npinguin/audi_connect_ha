@@ -397,3 +397,28 @@ test("read editor seeds from selected backend mapping not unrelated charging def
   assert.equal(template.response_path,"access.lock");
   assert.match(template.path,/jobs=access$/);
 });
+
+
+test("save and test read template executes only GET test and keeps new route selected", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";p.step=3;p.attribute="stateOfCharge";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  p.readRoutes=[{id:"target",kind:"targeted_job",family:"cariad",path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=charging",response_paths:["charging.soc"]}];p.readChoice="target";
+  const template=p.initialReadRoute;
+  p.definitionEdits.set(p.definitionKey("read",template)+":response_path","charging.changed");
+  const calls=[];
+  p.api=async(name,args)=>{
+    calls.push(name);
+    if(name==="attribute_add"){assert.equal(args.definition.response_path,"charging.changed");return {saved:"user.read.new_mapping",activated:false};}
+    if(name==="attribute_test"){assert.equal(args.operation,"user.read.new_mapping");return {route:args.operation,result:"verified"};}
+    if(name==="routes")return {routes:[],history:[]};
+    if(name==="status")return {counts:{},rows:[]};
+    if(name==="attribute_routes")return {routes:[...p.readRoutes,{id:"user.read.new_mapping",family:"cariad",kind:"custom",path:"/new",response_paths:["charging.changed"]}],active:"target"};
+    if(name==="api_results")return {records:[]};
+    if(name==="list")return {integrations:p.entries};
+    throw Error(name);
+  };
+  await p._click({target:{closest:()=>({dataset:{action:"read-add-test"}})}});
+  assert.equal(p.error,"");
+  assert.equal(p.readChoice,"user.read.new_mapping");
+  assert.deepEqual(calls.filter(n=>/attribute_(add|test|activate)/.test(n)),["attribute_add","attribute_test"]);
+});

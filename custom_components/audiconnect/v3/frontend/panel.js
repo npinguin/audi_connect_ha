@@ -513,9 +513,16 @@ class AudiConnectV3Panel extends HTMLElement {
         this.inventoryFilter = "all";
         this.controlAction = "";
         this.step = 3;
-      } else if (action === "read-add") {
-        this.lastResult = await this.api("attribute_add", {...this.selection,
-          definition: this.definitionValue("read", readTemplate, {capture_path:null,conversion:null})});
+      } else if (action === "read-add" || action === "read-add-test") {
+        const definition = this.definitionValue("read", readTemplate, {capture_path:null,conversion:null});
+        this.lastResult = await this.api("attribute_add", {...this.selection, definition});
+        const saved = this.lastResult.saved;
+        if (saved) {
+          this.readChoice = saved;
+          if (action === "read-add-test") {
+            this.lastResult = await this.api("attribute_test", {...this.selection, attribute:this.attribute, operation:saved});
+          }
+        }
       } else if (action === "add") {
         const candidate = JSON.parse(rawDefinition);
         this.lastResult = await this.api("add_route", {
@@ -537,7 +544,11 @@ class AudiConnectV3Panel extends HTMLElement {
         if(action==="read-test" && this.readRoutes.some(r=>r.id===readRoute)) this.readChoice=readRoute;
         if(action==="control-test" && this.controlRoutes.some(r=>r.id===controlRoute)) this.controlChoice=controlRoute;
       }
-      if (action==="read-add" && this.readRoutes.some(r=>r.id===this.lastResult.operation)) this.readChoice=this.lastResult.operation;
+      if (["read-add","read-add-test"].includes(action)) {
+        const saved = this.lastResult.saved || this.lastResult.route;
+        if (this.readRoutes.some(r=>r.id===saved)) this.readChoice=saved;
+        if (action==="read-add-test") await this._apiResults();
+      }
       if (action==="control-add" && this.controlRoutes.some(r=>r.id===this.lastResult.operation)) this.controlChoice=this.lastResult.operation;
       const list = await this.api("list");
       this.entries = list.integrations || [];
@@ -570,7 +581,7 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   definitionFields(id, template, optional = {}) {
-    const fields = {...optional, ...JSON.parse(template)};
+    const fields = {...JSON.parse(template), ...Object.fromEntries(Object.entries(optional).filter(([key])=>!Object.hasOwn(JSON.parse(template),key)))};
     const key = this.definitionKey(id, template);
     return Object.entries(fields).map(([field,value]) => {
       const simple = typeof value === "string" || field === "capture_path";
@@ -586,7 +597,7 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   definitionValue(id, template, optional = {}) {
-    const fields = {...optional, ...JSON.parse(template)};
+    const fields = {...JSON.parse(template), ...Object.fromEntries(Object.entries(optional).filter(([key])=>!Object.hasOwn(JSON.parse(template),key)))};
     const key = this.definitionKey(id, template);
     const result = {};
     for (const [field,value] of Object.entries(fields)) {
@@ -618,6 +629,7 @@ class AudiConnectV3Panel extends HTMLElement {
       variables:selected?.method==="PUT"?{}:selected?.request_variables||{}, body:selected?.method==="PUT"?null:body,
       ...(selected?.method==="PUT"?{handler:selected.handler||selected.id}:{}),
       ...(selected?.method!=="PUT"&&Object.keys(selected?.parameter_bindings||{}).length?{parameter_bindings:selected.parameter_bindings}:{}),
+      ...(Object.keys(selected?.scope||{}).length?{scope:selected.scope}:{}),
       description:"Reviewed experimental command template"
     },null,2);
   }
@@ -995,10 +1007,11 @@ class AudiConnectV3Panel extends HTMLElement {
               <button data-action="read-activate" ${!canActivateRead||this.loading?"disabled":""}>Activate for polling</button>
               <button data-action="read-disable" ${!this.readActive||this.loading?"disabled":""}>Disable attribute</button>
             </div>
-            <details style="margin-top:18px"><summary>Advanced · define another API path and response mapping</summary>
+            <details open style="margin-top:18px"><summary>Advanced · define another API path and response mapping</summary>
               <p>Only safe relative CARIAD GET paths. JSON definitions are for engineering cases; no credentials, tokens or external URLs.</p>
               ${this.definitionFields("read", this.initialReadRoute, {capture_path:null,conversion:null})}
-              <button data-action="read-add" ${this.loading?"disabled":""}>Add custom read route</button>
+              <div class="actions"><button data-action="read-add-test" class="primary" ${this.loading?"disabled":""}>Save &amp; test GET</button>
+              <button data-action="read-add" ${this.loading?"disabled":""}>Save template only</button></div>
             </details>
             <div class="callout" style="margin-top:18px">
               <b>Latest saved response for this route</b>
@@ -1030,7 +1043,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <button data-action="control-select" ${this.loading||this.pending||selectedControl?.status!=="worked"||!selectedControl?.runtime_ready?"disabled":""}>Activate verified route</button>
               <button data-action="control-disable" ${this.loading||this.pending?"disabled":""}>Disable this control</button>
             </div>
-            <details style="margin-top:18px">
+            <details open style="margin-top:18px">
               <summary>Advanced · Add an alternative command template</summary>
               <p>System variables: <code>{VIN}</code> is filled from this car. <code>{SPIN}</code> is filled securely from the configured Audi account, only for Access Lock/Unlock using <code>{"spin":"{SPIN}"}</code>. Do not enter or save a real S-PIN.</p>
               ${this.definitionFields("control", this.initialControlRoute, {parameter_bindings:null})}

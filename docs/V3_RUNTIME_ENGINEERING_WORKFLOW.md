@@ -88,3 +88,5 @@ Batch and targeted read processing now share capture ordering and atomic value/e
 ## Cleanup slice 3 — direct template editing
 
 Four Workbench views remain. Existing read/command/new-attribute forms share a field/value renderer; nested definition fields are foldable. Selected backend route metadata seeds alternatives instead of unrelated defaults. Per-vehicle, per-template in-memory edits survive rerender and validation errors. Existing add/test/activate endpoints and physical consent remain unchanged. This slice does not yet unify identity query editing or command parameter schemas, nor replace the existing activation workflow. No new frontend framework or runtime module.
+
+Direct read template editing now supports Save & test GET in one explicit action (save local definition, then test, never activate). New route selection uses the actual `saved`/`route` response contract. Existing physical controls still separate save from execution. Template details are expanded by default, with nested values foldable; scope is preserved when copying a command definition.
