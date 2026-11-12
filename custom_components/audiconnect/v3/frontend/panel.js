@@ -555,7 +555,7 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   definitionKey(id, template) {
-    return JSON.stringify([id, this.selected, this.vin, template]);
+    return JSON.stringify([id, this.selected, this.vin, id==="identity"?this.identityOperation:"", template]);
   }
 
   definitionFields(id, template, optional = {}) {
