@@ -584,7 +584,7 @@ test("End-user validation projects native progress and does not execute on openi
     controls_catalog_applicable:1,controls_physically_verified:0,controls:[{capability:"climate",action:"start",eligible:true,status:"catalog_matched",physical:"not_tested"}]},
     end_user_candidates:[{label:"Start cabin climate",capability:"climate",action:"start",operation:"cariad.climate.start.stored",approval_group:"non_spin"}],
     integration_health:{status:"operational",quota_remaining:50},end_user_timing:{poll_interval_seconds:900}};
-  const calls=[];p.api=async(name)=>{calls.push(name);return {routes:[{id:"cariad.climate.start.stored",approval_group:"non_spin"}],active:"cariad.climate.start.stored"};};
+  const calls=[];p.api=async(name)=>{calls.push(name);return {routes:[{id:"cariad.climate.start.stored",family:"cariad",method:"POST",approval_group:"non_spin"}],active:"cariad.climate.start.stored"};};
   await p._click({target:{closest:()=>({dataset:{action:"step-5"}})}});
   assert.match(p.shadowRoot.innerHTML,/22\/28 assessed/);
   assert.match(p.shadowRoot.innerHTML,/15 min/);
