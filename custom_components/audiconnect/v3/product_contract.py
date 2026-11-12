@@ -149,6 +149,9 @@ def entity_projection_report(engine):
                "entity_category": getattr(getattr(entry, "entity_category", None), "value", None),
                "hidden_by": getattr(getattr(entry, "hidden_by", None), "value", None),
                "original_icon": getattr(entry, "original_icon", None),
+               "device_class": getattr(state, "attributes", {}).get("device_class"),
+               "state_class": getattr(state, "attributes", {}).get("state_class"),
+               "unit_of_measurement": getattr(state, "attributes", {}).get("unit_of_measurement"),
                "expected_category": canonical_entity_category(key) if key in product_inventory()["entities"] else None,
                "category_drift": bool(key in product_inventory()["entities"] and
                    getattr(getattr(entry, "entity_category", None), "value", None) != canonical_entity_category(key))}
@@ -157,6 +160,8 @@ def entity_projection_report(engine):
             row["key_fingerprint"] = hashlib.sha256(suffix.encode()).hexdigest()[:16]
         rows.append(row)
     report.update(registry_available=True, registered=len(entries), counts=dict(counts),
+                  offered_including_disabled=len(projected),
+                  offered_enabled=sum(row["offered_by_runtime"] and row["status"] != "disabled" for row in rows),
                   rows=rows[:250], truncated=len(rows)>250)
     return report
 
