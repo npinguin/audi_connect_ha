@@ -57,6 +57,18 @@ class CommandEngine:
             body = await build(self, car, mode, params or {})
         return family, method, path, body
 
+    async def _prepare_command(self, car, operation, params):
+        """Validate ordinary commands before journaling; defer OEM proof until persisted."""
+        profile = self.profiles[car.vin.lower()]
+        proof_required = profile.registry.operations[operation].get("request_mode") == "engine_start"
+        if proof_required:
+            if params:
+                raise ValueError("Unexpected engine start parameters")
+            request = self._operation_request(car, operation, params)
+        else:
+            request = await self._command_request(car, operation, params)
+        return proof_required, request
+
     async def _dispatch_command(self, car, family, method, path, body):
         if family == "mbb" and hasattr(self.transport, "executors"):
             from .legacy_commands import configure_home_region
@@ -208,13 +220,8 @@ class CommandEngine:
                 raise ValueError("Vehicle command cooldown still active")
             # Reject invalid templates/parameters BEFORE reserving a pending
             # physical action, otherwise a mere validation error locks the car.
-            proof_required = profile.registry.operations[operation].get("request_mode") == "engine_start"
-            if proof_required:
-                if params:
-                    raise ValueError("Unexpected engine start parameters")
-                family, method, path, body = self._operation_request(vehicle, operation, params)
-            else:
-                family, method, path, body = await self._command_request(vehicle, operation, params)
+            proof_required, (family, method, path, body) = await self._prepare_command(
+                vehicle, operation, params)
             self._reserve_wake(vehicle.vin, operation)
             attempt = profile.begin_test(
                 capability, aspect, operation, now=time.time()
@@ -305,13 +312,8 @@ class CommandEngine:
             ident = self._command_route(vin, aspect, capability)
             if ident is None:
                 raise RuntimeError("No eligible Audi command route")
-            proof_required = p.registry.operations[ident].get("request_mode") == "engine_start"
-            if proof_required:
-                if params:
-                    raise ValueError("Unexpected engine start parameters")
-                family, method, path, body = self._operation_request(car, ident, params)
-            else:
-                family, method, path, body = await self._command_request(car, ident, params)
+            proof_required, (family, method, path, body) = await self._prepare_command(
+                car, ident, params)
             self._reserve_wake(vin, ident)
             record = CommandRecord.begin(capability, aspect, ident, time.time(),
                                          operation_revision=operation_revision(p.registry.operations[ident]),
@@ -325,13 +327,10 @@ class CommandEngine:
                     family, method, path, body = await self._command_request(car, ident, params)
                 response = await self._dispatch_command(car, family, method, path, body)
                 self._api_record(p, ident, family, method, response, car.vin)
+                record.observe_http(response.status)
                 if not 200 <= response.status < 300:
-                    # A server error can occur after execution; do not assume failure.
-                    record.state = "uncertain" if response.status >= 500 else "rejected"
-                    record.backend_result = "transport_uncertain" if record.state == "uncertain" else "rejected"
                     car.last_command_result = f"request_failed_{response.status}"
                 else:
-                    record.state = "accepted_unconfirmed"
                     car.last_command_result = record.state
                     if family == "cariad":
                         from .request_status import confirm, request_id_of

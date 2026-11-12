@@ -98,3 +98,7 @@ Discovery progress and detailed capability reports now use the same attribute-st
 ## Cleanup slice 5 — shared command parameter contracts
 
 Charge mode, target SoC, auxiliary duration and CARIAD/MBB climate temperature use shared typed validators and the existing HA unit conversion mechanism. Workbench displays backend-provided parameter schemas as field/value inputs, not independent UI capability rules. Raw JSON remains for the exceptional heterogeneous settings update. Existing custom binding restrictions remain intact. No new modules.
+
+## Cleanup slice 6 — shared command preparation and transport outcome
+
+HA and Workbench reuse command preparation, including deferred OEM security proof after durable journal persistence. Both record initial HTTP outcomes using `CommandRecord.observe_http`; dashboard command rows no longer borrow HTTP status from the latest call to the same operation. Older stored records restore with unknown HTTP status. Manual physical verification and automatic HA readback remain distinct policies, not duplicated transport implementations.

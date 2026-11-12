@@ -37,10 +37,19 @@ class CommandRecord:
     backend_result: str | None = None
     completed_at: float | None = None
     parent_command_id: str | None = None
+    http_status: int | None = None
 
     @classmethod
     def begin(cls, capability: str, action: str, operation: str, now: float, **metadata):
         return cls(uuid4().hex, capability, action, operation, now, **metadata)
+
+    def observe_http(self, status: int | None) -> None:
+        """Record the initial transport result, not proof of physical execution."""
+        self.http_status = status
+        self.state = ("accepted_unconfirmed" if status is not None and 200 <= status < 300
+                      else "uncertain" if status is None or status >= 500 else "rejected")
+        self.backend_result = ("transport_uncertain" if self.state == "uncertain"
+                               else self.state)
 
     @property
     def unresolved(self) -> bool:
@@ -113,6 +122,8 @@ class CommandRecord:
             or type(record.started_at) not in (int, float)
             or not math.isfinite(record.started_at) or record.started_at < 0
             or record.state not in _STATES
+            or (record.http_status is not None and
+                (type(record.http_status) is not int or not 100 <= record.http_status <= 599))
             or record.origin not in ("home_assistant", "workbench")
             or (record.parent_command_id is not None and (
                 not isinstance(record.parent_command_id, str)

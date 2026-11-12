@@ -91,8 +91,7 @@ async def ws_status(hass, connection, msg):
         latest_by_capability = {row.capability: row for row in getattr(profile, "command_journal", ())
                                 if row.origin == "home_assistant"}
         report["unresolved_commands"] = [
-            {**row.snapshot(), "review_required": row.requires_review,
-             "http_status": profile.api_observations.get(row.operation, {}).get("http_status")}
+            {**row.snapshot(), "review_required": row.requires_review}
             for row in unresolved_normal_commands(profile)
             if row.requires_review or latest_by_capability.get(row.capability, row) is row
         ]

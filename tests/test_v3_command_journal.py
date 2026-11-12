@@ -96,3 +96,17 @@ def test_control_resolution_only_blocks_affected_capability():
     row.state = "uncertain"
     p.track_command(row)
     assert control_decision(car,p,auth,"access","lock")["status"] == "pending_review"
+
+
+def test_http_outcome_is_per_command_and_survives_restart():
+    p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
+    attempt = p.begin_test("charging", "start", "cariad.charging.start", now=10)
+    p.observe_http(attempt.sequence, 502)
+    assert p.engineering_record(attempt.sequence).http_status == 502
+    assert p.engineering_record(attempt.sequence).state == "uncertain"
+    normal = CommandRecord.begin("charging", "start", "cariad.charging.start", 200)
+    normal.observe_http(204)
+    p.track_command(normal)
+    recovered = restore_profile(model(), p.discovery.context, p.snapshot())
+    assert [r.http_status for r in recovered.command_journal] == [502, 204]
+    assert CommandRecord.restore({k:v for k,v in normal.snapshot().items() if k != "http_status"}).http_status is None

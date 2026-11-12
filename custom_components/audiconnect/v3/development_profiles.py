@@ -388,10 +388,7 @@ class DevelopmentProfile:
         self.discovery.observe_transport(sequence, http_status=status)
         record = self.engineering_record(sequence)
         if record is not None:
-            record.state = ("accepted_unconfirmed" if status is not None and 200 <= status < 300
-                            else "uncertain" if status is None or status >= 500 else "rejected")
-            record.backend_result = ("accepted_unconfirmed" if record.state == "accepted_unconfirmed"
-                                     else "transport_uncertain" if record.state == "uncertain" else "rejected")
+            record.observe_http(status)
 
     def rebind_context(self, context: VehicleContext) -> None:
         """Preserve local definitions and unresolved commands, invalidate old applicability evidence."""
