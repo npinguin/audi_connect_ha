@@ -54,6 +54,12 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
         top = payload.get(job)
         found = False
         stack = [top]
+        # Some reviewed jobs return data inside a shared namespace. A timer
+        # schema is read evidence only, never permission to activate ventilation.
+        if job == "activeVentilation":
+            timers = payload.get("climatisationTimers")
+            if isinstance(timers, Mapping):
+                stack.append(timers.get("activeVentilationTimersStatus"))
         budget = 64
         while stack and budget:
             budget -= 1
