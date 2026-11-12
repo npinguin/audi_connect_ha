@@ -133,6 +133,7 @@ async def test_wake_budget_and_uncertain_command_guard_remain_independent():
     wake = engine.profiles[VIN.lower()].last_command
     wake.state = "uncertain"
     wake.started_at -= 120
+    wake.completed_at = wake.started_at + 1
     with pytest.raises(RuntimeError, match="wake budget"):
         await engine.commands.send_control(VIN, "wake", "remote")
     await engine.commands.send_control(VIN, "start", "climate")
@@ -177,3 +178,28 @@ def test_acknowledged_wake_survives_restart_without_blocking_climate():
                            capability="remote", action="wake")
     check_command_sequence(NS(last_command=latest, command_journal=rows), 1020,
                            capability="climate", action="start")
+
+
+@pytest.mark.asyncio
+async def test_http_502_reports_error_and_allows_explicit_retry_after_cooldown():
+    engine, transport, _, _ = fixture(False)
+    original = transport.request.side_effect
+    transport.request.side_effect = None
+    transport.request.return_value = V3Response(502, {}, datetime.now(UTC), 50)
+    with pytest.raises(RuntimeError, match=r"Audi climate.start: HTTP 502; uncertain"):
+        await engine.send_control(VIN, "start", "climate")
+    profile = engine.profiles[VIN.lower()]
+    failed = profile.last_command
+    assert failed.state == "uncertain"
+    assert engine.control_enabled(VIN, "start", "climate")
+    assert engine.control_enabled(VIN, "wake", "remote")
+    with pytest.raises(RuntimeError, match="try again in"):
+        await engine.send_control(VIN, "start", "climate")
+    assert transport.request.await_count == 1
+    failed.started_at -= 60
+    failed.completed_at = failed.started_at + 1
+    transport.request.side_effect = original
+    await engine.send_control(VIN, "start", "climate")
+    assert failed.state == "uncertain"
+    assert profile.last_command.state == "backend_completed"
+    assert len([c for c in transport.request.await_args_list if c.args[1]=="POST"]) == 2
