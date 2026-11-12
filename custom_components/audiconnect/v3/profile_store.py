@@ -170,6 +170,15 @@ def restore_profile(
             raise DevelopmentProfileError("Untrusted read-only probe count")
     profile.job_discovery.update(observed_jobs)
     profile.job_probe_attempts.update(probed_jobs)
+    from .read_discovery import STANDALONE_READS, record_standalone_read
+    standalone = saved.get("standalone_discovery", {})
+    if not isinstance(standalone, dict) or any(
+            key not in STANDALONE_READS or type(value) is not int or
+            not (200 <= value < 300 or value in (400, 404, 405, 410, 422))
+            for key, value in standalone.items()):
+        raise DevelopmentProfileError("Invalid standalone discovery evidence")
+    for key, value in standalone.items():
+        record_standalone_read(profile, key, value)
     observations = saved.get("api_observations", {})
     if not isinstance(observations, dict) or len(observations) > MAX_ROUTES:
         raise DevelopmentProfileError("Invalid saved API observations")
