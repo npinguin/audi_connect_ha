@@ -176,10 +176,10 @@
       "path": "custom_components/audiconnect/config_flow.py",
       "change": "modified",
       "upstream_blob": "ec9a7e83149d15c91058ed6b6cdc0825a542a800",
-      "development_blob": "5a8baf8b764165458849247e75fedb219c8821ea",
+      "development_blob": "d05eb3231cbebe315c2c1305ea9767bec20fc744",
       "classification": "integration_seam",
       "owner": "integration",
-      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration; V3 user discovery and action-specific consent/review; simplified per-action Yes/No and OK/Not OK flow; shared guided command and readback verification",
+      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration; V3 user discovery and action-specific consent/review; simplified per-action Yes/No and OK/Not OK flow; shared guided command and readback verification; native discovery completion and recovery",
       "regression_tests": [
         "tests/test_v3_options_save.py"
       ],
@@ -358,10 +358,10 @@
       "path": "custom_components/audiconnect/strings.json",
       "change": "modified",
       "upstream_blob": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
-      "development_blob": "f0ef57f7fa4ed9b448bc74c95a6264e824752cf8",
+      "development_blob": "b967e17d7f7ead37aa7f404fb310d46a0f7e1098",
       "classification": "metadata",
       "owner": "integration",
-      "reason": "Shared config and runtime selector labels; V3 discovery and consent labels; simplified per-action Yes/No and OK/Not OK flow; bounded same-action alternative consent",
+      "reason": "Shared config and runtime selector labels; V3 discovery and consent labels; simplified per-action Yes/No and OK/Not OK flow; bounded same-action alternative consent; native discovery completion and recovery",
       "regression_tests": [
         "tests/test_v3_release_contract.py"
       ],
@@ -400,10 +400,10 @@
       "path": "custom_components/audiconnect/translations/en.json",
       "change": "modified",
       "upstream_blob": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
-      "development_blob": "4e6fde182a22a5768f0ba16763cd2576a47c3045",
+      "development_blob": "d34b394218014f9a5775b76cc849e40439d264ed",
       "classification": "metadata",
       "owner": "integration",
-      "reason": "Localized options and service labels; V3 discovery and consent labels; simplified per-action Yes/No and OK/Not OK flow; bounded same-action alternative consent",
+      "reason": "Localized options and service labels; V3 discovery and consent labels; simplified per-action Yes/No and OK/Not OK flow; bounded same-action alternative consent; native discovery completion and recovery",
       "regression_tests": [
         "tests/test_v3_release_contract.py"
       ],
