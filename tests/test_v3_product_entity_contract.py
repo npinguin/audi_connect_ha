@@ -18,7 +18,7 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
     historical = {row["id"] for row in baseline["entities"]}
     inventory = product_inventory()
     assert set(inventory["entities"]) == historical | {
-        "sensor.last_trip", "button.v3_refresh_cloud", "switch.climate_quick_control",
+        "sensor.discovery_coverage", "sensor.last_trip", "button.v3_refresh_cloud", "switch.climate_quick_control",
         "switch.charging", "switch.window_heating",
         "sensor.last_trip_distance",
         "sensor.last_trip_duration",
@@ -110,7 +110,7 @@ def test_product_diagnostic_allowlist_is_explicit_and_vehicle_properties_are_not
     from custom_components.audiconnect.v3.product_contract import canonical_entity_category
     keys = product_inventory()["entities"]
     assert {k for k in keys if canonical_entity_category(k) == "diagnostic"} == {
-        "sensor.api_requests_remaining", "sensor.cloud_last_successful_poll",
+        "sensor.discovery_coverage", "sensor.api_requests_remaining", "sensor.cloud_last_successful_poll",
         "sensor.vehicle_data_age", "sensor.vehicle_data_freshness", "button.v3_refresh_cloud",
     }
     assert canonical_entity_category("device_tracker.position") is None
