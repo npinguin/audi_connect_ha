@@ -490,5 +490,9 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
             job: data for job, data in report["job_capture_coverage"].items()
             if job in _V2_SELECTIVE_JOBS or job == "unclassified"
         },
-        "operation_counts": report["operation_counts"],
+        "operation_counts": {"total": len(operations),
+                             "tested": sum(bool(row["tested"]) for row in operations),
+                             "active": sum(bool(row["active"]) for row in operations),
+                             "scope": "built_in_operations_and_inventory"},
+        "engineering_operation_counts": report["operation_counts"],
     }
