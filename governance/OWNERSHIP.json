@@ -123,7 +123,8 @@
       "existing_owner_and_contract",
       "cleanup_or_no_cleanup_reason",
       "justification_and_retirement_condition_for_new_complexity",
-      "regression_and_remaining_validation"
+      "regression_and_remaining_validation",
+      "operation_pattern_classification_and_exception_justification_when_applicable"
     ],
     "review_blockers": [
       "unjustified_parallel_implementation",
@@ -137,6 +138,26 @@
       "security_and_quota_boundaries",
       "release_gates"
     ],
-    "enforcement": "existing PR review; ownership and contract regression tests; no additional workflow"
+    "enforcement": "existing PR review; ownership and contract regression tests; no additional workflow",
+    "generic_operation_pattern": {
+      "target_percent": 80,
+      "target_kind": "design_target_not_release_gate",
+      "measurement": "unique_supported_operation_variants; generic_plus_parameterized_generic / all_classified; exclude duplicate aliases and reference-only rows",
+      "classification": [
+        "generic",
+        "parameterized_generic",
+        "exceptional"
+      ],
+      "shared_contract": [
+        "request_template",
+        "typed_parameters",
+        "family_executor",
+        "response_extraction",
+        "value_transformation",
+        "command_lifecycle",
+        "evidence_and_projection"
+      ],
+      "exceptions": "document observed constraint, existing owner, focused regression evidence; preserve security and quota"
+    }
   }
 }

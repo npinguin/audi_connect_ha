@@ -102,6 +102,56 @@ add a new component only if none of those meets a demonstrated requirement.
   Replace obsolete assertions rather than preserving accidental complexity.
   Do not equate more tests, more modules or less code with correctness.
 
+### 80/20 rule — one generic operation pattern
+
+Aim for at least 80% of ordinary API operation variants to be expressible as
+validated declarative definitions on existing owners, with no new Python or
+JavaScript handler and no rebuild for a local experiment. This is a design
+target, not a measured current result, mandatory numeric release threshold,
+or a reason to weaken a safety boundary. The unit of measurement is an actual
+supported operation variant, not a line of code or an individual response field.
+Classify operations as generic, parameterized generic, or exceptional; count
+the first two together and report the denominator. Do not inflate coverage
+with aliases or duplicate historical references.
+
+The standard operation definition must describe the same concepts for built-in
+and community/local operations, using the existing catalog/registry and typed
+runtime definitions rather than a parallel framework:
+
+| Contract | Generic pattern |
+|---|---|
+| Identity and context | Stable operation ID, capability/action, API family, applicability |
+| Request | Method, approved relative path, query/document, typed parameters, body template |
+| Execution | Shared template validation/rendering, family-specific auth/transport, quota and observation |
+| Response | HTTP and API-level result, extraction paths, optional capture path, schema and type |
+| Mapping | Canonical attribute IDs, explicit source/target units, reusable enum/value transforms, null/sentinel rules |
+| Command | Same lifecycle for HA and Workbench; explicit consent where required, command ID, result, optional readback |
+| Evidence | Operation revision, source, timestamp, outcome; shared diagnostics and HA projection |
+
+A GraphQL POST query is a read operation, not an actuator command: classify by
+intent, not HTTP verb. Batch reads may populate many attributes from one request.
+Built-in and local definitions must use the same validation, rendering, mapping
+and execution machinery wherever their semantics are equivalent. Workbench
+draft/test/activation is an administrative workflow around that machinery, not
+a second implementation. Use declarative type/range/enum constraints, JSON path
+extraction, reusable transforms and existing HA unit converters. Do not add
+arbitrary scripts, expression evaluators, arbitrary URLs or credential fields.
+
+Exceptions require an observed protocol or domain constraint, a named existing
+owner and focused regression evidence. Examples: OEM multi-step security proof,
+legacy security-token exchange, destructive PUT read-modify-write preservation,
+and complex structured arrays or trip reconciliation when a simple mapping is
+not sufficient. A different field name, unit, endpoint, parameter, standard body,
+or enum is not by itself an exception. A reusable safe read-modify-write pattern
+may become generic once multiple real uses establish the common contract; do
+not invent a general workflow language. Family executors retain auth/host
+security ownership. Every exception reuses the common lifecycle, transport,
+evidence and result handling unless a concrete reason prevents it.
+
+Review new operation variants against this pattern first. Existing deviations
+are cleanup candidates, not permission to add more. Preserve semantic validation,
+credential isolation, physical safeguards and current release authorization.
+
 ### Change review / definition of done
 
 For each PR or engineering change, record in the existing PR description or
@@ -112,7 +162,9 @@ review notes (a few sentences are sufficient):
 3. If adding a layer, fallback, model, entity or persistent state: what observed
    requirement cannot be satisfied by the current owner/contract? What is the
    retirement condition for any transitional mechanism?
-4. Which existing behavior, HA compatibility, failure recovery and release
+4. For operation changes, is the variant generic/parameterized or exceptional?
+   If exceptional, document the real constraint and existing owner.
+5. Which existing behavior, HA compatibility, failure recovery and release
    constraints were validated? What remains unproven?
 
 Unjustified parallel implementations, duplicate facts, permanent workaround

@@ -53,3 +53,19 @@ HA command prerequisite outside the tested capability.
 
 ## Engineering discipline
 Follow the canonical [simplify-before-adding policy](V3_ARCHITECTURE_CLOSURE.md#mandatory-engineering-principle--simplify-before-adding). Reuse the existing operation, evidence and mapping owners before adding another layer. Keep runtime experimentation distinct from approved production mappings without duplicating the executor.
+
+## Operation pattern consolidation — first audit findings
+
+Apply the [80/20 operation rule](V3_ARCHITECTURE_CLOSURE.md#8020-rule--one-generic-operation-pattern). Current source inspection identified these concrete consolidation candidates (not implemented):
+
+| Area | Current deviation | Preferred cleanup |
+|---|---|---|
+| Request rendering | `engine._operation_request` uses separate built-in path/body rendering and `DevelopmentProfile.preview_request` for custom routes | Reuse the existing typed renderer for equivalent definitions, retaining secret resolution at dispatch |
+| Parameter contracts | `command_parameters._BINDABLE` is climate-only; charge mode and auxiliary duration validation are hardcoded in `command_payloads.build` | Declare standard types, ranges, enums and safe body templates in existing operation definitions; preserve secure binding restrictions |
+| Response mapping | `attribute_runtime.observe_read_only` handles batch data; `StatusEngine._record_attribute_response` separately extracts, validates and writes custom-route observations | Reuse the same extraction, transformation, capture ordering and evidence contract; retain batch planning |
+| GraphQL | Identity has a separate bounded query editor and native read executor | Share operation definition/result semantics, keep family-specific query validation and approved auth |
+| Transformations | Existing `api_value_mappings.normalize_api_value` uses HA converters; command payload temperature conversion and other domain conversions are separate | Reuse declared conversions when semantics match; document true domain-specific calculations |
+| Command execution | `CommandEngine.test_action` and `send_control` share dispatch but separately manage outcome/persistence | Use common lifecycle, with Workbench review as an explicit administrative step |
+| Genuine exceptions | MBB security token, engine proof, settings-preserving PUTs, structured trips | Keep narrow reviewed handlers; extract common primitives only from proven multiple uses |
+
+Baseline `d2b31e9`: catalog has 62 built-in operations; a validated generic/parameterized/exceptional classification of supported variants is still required before reporting an 80% coverage number. Do not claim that target has been achieved. No new renderer, workflow engine or transform language is authorized by this audit.
