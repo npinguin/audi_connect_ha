@@ -2,7 +2,7 @@
 
 **Use your Audi. Explore its capabilities. Build what's missing. Share what works.**
 
-This guide retains the b12 baseline and describes the common workflow. For the explicitly authorized b13 evidence-acquisition candidate, see [b13 release notes](V3_RELEASE_NOTES_3.0.0b13.md). The original experimental HACS release [3.0.0b12](https://github.com/npinguin/audi_connect_ha/releases/tag/3.0.0b12), is the historical baseline. V2 remains the default and fallback. Compatibility varies by vehicle, model year, region, connected services and authentication. See [release notes](V3_RELEASE_NOTES_3.0.0b12.md) and [known gaps](V3_COMPLETENESS_AUDIT.md).
+This guide explains the current development direction and the existing experimental release boundary. The latest published experimental HACS candidate is [3.0.0b17](V3_RELEASE_NOTES_3.0.0b17.md); subsequent development features require a new authorized release. V2 remains the default and rollback choice. Compatibility varies by model, market, services and authentication. Start with the [product vision and architecture](V3_ARCHITECTURE.md).
 
 ## Choose your path
 
@@ -15,13 +15,13 @@ This guide retains the b12 baseline and describes the common workflow. For the e
 ## 1. Everyday users — connect and use
 
 1. Back up Home Assistant and note the installed Audi Connect version.
-2. In HACS, add `https://github.com/npinguin/audi_connect_ha` as a custom repository (Integration). Select Audi Connect and explicitly select prerelease **3.0.0b13** after publication (or **3.0.0b12** for the historical baseline). This replaces the same integration domain, not a second integration.
+2. In HACS, add `https://github.com/npinguin/audi_connect_ha` as a custom repository (Integration). Select Audi Connect and explicitly select the authorized experimental prerelease **3.0.0b17** if intentionally testing V3. This replaces the same integration domain, not a second integration.
 3. Restart Home Assistant. For a new installation, add Audi Connect under **Settings → Devices & services → Add integration**. For an existing installation, keep your config entry, vehicle devices and entity registry.
 4. Sign in with myAudi if prompted. For Auth0, open the supplied login link, sign in, and copy the complete callback URL from your browser to the HA form. A localhost connection error after login is expected. Never share the callback URL.
 5. Open **Audi Connect → Configure → Runtime → V3 — Experimental**, save and allow the integration to reload.
 6. Open your Audi device page and use the available sensors and controls. No Engineering Dashboard or manual per-control test is required for normal use of eligible functions.
 
-Depending on your vehicle, you can monitor battery, range, fuel, charging and access, view trips and maintenance information, or control climate and locking. Example automations include departure preconditioning, unlocked-car notifications and solar-surplus charging decisions using reported SoC. Verify the actual vehicle state before relying on remote commands. In b12, cabin climate uses one primary native Climate entity; charging and window heating retain explicit buttons pending reliable switch-state evidence. b13 adds eligible native switches and automatic read discovery; physical confirmation remains pending.
+Depending on your vehicle, you can monitor battery, range, fuel, charging and access, view trips and maintenance information, or control climate and locking. Example automations include departure preconditioning, unlocked-car notifications and solar-surplus charging decisions using reported SoC. Verify the actual vehicle state before relying on remote commands. Eligible native climate and charging/window-heating controls are exposed based on current evidence. Actual vehicle compatibility and physical confirmation remain separate. The target is automatic discovery and progressive publication without Workbench or mandatory per-control testing.
 
 **Rollback:** select V2 in Runtime options. Do not delete the registry. Downgrading the actual HACS package is separate; restore a compatible backup if needed. Full migration and rollback validation remain open.
 
@@ -37,6 +37,8 @@ Depending on your vehicle, you can monitor battery, range, fuel, charging and ac
 A sleeping vehicle, expired session, permission failure, missing field or rate limit is not proof of non-support. Record unknowns rather than guessing. Read-only discovery does not send wake or physical control commands. Never repeatedly scan to force a response.
 
 ## 3. Engineers — discover, configure, test, activate, contribute
+
+**Development workflow (not yet released):** End-user validation reproduces the golden Configure → Discover → Use journey. Guided mode presents unresolved actions one at a time with Yes/No and OK/Not OK/Not sure; Expert mode lets an engineer select individual actions, retest and open the failed operation in the existing editor. The direct route editor remains available for technical experiments. Automatic safe alternative-route selection is still open. Both modes use the same runtime and physical consent boundary.
 
 Do not wait for a Python change to start exploring. The Engineering Dashboard is an opt-in local laboratory. A finding on your own vehicle can become a reviewed catalog rule for other compatible vehicles.
 
@@ -54,7 +56,7 @@ Use **API evidence** to inspect the operation matrix and response fields. Identi
 - Select the candidate, use **Save candidate** to retain the draft, then **Test read-only GET**. Inspect the returned value, schema, capture time, units and errors. Compare it with the vehicle; test missing, stale, invalid and zero values.
 - Use **Activate for polling** only when eligible and verified. Confirm that the entity is usable in HA and remains correct after a reload. A saved candidate is not an active sensor. Disable an invalid local mapping rather than invent a value.
 
-Custom attribute/read-route support is limited in b12; not every response, method or transformation can be expressed. If blocked, capture the gap and propose a reviewed code-owned mapping/handler.
+Custom attribute/read-route support is bounded; not every response, method or transformation can be expressed. If blocked, capture the gap and propose a reviewed code-owned mapping/handler.
 
 ### C. Configure and test a vehicle control
 
@@ -66,7 +68,7 @@ Choose **Capabilities → Controls → Inspect & test** for a specific semantic 
 4. Record **Verified working**, **Did not work** or **Not sure**. Do not retry blindly or try an alternative mutation after an uncertain result; inspect the car and resolve the pending outcome first.
 5. Only if the route is runtime-ready and verified, select **Activate verified route**. Use its native HA control, verify readback, and test safe restart/reload behavior. Disable the control if the evidence is inadequate.
 
-Some custom parameterized command activations and custom PUT templates are incomplete in b12. A successful test does not guarantee activation. Never bypass safety, permission, cooldown or API quota restrictions. Discovery itself never actuates the car.
+Custom parameterized and PUT operations remain restricted to reviewed supported contracts. A successful test does not guarantee activation. Never bypass safety, permission, cooldown or API quota restrictions. Discovery itself never actuates the car.
 
 ### D. Turn your experiment into community value
 
@@ -86,7 +88,7 @@ Open a [fork issue](https://github.com/npinguin/audi_connect_ha/issues) or a foc
 - Local activation and restart result (if applicable):
 - Proposed reusable mapping/rule, regression test or next step:
 
-Review/redact even masked evidence before sharing. No VINs, credentials, callback URLs, tokens, S-PINs, request IDs, private trip or location data, or raw personal payloads. The dashboard is not a public export tool. Automatic contribution export/import is a proposed enhancement, not a b12 feature.
+Review/redact even masked evidence before sharing. No VINs, credentials, callback URLs, tokens, S-PINs, request IDs, private trip or location data, or raw personal payloads. The dashboard is not a public export tool. Development includes definition JSON copy/paste in the shared editor; it is not automatic publication or import of raw evidence. Full portable contribution acceptance remains open.
 
 ## Current boundaries and further reading
 
