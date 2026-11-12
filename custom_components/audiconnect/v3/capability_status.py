@@ -26,7 +26,14 @@ from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .custom_attributes import attributes_for
 from .legacy_read_mappings import variant_for as legacy_variant_for
 from .read_discovery import summary as discovery_summary
-from .transport import INVENTORY_OPERATION, IDENTITY_QUERIES
+from .transport import INVENTORY_OPERATION, IDENTITY_QUERIES, IDENTITY_OPERATIONS, GARAGE_OPERATION, GARAGE_PATH
+
+GARAGE_FIELDS = {
+    "garage_model": ("data[].model", "sensor.model", "Manufacturer model"),
+    "garage_car_model": ("data[].carModel", "sensor.model", "Manufacturer model (alternate)"),
+    "garage_model_year": ("data[].modelYear", "sensor.model", "Model year"),
+    "garage_model_year_alt": ("data[].model_year", "sensor.model", "Model year (alternate)"),
+}
 
 IDENTITY_FIELDS = {
     "manufacturer_model": ("data.userVehicles[].vehicle.media.longName", "sensor.model", "Manufacturer model"),
@@ -343,7 +350,7 @@ def _cockpit(vehicle, profile, rows, controls):
     references = {row["operation"]: row for row in rows if row["source"] == "v2_reference_only"}
     journal = {row.operation: row for row in profile.command_journal}
     operations = []
-    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal) | set(IDENTITY_QUERIES)):
+    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal) | set(IDENTITY_OPERATIONS)):
         op = catalog.get(ident, {})
         record = records.get(ident, {})
         ref = references.get(ident, {})
@@ -368,26 +375,28 @@ def _cockpit(vehicle, profile, rows, controls):
             reasons.append("physical_control_" + (command.state if command else physical))
         if http is not None and not 200 <= http < 300:
             reasons.append("http_error")
-        if (ident not in IDENTITY_QUERIES and method in ("POST", "PUT") and http is not None and 200 <= http < 300
+        if (ident not in IDENTITY_OPERATIONS and method in ("POST", "PUT") and http is not None and 200 <= http < 300
                 and physical != "worked" and not (command and command.state == "verified")):
             reasons.append("accepted_not_physically_verified")
         caps = sorted({row["capability"] for row in matching}
                       | ({command.capability} if command else set()))
-        if ident in IDENTITY_QUERIES:
+        if ident in IDENTITY_OPERATIONS:
             caps = ["vehicle_identity"]
-            active = ident == INVENTORY_OPERATION or ident == vehicle.identity_operation
+            active = ident == INVENTORY_OPERATION or ident == vehicle.identity_operation or ident == vehicle.year_operation
             applicable = [True]
-            method = "POST"
+            method = "GET" if ident == GARAGE_OPERATION else "POST"
             physical = "not_applicable"
+            identity_fields = GARAGE_FIELDS if ident == GARAGE_OPERATION else IDENTITY_FIELDS
             schema_key = "inventory" if ident == INVENTORY_OPERATION else ident
             evidence = profile.job_schema.get(schema_key, {})
             # Only this operation's observed non-null fields count as evidence.
             observed = {f["path"] for f in evidence.get("latest_identity_fields", [])
                         if f["quality"] == "observed" and f["type"] not in ("null", "object", "array")}
-            required = [spec[0] for key, spec in IDENTITY_FIELDS.items()
+            required = [spec[0] for key, spec in identity_fields.items()
                         if (key == "vehicle_image") == ident.endswith(".images")]
             if http is not None and 200 <= http < 300:
-                schema = "valid" if all(path in observed for path in required) else "partial"
+                complete = (any(path in observed for path in ("data[].model", "data[].carModel")) and any(path in observed for path in ("data[].modelYear", "data[].model_year"))) if ident == GARAGE_OPERATION else all(path in observed for path in required)
+                schema = "valid" if complete else "partial"
                 if schema == "partial":
                     reasons.append("identity_metadata_incomplete")
         operation = {"operation": ident, "family": op.get("family") or record.get("family") or ref.get("api_family"),
@@ -420,21 +429,21 @@ def _cockpit(vehicle, profile, rows, controls):
             fields.append({**field, "mapping": status, "attributes": matches})
         job = (op.get("path", "").split("jobs=", 1)[-1] if "jobs=" in op.get("path", "") else None)
         operation["job_evidence"] = profile.job_discovery.get(job) if job else None
-        if ident in IDENTITY_QUERIES:
-            operation["family"] = "graphql"
-            operation["path"] = "/vgql/v1/graphql"
+        if ident in IDENTITY_OPERATIONS:
+            operation["family"] = "cariad" if ident == GARAGE_OPERATION else "graphql"
+            operation["path"] = GARAGE_PATH if ident == GARAGE_OPERATION else "/vgql/v1/graphql"
             operation["read_only"] = True
             operation["graphql_errors"] = evidence.get("graphql_errors", [])
             fields = [{**field,
-                       "mapping": "declared_mapping" if any(field["path"] == spec[0] for spec in IDENTITY_FIELDS.values()) else
+                       "mapping": "declared_mapping" if any(field["path"] == spec[0] for spec in identity_fields.values()) else
                                   "container" if field["type"] in ("array", "object") else "review_unmapped",
-                       "attributes": [key for key, spec in IDENTITY_FIELDS.items() if field["path"] == spec[0]]}
+                       "attributes": [key for key, spec in identity_fields.items() if field["path"] == spec[0]]}
                       for field in evidence.get("fields", [])]
             operation["mappings"] = [{"attribute": key, "capability": "vehicle_identity", "field": spec[0],
                                       "entity_key": spec[1], "name": spec[2],
                                       "status": "observed" if spec[0] in observed else "not_observed",
                                       "active": active}
-                                     for key, spec in IDENTITY_FIELDS.items()
+                                     for key, spec in identity_fields.items()
                                      if (key == "vehicle_image") == ident.endswith(".images")]
         else:
             from .product_contract import projection_descriptor
@@ -472,7 +481,7 @@ def _cockpit(vehicle, profile, rows, controls):
             operation["mappings"] = links
             operation["capabilities"] = sorted(set(operation["capabilities"]) | {m["capability"] for m in links})
         operation["fields"] = fields
-        operation["fields_truncated"] = evidence.get("truncated") if ident in IDENTITY_QUERIES else record.get("fields_truncated")
+        operation["fields_truncated"] = evidence.get("truncated") if ident in IDENTITY_OPERATIONS else record.get("fields_truncated")
         if any(field["mapping"] == "review_unmapped" for field in fields):
             reasons.append("unmapped_response_fields_review")
         operations.append(operation)
@@ -555,7 +564,7 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
         {key: item.get(key) for key in ("operation", "family", "method", "applicability",
             "tested", "http_status", "schema", "physical", "last_command_state",
             "active", "job_evidence", "fields_truncated")}
-        for item in report["operations"] if item["operation"] in base_registry.operations or item["operation"] in IDENTITY_QUERIES
+        for item in report["operations"] if item["operation"] in base_registry.operations or item["operation"] in IDENTITY_OPERATIONS
     ]
     return {
         "capabilities": summaries,

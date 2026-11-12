@@ -280,10 +280,10 @@ class AudiConnectV3Panel extends HTMLElement {
       this.step = Number(action.slice(5)); this.focusOperation = ""; this.render(); return;
     }
     if (action === "open-identity") {
-      this.category = "vehicle_identity"; this.apiFamily = "graphql"; this.attribute = ""; this.controlAction = ""; this.step = 2; this.render(); return;
+      this.category = "vehicle_identity"; this.apiFamily = "all"; this.attribute = ""; this.controlAction = ""; this.step = 2; this.render(); return;
     }
     if (action === "identity-evidence") {
-      this.apiFamily = "graphql"; this.step = 4; this.focusOperation = button.dataset.operation || ""; this.operationFilter = "all"; this.operationMethod = "all"; this.render(); return;
+      this.apiFamily = button.dataset.operation?.startsWith("cariad.")?"cariad":"graphql"; this.step = 4; this.focusOperation = button.dataset.operation || ""; this.operationFilter = "all"; this.operationMethod = "all"; this.render(); return;
     }
     if (action === "discovery-group") {
       if (this.pending) {
@@ -386,7 +386,7 @@ class AudiConnectV3Panel extends HTMLElement {
         });
       } else if (action === "identity-test") {
         this.lastResult = await this.api("test_identity_operation", {...this.selection, operation:button.dataset.operation});
-        this.step = 4; this.apiFamily = "graphql"; this.focusOperation = button.dataset.operation;
+        this.step = 4; this.apiFamily = button.dataset.operation?.startsWith("cariad.")?"cariad":"graphql"; this.focusOperation = button.dataset.operation;
       } else if (action === "family-test" || action === "family-full-test") {
         const car = this.entries.find(e=>e.entry_id===this.selected)
           ?.vehicles.find(v=>v.vin===this.vin);
@@ -579,8 +579,8 @@ class AudiConnectV3Panel extends HTMLElement {
     const controls = filteredRows.filter(r => r.source === "v2_control_reference");
     const controlActions = (coverage.control_actions || []).filter(r =>
       family === "all" || r.api_family === family);
-    const identityOps = (coverage.operations || []).filter(o=>o.family==="graphql" && o.read_only);
-    const capabilityNames = [...new Set([...attributes,...controls,...controlActions].map(r => r.capability).concat((family==="graphql"||family==="all")?["vehicle_identity"]:[]))].sort();
+    const identityOps = (coverage.operations || []).filter(o=>o.read_only && (o.capabilities||[]).includes("vehicle_identity"));
+    const capabilityNames = [...new Set([...attributes,...controls,...controlActions].map(r => r.capability).concat((family==="graphql"||family==="all"||family==="cariad")?["vehicle_identity"]:[]))].sort();
     if (capabilityNames.length && !capabilityNames.includes(this.category) && this.step!==3) this.category=capabilityNames[0];
     const readable = attributes.filter(r => ["verified","readable_but_stale"].includes(r.status));
     const visibleAttributes = attributes.filter(r => matchesSearch(r) && (this.searchText || r.capability === this.category) &&
@@ -777,7 +777,7 @@ class AudiConnectV3Panel extends HTMLElement {
                 <td>Schema: ${escapeHTML(o.schema||"unknown")}
                   ${(o.mappings||[]).map(m=>`<div class="subline"><button data-action="${m.capability==="vehicle_identity"?"open-identity":"open-capability"}" data-capability="${escapeHTML(m.capability)}">${escapeHTML(m.capability)}</button> · ${escapeHTML((m.entity_ids||[]).join(", ")||m.entity_key||"No published entity")}<br><code>${escapeHTML(m.field||"")}</code></div>`).join("")}
                   ${(o.graphql_errors||[]).map(err=>`<div class="warn">${escapeHTML(err.code)} · ${escapeHTML(err.field)}</div>`).join("")}
-                  ${o.family==="graphql"&&o.read_only?`<button data-action="identity-test" data-operation="${escapeHTML(o.operation)}">Test read-only</button>`:""}<div class="subline">${o.active?"ACTIVE":"Inactive"} · ${escapeHTML(o.applicability||"unknown")}</div>
+                  ${o.read_only&&(o.capabilities||[]).includes("vehicle_identity")?`<button data-action="identity-test" data-operation="${escapeHTML(o.operation)}">Test read-only</button>`:""}<div class="subline">${o.active?"ACTIVE":"Inactive"} · ${escapeHTML(o.applicability||"unknown")}</div>
                   ${(o.fields||[]).length?`<details><summary>${o.fields.length} response fields · ${o.fields_truncated===true?"truncated":o.fields_truncated===false?"within sample limits":"coverage unknown"}</summary>${o.fields.map(f=>`<div class="subline"><code>${escapeHTML(f.path)}</code> · ${escapeHTML(f.type)} · ${escapeHTML(f.quality)} · ${escapeHTML(f.mapping)} ${escapeHTML((f.attributes||[]).join(", "))}</div>`).join("")}</details>`:""}</td>
                 <td>Physical: ${escapeHTML(o.physical||"not verified")}<div class="subline">${escapeHTML(o.last_command_state||"")} ${escapeHTML(o.backend_result||"")}</div>
                   <div class="subline">${escapeHTML((o.attention||[]).join(" · "))}</div></td>

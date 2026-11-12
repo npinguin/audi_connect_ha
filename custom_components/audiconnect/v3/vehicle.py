@@ -163,6 +163,7 @@ class V3Vehicle:
     identity_observed_at: str | None = None
     identity_operation: str | None = None
     registry_model: str | None = None
+    year_operation: str | None = None
 
     @classmethod
     def from_graphql(cls, item: dict[str, Any], country: str) -> "V3Vehicle":
@@ -194,6 +195,28 @@ class V3Vehicle:
             car_type=drive.strip().lower() if isinstance(drive, str) and drive.strip().lower() not in _INVALID else "",
             model_year=year, model_source=source,
         )
+
+    @classmethod
+    def from_garage(cls, item: dict[str, Any], country: str) -> "V3Vehicle":
+        """CARIAD account garage, independent of vgql. Never use nickname as model."""
+        from .transport import GARAGE_OPERATION
+        vin = item.get("vin")
+        if not isinstance(vin, str) or len(vin) != 17 or not vin.isalnum():
+            raise ValueError("Invalid Audi vehicle identifier")
+        model, source = "", ""
+        for key in ("model", "carModel"):
+            value = item.get(key)
+            if (isinstance(value, str) and 0 < len(value.strip()) <= 120
+                    and value.strip().lower() not in _INVALID | {"audi", "audi vehicle"}
+                    and vin.lower() not in value.lower()):
+                model, source = value.strip(), "cariad_" + key
+                break
+        year = str(item.get("modelYear") or item.get("model_year") or "")
+        year = year if len(year) == 4 and year.isdigit() and 1980 <= int(year) <= 2100 else ""
+        return cls(vin.upper(), model or "Audi vehicle", model, model_family_from_name(model),
+                   country, model_year=year, model_source=source,
+                   identity_operation=GARAGE_OPERATION if model else None,
+                   year_operation=GARAGE_OPERATION if year else None)
 
     @property
     def context(self) -> VehicleContext:

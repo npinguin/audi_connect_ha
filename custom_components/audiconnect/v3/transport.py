@@ -17,6 +17,8 @@ from .family_executors import build_family_executors
 from .quota import QuotaBudget
 
 INVENTORY_OPERATION = "graphql.inventory.vehicleList"
+GARAGE_OPERATION = "cariad.inventory.vehicles"
+GARAGE_PATH = "/vehicle/v1/vehicles"
 _GRAPHQL_QUERY = """query vehicleList {
   userVehicles {
     vin
@@ -55,6 +57,22 @@ IDENTITY_QUERIES = {
     "graphql.inventory.images": _GRAPHQL_IMAGES_QUERY,
 }
 
+IDENTITY_OPERATIONS = frozenset((*IDENTITY_QUERIES, GARAGE_OPERATION))
+
+def garage_rows(payload):
+    rows = payload.get("data") if isinstance(payload, dict) else None
+    return [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+
+def selected_garage_response(response, vin):
+    """Keep selected VIN and reviewed metadata only; no account inventory or nickname."""
+    keys = ("vin", "model", "carModel", "modelYear", "model_year", "devicePlatform",
+            "carnetAllocationType", "enrollmentStatus")
+    rows = [{key: row[key] for key in keys if key in row and
+             (row[key] is None or type(row[key]) in (str, int))}
+            for row in garage_rows(response.data)
+            if isinstance(row.get("vin"), str) and row["vin"].lower() == vin.lower()]
+    return replace(response, data={"data": rows})
+
 def identity_rows(payload):
     data = payload.get("data") if isinstance(payload, dict) else None
     rows = data.get("userVehicles") if isinstance(data, dict) else None
@@ -79,7 +97,10 @@ def identity_errors(payload, vin):
             continue
         ext = error.get("extensions")
         code = ext.get("code") if isinstance(ext, dict) else None
+        message = error.get("message")
+        reason = "token_exchange_denied" if isinstance(message, str) and "client does not have access to the idp for token exchange" in message.lower() else None
         result.append({"code": code if isinstance(code, str) and code in allowed else "OTHER",
+                       **({"reason": reason} if reason else {}),
                        "field": ".".join(x for x in path if isinstance(x, str) and x in fields)
                        if isinstance(path, list) else ""})
     return result
@@ -195,7 +216,8 @@ class V3Transport:
                         data=payload,
                         observed_at=timestamp,
                         remaining_calls=self.remaining_calls,
-                        request={"method": plan.method, "url": plan.url, "body": plan.body},
+                        request={"method": plan.method, "url": plan.url, "body": plan.body,
+                                 "auth_context": self.auth.identity_auth_evidence(family) if hasattr(self.auth, "identity_auth_evidence") else None},
                     )
 
     async def discover_vehicles(self) -> list[dict[str, Any]]:
@@ -219,6 +241,8 @@ class V3Transport:
 
 
     async def test_identity_query(self, operation: str) -> V3Response:
+        if operation == GARAGE_OPERATION:
+            return await self.request("cariad", "GET", GARAGE_PATH)
         if operation not in IDENTITY_QUERIES:
             raise ValueError("Unknown reviewed GraphQL read operation")
         return await self.request("graphql", "POST", "/vgql/v1/graphql",

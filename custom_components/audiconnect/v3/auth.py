@@ -113,6 +113,40 @@ class V3Auth:
     def legacy_api_level(self) -> int:
         return int(getattr(self.service, "_api_level", 0) or 0)
 
+    def identity_auth_evidence(self, family: str = "graphql") -> dict:
+        """Coarse unverified JWT metadata for diagnosis only. Never export a token or subject."""
+        import base64
+        import json
+        name = {"graphql": "audiToken", "cariad": "_bearer_token_json", "mbb": "vwToken"}.get(family)
+        token = getattr(self.service, name, None) if name else None
+        bearer = getattr(self.service, "_bearer_token_json", None)
+        access = token.get("access_token") if isinstance(token, dict) else None
+        primary = bearer.get("access_token") if isinstance(bearer, dict) else None
+        result = {"provider": "auth0" if self.uses_auth0 else "legacy",
+                  "role": "cariad_bearer" if family == "cariad" else "audi_azs_slot" if family == "graphql" else "legacy_slot",
+                  "same_as_cariad": bool(access and access == primary), "present": bool(access),
+                  "audience": "unknown", "scopes": [], "age_minutes": None,
+                  "claims_verified": False}
+        if not isinstance(access, str) or len(access) > 32000:
+            return result
+        try:
+            segment = access.split(".")[1]
+            claims = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+            if not isinstance(claims, dict):
+                return result
+            audience = claims.get("aud")
+            result["audience"] = "cariad" if audience == "https://api.cariad.com" or (
+                isinstance(audience, list) and "https://api.cariad.com" in audience) else "other"
+            scope = claims.get("scope")
+            allowed = {"openid", "profile", "email", "offline_access", "mbb", "cars", "vin", "dealers"}
+            result["scopes"] = sorted(set(scope.split()) & allowed) if isinstance(scope, str) else []
+            iat = claims.get("iat")
+            if type(iat) in (int, float) and 0 <= time.time() - iat <= 86400 * 365:
+                result["age_minutes"] = int((time.time() - iat) / 60)
+        except (ValueError, TypeError, IndexError, OverflowError):
+            pass
+        return result
+
     def access_token(self, family: str) -> str:
         """Only reviewed family tokens; never expose in diagnostics."""
         if family == "cariad":

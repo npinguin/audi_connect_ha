@@ -117,8 +117,11 @@ class V3Engine:
         excluded = {x.strip().lower() for x in str(options.get(
             CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
         )).split(",") if x.strip()}
-        from .transport import identity_rows, selected_identity_response
+        from .transport import (identity_rows, selected_identity_response, GARAGE_OPERATION,
+                                garage_rows, selected_garage_response)
         fallbacks = {}
+        garage = None
+        garage_candidates = {}
         alternatives = {}
         reader = getattr(self.transport, "test_identity_query", None)
         remaining = getattr(self.transport, "remaining_calls", None)
@@ -132,7 +135,24 @@ class V3Engine:
         if (reader is not None and missing_model and not self._identity_fallback_attempted
                 and (remaining is None or remaining > 20)):
             self._identity_fallback_attempted = True
-            for operation in ("graphql.inventory.extended", "graphql.inventory.modern"):
+            # First test independent CARIAD metadata. GraphQL remains the membership
+            # authority until the garage route is proven on this account.
+            try:
+                async with asyncio.timeout(8):
+                    garage = await reader(GARAGE_OPERATION)
+            except Exception:
+                garage = None
+            if garage is not None and 200 <= garage.status < 300:
+                for row in garage_rows(garage.data):
+                    try:
+                        candidate = V3Vehicle.from_garage(row, self.auth.country)
+                    except (ValueError, TypeError, AttributeError):
+                        continue
+                    if candidate.vin.lower() not in excluded:
+                        garage_candidates[candidate.vin.lower()] = candidate
+            # Repeat the original exact query after garage discovery to isolate
+            # request ordering from query/header variants.
+            for operation in (INVENTORY_OPERATION, "graphql.inventory.extended", "graphql.inventory.modern"):
                 if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 20:
                     break
                 try:
@@ -179,9 +199,19 @@ class V3Engine:
                 parsed.identity_operation = operation
                 if candidate.model:
                     parsed.model, parsed.model_family, parsed.model_source = candidate.model, candidate.model_family, candidate.model_source
-                    parsed.model_year = parsed.model_year or candidate.model_year
+                    if not parsed.model_year and candidate.model_year:
+                        parsed.model_year, parsed.year_operation = candidate.model_year, operation
                     parsed.car_type = parsed.car_type or candidate.car_type
                     parsed.name = parsed.model if parsed.name == "Audi vehicle" else parsed.name
+            candidate = garage_candidates.get(parsed.vin.lower())
+            if candidate is not None:
+                if not parsed.model and candidate.model:
+                    parsed.model, parsed.model_family, parsed.model_source = candidate.model, candidate.model_family, candidate.model_source
+                    parsed.identity_operation = GARAGE_OPERATION
+                    if parsed.name == "Audi vehicle":
+                        parsed.name = candidate.model
+                if not parsed.model_year and candidate.model_year:
+                    parsed.model_year, parsed.year_operation = candidate.model_year, GARAGE_OPERATION
             from .identity_cache import apply_cached_identity
             if parsed.vin.lower() not in self.vehicles and not parsed.model:
                 loader = getattr(self.storage, "async_identity", None)
@@ -203,6 +233,7 @@ class V3Engine:
                 vehicle.car_type = parsed.car_type
             if parsed.model_year:
                 vehicle.model_year = parsed.model_year
+                vehicle.year_operation = parsed.year_operation or parsed.identity_operation or INVENTORY_OPERATION
             vehicle.country = parsed.country
             if not vehicle.model and self.trip_archive is not None:
                 from .identity_cache import previous_registry_model
@@ -277,6 +308,9 @@ class V3Engine:
                                       metadata.observed_at, metadata.remaining_calls, metadata.request)
                 self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
                                  response, known[vin].vin)
+                if garage is not None:
+                    self._api_record(self.profiles[vin], GARAGE_OPERATION, "cariad", "GET",
+                                     selected_garage_response(garage, known[vin].vin), known[vin].vin)
                 for operation, fallback in fallbacks.items():
                     self._api_record(self.profiles[vin], operation, "graphql", "POST",
                                      selected_identity_response(fallback, known[vin].vin), known[vin].vin)
@@ -421,8 +455,8 @@ class V3Engine:
             # Use original decoded types; an admin-preview cap is not a schema cap.
             payload = response.data
             groups = {job: {job: payload[job]} for job in V2_JOBS if job in payload} if method == "GET" and isinstance(payload, dict) else {}
-            from .transport import IDENTITY_QUERIES
-            if operation in IDENTITY_QUERIES:
+            from .transport import IDENTITY_OPERATIONS
+            if operation in IDENTITY_OPERATIONS:
                 groups = {"inventory" if operation == INVENTORY_OPERATION else operation: payload}
             elif method == "GET" and operation in STANDALONE_READS:
                 groups[operation] = payload if isinstance(payload, dict) else {"response": payload}
@@ -437,8 +471,8 @@ class V3Engine:
                 profile.job_schema[job] = merge_schema_evidence(
                     profile.job_schema.get(job), fields, truncated,
                     status=record["http_status"], at=record["at"],
-                    source=operation if operation in self.registry.operations or operation in STANDALONE_READS or operation in IDENTITY_QUERIES else "reviewed_read")
-                if operation in IDENTITY_QUERIES:
+                    source=operation if operation in self.registry.operations or operation in STANDALONE_READS or operation in IDENTITY_OPERATIONS else "reviewed_read")
+                if operation in IDENTITY_OPERATIONS:
                     profile.job_schema[job]["latest_identity_fields"] = fields
                     profile.job_schema[job]["graphql_errors"] = payload.get("errors", [])
         profile.engineering_responses.pop(operation, None)
@@ -458,27 +492,29 @@ class V3Engine:
 
     async def test_identity_operation(self, vin: str, operation: str) -> dict[str, Any]:
         """One reviewed read, selected vehicle evidence, no activation."""
-        from .transport import IDENTITY_QUERIES, selected_identity_response, identity_rows
-        if operation not in IDENTITY_QUERIES:
+        from .transport import (IDENTITY_OPERATIONS, GARAGE_OPERATION, selected_garage_response,
+                                garage_rows, selected_identity_response, identity_rows)
+        if operation not in IDENTITY_OPERATIONS:
             raise ValueError("Unknown reviewed GraphQL operation")
         car = self.require_vehicle(vin)
         if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
             raise RuntimeError("Audi quota is low")
         response = await self.transport.test_identity_query(operation)
-        selected = selected_identity_response(response, car.vin)
+        is_garage = operation == GARAGE_OPERATION
+        selected = selected_garage_response(response, car.vin) if is_garage else selected_identity_response(response, car.vin)
         profile = self.profiles[car.vin.lower()]
-        self._api_record(profile, operation, "graphql", "POST", selected, car.vin)
+        self._api_record(profile, operation, "cariad" if is_garage else "graphql", "GET" if is_garage else "POST", selected, car.vin)
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
-        rows = identity_rows(selected.data)
-        candidate = V3Vehicle.from_graphql(rows[0], car.country) if rows else None
+        rows = garage_rows(selected.data) if is_garage else identity_rows(selected.data)
+        candidate = (V3Vehicle.from_garage if is_garage else V3Vehicle.from_graphql)(rows[0], car.country) if rows else None
         from .vehicle import select_vehicle_image
         image_present = any(select_vehicle_image(row.get("vehicle"), car.vin) is not None
                             for row in identity_rows(response.data) if isinstance(row, dict)
                             and str(row.get("vin", "")).lower() == car.vin.lower())
         return {"operation": operation, "http_status": response.status,
                 "image_present": image_present,
-                "errors": selected.data["errors"], "vehicle_present": bool(rows),
+                "errors": selected.data.get("errors", []), "vehicle_present": bool(rows),
                 "model_present": bool(candidate and candidate.model),
                 "year_present": bool(candidate and candidate.model_year),
                 "drive_type_present": bool(candidate and candidate.car_type),
@@ -1003,6 +1039,7 @@ class V3Engine:
                                       "identity_restored": car.identity_restored,
                                       "identity_observed_at": car.identity_observed_at,
                                       "identity_operation": car.identity_operation,
+                                      "year_operation": car.year_operation,
                                       "registry_model_present": bool(car.registry_model),
                                       "vehicle_image_present": bool(car.image_url),
                                       "vehicle_image_status": car.image_status,
@@ -1079,6 +1116,7 @@ class V3Engine:
         return {
             "mode": "v3", "polling_owner": "independent_v3_discovery_engine",
             "requests": self.transport.request_count,
+            "identity_auth_context": {family: self.auth.identity_auth_evidence(family) for family in ("cariad", "graphql")} if hasattr(self.auth, "identity_auth_evidence") else {},
             "last_poll_success": self.last_cloud_poll_success.isoformat()
             if self.last_cloud_poll_success else None,
             "last_poll_succeeded": self.last_cloud_poll_succeeded,

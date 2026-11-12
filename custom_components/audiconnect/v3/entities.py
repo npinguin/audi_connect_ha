@@ -1066,6 +1066,7 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
                 "identity_restored": self.vehicle.identity_restored,
                 "identity_observed_at": self.vehicle.identity_observed_at,
                 "identity_operation": self.vehicle.identity_operation,
+                "year_operation": self.vehicle.year_operation,
                 "presentation_source": "manufacturer" if self.vehicle.model else "ha_registry_last_known" if self.vehicle.registry_model else None,
                 "vehicle_image_url": self.vehicle.image_url,
                 "vehicle_image_status": self.vehicle.image_status,

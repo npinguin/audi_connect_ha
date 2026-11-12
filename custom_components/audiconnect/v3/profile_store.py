@@ -199,8 +199,8 @@ def restore_profile(
     # Historical schema is optional evidence. Invalid records must not prevent startup.
     if isinstance(archived, dict) and len(archived) <= 64:
         for key, rows in archived.items():
-            from .transport import IDENTITY_QUERIES
-            if key not in set(V2_JOBS) | set(STANDALONE_READS) | {"inventory"} | set(IDENTITY_QUERIES):
+            from .transport import IDENTITY_OPERATIONS
+            if key not in set(V2_JOBS) | set(STANDALONE_READS) | {"inventory"} | set(IDENTITY_OPERATIONS):
                 continue
             try:
                 validate_schema_fields(rows, field_limit=512, char_limit=64000)

@@ -67,6 +67,14 @@ class CARIADExecutor:
         if method != "GET" and not explicit_action:
             raise ValueError("CARIAD mutations need direct user intent")
         resource = _checked_path(path)
+        if resource == "/vehicle/v1/vehicles":
+            if method != "GET" or body is not None or path != resource:
+                raise ValueError("Garage inventory is strictly read-only")
+            if not auth.uses_auth0 and not getattr(auth, "has_cariad_bearer", False):
+                raise ValueError("Garage inventory needs a CARIAD bearer")
+            host = "na" if auth.country == "US" else "emea"
+            return RequestPlan(self.family, method, f"https://{host}.bff.cariad.digital" + path,
+                               _headers(auth.access_token(self.family)), None)
         if not auth.uses_auth0:
             import re
             if not getattr(auth, "has_cariad_bearer", False):
