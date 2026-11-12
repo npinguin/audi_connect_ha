@@ -130,3 +130,7 @@ Attribute routes now reuse the existing validated definition renderer, retaining
 ## Audit 02 — isolate read experiments and preserve user decisions
 
 Manual attribute tests record candidate evidence only. Activation persists the selected mapping; normal polling publishes observations. A transient failure does not discard a selected route on restart. Explicit disabled data mappings remain disabled across discovery/restart; shared telemetry may still be read for other functions. Resume automatic discovery or activate a verified candidate explicitly. Control re-enable clears user disablement without creating proof or sending commands. No release authorization change.
+
+## Audit 02 — remove unproven automatic identity research
+
+Normal inventory uses the canonical original GraphQL request and validated last-known metadata. Removed automatic garage/after-garage/extended/modern recovery chain from discovery. Those definitions remain explicit Workbench research; successful manual comparison does not update production identity. Optional vehicle image delivery is a distinct product feature and retains its bounded read. Manufacturer model remains unresolved on the target vehicle; no claim of identity acceptance.

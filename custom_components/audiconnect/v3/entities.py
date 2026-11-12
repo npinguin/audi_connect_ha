@@ -693,7 +693,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         if self.attribute.get("entity_key") == "car_type" and not self.attribute.get("local"):
             from .vehicle import powertrain_identity
             return powertrain_identity(self.vehicle)["value"] is not None
-        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
+        profile = getattr(getattr(self.coordinator, "engine", None), "profiles", {}).get(self.vehicle.vin.lower())
         if profile and self.attribute["id"] in getattr(profile, "attribute_disabled", ()):
             return False
         if self.attribute.get("local") and (not profile or self.attribute["id"] not in profile.attribute_routes):
@@ -888,7 +888,7 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
             return False
-        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
+        profile = getattr(getattr(self.coordinator, "engine", None), "profiles", {}).get(self.vehicle.vin.lower())
         if profile and self.attribute["id"] in getattr(profile, "attribute_disabled", ()):
             return False
         if self.attribute.get("local") and (not profile or self.attribute["id"] not in profile.attribute_routes):

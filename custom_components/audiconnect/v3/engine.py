@@ -62,7 +62,6 @@ class V3Engine:
         self._known_vehicle_inventory = False
         self._image_probe_attempted = False
         self._image_probe_count = 0
-        self._identity_fallback_attempted = False
         from .integration_health import IntegrationHealth
         self.health = IntegrationHealth()
         self.cloud_refresh_vin: str | None = None
@@ -100,91 +99,6 @@ class V3Engine:
         excluded = {x.strip().lower() for x in str(options.get(
             CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
         )).split(",") if x.strip()}
-        from .transport import (identity_rows, selected_identity_response, GARAGE_OPERATION, POST_GARAGE_OPERATION,
-                                garage_rows, selected_garage_response)
-        fallbacks = {}
-        garage = None
-        garage_candidates = {}
-        alternatives = {}
-        reader = getattr(self.transport, "test_identity_query", None)
-        remaining = getattr(self.transport, "remaining_calls", None)
-        missing_model = False
-        for row in found:
-            try:
-                parsed = V3Vehicle.from_graphql(row, self.auth.country)
-            except (ValueError, TypeError, AttributeError):
-                continue
-            missing_model |= parsed.vin.lower() not in excluded and not (parsed.model and parsed.model_year)
-        if (reader is not None and missing_model and not self._identity_fallback_attempted
-                and (remaining is None or remaining > 20)):
-            self._identity_fallback_attempted = True
-            # First test independent CARIAD metadata. GraphQL remains the membership
-            # authority until the garage route is proven on this account.
-            try:
-                async with asyncio.timeout(8):
-                    garage = await reader(GARAGE_OPERATION)
-            except Exception:
-                garage = None
-            if garage is not None and 200 <= garage.status < 300:
-                for row in garage_rows(garage.data):
-                    try:
-                        candidate = V3Vehicle.from_garage(row, self.auth.country)
-                    except (ValueError, TypeError, AttributeError):
-                        continue
-                    if candidate.vin.lower() not in excluded:
-                        garage_candidates[candidate.vin.lower()] = candidate
-            # Repeat the original exact query after garage discovery to isolate
-            # request ordering from query/header variants.
-            for operation in (POST_GARAGE_OPERATION, "graphql.inventory.extended", "graphql.inventory.modern"):
-                if garage is not None and garage.status in (401, 403, 429):
-                    break
-                if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 20:
-                    break
-                try:
-                    async with asyncio.timeout(8):
-                        fallback = await reader(operation)
-                except Exception:
-                    continue
-                fallbacks[operation] = fallback
-                if fallback.status in (401, 403, 429):
-                    break
-                if not 200 <= fallback.status < 300:
-                    continue
-                for row in identity_rows(fallback.data):
-                    try:
-                        candidate = V3Vehicle.from_graphql(row, self.auth.country)
-                    except (ValueError, TypeError, AttributeError):
-                        continue
-                    if (candidate.model or candidate.model_year or candidate.car_type) and candidate.vin.lower() not in excluded:
-                        key = candidate.vin.lower()
-                        # Keep field-level provenance even if the first response
-                        # only contained a model year or drivetrain.
-                        if candidate.model:
-                            candidate.identity_operation = operation
-                        if candidate.model_year:
-                            candidate.year_operation = operation
-                        prior = alternatives.get(key)
-                        if prior is None:
-                            alternatives[key] = candidate
-                        else:
-                            prior.merge_identity_evidence(candidate)
-                missing = []
-                for row in found:
-                    try:
-                        candidate = V3Vehicle.from_graphql(row, self.auth.country)
-                    except (ValueError, TypeError, AttributeError):
-                        continue
-                    key = candidate.vin.lower()
-                    if key in excluded:
-                        continue
-                    if key in alternatives:
-                        candidate.merge_identity_evidence(alternatives[key])
-                    if key in garage_candidates:
-                        candidate.merge_identity_evidence(garage_candidates[key])
-                    if not (candidate.model and candidate.model_year):
-                        missing.append(key)
-                if not missing:
-                    break
         known: dict[str, V3Vehicle] = {}
         inventory_items = {}
         complete = bool(found) and getattr(self.transport, "last_inventory_complete", True)
@@ -196,12 +110,6 @@ class V3Engine:
                 continue
             if parsed.vin.lower() in excluded:
                 continue
-            alternative = alternatives.get(parsed.vin.lower())
-            if alternative is not None:
-                parsed.merge_identity_evidence(alternative)
-            candidate = garage_candidates.get(parsed.vin.lower())
-            if candidate is not None:
-                parsed.merge_identity_evidence(candidate)
             from .identity_cache import apply_cached_identity
             if parsed.vin.lower() not in self.vehicles and not parsed.model:
                 loader = getattr(self.storage, "async_identity", None)
@@ -297,12 +205,6 @@ class V3Engine:
                                       metadata.observed_at, metadata.remaining_calls, metadata.request)
                 self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
                                  response, known[vin].vin)
-                if garage is not None:
-                    self._api_record(self.profiles[vin], GARAGE_OPERATION, "cariad", "GET",
-                                     selected_garage_response(garage, known[vin].vin), known[vin].vin)
-                for operation, fallback in fallbacks.items():
-                    self._api_record(self.profiles[vin], operation, "graphql", "POST",
-                                     selected_identity_response(fallback, known[vin].vin), known[vin].vin)
         # One bounded best-effort read per runtime. The image response is
         # intentionally excluded from API observations and engineering exports.
         image_reader = getattr(self.transport, "discover_vehicle_images", None)

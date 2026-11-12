@@ -551,8 +551,8 @@ async def test_model_context_refinement_preserves_vin_trip_snapshots():
 
 
 @pytest.mark.asyncio
-async def test_garage_recovery_preserves_original_graphql_evidence_and_selected_vin():
-    from custom_components.audiconnect.v3.transport import GARAGE_OPERATION, POST_GARAGE_OPERATION, INVENTORY_OPERATION
+async def test_missing_identity_does_not_automatically_run_research_queries():
+    from custom_components.audiconnect.v3.transport import GARAGE_OPERATION, INVENTORY_OPERATION
     from unittest.mock import AsyncMock
     engine, transport, _ = engine_for()
     other = "WAUZZZ4M0MD123457"
@@ -560,42 +560,22 @@ async def test_garage_recovery_preserves_original_graphql_evidence_and_selected_
         transport.last_inventory_metadata = V3Response(200, None, datetime.now(UTC))
         return [{"vin": VIN, "vehicle": {"core":None,"media":None,"classification":None}}]
     transport.discover_vehicles = discover
-    transport.test_identity_query = AsyncMock(side_effect=[
-        V3Response(200, {"data":[{"vin":VIN,"model":"Audi Q8","modelYear":2022},
-                                  {"vin":other,"model":"Other"}]}, datetime.now(UTC)),
-        V3Response(200, {"data":{"userVehicles":[{"vin":VIN,"vehicle":{"media":None}}]}}, datetime.now(UTC)),
-    ])
-    await engine.discover()
-    car = engine.vehicles[VIN.lower()]
-    assert car.model == "Audi Q8" and car.model_year == "2022" and car.identity_operation == GARAGE_OPERATION
-    assert car.year_operation == GARAGE_OPERATION and not car.car_type
-    assert list(engine.vehicles) == [VIN.lower()]
-    assert [c.args[0] for c in transport.test_identity_query.call_args_list] == [GARAGE_OPERATION,POST_GARAGE_OPERATION]
-    profile = engine.profiles[VIN.lower()]
-    assert INVENTORY_OPERATION in profile.api_observations and POST_GARAGE_OPERATION in profile.api_observations
-    assert other not in json.dumps(engine.diagnostics())
-    assert profile.manufacturer_identity["operation"] == GARAGE_OPERATION
-
-
-@pytest.mark.asyncio
-async def test_partial_graphql_and_garage_identity_fields_are_combined_in_discovery():
-    from custom_components.audiconnect.v3.transport import GARAGE_OPERATION, POST_GARAGE_OPERATION
-    from unittest.mock import AsyncMock
-    engine, transport, _ = engine_for()
-    transport.discover_vehicles = AsyncMock(return_value=[{"vin": VIN}])
-    transport.test_identity_query = AsyncMock(side_effect=[
-        V3Response(200, {"data":[{"vin": VIN, "modelYear": 2022}]}, datetime.now(UTC)),
-        V3Response(200, {"data":{"userVehicles":[{"vin": VIN, "vehicle":{
-            "media":{"longName":"Audi Q8 TFSI e"},
-            "classification":{"driveTrain":"PHEV"}}}]}}, datetime.now(UTC)),
-    ])
+    transport.test_identity_query = AsyncMock(return_value=V3Response(
+        200, {"data":[{"vin":VIN,"model":"Audi Q8","modelYear":2022},
+                      {"vin":other,"model":"Other"}]}, datetime.now(UTC)))
     await engine.discover()
     car = engine.require_vehicle(VIN)
-    assert car.model == "Audi Q8 TFSI e" and car.model_year == "2022"
-    assert car.car_type == "phev"
-    assert car.identity_operation == POST_GARAGE_OPERATION
-    assert car.year_operation == GARAGE_OPERATION
-    assert transport.test_identity_query.await_count == 2
+    assert not car.model
+    transport.test_identity_query.assert_not_awaited()
+    profile = engine.profiles[VIN.lower()]
+    assert INVENTORY_OPERATION in profile.api_observations
+    result = await engine.test_identity_operation(VIN, GARAGE_OPERATION)
+    assert result["model_present"] and result["year_present"]
+    assert not car.model and not car.model_year
+    assert GARAGE_OPERATION in profile.api_observations
+    assert list(engine.vehicles) == [VIN.lower()]
+    assert other not in json.dumps(engine.diagnostics())
+    transport.test_identity_query.assert_awaited_once_with(GARAGE_OPERATION)
 
 
 @pytest.mark.asyncio

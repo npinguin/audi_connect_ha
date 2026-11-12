@@ -125,7 +125,7 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         # A proven V2 response field is *readable* even if the vehicle's
         # capture time is older than 60 minutes.  Activation exposes a clearly
         # marked last-known sensor, not a fresh control or lock reading.
-        if (ident not in profile.attribute_routes and ident not in profile.attribute_disabled
+        if (ident not in profile.attribute_routes and ident not in getattr(profile, "attribute_disabled", ())
                 and ATTRIBUTES[ident]["platform"] in ("sensor", "binary_sensor")):
             profile.attribute_routes[ident] = "cariad.selectivestatus.batch"
         mapped += 1
