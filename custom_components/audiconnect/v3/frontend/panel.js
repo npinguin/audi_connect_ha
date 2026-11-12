@@ -200,6 +200,10 @@ class AudiConnectV3Panel extends HTMLElement {
       this.render();
     } else if (e.target.id === "inventory-filter") {
       this.inventoryFilter = e.target.value;
+      if (this.inventoryFilter === "disabled") {
+        this.apiFamily = "all"; this.entityFilter = ""; this.searchText = "";
+        this.functionMode = "all"; this.discoveryGroup = "read_only";
+      }
       this.render();
     } else if (e.target.id === "global-search") {
       this.searchText = e.target.value.trim(); this.focusOperation = ""; if(this.searchText) this.apiFamily="all"; this.render();
@@ -889,9 +893,8 @@ class AudiConnectV3Panel extends HTMLElement {
             ${selectedCapabilityEntities.length?`<div class="callout"><b>Home Assistant entities</b><div>${this.entityLinks(selectedCapabilityEntities.flatMap(l=>l.entity_ids))}</div></div>`:""}
             ${this.category==="vehicle_identity"?`<div class="card"><h2>Vehicle Identity</h2>${[["Manufacturer model",["manufacturer_model","garage_model","garage_car_model"]],["Model family",["model_family"]],["Model year",["model_year","garage_model_year","garage_model_year_alt"]],["OEM drivetrain",["drive_train"]],["Vehicle image",["vehicle_image"]]].map(([name,keys])=>{const linked=identityOps.filter(o=>(o.mappings||[]).some(m=>keys.includes(m.attribute)));const mappings=linked.flatMap(o=>o.mappings.filter(m=>keys.includes(m.attribute)));return `<div class="attribute-row"><div><b>${escapeHTML(name)}</b><div class="subline">${mappings.some(m=>m.status==="observed")?"Observed":"Not observed"} · ${linked.length} sources</div></div><div>${linked.length?`<button data-action="identity-test" data-operation="${escapeHTML(linked[0].operation)}">Configure &amp; test</button> <button data-action="identity-evidence" data-operation="${escapeHTML(linked[0].operation)}">API Log</button>`:""}</div></div>`}).join("")}</div>`:""}
             <div class="function-tabs">${[["all","All functions"],["data","Data"],["controls","Controls"]].map(([mode,label])=>`<button data-action="function-mode" data-mode="${mode}" class="${this.functionMode===mode?"current":""}">${label}</button>`).join("")}</div>
-            <div style="display:${this.functionMode==="controls"?"none":"block"}">
             <div class="toolbar">
-              <div class="tool"><label>Show attributes</label>
+              <div class="tool"><label>Show functions</label>
                 <select id="inventory-filter">
                   <option value="available" ${this.inventoryFilter==="available"?"selected":""}>Observed on this vehicle</option>
                   <option value="all" ${this.inventoryFilter==="all"?"selected":""}>All historical and local attributes</option>
@@ -899,6 +902,7 @@ class AudiConnectV3Panel extends HTMLElement {
                 </select>
               </div>
             </div>
+            <div style="display:${this.functionMode==="controls"?"none":"block"}">
             <h2>Vehicle data <span class="muted" style="font-size:14px">· ${visibleAttributes.length} functions</span></h2>
             <details><summary>Add a vehicle-local sensor / capability group</summary>
               <p>Illustrative JSON only: replace the example job and paths with an observed Audi response. Save creates a draft, not an active sensor. Test and activate explicitly.</p>
@@ -920,7 +924,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <div><b>${escapeHTML(actionName(r.capability,r.action))}</b>
                 <div class="subline">${pill(r.binding_status==="user_disabled"?"disabled_by_user":r.status,r.binding_status==="user_disabled"?"Disabled by user":r.physical_evidence==="local_verified"?"Verified on vehicle":r.status==="verified"?"Previously verified":friendly(r.status))} ${r.enabled?pill("neutral","Enabled"):""} · ${r.candidate_count} routes</div><div class="subline">${this.entityLinks(r.entity_ids)||"No registered entity"}</div></div>
               <button data-action="select-control" data-capability="${escapeHTML(r.capability)}"
-                data-control="${escapeHTML(r.action)}" ${!r.candidate_count?"disabled":""}>Inspect & test ›</button>
+                data-control="${escapeHTML(r.action)}" ${!r.candidate_count&&r.binding_status!=="user_disabled"?"disabled":""}>Inspect & test ›</button>
             </div>`).join("")||'<p>No supported control routes for this vehicle API family.</p>'}
             <details><summary>Historical controls not yet migrated</summary>
             ${controls.filter(r=>r.capability===this.category).map(r=>`<div class="attribute-row">

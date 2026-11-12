@@ -36,6 +36,8 @@ async def test_cariad_family_scan_uses_only_three_gets_and_records_last_results(
     assert all(m=="GET" for _,m,_ in calls)
     assert result["family"]=="cariad"
     assert "cariad.discovery.full" in engine.profiles[car.vin.lower()].api_observations
+    assert not car.readings
+    assert not engine.profiles[car.vin.lower()].attribute_routes
     with pytest.raises(ValueError):
         await engine.test_family_reads(car.vin,"mbb")
 

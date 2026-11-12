@@ -438,3 +438,16 @@ test("repeated template editing proposes another identifier without changing act
   p.controlChoice=p.controlRoutes[0].id;
   assert.equal(JSON.parse(p.initialControlRoute).id,"user.charging.start.alternative_2");
 });
+
+
+test("disabled inventory is global and permits inspection without candidates", async () => {
+  const p=new Panel(); p.selected="entry";p.vin="VIN1";p.step=2;p.category="climate";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  p.apiFamily="cariad";p.functionMode="controls";p.discoveryGroup="spin";p.searchText="unrelated";
+  p.capabilityStatus={rows:[],control_actions:[
+    {capability:"charging",action:"set_target_soc",api_family:"mbb",candidate_count:0,binding_status:"user_disabled",approval_groups:[]}
+  ]};
+  await p._change({target:{id:"inventory-filter",value:"disabled"}});
+  assert.equal(p.apiFamily,"all");assert.equal(p.functionMode,"all");assert.equal(p.discoveryGroup,"read_only");
+  assert.match(p.shadowRoot.innerHTML,/data-control="set_target_soc"\s*>Inspect/);
+});

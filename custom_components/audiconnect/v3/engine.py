@@ -25,7 +25,7 @@ from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
 from .transport import V3Response, V3Transport, INVENTORY_OPERATION
 from .vehicle import V3Vehicle
-from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
+from .attribute_runtime import planned_jobs, _accept_observation
 from .custom_attributes import MAX_CUSTOM_ATTRIBUTES, attributes_for, descriptor, validate_definition
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
@@ -506,12 +506,7 @@ class V3Engine:
             outcome = "http_ok" if 200 <= response.status < 300 else "http_error"
             if family == "cariad":
                 record_jobs(profile, jobs, status=response.status, payload=response.data)
-                if outcome == "http_ok":
-                    observe_read_only(vehicle, profile, response.data, response.observed_at)
-            elif outcome == "http_ok":
-                from .legacy_values import observe_legacy
-                kind = route_id.rsplit(".", 1)[-1]
-                observe_legacy(vehicle, profile, kind, response)
+            # Research records evidence; only scheduled polling publishes readings.
             outcomes.append({"operation": route_id, "http_status": response.status,
                              "result": outcome})
             return outcome == "http_ok"
@@ -569,18 +564,13 @@ class V3Engine:
             if family == "cariad" and "selectivestatus?jobs=" in path:
                 jobs = tuple(path.rsplit("jobs=", 1)[-1].split(","))
                 record_jobs(profile, jobs, status=reply.status, payload=reply.data)
-                if outcome == "http_ok":
-                    observe_read_only(car, profile, reply.data, reply.observed_at)
-            elif family == "cariad" and outcome == "http_ok":
-                from .trips import observe_cariad_trip
-                observe_cariad_trip(car, ident, reply.data)
+            # A full engineering scan must not publish readings or trip history.
             # Individual 400/404/405/422 results are evidence; continue.
             # Account/auth/quota/server failures suspend the scan.
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 stopped = "account_or_service_error"
                 break
         await self.storage.async_save(self.profiles)
-        await self._save_trip_archive()
         self._notify_discovery_change()
         remaining = [ident for ident, _ in plan if not (
             (http := profile.api_observations.get(ident, {}).get("http_status")) is not None

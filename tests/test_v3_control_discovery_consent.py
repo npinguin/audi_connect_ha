@@ -49,4 +49,6 @@ def test_public_websocket_paths_cannot_bypass_approval():
     from pathlib import Path
     code=(Path(__file__).resolve().parents[1]/"custom_components/audiconnect/v3/dashboard.py").read_text()
     assert ".test_action(" not in code
-    assert code.count(".approved_control_discovery(")==2
+    assert code.count(".approved_control_discovery(")==1
+    assert "audiconnect/v3/control_test" in code
+    assert '"audiconnect/v3/test"' not in code
