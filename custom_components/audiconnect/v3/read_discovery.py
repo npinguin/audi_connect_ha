@@ -38,6 +38,26 @@ PROBE_GROUPS: tuple[tuple[str, ...], ...] = (
 _JOBS = frozenset(V2_JOBS)
 
 
+def explicitly_unsupported(payload):
+    """Only a job/route-level explicit negative; never a missing field or stale value.
+
+    Numeric vendor codes and vague "unavailable" are deliberately not guessed.
+    A child status error does not establish that the entire job is unsupported.
+    """
+    if not isinstance(payload, Mapping):
+        return False
+    error = payload.get("error")
+    candidates = [error] if isinstance(error, str) else [
+        error.get(key) for key in ("code", "errorCode", "type")
+    ] if isinstance(error, Mapping) else []
+    candidates += [payload.get("errorCode")]
+    return any(isinstance(value, str) and
+               "".join(c for c in value.lower() if c.isalnum()) in
+               ("notsupported", "unsupported", "jobnotsupported",
+                "capabilitynotsupported", "vehiclenotsupported", "servicenotsupported")
+               for value in candidates)
+
+
 def record_jobs(profile: Any, requested: tuple[str, ...], *,
                 status: int, payload: Any) -> None:
     """Store only response-presence evidence, never raw Audi response content."""
@@ -48,10 +68,13 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
             continue
         if status in (401, 403, 429) or status >= 500 or not isinstance(payload, dict):
             # Temporary cloud/auth errors do not mean unsupported.
-            if profile.job_discovery.get(job) != "observed":
+            if profile.job_discovery.get(job) not in ("observed", "unsupported"):
                 profile.job_discovery[job] = "inconclusive"
             continue
         top = payload.get(job)
+        if (200 <= status < 300 and explicitly_unsupported(top)):
+            profile.job_discovery[job] = "unsupported"
+            continue
         found = False
         stack = [top]
         # Some reviewed jobs return data inside a shared namespace. A timer
@@ -75,7 +98,7 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
                 stack.extend(item[:16])
         if found or any(item["job"] == job for item in profile.attribute_evidence.values()):
             profile.job_discovery[job] = "observed"
-        elif profile.job_discovery.get(job) != "observed":
+        elif profile.job_discovery.get(job) not in ("observed", "unsupported"):
             profile.job_discovery[job] = "not_observed"
 
 
@@ -85,7 +108,7 @@ def pending_groups(profile: Any, *, max_groups: int) -> list[tuple[str, ...]]:
     for group in PROBE_GROUPS:
         pending = tuple(job for job in group
                         if job in _JOBS
-                        and profile.job_discovery.get(job) != "observed"
+                        and profile.job_discovery.get(job) not in ("observed", "unsupported")
                         and profile.job_probe_attempts.get(job, 0) < 1)
         if pending:
             groups.append(pending)
@@ -105,7 +128,8 @@ def summary(profile: Any) -> dict[str, int]:
     observed = sum(profile.job_discovery.get(job) == "observed" for job in V2_JOBS)
     missing = sum(profile.job_discovery.get(job) == "not_observed" for job in V2_JOBS)
     inconclusive = sum(profile.job_discovery.get(job) == "inconclusive" for job in V2_JOBS)
-    assessed = sum(profile.job_discovery.get(job) == "observed" or
+    unsupported = sum(profile.job_discovery.get(job) == "unsupported" for job in V2_JOBS)
+    assessed = sum(profile.job_discovery.get(job) in ("observed", "unsupported") or
                    (profile.job_discovery.get(job) == "not_observed" and
                     profile.job_probe_attempts.get(job, 0) > 0) for job in V2_JOBS)
     return {
@@ -113,7 +137,8 @@ def summary(profile: Any) -> dict[str, int]:
         "assessment_percent": round(100 * assessed / len(V2_JOBS), 1),
         "observed_percent": round(100 * observed / len(V2_JOBS), 1), "observed_jobs": observed,
         "not_observed_jobs": missing, "inconclusive_jobs": inconclusive,
-        "not_scanned_jobs": len(V2_JOBS) - observed - missing - inconclusive,
+        "unsupported_jobs": unsupported,
+        "not_scanned_jobs": len(V2_JOBS) - observed - missing - inconclusive - unsupported,
         "targeted_probe_jobs": len(profile.job_probe_attempts),
     }
 
@@ -160,20 +185,31 @@ def full_read_plan(profile, context, family):
 
 STANDALONE_READS = frozenset(
     ("cariad.mobility.status.shortTerm", "cariad.mobility.status.longTerm",
-     "cariad.mobility.status.lastTrip") +
+     "cariad.mobility.status.lastTrip", "cariad.mobility.status.parkingPosition",
+     "cariad.mobility.status.tripStatistics", "mbb.trip.shortTerm", "mbb.trip.longTerm") +
     tuple("mbb.discovery." + kind for kind in
           ("charger", "climater", "vehicle_data", "preheater", "timer"))
 )
 
 
-def record_standalone_read(profile, operation, status):
+def record_standalone_read(profile, operation, status, payload=None):
     """Persist assessment, not values; a transient error cannot erase coverage."""
     if operation not in STANDALONE_READS or not hasattr(profile, "standalone_discovery"):
         return
+    unsupported = getattr(profile, "unsupported_reads", None)
+    if unsupported is not None:
+        if status in (405, 410) or (status in (200, 207, 400, 404, 422) and explicitly_unsupported(payload)):
+            unsupported.add(operation)
+        elif type(status) is int and 200 <= status < 300:
+            unsupported.discard(operation)
     if type(status) is int and (200 <= status < 300 or status in (400, 404, 405, 410, 422)):
         previous = profile.standalone_discovery.get(operation)
         if previous is None or 200 <= status < 300 or not 200 <= previous < 300:
             profile.standalone_discovery[operation] = status
+
+
+def read_excluded(profile, operation):
+    return operation in getattr(profile, "unsupported_reads", ())
 
 
 def user_progress(car, profile, auth):
@@ -190,7 +226,7 @@ def user_progress(car, profile, auth):
                              "captured" if schema.get("fields") else "not_captured")
             jobs[job] = {"status": status, "schema_inventory": schema_status,
                          "schema_field_count": len(schema.get("fields", [])),
-                         "assessed": status == "observed" or (
+                         "assessed": status in ("observed", "unsupported") or (
                 status == "not_observed" and profile.job_probe_attempts.get(job, 0) > 0)}
     reads = {}
     if "mobility" in profile.registry.capabilities and modern:
