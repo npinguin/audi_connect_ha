@@ -19,3 +19,7 @@ The seven obsolete internal branches were removed after ancestry and active-PR c
 ## Explicit experimental HACS test exception — 3.0.0b8 (2026-11-12)
 
 The maintainer requested an installable test prerelease before static parity sign-off. The one-time exception is limited to the exact b8 release-intent commit on the canonical development branch, after full CI. See `governance/B8_EXPERIMENTAL_TEST_RELEASE.json`. Do not alter parity flags, publish as latest, replace existing tags, change `main`, or reuse this exception. Normal code-complete and stable gates remain unchanged.
+
+## Explicit experimental HACS test exception — 3.0.0b9 (2026-11-12)
+
+The maintainer requested the next HACS test release after the Q8 audit. `governance/B9_EXPERIMENTAL_TEST_RELEASE.json` authorizes only the exact b9 release-intent commit, with pinned parent and full verification. No stable promotion, tag replacement, main merge or parity gate change. b8 authorization remains historical.

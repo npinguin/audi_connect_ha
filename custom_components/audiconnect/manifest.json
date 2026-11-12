@@ -11,7 +11,7 @@
     "panel_custom",
     "websocket_api"
   ],
-  "documentation": "https://github.com/npinguin/audi_connect_ha/blob/feature/v3-clean-discovery/docs/V3_ADR_001_INDEPENDENT_DISCOVERY.md",
+  "documentation": "https://github.com/npinguin/audi_connect_ha/blob/feature/v3-clean-discovery/docs/V3_ARCHITECTURE.md",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/npinguin/audi_connect_ha/issues",
@@ -21,5 +21,5 @@
   "requirements": [
     "beautifulsoup4"
   ],
-  "version": "3.0.0b8"
+  "version": "3.0.0b9"
 }

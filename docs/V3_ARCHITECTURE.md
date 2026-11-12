@@ -1,6 +1,6 @@
 # Audi Connect V3 — architecture and ownership
 
-**Baseline:** 3.0.0b8 source, consolidated commit `284230a5deb3cc0e9366e26c96c87667f2d95a68`, 12 November 2026. **Target:** architecture closure, approved design direction; implementation incomplete. V2 is still the default and rollback choice. The b8 prerelease has not been approved for publication.
+**Historical architecture baseline:** 3.0.0b8 source, consolidated commit `284230a5deb3cc0e9366e26c96c87667f2d95a68`, 12 November 2026. **Target:** architecture closure, approved design direction; implementation incomplete. V2 is still the default and rollback choice. The b8 baseline is historical; b9 is a separately authorized experimental HACS test, not stable or static parity sign-off. See current implementation progress and b9 release notes.
 
 ## Current implementation (AS-IS)
 

@@ -57,3 +57,7 @@ Retire source-proven V3-only climate capability and V3 cloud polling sensors wit
 - Active charge mode and preferred charge mode are distinct sources; the latter drives the select, not the active-mode sensor. Equivalent historical aliases are resolved from the latest real capture rather than dictionary insertion order. Existing sensor metadata and identity are preserved.
 - Restored quota values are last-known display data, not current headers or transport budget. Source and currentness are explicit attributes.
 - Native climate sends a temperature-bearing start when supported; the quick switch intentionally uses stored car settings. Both use the same command journal and verified route policy. Physical parity and migration acceptance remain open.
+
+## b9 — Q8 semantic and evidence audit
+
+Numeric contracts reject booleans, invalid percentage ranges and invalid negative remaining durations; newer invalid captures are not overwritten by older cached data. Oil level boolean uses the existing warning binary sensor. V3 metadata correction and existing HA identities are retained. The Workbench projects capability, operation, command, attribute and HA registry evidence; bounded redacted GET field inventories identify review candidates without enabling unreviewed controls or extra requests. Historical references, HTTP acceptance and physical verification remain separate. Model-specific field semantics and actual Q8 oil warning polarity require vehicle evidence. No parity flags promoted.
