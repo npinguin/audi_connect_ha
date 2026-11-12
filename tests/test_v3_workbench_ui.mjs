@@ -70,12 +70,12 @@ test("Workbench has three steps and keeps V2 backlog separate from verified attr
       status:"migration_pending",source:"v2_control_reference"},
   ]};
   panel.render();
-  assert.match(panel.shadowRoot.innerHTML,/Inventory & status/);
-  assert.match(panel.shadowRoot.innerHTML,/Select capability/);
+  assert.match(panel.shadowRoot.innerHTML,/Overview/);
+  assert.match(panel.shadowRoot.innerHTML,/Capabilities/);
   assert.match(panel.shadowRoot.innerHTML,/Configure & test/);
   assert.match(panel.shadowRoot.innerHTML,/109/);
   assert.match(panel.shadowRoot.innerHTML,/21/);
-  assert.match(panel.shadowRoot.innerHTML,/1 verified/);
+  assert.match(panel.shadowRoot.innerHTML,/1 fresh/);
   await panel._click({target:{closest:() => ({dataset:{action:"step-2"}})}});
   assert.equal(panel.step,2);
   assert.match(panel.shadowRoot.innerHTML,/state of charge/);
@@ -105,11 +105,11 @@ test("HA-native Workbench groups by the vehicle's API family", () => {
   ]};
   panel.render();
   assert.match(panel.shadowRoot.innerHTML,/ha-font-family-body/);
-  assert.match(panel.shadowRoot.innerHTML,/Step 1 \/ Automatic discovery/);
-  assert.match(panel.shadowRoot.innerHTML,/1 readable attributes/);
-  assert.match(panel.shadowRoot.innerHTML,/1 read-only attributes/);
+  assert.match(panel.shadowRoot.innerHTML,/Audi Engineering Dashboard/);
+  assert.match(panel.shadowRoot.innerHTML,/1 readable/);
+  assert.match(panel.shadowRoot.innerHTML,/1 readable/);
   panel.apiFamily="all";panel.render();
-  assert.match(panel.shadowRoot.innerHTML,/2 read-only attributes/);
+  assert.match(panel.shadowRoot.innerHTML,/\/ 2 readable/);
 });
 
 test("Wake, lock and climate are independently selectable for guarded physical testing", async () => {
@@ -123,7 +123,7 @@ test("Wake, lock and climate are independently selectable for guarded physical t
     {capability:"climate",action:"start",api_family:"cariad",candidate_count:1,status:"not_tested"},
   ]};
   p.render();
-  assert.match(p.shadowRoot.innerHTML,/wake/);
+  assert.match(p.shadowRoot.innerHTML,/Wake vehicle/);
   assert.match(p.shadowRoot.innerHTML,/Routes & test/);
   p.api=async (name,args) => {
     assert.equal(name,"control_routes");
@@ -260,10 +260,23 @@ test("cockpit separates tested operations, active bindings and physical evidence
     {operation:"test.pending",family:"cariad",method:"GET",tested:false}
   ],findings:[{severity:"warning",reason:"needs physical proof",capability:"climate"}]};
   p.render();
-  assert.match(p.shadowRoot.innerHTML,/Climate start: enabled/);
+  assert.match(p.shadowRoot.innerHTML,/Enabled controls/);
   assert.match(p.shadowRoot.innerHTML,/oil.level/);
   assert.match(p.shadowRoot.innerHTML,/test.pending/);
   await p._change({target:{id:"operation-filter",value:"attention"}});
   assert.match(p.shadowRoot.innerHTML,/test.command/);
   assert.doesNotMatch(p.shadowRoot.innerHTML,/test.pending/);
+});
+
+test("controls filter never leaks another capability and vehicle changes clear selection", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";p.step=2;p.category="climate";p.discoveryGroup="non_spin";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  p.capabilityStatus={rows:[],control_actions:[
+    {capability:"climate",action:"start",api_family:"cariad",candidate_count:1,approval_groups:["non_spin"]},
+    {capability:"charging",action:"set_target_soc",api_family:"cariad",candidate_count:1,approval_groups:["non_spin"]}
+  ]};p.render();
+  assert.match(p.shadowRoot.innerHTML,/data-control="start"/);
+  assert.doesNotMatch(p.shadowRoot.innerHTML,/data-control="set_target_soc"/);
+  p.controlAction="start";p.pending={sequence:1};p.apiHistory=[{}];p._resetVehicleSelection();
+  assert.equal(p.controlAction,"");assert.equal(p.pending,null);assert.equal(p.apiHistory.length,0);assert.equal(p.step,1);
 });
