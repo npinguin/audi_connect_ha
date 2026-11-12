@@ -151,7 +151,7 @@ async def ws_status(hass, connection, msg):
             for label, capability, action, operation, group in
             user_test_candidates(engine, vehicle, profile, include_verified=True).values()
         ]
-        coordinator = getattr(engine.entry.runtime_data, "coordinator", None)
+        coordinator = getattr(getattr(engine.entry, "runtime_data", None), "coordinator", None)
         interval = getattr(coordinator, "update_interval", None)
         report["end_user_timing"] = {"poll_interval_seconds": interval.total_seconds() if interval else None,
             "last_poll_success": engine.last_cloud_poll_success.isoformat() if engine.last_cloud_poll_success else None,
