@@ -13,3 +13,6 @@ Experimental HACS test only, subject to exact-SHA CI. Not stable or physical acc
 Back up HA, install b10, restart. Verify existing device identity, normal sensor categories, climate primary control, compatibility visibility, oil warning, charging setting eligibility, range and SoC, dashboard navigation, registry/automation history and V2 fallback. Check both new and upgraded entries. Export fresh diagnostics. User overrides are not forcibly overwritten. Known unavailable historical entities and unknown button IDs remain for investigation rather than destructive cleanup.
 
 Open: complete custom icon family, model identity, all unavailable registry entries, full capability-level freshness and schema coverage, physical Q8 and ICE/BEV acceptance. Stable gates remain closed.
+
+## Release candidate correction
+The first unpublished b10 candidate failed two regressions (minimal descriptor lookup and stale structural assertion). The corrected candidate retains source evidence gates and must pass the full CI again. No tag was created for the failed candidate.
