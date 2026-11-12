@@ -10,7 +10,7 @@ from typing import Any
 
 from .entities import (
     CONTROL_BUTTONS, V3ClimateEntity, V3ReadOnlyBinarySensor, V3TripSensor,
-    V3ReadOnlySensor, V3StatusSensor, V3CloudRefreshButton,
+    V3ReadOnlySensor, V3StatusSensor, V3CloudRefreshButton, V3TripMetricSensor,
     V3ControlButton, V3ClimateQuickSwitch, V3LockEntity,
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
     V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
@@ -19,7 +19,7 @@ from .entities import (
 from .custom_attributes import attributes_for
 from .attribute_contracts import semantic_value_issue
 from .product_contract import (CORE_STATUS_KINDS, account_cloud_refresh_vin,
-                               projection_descriptor, projection_reading, entity_key, stateful_controls, stateful_control_supported)
+                               projection_descriptor, projection_reading, entity_key, stateful_controls, stateful_control_supported, trip_metric_contracts, trip_metric_value)
 
 
 def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
@@ -78,6 +78,9 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
 
             if platform in ("sensor", "binary_sensor"):
                 if platform == "sensor":
+                    for key in trip_metric_contracts():
+                        if trip_metric_value(car, key) is not None:
+                            add_once(f"{vin}:trip_metric:{key}", V3TripMetricSensor, key)
                     for key in car.trips:
                         tag = f"{vin}:{key}"
                         if tag not in seen:

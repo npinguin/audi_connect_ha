@@ -252,3 +252,18 @@ def superseded_control_button(engine, vehicle, key):
     return any(key == "button." + button and stateful_control_supported(engine, vehicle, control)
                for control, definition in stateful_controls().items()
                for button in definition["compatibility_buttons"])
+
+
+def trip_metric_contracts():
+    """Native trip metrics derive from the product inventory, not another catalog."""
+    return {key.removeprefix("sensor."): definition["trip_metric"]
+            for key, definition in product_inventory()["entities"].items()
+            if "trip_metric" in definition}
+
+
+def trip_metric_value(vehicle, key):
+    import math
+    contract = trip_metric_contracts()[key]
+    trip = getattr(vehicle, "trips", {}).get(contract["source"], {})
+    value = trip.get(contract["field"])
+    return value if type(value) in (int, float) and math.isfinite(value) and value >= 0 else None

@@ -26,7 +26,7 @@ from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
 from .command_readback import projected_state
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
-from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category, canonical_entity_name, stateful_controls, stateful_reading, superseded_control_button
+from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category, canonical_entity_name, stateful_controls, stateful_reading, superseded_control_button, trip_metric_contracts, trip_metric_value
 
 
 def _binding_status(profile, key):
@@ -626,6 +626,36 @@ class V3TripSensor(V3BaseEntity, SensorEntity):
     def extra_state_attributes(self):
         return {k: v for k, v in self.vehicle.trips.get(self.key, {}).items()
                 if k not in ("tripID", "timestamp") and v is not None}
+
+
+class V3TripMetricSensor(V3BaseEntity, SensorEntity):
+    """A completed-trip measurement, not a continuously accruing meter."""
+    def __init__(self, coordinator, vehicle, key):
+        super().__init__(coordinator, vehicle)
+        self.key = key
+        self.contract = trip_metric_contracts()[key]
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{key}"
+        self._attr_name = canonical_entity_name("sensor." + key)
+        self._attr_native_unit_of_measurement = self.contract["unit"]
+        self._attr_suggested_display_precision = self.contract["precision"]
+        if self.contract["device_class"]:
+            self._attr_device_class = SensorDeviceClass(self.contract["device_class"])
+        # Per-trip values must never be total_increasing. Long-term trip
+        # counters can reset; do not promise lifetime-meter statistics yet.
+        self._attr_state_class = None
+
+    @property
+    def native_value(self):
+        return trip_metric_value(self.vehicle, self.key)
+
+    @property
+    def available(self):
+        return getattr(self.vehicle, "inventory_present", True) and self.native_value is not None
+
+    @property
+    def extra_state_attributes(self):
+        trip = self.vehicle.trips.get(self.contract["source"], {})
+        return {"trip_ended": trip.get("timestamp"), "trip_scope": self.contract["source"]}
 
 
 class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):

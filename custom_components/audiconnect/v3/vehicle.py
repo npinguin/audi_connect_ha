@@ -79,6 +79,7 @@ class V3Vehicle:
     active_charging_profile_id: int | None = None
     charging_profiles_captured: str | None = None
     trips: dict[str, dict[str, Any]] = field(default_factory=dict)
+    trip_history: list[dict[str, Any]] = field(default_factory=list)  # local session only
     advertised_capabilities: set[str] = field(default_factory=set)
     impaired_capabilities: set[str] = field(default_factory=set)
     v2_initial_discovery_completed: bool = False

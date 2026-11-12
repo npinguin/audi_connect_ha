@@ -126,3 +126,51 @@ def test_ambiguous_modern_electric_rate_and_zero_values():
     trip, _ = normalize_cariad_trip({"data": row})
     assert trip["averageElectricEngineConsumption"] == 0
     assert trip["totalElectricConsumption"] == 0
+
+
+def test_trip_history_is_sorted_deduplicated_and_excludes_long_term():
+    from custom_components.audiconnect.v3.trips import observe_cariad_trip
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    older = {"tripEndTimestamp":"2025-09-18T06:06:14Z", "tripType":"shortTerm",
+             "mileage_km":18, "startMileage_km":10, "overallMileage_km":28}
+    latest = {"tripEndTimestamp":"2026-11-12T06:11:53Z", "tripType":"shortTerm",
+              "mileage_km":16, "startMileage_km":28, "overallMileage_km":44}
+    observe_cariad_trip(car, "cariad.mobility.status.shortTerm", {"data":[older,latest,older]})
+    observe_cariad_trip(car, "cariad.mobility.status.lastTrip", {"data":latest})
+    observe_cariad_trip(car, "cariad.mobility.status.longTerm", {"data":{
+        **latest, "tripType":"longTerm", "mileage_km":44}})
+    assert [row["mileage"] for row in car.trip_history] == [16,18]
+    assert car.trips["shortterm_current"]["mileage"] == 16
+    assert all(row["tripID"] is None for row in car.trip_history)
+
+
+def test_native_trip_metrics_only_project_real_values_and_never_accrue_per_trip():
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    from custom_components.audiconnect.v3.trips import observe_cariad_trip
+    from custom_components.audiconnect.v3.ha_platforms import setup
+    from custom_components.audiconnect.v3.entities import V3TripMetricSensor
+    car=V3Vehicle(VIN,"Audi","Q8","q8","DE")
+    offered,listeners=[],[]
+    engine=NS(vehicles={VIN.lower():car},profiles={})
+    co=NS(engine=engine,async_add_listener=lambda cb:listeners.append(cb))
+    entry=NS(entry_id="entry",runtime_data=NS(v3=engine,coordinator=co),
+             async_on_unload=lambda cb:None)
+    setup("sensor",entry,offered.extend)
+    assert not any(isinstance(e,V3TripMetricSensor) for e in offered)
+    row={"tripEndTimestamp":"2026-11-12T06:11:53Z","mileage_km":16,
+         "travelTime":28,"averageSpeed_kmph":34,"averageFuelConsumption":2.6,
+         "averageElectricConsumption":38.5,"totalElectricConsumption_kwh":6.16,
+         "totalFuelConsumption_L":0.416}
+    observe_cariad_trip(car,"cariad.mobility.status.lastTrip",{"data":row})
+    listeners[0]()
+    listeners[0]()
+    sensors={e.key:e for e in offered if isinstance(e,V3TripMetricSensor)}
+    assert len(sensors)==7
+    assert sensors["last_trip_electric_consumption"].native_value==6.16
+    assert sensors["last_trip_electric_consumption"].native_unit_of_measurement=="kWh"
+    assert sensors["last_trip_fuel_consumption"].native_unit_of_measurement=="L"
+    assert sensors["last_trip_distance"].native_value==16
+    assert all(e.state_class is None for e in sensors.values())
+    assert all(e.entity_category is None for e in sensors.values())
+    assert len([e for e in offered if isinstance(e,V3TripMetricSensor)])==7

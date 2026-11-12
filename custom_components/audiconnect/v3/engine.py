@@ -788,6 +788,7 @@ class V3Engine:
             vehicles.append({
                 "vehicle_slot": index,
                 "trip_data_sources": len(car.trips),
+                "normalized_trip_history_count": len(car.trip_history),
                 "context": {
                     "auth": car.context.auth,
                     "region": car.country, "model_family": car.model_family,

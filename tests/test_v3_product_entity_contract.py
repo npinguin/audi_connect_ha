@@ -19,7 +19,22 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
     inventory = product_inventory()
     assert set(inventory["entities"]) == historical | {
         "sensor.last_trip", "button.v3_refresh_cloud", "switch.climate_quick_control",
-        "switch.charging", "switch.window_heating"}
+        "switch.charging", "switch.window_heating",
+        "sensor.last_trip_distance",
+        "sensor.last_trip_duration",
+        "sensor.last_trip_average_speed",
+        "sensor.last_trip_average_fuel_consumption",
+        "sensor.last_trip_average_electric_consumption",
+        "sensor.last_trip_fuel_consumption",
+        "sensor.last_trip_electric_consumption",
+        "sensor.longterm_trip_distance",
+        "sensor.longterm_trip_duration",
+        "sensor.longterm_trip_average_speed",
+        "sensor.longterm_trip_average_fuel_consumption",
+        "sensor.longterm_trip_average_electric_consumption",
+        "sensor.longterm_trip_fuel_consumption",
+        "sensor.longterm_trip_electric_consumption",
+    }
     assert all("sensor."+key not in historical for key in inventory["retired_v3_sensors"])
     for key in inventory["retired_v3_sensors"]:
         assert retired_pilot_entity(VIN+"_sensor_"+key)

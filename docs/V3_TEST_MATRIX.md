@@ -115,3 +115,5 @@ Stateful operational controls use the central capability/action bindings, explic
 Accepted-command projection tests must cover old capture, newer contradictory capture, failure, expiry, restart uncertainty, independent controls and immediate explicit stop. Never mutate telemetry or mark a command physically verified from HTTP alone. Native lock uses pending transition rather than assumed physical lock.
 
 Modern trip regression fixtures cover the actual observed b12 fields `averageElectricConsumption`, `totalElectricConsumption_kwh` and `totalFuelConsumption_L`. Explicit total units are preserved; the unsuffixed electric average is accepted only when corroborated by distance and total. Zero is valid, boolean is not numeric, and legacy scaling must not leak into modern normalization.
+
+Trip native sensors must derive from the canonical product contract and project only numeric evidence (including zero), with real units and no per-trip accumulating state class. Keep last-trip timestamp and existing identities. Historical trip arrays are normalized and deduplicated locally; never sum an overlapping long-term aggregate with short-term trips.

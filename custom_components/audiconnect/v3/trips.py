@@ -20,7 +20,8 @@ _TRIP_FIELDS = frozenset((
     "zeroEmissionDistance_km", "zeroEmissionDistance",
     "mileage", "startMileage", "overallMileage", "averageSpeed",
 ))
-_MAX_CANDIDATE_RECORDS = 100
+_MAX_CANDIDATE_RECORDS = 10000
+MAX_TRIP_HISTORY = 1000
 _MAX_CONTAINER_NODES = 30
 
 # Explicitly permitted key names, never raw JSON values or unknown keys.
@@ -139,6 +140,10 @@ def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
     if not valid:
         return None, "no_supported_timestamp_or_trip_schema"
     stamp, item = max(valid, key=lambda x: x[0])
+    return _normalize_record(stamp, item)
+
+
+def _normalize_record(stamp, item):
     distance = _number(item, ("mileage_km",), 0, 2000000)
     overall = _number(item, ("overallMileage_km",), 0, 2000000)
     starting = _number(item, ("startMileage_km",), 0, 2000000)
@@ -232,6 +237,27 @@ CARIAD_TRIP_OPERATIONS = {
 }
 
 
+def normalize_cariad_history(payload):
+    """Normalize distinct completed trips; never combine cumulative long-term rows."""
+    rows = {}
+    for record in _records(payload):
+        if record.get("error") is not None:
+            continue
+        stamp = _timestamp(record.get("tripEndTimestamp") or record.get("timestamp"))
+        if stamp is None:
+            continue
+        if record.get("tripType") not in (None, "shortTerm", "shortterm"):
+            continue
+        trip, _ = _normalize_record(stamp, record)
+        if trip is None:
+            continue
+        # Timestamp + odometer interval is sufficient for this local history.
+        # Keep no raw trip identifiers and never sum overlapping records.
+        key = (trip["timestamp"], trip["startMileage"], trip["overallMileage"])
+        rows[key] = trip
+    return sorted(rows.values(), key=lambda row: row["timestamp"], reverse=True)[:MAX_TRIP_HISTORY]
+
+
 def observe_cariad_trip(vehicle, operation, payload):
     """Single normalizer for ordinary polling and explicit engineering scans."""
     if operation not in CARIAD_TRIP_OPERATIONS:
@@ -240,6 +266,15 @@ def observe_cariad_trip(vehicle, operation, payload):
     if trip is None:
         return False
     key = CARIAD_TRIP_OPERATIONS[operation]
+    if key in ("shortterm_current", "last_trip"):
+        # Retain the normalized per-trip rows received in this session. The
+        # dedicated last-trip endpoint and historical array can overlap.
+        current = {(row["timestamp"], row["startMileage"], row["overallMileage"]): row
+                   for row in getattr(vehicle, "trip_history", ())}
+        for row in normalize_cariad_history(payload):
+            current[(row["timestamp"], row["startMileage"], row["overallMileage"])] = row
+        vehicle.trip_history = sorted(current.values(), key=lambda row: row["timestamp"],
+                                      reverse=True)[:MAX_TRIP_HISTORY]
     previous = _timestamp(vehicle.trips.get(key, {}).get("timestamp"))
     incoming = _timestamp(trip.get("timestamp"))
     if previous is not None and (incoming is None or incoming < previous):

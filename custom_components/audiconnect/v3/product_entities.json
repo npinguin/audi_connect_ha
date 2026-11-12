@@ -1021,6 +1021,216 @@
       "freshness": "native_entity_contract",
       "category": null,
       "name": "Window heating"
+    },
+    "sensor.last_trip_distance": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip distance",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "mileage",
+        "unit": "km",
+        "device_class": "distance",
+        "precision": 1
+      }
+    },
+    "sensor.last_trip_duration": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip duration",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "traveltime",
+        "unit": "min",
+        "device_class": "duration",
+        "precision": 0
+      }
+    },
+    "sensor.last_trip_average_speed": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip average speed",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "averageSpeed",
+        "unit": "km/h",
+        "device_class": "speed",
+        "precision": 1
+      }
+    },
+    "sensor.last_trip_average_fuel_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip average fuel consumption",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "averageFuelConsumption",
+        "unit": "L/100 km",
+        "device_class": null,
+        "precision": 1
+      }
+    },
+    "sensor.last_trip_average_electric_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip average electric consumption",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "averageElectricEngineConsumption",
+        "unit": "kWh/100 km",
+        "device_class": null,
+        "precision": 1
+      }
+    },
+    "sensor.last_trip_fuel_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip fuel consumption",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "totalFuelConsumption",
+        "unit": "L",
+        "device_class": "volume",
+        "precision": 3
+      }
+    },
+    "sensor.last_trip_electric_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Last trip electric consumption",
+      "trip_metric": {
+        "source": "last_trip",
+        "field": "totalElectricConsumption",
+        "unit": "kWh",
+        "device_class": "energy",
+        "precision": 3
+      }
+    },
+    "sensor.longterm_trip_distance": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip distance",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "mileage",
+        "unit": "km",
+        "device_class": "distance",
+        "precision": 1
+      }
+    },
+    "sensor.longterm_trip_duration": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip duration",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "traveltime",
+        "unit": "min",
+        "device_class": "duration",
+        "precision": 0
+      }
+    },
+    "sensor.longterm_trip_average_speed": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip average speed",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "averageSpeed",
+        "unit": "km/h",
+        "device_class": "speed",
+        "precision": 1
+      }
+    },
+    "sensor.longterm_trip_average_fuel_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip average fuel consumption",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "averageFuelConsumption",
+        "unit": "L/100 km",
+        "device_class": null,
+        "precision": 1
+      }
+    },
+    "sensor.longterm_trip_average_electric_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip average electric consumption",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "averageElectricEngineConsumption",
+        "unit": "kWh/100 km",
+        "device_class": null,
+        "precision": 1
+      }
+    },
+    "sensor.longterm_trip_fuel_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip fuel consumption",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "totalFuelConsumption",
+        "unit": "L",
+        "device_class": "volume",
+        "precision": 3
+      }
+    },
+    "sensor.longterm_trip_electric_consumption": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "last_known",
+      "name": "Long-term trip electric consumption",
+      "trip_metric": {
+        "source": "longterm_current",
+        "field": "totalElectricConsumption",
+        "unit": "kWh",
+        "device_class": "energy",
+        "precision": 3
+      }
     }
   },
   "retired_v3_sensors": [
