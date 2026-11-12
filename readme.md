@@ -21,15 +21,16 @@
 
 ## V3 — use, explore, contribute
 
-**More capabilities. Less configuration. Community-powered innovation.**
+**Configure → Discover automatically → Use. More capabilities, less configuration.**
 
 V3 builds on the original Audi Connect integration and introduces capability-driven discovery, native HA entities and an optional Engineering Dashboard. Everyday users can connect and use eligible known vehicle functions. Explorers can investigate missing data. Engineers can discover and configure new API paths, test and locally activate verified functionality where supported, and contribute reusable evidence to the community.
 
+- [Product vision, architecture, core use cases and delivery roadmap](docs/V3_ARCHITECTURE.md) — start here.
 - [Community quick start: users, explorers and engineers](docs/V3_COMMUNITY_HOWTO.md)
 - [Experimental b17 release notes](docs/V3_RELEASE_NOTES_3.0.0b17.md)
 - [Proposed upstream README section](docs/V3_UPSTREAM_README.md)
 
-V3 remains experimental; V2 is the default and fallback. No automatic physical actions during discovery.
+The goal is to configure your Audi once and use native HA entities immediately as capabilities become available. Discovery runs automatically in the background; the optional Workbench helps engineers resolve exceptions and share reviewed mappings. Guided physical verification is optional and requires explicit consent per action. V3 remains experimental; V2 is the default and rollback choice. Current development is not yet an authorized release.
 
 ## Notices
 
