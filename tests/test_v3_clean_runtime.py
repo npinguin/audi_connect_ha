@@ -660,3 +660,40 @@ async def test_targeted_jobs_do_not_overwrite_each_others_api_evidence():
     profile = engine.profiles[VIN.lower()]
     assert first["operation"] in profile.api_observations and second["operation"] in profile.api_observations
     assert route not in profile.api_observations
+
+@pytest.mark.asyncio
+async def test_engineering_review_waits_for_in_flight_dispatch():
+    import asyncio
+
+    engine, transport, _ = engine_for(
+        status(),
+        V3Response(202, {"data": {"requestID": "synthetic"}}, datetime.now(UTC)),
+    )
+    await engine.poll()
+    entered, release = asyncio.Event(), asyncio.Event()
+    original_request = transport.request
+
+    async def delayed_request(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return await original_request(*args, **kwargs)
+
+    transport.request = delayed_request
+    dispatch = asyncio.create_task(engine.test_action(
+        VIN, "start", "cariad.climate.start.stored"
+    ))
+    await asyncio.wait_for(entered.wait(), 2)
+    profile = engine.profiles[VIN.lower()]
+    review = asyncio.create_task(engine.review_action(
+        VIN, profile.discovery._active.sequence, "worked"
+    ))
+    try:
+        await asyncio.sleep(0)
+        assert not review.done()
+        assert profile.discovery._active is not None
+    finally:
+        release.set()
+        await asyncio.gather(dispatch, review)
+    assert profile.discovery._active is None
+    assert engine.control_enabled(VIN, "start")
+    assert transport.request_count == 2
