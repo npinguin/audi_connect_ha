@@ -20,7 +20,8 @@
         "legacy_values.py",
         "trips.py",
         "parking.py",
-        "status_planner.py"
+        "status_planner.py",
+        "trip_archive.py"
       ],
       "responsibility": "read-only polling and observations"
     },
