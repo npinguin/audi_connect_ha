@@ -130,10 +130,14 @@ async def test_wake_budget_and_uncertain_command_guard_remain_independent():
     with pytest.raises(RuntimeError, match="wake budget"):
         await engine.commands.send_control(VIN, "wake", "remote")
     assert len([c for c in transport.request.await_args_list if c.args[1] == "POST"]) == 1
-    engine.profiles[VIN.lower()].last_command.state = "uncertain"
+    wake = engine.profiles[VIN.lower()].last_command
+    wake.state = "uncertain"
+    wake.started_at -= 120
     with pytest.raises(RuntimeError, match="uncertain"):
-        await engine.commands.send_control(VIN, "start", "climate")
-    assert len([c for c in transport.request.await_args_list if c.args[1] == "POST"]) == 1
+        await engine.commands.send_control(VIN, "wake", "remote")
+    await engine.commands.send_control(VIN, "start", "climate")
+    assert wake.unresolved
+    assert len([c for c in transport.request.await_args_list if c.args[1] == "POST"]) == 2
 
 
 def test_wake_does_not_hide_previous_command_readback():
@@ -167,5 +171,7 @@ def test_acknowledged_wake_survives_restart_without_blocking_climate():
     rows, latest = restore_history([wake.snapshot()])
     assert latest.unresolved
     with pytest.raises(RuntimeError, match="uncertain"):
-        check_command_sequence(NS(last_command=latest, command_journal=rows), 1001,
-                               capability="climate", action="start")
+        check_command_sequence(NS(last_command=latest, command_journal=rows), 1020,
+                               capability="remote", action="wake")
+    check_command_sequence(NS(last_command=latest, command_journal=rows), 1020,
+                           capability="climate", action="start")

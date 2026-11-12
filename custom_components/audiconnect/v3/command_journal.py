@@ -181,7 +181,7 @@ def restore_history(rows):
             if record.state == "pending" or (
                 record.state == "accepted_unconfirmed"
                 and latest_by_capability[record.capability] is record
-                and not record.wake_accepted
+                and not (record.is_wake and record.backend_result == "accepted_unconfirmed")
             ):
                 record.state = "uncertain"
         elif record.state in ("pending", "accepted_unconfirmed"):
