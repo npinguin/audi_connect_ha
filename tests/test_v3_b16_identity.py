@@ -16,7 +16,8 @@ def test_graphql_partial_errors_are_scoped_and_safe():
     assert selected.data["errors"] == [{"code":"INTERNAL_SERVER_ERROR","field":"userVehicles.vehicle.core"}]
     assert other not in str(selected.data) and "private-url" not in str(selected.data)
     assert "private" not in str(selected.data)
-    assert len(IDENTITY_QUERIES) == 6
+    assert "graphql.inventory.vehicleList" in IDENTITY_QUERIES
+    assert "graphql.inventory.afterGarage" not in IDENTITY_QUERIES
 
 
 def test_registry_model_does_not_become_manufacturer_or_control_context():
