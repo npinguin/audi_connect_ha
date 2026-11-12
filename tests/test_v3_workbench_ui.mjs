@@ -545,3 +545,16 @@ test("GraphQL uses common definition editing and preserves invalid variables wit
   p.openIdentityEditor("graphql.inventory.vehicleList",true);
   assert.equal(p.definitionValue("identity",p.identityDefinition).query,"{ userVehicles { vin } }");
 });
+
+
+test("Identical GraphQL templates keep edits separate by operation", () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  const query="{ userVehicles { vin } }";
+  p.capabilityStatus={rows:[],identity_templates:{"graphql.one":query,"graphql.two":query}};
+  p.openIdentityEditor("graphql.one");
+  p.definitionEdits.set(p.definitionKey("identity",p.identityDefinition)+":query","{ userVehicles { vin role } }");
+  p.openIdentityEditor("graphql.two");
+  assert.equal(p.definitionValue("identity",p.identityDefinition).query,query);
+  p.openIdentityEditor("graphql.one");
+  assert.match(p.definitionValue("identity",p.identityDefinition).query,/role/);
+});
