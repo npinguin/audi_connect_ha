@@ -672,7 +672,7 @@ class OptionsFlowHandler(OptionsFlow):
         if user_input is not None:
             choice = user_input.get("action")
             if choice == "finish":
-                return self.async_create_entry(title="", data=dict(self.config_entry.options))
+                return self.async_create_entry(title="", data=self._pending_options or dict(self.config_entry.options))
             if choice == "refresh":
                 await self.config_entry.runtime_data.coordinator.async_request_refresh()
                 return await self.async_step_discovery()
@@ -730,7 +730,7 @@ class OptionsFlowHandler(OptionsFlow):
                     errors["base"] = "discovery_test_failed"
                 else:
                     if outcome == "uncertain":
-                        return self.async_create_entry(title="", data=dict(self.config_entry.options))
+                        return self.async_create_entry(title="", data=self._pending_options or dict(self.config_entry.options))
                     return await self.async_step_discovery()
         return self.async_show_form(step_id="discovery_review", data_schema=vol.Schema({
             vol.Required("outcome", default="uncertain"): vol.In({
@@ -748,7 +748,7 @@ class OptionsFlowHandler(OptionsFlow):
             if user_input.get("inspected"):
                 await engine.review_normal_command(car.vin, command.command_id)
                 return await self.async_step_discovery()
-            return self.async_create_entry(title="", data=dict(self.config_entry.options))
+            return self.async_create_entry(title="", data=self._pending_options or dict(self.config_entry.options))
         return self.async_show_form(step_id="discovery_recover", data_schema=vol.Schema({
             vol.Required("inspected", default=False): bool}),
             description_placeholders={"vehicle": car.name, "action": command.action})
@@ -770,8 +770,6 @@ class OptionsFlowHandler(OptionsFlow):
                 user_input.setdefault("v3_development_workbench", False)
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
             run_discovery = bool(user_input.pop("run_vehicle_discovery", False))
-            if run_discovery and user_input["runtime_version"] == "v3_climate" and self._discovery_engine() is not None:
-                return await self.async_step_discovery_vehicle()
             # On runtime switch, some HA clients submit only the changed
             # fields. Never let an absent interval prevent saving the choice.
             interval = user_input.get(
@@ -798,6 +796,9 @@ class OptionsFlowHandler(OptionsFlow):
             # OptionsFlow replaces all options; preserve per-vehicle metadata.
             if "local_dealers" in self.config_entry.options:
                 user_input["local_dealers"] = self.config_entry.options["local_dealers"]
+            if run_discovery and user_input["runtime_version"] == "v3_climate" and self._discovery_engine() is not None:
+                self._pending_options = user_input
+                return await self.async_step_discovery_vehicle()
             if edit_dealer:
                 self._pending_options = user_input
                 return await self.async_step_dealer_vehicle()
