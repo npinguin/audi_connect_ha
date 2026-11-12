@@ -320,6 +320,7 @@ class DevelopmentProfile:
         self.job_discovery: dict[str, str] = {}
         self.job_probe_attempts: dict[str, int] = {}
         self.api_observations: dict[str, dict[str, Any]] = {}
+        self.execution_reviews: list[dict[str, Any]] = []  # private, non-authorizing notes
         self.job_schema: dict[str, dict[str, Any]] = {}  # session-only structural evidence
         self.historical_job_schema: dict[str, dict[str, Any]] = {}  # non-authorizing structural archive
         self.standalone_discovery: dict[str, int] = {}
@@ -623,6 +624,7 @@ class DevelopmentProfile:
             "standalone_discovery": dict(self.standalone_discovery),
             "unsupported_reads": sorted(self.unsupported_reads),
             "api_observations": deepcopy(self.api_observations),
+            "execution_reviews": deepcopy(self.execution_reviews),
             "discovery": self.discovery.snapshot(),
         }
 
