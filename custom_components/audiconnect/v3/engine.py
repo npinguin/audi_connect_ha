@@ -876,6 +876,7 @@ class V3Engine:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
         from .capability_status import diagnostic_capability_summary, diagnostic_route_label
         from .vehicle import powertrain_identity
+        from .access_summary import access_summary
         vehicles = []
         for index, car in enumerate(self.vehicles.values(), 1):
             p = self.profiles.get(car.vin.lower())
@@ -897,6 +898,9 @@ class V3Engine:
                                       "drive_type_present": bool(car.car_type),
                                       "powertrain": powertrain_identity(car)},
                 "integration_health": self.health.snapshot(self, car),
+                "access_evidence": {kind: {key: value for key, value in access_summary(car, kind)[1].items()
+                    if key in ("freshness", "complete", "age_minutes")}
+                    for kind in ("door", "window")},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
                 "discovery_progress": self.discovery_progress(car, p) if p else {},

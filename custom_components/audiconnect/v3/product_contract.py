@@ -119,6 +119,8 @@ def entity_availability_reason(engine, uid, key, status, state_present):
     if status == "projected":
         return "available"
     if status == "projected_unknown":
+        if key == "climate.climatisation":
+            return "climate_actual_state_unknown"
         return "state_unknown"
     if status == "disabled":
         return "registry_disabled"
@@ -138,6 +140,28 @@ def entity_availability_reason(engine, uid, key, status, state_present):
     if key in ("button.flash_lights", "device_tracker.position", "sensor.park_time",
                "sensor.position_last_updated") and car.position is None:
         return "parking_position_missing"
+    # The same control decision as the actual command resolver, not an
+    # independent permission model. Never export a custom route name.
+    profile = getattr(engine, "profiles", {}).get(car.vin.lower())
+    if profile is not None and key.startswith(("button.", "climate.", "switch.", "lock.")):
+        from .control_resolution import control_decision
+        from .entities import CONTROL_BUTTONS
+        controls = [(cap, action) for button, _, _, cap, action in CONTROL_BUTTONS
+                    if key == "button." + button]
+        if key == "climate.climatisation":
+            controls = [("climate", action) for action in ("start", "stop", "start_with_settings")]
+        if key == "lock.lock":
+            controls = [("access", "lock"), ("access", "unlock")]
+        stateful = stateful_controls().get(key.removeprefix("switch.")) if key.startswith("switch.") else None
+        if stateful:
+            controls = [(stateful["capability"], stateful[action]) for action in ("on", "off")]
+        if controls:
+            decisions = [control_decision(car, profile, engine.auth, cap, action)
+                         for cap, action in controls]
+            if not any(row["operation"] for row in decisions):
+                reasons = {row["reason"] or row["status"] for row in decisions}
+                return next(iter(reasons)) if len(reasons) == 1 else "control_routes_blocked"
+            return "control_eligible_entity_state_unavailable"
     definition = product_inventory()["entities"].get(key, {})
     metric = definition.get("trip_metric")
     scope = metric["source"] if metric else key.removeprefix("sensor.") if key in (
@@ -199,7 +223,9 @@ def entity_projection_report(engine):
         counts[status] += 1
         row = {"platform": platform, "contract_key": key or "unrecognized_registry_key",
                "status": status, "offered_by_runtime": offered, "state_present": state_present,
-               "availability_reason": entity_availability_reason(engine, uid, key, status, state_present),
+               "ha_state_kind": "missing" if not state_present else state.state if state.state in ("unknown", "unavailable") else "known",
+               "availability_reason": ("button_no_press_timestamp" if platform == "button" and status == "projected"
+                   and state.state == "unknown" else entity_availability_reason(engine, uid, key, status, state_present)),
                "disabled_by": getattr(disabled, "value", None),
                "entity_category": getattr(getattr(entry, "entity_category", None), "value", None),
                "hidden_by": getattr(getattr(entry, "hidden_by", None), "value", None),

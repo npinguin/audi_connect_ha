@@ -89,6 +89,8 @@ async def ws_status(hass, connection, msg):
         report["fast_bindings"] = profile.fast_bindings
         from .product_contract import entity_projection_report
         report["account_entity_projection"] = entity_projection_report(engine)
+        if hasattr(engine, "health"):
+            report["integration_health"] = engine.health.snapshot(engine, vehicle)
         connection.send_result(msg["id"], report)
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_status_failed", str(exc))

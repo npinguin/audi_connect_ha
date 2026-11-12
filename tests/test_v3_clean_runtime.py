@@ -498,7 +498,7 @@ async def test_standalone_schema_evidence_and_discovery_export_without_trip_valu
 
 
 @pytest.mark.asyncio
-async def test_optional_vehicle_render_failure_does_not_break_identity_or_repeat():
+async def test_optional_vehicle_render_failure_does_not_break_identity_and_retries_are_bounded():
     engine, transport, _ = engine_for()
     from unittest.mock import AsyncMock
     transport.discover_vehicle_images = AsyncMock(side_effect=RuntimeError("denied"))
@@ -507,7 +507,9 @@ async def test_optional_vehicle_render_failure_does_not_break_identity_or_repeat
     assert car.model_family == "q8"
     assert car.image_status == "inconclusive"
     await engine.discover()
-    transport.discover_vehicle_images.assert_awaited_once()
+    await engine.discover()
+    await engine.discover()
+    assert transport.discover_vehicle_images.await_count == 3
     assert car.model_family == "q8"
 
 

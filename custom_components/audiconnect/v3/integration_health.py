@@ -2,6 +2,7 @@
 from datetime import UTC, datetime
 
 from .historical_catalog import V2_JOBS
+from .read_discovery import explicitly_unsupported
 
 HEALTH_STATES = ["initializing", "operational", "degraded", "rate_limited",
                  "authentication_required", "cloud_unavailable", "error"]
@@ -11,6 +12,7 @@ class IntegrationHealth:
     def __init__(self):
         self.findings = {}
         self.last = {}
+        self.history = {}
         self.poll_error = None
 
     def _record(self, vehicle, key, code, *, http=None, oem=None, retry=None):
@@ -25,11 +27,21 @@ class IntegrationHealth:
         if len(rows) > 32:
             rows.pop(next(iter(rows)))
         self.last[vehicle] = row
+        if previous is None or previous["code"] != code or previous["oem_error_code"] != oem:
+            self._history(vehicle, row)
+
+    def _history(self, vehicle, row):
+        history = self.history.setdefault(vehicle, [])
+        history.append(dict(row))
+        del history[:-20]
 
     def _recover(self, vehicle, key):
         row = self.findings.get(vehicle, {}).pop(key, None)
-        if row is not None and self.last.get(vehicle) is row:
-            self.last[vehicle] = {**row, "active": False, "recovered_at": datetime.now(UTC).isoformat()}
+        if row is not None:
+            recovered = {**row, "active": False, "recovered_at": datetime.now(UTC).isoformat()}
+            self._history(vehicle, recovered)
+            if self.last.get(vehicle) is row:
+                self.last[vehicle] = recovered
 
     def observe(self, vehicle, operation, method, response, operations):
         discovery = operation.startswith("cariad.discovery.")
@@ -49,6 +61,9 @@ class IntegrationHealth:
         for job in V2_JOBS:
             value = data.get(job)
             if not isinstance(value, dict):
+                continue
+            if explicitly_unsupported(value):
+                self._recover(vehicle, job)
                 continue
             candidates = [value, *[v for v in value.values() if isinstance(v, dict)]]
             errors = [v["error"] for v in candidates if isinstance(v.get("error"), dict)]
@@ -70,7 +85,7 @@ class IntegrationHealth:
         limited = ((remaining is not None and remaining <= getattr(quota, "reserve", 8))
                    or (retry_at is not None and retry_at > datetime.now(UTC)))
         poll = engine.last_cloud_poll_succeeded
-        identity = "last_known" if car.identity_restored else "observed" if car.model else "missing"
+        identity = "last_known" if getattr(car, "identity_restored", False) else "observed" if car.model else "missing"
         if self.poll_error == "authentication_required":
             state = self.poll_error
         elif limited:
@@ -91,4 +106,6 @@ class IntegrationHealth:
                 "cloud_poll_succeeded": poll, "quota_remaining": remaining,
                 "identity_status": identity, "active_findings": findings,
                 "active_error_count": len(findings),
-                "last_error": dict(last) if last else None, "poll_error": self.poll_error}
+                "last_error": dict(last) if last else None, "poll_error": self.poll_error,
+                "error_history": [dict(row) for row in self.history.get(key, [])],
+                "history_scope": "current_runtime"}
