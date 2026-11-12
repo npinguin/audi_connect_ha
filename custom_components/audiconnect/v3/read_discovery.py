@@ -356,7 +356,7 @@ def user_test_candidates(engine, car, profile):
             continue
         decision = control_decision(car, profile, engine.auth, capability, action)
         operation = decision["operation"]
-        if not operation or operation in profile.custom:
+        if not operation or operation in profile.custom or decision["status"] == "local_verified":
             continue
         op = profile.registry.operations[operation]
         group = approval_group(capability, action, op)
