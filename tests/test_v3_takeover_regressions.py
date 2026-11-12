@@ -72,3 +72,18 @@ def test_schema_per_job_preserves_window_location_enum_and_redacts_geography():
     assert not truncated
     assert any(row["path"].endswith("windowLocation") for row in fields)
     assert not any("latitude" in row["path"] for row in fields)
+
+
+def test_generic_charging_does_not_authorize_unobserved_parameter_writes():
+    from custom_components.audiconnect.v3.command_policy import eligible_operation
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    car.advertised_capabilities.add("charging")
+    auth = SimpleNamespace(uses_auth0=True, service=SimpleNamespace(_spin=None))
+    for aspect in ("set_target_soc", "set_charge_mode", "set_location_charge_target"):
+        assert eligible_operation(car, auth, "charging", aspect) is None
+    assert eligible_operation(car, auth, "charging", "start") == "cariad.charging.start"
+    car.readings["targetstateOfCharge"] = {"value": 80}
+    car.readings["availableChargeModes"] = {"value": ["manual", "timer"]}
+    car.charging_profiles = [{"id": 1, "targetSOC_pct": 70}]
+    for aspect in ("set_target_soc", "set_charge_mode", "set_location_charge_target"):
+        assert eligible_operation(car, auth, "charging", aspect) is not None
