@@ -17,7 +17,7 @@ from .historical_catalog import ATTRIBUTES, capture_time, read_path, V2_JOBS
 from .legacy_read_mappings import FIELDS as MBB_FIELDS, ROUTES as MBB_ROUTES
 from .api_value_mappings import normalize_api_value
 from .read_discovery import (record_jobs, pending_groups, reserve_group,
-                             MAX_EXTRA_INITIAL_REQUESTS, MAX_EXTRA_PERIODIC_REQUESTS)
+                             MAX_EXTRA_INITIAL_REQUESTS, MAX_EXTRA_PERIODIC_REQUESTS, read_excluded)
 from .status_planner import status_groups
 
 
@@ -84,6 +84,8 @@ class StatusEngine:
         reachable = False
         for kind, template in ROUTES.items():
             key = (car.vin.lower(), kind)
+            if read_excluded(profile, "mbb.discovery." + kind):
+                continue
             if self._poll_cycles < self._legacy_route_backoff.get(key, 0):
                 continue
             if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
@@ -130,6 +132,7 @@ class StatusEngine:
         if last is not None and now - last < 10800:
             return
         self._trip_poll_at[key] = now
+        profile = self.profiles[key]
         if car.context.auth == "legacy":
             from .trips import normalize_mbb_trips
             from datetime import timedelta
@@ -137,11 +140,14 @@ class StatusEngine:
             query = urlencode({"type":"list", "from":"1970-01-01T00:00:00Z",
                 "to":(datetime.now(UTC)+timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")})
             for kind in ("shortTerm", "longTerm"):
+                if read_excluded(profile, "mbb.trip." + kind):
+                    continue
                 try:
                     reply = await self.transport.request("mbb","GET",
                         f"/api/bs/tripstatistics/v1/vehicles/{car.vin}/tripdata/{kind}?{query}")
                 except (RuntimeError,ValueError,OSError,TimeoutError):
                     break
+                self._api_record(profile, "mbb.trip." + kind, "mbb", "GET", reply, car.vin)
                 if reply.status in (401,403,429) or reply.status>=500:
                     break
                 if not 200<=reply.status<300:
@@ -155,8 +161,8 @@ class StatusEngine:
             return
         profile = self.profiles[car.vin.lower()]
         available = profile.registry.resolve("mobility", "status", car.context)["available_operations"] if "mobility" in profile.registry.capabilities else ()
-        for ident in CARIAD_TRIP_OPERATIONS:
-            if ident not in available:
+        for ident in (*CARIAD_TRIP_OPERATIONS, "cariad.mobility.status.tripStatistics"):
+            if ident not in available or read_excluded(profile, ident):
                 continue
             remaining = self.transport.remaining_calls
             if remaining is not None and remaining <= 12:
@@ -171,7 +177,10 @@ class StatusEngine:
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 break
             if 200 <= reply.status < 300:
-                observe_cariad_trip(car, ident, reply.data)
+                if ident == "cariad.mobility.status.tripStatistics":
+                    observe_read_only(car, profile, reply.data, reply.observed_at)
+                else:
+                    observe_cariad_trip(car, ident, reply.data)
 
     async def poll(self) -> list[V3Vehicle]:
         self.last_cloud_poll_attempt = datetime.now(UTC)
@@ -194,7 +203,7 @@ class StatusEngine:
                 continue
             profile = self.profiles[key]
             if vehicle.context.auth == "legacy" and len(profile.registry.capabilities) > 1:
-                if vehicle.legacy_cariad:
+                if vehicle.legacy_cariad and planned_jobs(vehicle, profile):
                     # V2 reads selective-status even on its legacy IDK session.
                     path = f"/vehicle/v1/vehicles/{vehicle.vin}/selectivestatus?jobs={','.join(planned_jobs(vehicle,profile))}"
                     try:
@@ -221,6 +230,12 @@ class StatusEngine:
                     if profile.custom.get(ident, {}).get("variables"):
                         continue
                     op = profile.registry.operations[ident]
+                    if read_excluded(profile, ident):
+                        continue
+                    if "{JOBS}" in op["path"] and not planned_jobs(vehicle, profile):
+                        continue
+                    if "selectivestatus?jobs=" in op["path"] and "{JOBS}" not in op["path"] and profile.job_discovery.get(op["path"].split("jobs=", 1)[1]) == "unsupported":
+                        continue
                     if op["method"] != "GET" or op["family"] not in ("cariad", "mbb"):
                         continue
                     # MBB legacy variants have distinct semantics and may cost a
@@ -318,7 +333,7 @@ class StatusEngine:
             if not car.inventory_present:
                 continue
             profile = self.profiles[key]
-            if car.context.auth != "auth0" or len(profile.registry.capabilities) <= 1:
+            if (car.context.auth != "auth0" and not car.legacy_cariad) or len(profile.registry.capabilities) <= 1:
                 continue  # Pilot-only synthetic tests and legacy cars are unaffected.
             if not profile.job_discovery:
                 continue  # No successful bulk GET yet; don't spray blind requests.
@@ -463,8 +478,7 @@ class StatusEngine:
                 continue
             tracker=f"{car.vin.lower()}_device_tracker_position"
             enabled=(tracker in trackers and trackers[tracker] is None)
-            discovered=(tracker not in trackers and "parkingPosition" in car.advertised_capabilities
-                        and "parkingPosition" not in car.impaired_capabilities)
+            discovered=tracker not in trackers  # No separate approval for read-only discovery.
             if (car.context.auth != "auth0" and not car.legacy_cariad) or not (enabled or discovered):
                 continue
             if (self.transport.remaining_calls is not None
@@ -472,7 +486,7 @@ class StatusEngine:
                 return
             ident = "cariad.mobility.status.parkingPosition"
             profile = self.profiles[car.vin.lower()]
-            if ident not in profile.registry.operations:
+            if ident not in profile.registry.operations or read_excluded(profile, ident):
                 continue
             family, method, path, _ = self._operation_request(car, ident)
             try:
