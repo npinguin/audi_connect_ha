@@ -53,6 +53,7 @@ class StatusEngine:
         self._api_record = api_record
         self.last_cloud_poll_success = None
         self.last_cloud_poll_attempt = None
+        self.last_cloud_poll_succeeded = None
         self._poll_cycles = 0
         self._trip_poll_at = {}
         self._legacy_route_backoff = {}
@@ -168,6 +169,7 @@ class StatusEngine:
 
     async def poll(self) -> list[V3Vehicle]:
         self.last_cloud_poll_attempt = datetime.now(UTC)
+        self.last_cloud_poll_succeeded = False
         self._poll_cycles += 1
         if not self._inventory_ready() or self._poll_cycles % 24 == 0:
             await self.discover()
@@ -287,7 +289,11 @@ class StatusEngine:
                                 profile.choose_working(capability, "status", ident)
                             if ident != batch or chosen in (None, ident) or len(profile.registry.capabilities) <= 1:
                                 break
-                        # A stale value can lead to another distinct bounded GET.
+                        # A genuine stale capture is not a routing failure. Only
+                        # missing timestamp/mapping or an explicitly selected route
+                        # warrants further work.
+                        if captured is not None and (chosen is None or chosen == ident or chosen not in routes):
+                            break
                         continue
                     if response.status in (401, 403, 429) or response.status >= 500:
                         break
@@ -362,6 +368,7 @@ class StatusEngine:
         # Retain the V2 GPS tracker contract without adding a new cloud poller.
         if self._poll_cycles == 1 or self._poll_cycles % 12 == 0:
             await self._poll_parked_positions()
+        self.last_cloud_poll_succeeded = cloud_reachable
         if cloud_reachable:
             self.last_cloud_poll_success = datetime.now(UTC)
             # Existing historical trip entities or explicitly reported trip

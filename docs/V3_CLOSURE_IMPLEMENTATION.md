@@ -43,3 +43,7 @@ The admin Workbench can define a new vehicle-local read-only attribute and capab
 ### HA binary metadata parity
 
 All 23 V2 binary sensor names, device classes, icons and categories are captured independently and compared against actual V2 descriptions in the HA projection tests. The baseline distinguishes raw fixture values, metadata and physical Q8 evidence. Legacy timer payloads and CARIAD reset-history semantics remain unverified; do not fabricate data or promote static/full parity flags.
+
+### Entity and refresh rationalisation after b8 diagnostics
+
+Retire source-proven V3-only climate capability and V3 cloud polling sensors with an exact ID migration, preserving registry/history and user-disabled entries. One account cloud-refresh button retains the first VIN's historical unique ID; duplicate per-VIN controls are retired, vehicle refresh is explicitly named and wake is opt-in for new registry entries. Cloud health derives from real poll success, not local listener notification. A valid stale timestamp does not itself trigger an alternate GET. Restore 49 explicit V2 sensor icons; retain intentional V3 category changes. Model year is read from trusted GraphQL core metadata; remote engine control fails closed without model or drivetrain. Old Start/Stop climate button identities require exact registry evidence; no name-based deletion.

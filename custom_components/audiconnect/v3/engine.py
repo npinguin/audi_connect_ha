@@ -89,6 +89,10 @@ class V3Engine:
     def last_cloud_poll_attempt(self):
         return self.status.last_cloud_poll_attempt
 
+    @property
+    def last_cloud_poll_succeeded(self):
+        return self.status.last_cloud_poll_succeeded
+
     async def discover(self) -> None:
         """Own vehicle discovery. No V2 vehicle updates or extra poll task."""
         found = await self.transport.discover_vehicles()
@@ -114,6 +118,8 @@ class V3Engine:
                 vehicle.model_family = parsed.model_family
             if parsed.car_type:
                 vehicle.car_type = parsed.car_type
+            if parsed.model_year:
+                vehicle.model_year = parsed.model_year
             vehicle.country = parsed.country
             vehicle.inventory_present = True
             vehicle.inventory_misses = 0
@@ -535,8 +541,9 @@ class V3Engine:
 
     def _notify_discovery_change(self) -> None:
         coordinator = getattr(getattr(self.entry, "runtime_data", None), "coordinator", None)
-        if coordinator is not None and hasattr(coordinator, "async_set_updated_data"):
-            coordinator.async_set_updated_data(list(self.vehicles.values()))
+        if coordinator is not None and hasattr(coordinator, "async_update_listeners"):
+            # Local evidence changes are not a successful cloud update.
+            coordinator.async_update_listeners()
         if coordinator is not None and hasattr(self.hass, "async_create_task"):
             from .registry_lifecycle import async_apply_v3_entity_visibility
             self.hass.async_create_task(
@@ -607,7 +614,8 @@ class V3Engine:
                                 else "unknown"
                             ),
                             "schema_valid": evidence.get("schema_valid", False),
-                            "timestamp_present": evidence.get("fresh", False),
+                            "fresh": evidence.get("fresh", False),
+                            "timestamp_present": evidence.get("timestamp_present"),
                         }
                         for ident, evidence in (
                             p.read_results.items() if p else ()
@@ -637,6 +645,8 @@ class V3Engine:
             "requests": self.transport.request_count,
             "last_poll_success": self.last_cloud_poll_success.isoformat()
             if self.last_cloud_poll_success else None,
+            "last_poll_succeeded": self.last_cloud_poll_succeeded,
+            "last_poll_attempt": self.last_cloud_poll_attempt.isoformat() if self.last_cloud_poll_attempt else None,
             "quota_remaining": self.transport.remaining_calls,
             "vehicles": vehicles,
         }

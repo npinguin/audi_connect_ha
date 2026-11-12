@@ -17,6 +17,7 @@ from .entities import (
     V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor,
 )
 from .custom_attributes import attributes_for
+from .product_contract import CORE_STATUS_KINDS, account_cloud_refresh_vin
 
 
 def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
@@ -43,14 +44,15 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     entities.append(factory(coordinator, car, *args))
 
             if platform == "sensor":
-                for kind in ("cloud", "age", "freshness", "capability", "poll"):
+                for kind in CORE_STATUS_KINDS:
                     add_once(f"{vin}:core:{kind}", V3StatusSensor, kind)
                 for kind in ("local_dealer", "service_overview"):
                     add_once(f"{vin}:local:{kind}", V3LocalServiceSensor, kind)
                 if "account:quota" not in seen:
                     add_once("account:quota", V3ApiQuotaSensor, entry.entry_id)
             elif platform == "button":
-                add_once(f"{vin}:cloud_refresh", V3CloudRefreshButton)
+                if vin == account_cloud_refresh_vin(engine.vehicles):
+                    add_once("account:cloud_refresh", V3CloudRefreshButton)
             elif platform == "climate":
                 add_once(f"{vin}:climate", V3ClimateEntity)
             elif platform == "device_tracker":

@@ -28,6 +28,11 @@ from .vehicle import V3Vehicle
 from .attribute_contracts import contract_for, binary_contract_for
 
 
+def _binding_status(profile, key):
+    return (getattr(profile, "fast_bindings", {}).get(key, {}).get("status", "unknown")
+            if profile is not None else "unknown")
+
+
 class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
     _attr_has_entity_name = True
 
@@ -42,6 +47,8 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
     @property
     def device_info(self) -> DeviceInfo:
         name = self.vehicle.model.removeprefix("Audi ").strip() or "Audi"
+        if self.vehicle.model_year:
+            name = f"{name} ({self.vehicle.model_year})"
         return DeviceInfo(
             identifiers={(DOMAIN, self.vehicle.vin.lower())},
             manufacturer="Audi",
@@ -162,8 +169,10 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
             "vehicle_captured": self.vehicle.climate_captured.isoformat()
             if self.vehicle.climate_captured else None,
             "age_minutes": self.vehicle.capture_age_minutes,
-            "start_tested": engine.control_enabled(self.vehicle.vin, "start"),
-            "stop_tested": engine.control_enabled(self.vehicle.vin, "stop"),
+            "start_enabled": engine.control_enabled(self.vehicle.vin, "start"),
+            "stop_enabled": engine.control_enabled(self.vehicle.vin, "stop"),
+            "start_evidence": _binding_status(profile, "climate.start"),
+            "stop_evidence": _binding_status(profile, "climate.stop"),
             "last_command": self.vehicle.last_command_result,
             "active_paths": len(profile.active) if profile else 0,
         }
@@ -213,16 +222,12 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
             "cloud": "cloud_last_successful_poll",
             "age": "vehicle_data_age",
             "freshness": "vehicle_data_freshness",
-            "capability": "v3_climate_capability",
-            "poll": "v3_poll_status",
         }
         self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{identifiers[kind]}"
         self._attr_name = {
             "cloud": "Cloud last successful poll",
             "age": "Vehicle data age",
             "freshness": "Vehicle data freshness",
-            "capability": "Climate capability",
-            "poll": "V3 cloud polling",
         }[kind]
 
     @property
@@ -261,16 +266,7 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
                 return age
             return ("unknown" if age is None else "fresh" if age <= 30
                     else "delayed" if age <= 120 else "stale")
-        if self.kind == "poll":
-            return "online" if self.coordinator.last_update_success else "failed"
-        if self.vehicle.climate_state is None:
-            return "unknown"
-        age = self.vehicle.capture_age_minutes
-        if age is None or age > 60:
-            return "stale_status"
-        if self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
-            return "status_and_control"
-        return "status_only"
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -286,23 +282,17 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
                 "cloud_last_attempt": (
                     engine.last_cloud_poll_attempt.isoformat()
                     if engine.last_cloud_poll_attempt else None),
-                "last_cloud_poll_succeeded": bool(self.coordinator.last_update_success),
+                "last_cloud_poll_succeeded": getattr(engine, "last_cloud_poll_succeeded",
+                                                        self.coordinator.last_update_success),
                 "freshness_basis": "newest_vehicle_timestamp_not_all_fields",
             }
-        if self.kind == "poll":
+        if self.kind == "cloud":
             return {
-                "requests": engine.transport.request_count,
-                "remaining_api_calls": engine.transport.remaining_calls,
+                "cloud_poll_succeeded": getattr(engine, "last_cloud_poll_succeeded",
+                                                 self.coordinator.last_update_success),
                 "last_attempt": engine.last_cloud_poll_attempt.isoformat()
                 if engine.last_cloud_poll_attempt else None,
-                "last_success": engine.last_cloud_poll_success.isoformat()
-                if engine.last_cloud_poll_success else None,
-            }
-        if self.kind == "capability":
-            return {
-                "start_enabled": engine.control_enabled(self.vehicle.vin, "start"),
-                "stop_enabled": engine.control_enabled(self.vehicle.vin, "stop"),
-                "status_api": self.vehicle.climate_source,
+                "requests": engine.transport.request_count if hasattr(engine.transport, "request_count") else None,
             }
         return {}
 
@@ -417,7 +407,7 @@ class V3ApiQuotaSensor(V3BaseEntity, RestoreSensor):
 
 
 class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):
-    _attr_name = "Refresh Audi cloud"
+    _attr_name = "Refresh cloud data"
     _attr_icon = "mdi:cloud-refresh"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -477,6 +467,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         self._allow_last_known = contract.get("display_last_known", False) is True
         self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
         self._attr_native_unit_of_measurement = contract.get("unit")
+        self._attr_icon = contract.get("icon")
         if contract.get("device_class"):
             self._attr_device_class = SensorDeviceClass(contract["device_class"])
         if contract.get("state_class"):
@@ -517,7 +508,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         freshness = (
             "unknown" if captured_age is None
             else "fresh" if captured_age <= 60
-            else "stale_last_known"
+            else "stale_last_known" if self._allow_last_known else "stale"
         )
         return {
             "v3_capability": self.attribute["capability"],
@@ -632,7 +623,7 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
 # The workbench always shows unverified candidates without injecting unusable
 # lock/button/switch entities into a customer's HA device.
 CONTROL_BUTTONS = (
-    ("refresh_vehicle_data", "Refresh vehicle data", "mdi:cloud-refresh", "remote", "refresh"),
+    ("refresh_vehicle_data", "Request fresh vehicle data", "mdi:cloud-refresh", "remote", "refresh"),
     ("flash_lights", "Flash lights", "mdi:car-light-high", "remote", "flash"),
     ("start_engine", "Start engine", "mdi:car-key", "remote", "engine_start"),
     ("stop_engine", "Stop engine", "mdi:car-off", "remote", "engine_stop"),
@@ -650,6 +641,10 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
         super().__init__(coordinator, vehicle)
         self.key, self._attr_name, self._attr_icon, self.capability, self.action = descriptor
         self._attr_unique_id = f"{vehicle.vin.lower()}_button_{self.key}"
+        if self.key == "refresh_vehicle_data":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        if self.key == "wake_vehicle_modern":
+            self._attr_entity_registry_enabled_default = False
 
     @property
     def available(self) -> bool:
@@ -667,8 +662,9 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
         profile = self.coordinator.engine.profiles.get(self.vehicle.vin.lower())
         return {
             "v3_capability": self.capability,
-            "api_route": profile.active.get(f"{self.capability}.{self.action}") if profile else None,
-            "confirmation": "manual_vehicle_test",
+            "api_route": (getattr(profile, "fast_bindings", {}).get(f"{self.capability}.{self.action}", {}).get("operation")
+                          if profile else None),
+            "binding_evidence": _binding_status(profile, f"{self.capability}.{self.action}"),
             "last_command": self.vehicle.last_command_result,
         }
 

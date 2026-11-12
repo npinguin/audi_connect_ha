@@ -38,7 +38,10 @@ class V3CleanCoordinator(DataUpdateCoordinator[list[V3Vehicle]]):
 
     async def _async_update_data(self) -> list[V3Vehicle]:
         try:
-            return await self.engine.poll()
+            vehicles = await self.engine.poll()
+            if self.engine.last_cloud_poll_succeeded is False:
+                raise UpdateFailed("Audi cloud returned no successful status response")
+            return vehicles
         except ConfigEntryAuthFailed:
             raise
         except Exception as err:

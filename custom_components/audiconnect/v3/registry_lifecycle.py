@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
+from .product_contract import retired_pilot_entity, account_cloud_refresh_vin
 
 
 async def async_apply_v3_entity_visibility(
@@ -39,6 +40,21 @@ async def async_apply_v3_entity_visibility(
         if (current is not None
                 and current.disabled_by == er.RegistryEntryDisabler.INTEGRATION):
             registry.async_update_entity(entity_id, disabled_by=None)
+
+    # Retire only source-proven V3 pilot IDs, never a historical V2 entity.
+    # Keep registry records and user choices for rollback and manual recovery.
+    runtime = getattr(entry, "runtime_data", None)
+    engine = getattr(runtime, "v3", None)
+    primary = account_cloud_refresh_vin(engine.vehicles) if engine is not None else None
+    for entity_id in owned:
+        current = registry.async_get(entity_id)
+        unique_id = getattr(current, "unique_id", "")
+        duplicate_refresh = bool(primary and unique_id.endswith("_button_v3_refresh_cloud")
+                                 and unique_id[:-len("_button_v3_refresh_cloud")] in engine.vehicles
+                                 and unique_id != f"{primary}_button_v3_refresh_cloud")
+        if current is not None and (retired_pilot_entity(unique_id) or duplicate_refresh):
+            if current.disabled_by is None:
+                registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
 
     # Once existing migration changes have been restored, never create fresh
     # disable records again. An unavailable entity is not a missing registry ID.

@@ -18,6 +18,7 @@ class V3Vehicle:
     model_family: str
     country: str
     car_type: str = ""
+    model_year: str = ""
     auth_family: str = "auth0"
     legacy_cariad: bool = False
     legacy_api_level: int = 0
@@ -52,6 +53,9 @@ class V3Vehicle:
         if not isinstance(model, str):
             model = ""
         family = "q8" if model.strip().lower().startswith(("audi q8", "q8")) else ""
+        core = vehicle.get("core") if isinstance(vehicle.get("core"), dict) else {}
+        year = str(core.get("modelYear") or "")
+        year = year if len(year) == 4 and year.isdigit() and 1980 <= int(year) <= 2100 else ""
         nickname = item.get("nickname")
         title = nickname if isinstance(nickname, str) and nickname.strip() else model
         classification = vehicle.get("classification")
@@ -62,7 +66,7 @@ class V3Vehicle:
         return cls(
             vin=vin.upper(), name=title or "Audi vehicle", model=model,
             model_family=family, country=country,
-            car_type=str(drive).lower() if drive is not None else "",
+            car_type=str(drive).lower() if drive is not None else "", model_year=year,
         )
 
     @property
