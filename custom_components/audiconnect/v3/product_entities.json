@@ -530,7 +530,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "diagnostic"
+      "category": "diagnostic",
+      "name": "Vehicle data freshness"
     },
     "sensor.vehicle_data_age": {
       "origin": "v2",
@@ -538,7 +539,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "diagnostic"
+      "category": "diagnostic",
+      "name": "Vehicle data age"
     },
     "sensor.cloud_last_successful_poll": {
       "origin": "v2",
@@ -546,21 +548,24 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "diagnostic"
+      "category": "diagnostic",
+      "name": "Cloud last successful poll"
     },
     "sensor.local_dealer": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Dealer"
     },
     "sensor.service_overview": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Service overview"
     },
     "sensor.api_requests_remaining": {
       "origin": "v2",
@@ -568,7 +573,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "diagnostic"
+      "category": "diagnostic",
+      "name": "API requests remaining"
     },
     "binary_sensor.plug_state": {
       "origin": "v2",
@@ -783,70 +789,80 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": null
+      "category": null,
+      "name": "Request fresh vehicle data"
     },
     "button.flash_lights": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Flash lights"
     },
     "button.start_charging_modern": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Start charging"
     },
     "button.stop_charging_modern": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Stop charging"
     },
     "button.start_window_heating_modern": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Start window heating"
     },
     "button.stop_window_heating_modern": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Stop window heating"
     },
     "button.wake_vehicle_modern": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Wake vehicle"
     },
     "button.start_engine": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Start engine"
     },
     "button.stop_engine": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Stop engine"
     },
     "switch.preheater_active": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Auxiliary heating"
     },
     "switch.climatisation_window_heating": {
       "origin": "v2",
@@ -854,7 +870,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Climate window heating enabled"
     },
     "switch.climatisation_at_unlock": {
       "origin": "v2",
@@ -862,7 +879,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Climate at unlock"
     },
     "switch.climatisation_zone_front_left": {
       "origin": "v2",
@@ -870,7 +888,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Climate front left zone"
     },
     "switch.climatisation_zone_front_right": {
       "origin": "v2",
@@ -878,7 +897,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Climate front right zone"
     },
     "switch.climatisation_zone_rear_left": {
       "origin": "v2",
@@ -886,7 +906,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Climate rear left zone"
     },
     "switch.climatisation_zone_rear_right": {
       "origin": "v2",
@@ -894,7 +915,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Climate rear right zone"
     },
     "number.target_state_of_charge": {
       "origin": "v2",
@@ -902,7 +924,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Target state of charge"
     },
     "number.active_charging_profile_target_soc": {
       "origin": "v2",
@@ -910,7 +933,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Current location charge target"
     },
     "number.charge_profile_{profile_id}_target_soc": {
       "origin": "v2",
@@ -918,7 +942,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Profile {profile_id} charge target"
     },
     "select.charge_mode": {
       "origin": "v2",
@@ -926,21 +951,24 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "config"
+      "category": "config",
+      "name": "Preferred charge mode"
     },
     "climate.climatisation": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Climate"
     },
     "lock.lock": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Central locking"
     },
     "device_tracker.position": {
       "origin": "v2",
@@ -948,21 +976,24 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": null
+      "category": null,
+      "name": "Position"
     },
     "sensor.last_trip": {
       "origin": "v3_product_extension",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Last trip"
     },
     "switch.climate_quick_control": {
       "origin": "v3_product_extension",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "name": "Climate power"
     },
     "button.v3_refresh_cloud": {
       "origin": "v3_product_extension",
@@ -970,7 +1001,8 @@
       "source_attributes": [],
       "metadata_contract": null,
       "freshness": "native_entity_contract",
-      "category": "diagnostic"
+      "category": "diagnostic",
+      "name": "Refresh cloud data"
     }
   },
   "retired_v3_sensors": [

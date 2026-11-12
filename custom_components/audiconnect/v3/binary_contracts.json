@@ -3,19 +3,19 @@
   "source": "V3 product semantics; historical binary identities retained",
   "attributes": {
     "plug_state": {
-      "name": "Plug state",
+      "name": "Charging plug",
       "device_class": "plug",
       "icon": "mdi:ev-plug-type2",
       "category": null
     },
     "plug_lock_state": {
-      "name": "Plug Lock state",
+      "name": "Charging plug lock",
       "device_class": "lock",
       "icon": null,
       "category": null
     },
     "glass_surface_heating": {
-      "name": "Glass Surface Heating",
+      "name": "Window heating",
       "device_class": "running",
       "icon": "mdi:car-defrost-front",
       "category": null
@@ -27,7 +27,7 @@
       "category": null
     },
     "roof_cover": {
-      "name": "Roof Cover",
+      "name": "Roof cover",
       "device_class": "window",
       "icon": null,
       "category": null
@@ -45,7 +45,7 @@
       "category": null
     },
     "any_door_unlocked": {
-      "name": "Doors lock",
+      "name": "Door locks",
       "device_class": "lock",
       "icon": null,
       "category": null

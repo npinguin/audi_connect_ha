@@ -88,3 +88,16 @@ def test_product_diagnostic_allowlist_is_explicit_and_vehicle_properties_are_not
     }
     assert canonical_entity_category("device_tracker.position") is None
     assert canonical_entity_category("button.refresh_vehicle_data") is None
+
+
+def test_every_builtin_product_identity_has_clean_functional_label():
+    from custom_components.audiconnect.v3.product_contract import canonical_entity_name
+    import re
+    for key in product_inventory()["entities"]:
+        label = canonical_entity_name(key)
+        assert label, key
+        assert not re.search(r"\(|\)|\b(cariad|mbb|compatibility|experimental|legacy|pilot|v2|v3)\b", label, re.I), (key,label)
+        assert label[0].isupper(), (key,label)
+    assert canonical_entity_name("sensor.last_trip") == "Last trip"
+    assert canonical_entity_name("sensor.next_climatisation_timer_local") == "Next climate timer"
+    assert canonical_entity_name("sensor.hybrid_range") == "Combined range"

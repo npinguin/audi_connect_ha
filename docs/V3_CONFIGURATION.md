@@ -37,3 +37,7 @@ Cabin climate is one native climate entity, preserving its original identity. Mo
 A dispatched climate setpoint is distinguished from the last reported vehicle target. A newer vehicle capture supersedes the requested setpoint; a rejected command does not change the displayed target. Disabling the temperature-bearing route must not block ordinary climate on via the stored-settings route.
 
 The three existing modern trip endpoints are in the mobility catalog and use the same normalizer in regular polling and full read-only scans. Ordinary parking/trip results now participate in masked engineering evidence without extra calls. Legacy MBB trip-date queries remain separate pending template consolidation; no location values are exported in diagnostics.
+
+### Product names
+
+All built-in entity names are functional, independent of API family and migration status. Source and compatibility details remain engineering metadata. Registry migration updates only integration-owned original labels, including unavailable records; user names, unique IDs and entity IDs are preserved. Hidden compatibility records remain available for existing automations and may still appear with Home Assistant's own Hidden indicator in administrative views. V2 implementation remains untouched.

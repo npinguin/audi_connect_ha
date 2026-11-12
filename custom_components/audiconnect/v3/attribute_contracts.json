@@ -93,7 +93,7 @@
       "icon": "mdi:map-marker-distance"
     },
     "vehicle_lights": {
-      "name": "vehicle lights",
+      "name": "Vehicle lights",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -103,7 +103,7 @@
       "icon": "mdi:car-light-high"
     },
     "door_lock_status": {
-      "name": "door lock status",
+      "name": "Door lock status",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -113,7 +113,7 @@
       "icon": "mdi:car-door-lock"
     },
     "car_type": {
-      "name": "Car Type",
+      "name": "Vehicle type",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -123,7 +123,7 @@
       "icon": "mdi:car-info"
     },
     "engine_type_first_engine": {
-      "name": "engine type first engine",
+      "name": "Primary engine type",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -153,7 +153,7 @@
       "icon": "mdi:gauge"
     },
     "engine_type_second_engine": {
-      "name": "engine type second engine",
+      "name": "Secondary engine type",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -183,7 +183,7 @@
       "icon": "mdi:gauge"
     },
     "hybrid_range": {
-      "name": "Combined range (compatibility)",
+      "name": "Combined range",
       "unit": "km",
       "device_class": "distance",
       "state_class": "measurement",
@@ -243,7 +243,7 @@
       "icon": "mdi:speedometer"
     },
     "charge_type": {
-      "name": "charge type",
+      "name": "Charging type",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -253,7 +253,7 @@
       "icon": "mdi:ev-station"
     },
     "target_state_of_charge": {
-      "name": "Target State of charge",
+      "name": "Target state of charge",
       "unit": "%",
       "device_class": null,
       "state_class": "measurement",
@@ -263,7 +263,7 @@
       "icon": "mdi:ev-station"
     },
     "remaining_charging_time": {
-      "name": "Remaining charge time",
+      "name": "Remaining charging time",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -274,7 +274,7 @@
       "icon": "mdi:timer"
     },
     "external_power": {
-      "name": "External Power",
+      "name": "External power",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -284,7 +284,7 @@
       "icon": "mdi:power-plug"
     },
     "plugled_color": {
-      "name": "plugled color",
+      "name": "Plug LED color",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -294,7 +294,7 @@
       "icon": "mdi:ev-plug-type2"
     },
     "climatisation_state": {
-      "name": "Climate state (compatibility)",
+      "name": "Climate state",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -324,7 +324,7 @@
       "icon": "mdi:thermometer"
     },
     "climatisation_target_temperature_f": {
-      "name": "Climate target temperature (Fahrenheit)",
+      "name": "Climate target temperature in Fahrenheit",
       "unit": "°F",
       "device_class": "temperature",
       "state_class": null,
@@ -364,7 +364,7 @@
       "icon": "mdi:battery"
     },
     "climatisation_zone_front_left": {
-      "name": "Climate zone front left",
+      "name": "Climate front left zone",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -374,7 +374,7 @@
       "icon": "mdi:car-seat"
     },
     "climatisation_zone_front_right": {
-      "name": "Climate zone front right",
+      "name": "Climate front right zone",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -384,7 +384,7 @@
       "icon": "mdi:car-seat"
     },
     "climatisation_zone_rear_left": {
-      "name": "Climate zone rear left",
+      "name": "Climate rear left zone",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -394,7 +394,7 @@
       "icon": "mdi:car-seat"
     },
     "climatisation_zone_rear_right": {
-      "name": "Climate zone rear right",
+      "name": "Climate rear right zone",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -464,7 +464,7 @@
       "icon": "mdi:update"
     },
     "shortterm_current": {
-      "name": "ShortTerm Trip Data",
+      "name": "Short-term trip data",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,
@@ -473,7 +473,7 @@
       "display_last_known": true
     },
     "shortterm_reset": {
-      "name": "ShortTerm Trip User Reset",
+      "name": "Short-term trip data since reset",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,
@@ -482,7 +482,7 @@
       "display_last_known": true
     },
     "longterm_current": {
-      "name": "LongTerm Trip Data",
+      "name": "Long-term trip data",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,
@@ -491,7 +491,7 @@
       "display_last_known": true
     },
     "longterm_reset": {
-      "name": "LongTerm Trip User Reset",
+      "name": "Long-term trip data since reset",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,
@@ -530,7 +530,7 @@
       "icon": "mdi:transmission-tower"
     },
     "max_charge_current": {
-      "name": "Max charge current",
+      "name": "Maximum charging current",
       "unit": "A",
       "device_class": "current",
       "state_class": "measurement",
@@ -560,7 +560,7 @@
       "icon": "mdi:engine"
     },
     "charging_complete_time": {
-      "name": "Charging Complete Time",
+      "name": "Charging completion time",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,
@@ -570,7 +570,7 @@
       "icon": "mdi:battery-charging"
     },
     "plug_led_color": {
-      "name": "Plug LED Color",
+      "name": "Plug LED color",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -580,7 +580,7 @@
       "icon": "mdi:ev-plug-type2"
     },
     "doors_trunk_status": {
-      "name": "Doors/trunk state",
+      "name": "Doors and trunk status",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -590,7 +590,7 @@
       "icon": "mdi:car-door"
     },
     "outdoor_temperature": {
-      "name": "Outdoor Temperature",
+      "name": "Outdoor temperature",
       "unit": "°C",
       "device_class": "temperature",
       "state_class": "measurement",
@@ -600,7 +600,7 @@
       "icon": "mdi:temperature-celsius"
     },
     "park_time": {
-      "name": "Park Time",
+      "name": "Park time",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,
@@ -610,7 +610,7 @@
       "icon": "mdi:car-clock"
     },
     "position_last_updated": {
-      "name": "Position Last Updated",
+      "name": "Position last updated",
       "unit": null,
       "device_class": "timestamp",
       "state_class": null,
@@ -620,7 +620,7 @@
       "icon": "mdi:map-marker-clock"
     },
     "preheater_duration": {
-      "name": "Preheater runtime",
+      "name": "Auxiliary heating duration",
       "unit": "min",
       "device_class": "duration",
       "state_class": "measurement",
@@ -630,7 +630,7 @@
       "icon": "mdi:timer"
     },
     "preheater_remaining": {
-      "name": "Preheater remaining",
+      "name": "Auxiliary heating remaining time",
       "unit": "min",
       "device_class": "duration",
       "state_class": "measurement",
@@ -640,7 +640,7 @@
       "icon": "mdi:timer"
     },
     "active_charging_profile_target_soc": {
-      "name": "Active Charging Profile Target SoC",
+      "name": "Active charging profile target",
       "unit": "%",
       "device_class": null,
       "state_class": "measurement",
@@ -650,7 +650,7 @@
       "icon": "mdi:map-marker-check"
     },
     "active_charging_profile_name": {
-      "name": "Active Charging Profile",
+      "name": "Active charging profile",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -660,7 +660,7 @@
       "icon": "mdi:map-marker"
     },
     "active_charging_profile_min_soc": {
-      "name": "Active Charging Profile Min SoC",
+      "name": "Active charging profile minimum charge",
       "unit": "%",
       "device_class": null,
       "state_class": "measurement",
@@ -670,7 +670,7 @@
       "icon": "mdi:battery-alert-variant-outline"
     },
     "preferred_charging_time_start": {
-      "name": "Preferred Charging Window Start",
+      "name": "Preferred charging window start",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -680,7 +680,7 @@
       "icon": "mdi:clock-start"
     },
     "preferred_charging_time_end": {
-      "name": "Preferred Charging Window End",
+      "name": "Preferred charging window end",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -700,7 +700,7 @@
       "icon": "mdi:calendar-clock"
     },
     "next_climatisation_timer_local": {
-      "name": "Climate next timer (vehicle local time)",
+      "name": "Next climate timer",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -710,7 +710,7 @@
       "icon": "mdi:calendar-start"
     },
     "charging_timer_enabled_count": {
-      "name": "Charging Timers Enabled",
+      "name": "Charging timers enabled",
       "unit": null,
       "device_class": null,
       "state_class": null,

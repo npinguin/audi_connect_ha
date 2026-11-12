@@ -236,3 +236,28 @@ def test_b10_registry_migration_preserves_user_choices_and_restores_owned_change
     assert quick.disabled_by is None
     assert user.hidden_by == er.RegistryEntryHider.USER
     assert disabled.disabled_by == er.RegistryEntryDisabler.USER
+
+
+def test_registry_product_names_clean_unavailable_and_preserve_user_name(monkeypatch):
+    MemoryStore.state = {}
+    vin = "wauzzz4m0md123456"
+    rows = [NS(entity_id="sensor."+key, unique_id=vin+"_sensor_"+key,
+               original_name=old, name=user, entity_category=None, hidden_by=None, disabled_by=None)
+            for key, old, user in (
+                ("last_trip", "Last trip (CARIAD)", None),
+                ("next_climatisation_timer_local", "Next Climate Timer (Car Local Time)", None),
+                ("hybrid_range", "Combined range (compatibility)", "My custom range"),
+            )]
+    entries = {row.entity_id:row for row in rows}
+    def update(entity_id, **changes):
+        for key, value in changes.items():
+            setattr(entries[entity_id], key, value)
+    registry=NS(async_get=entries.get, async_update_entity=update)
+    monkeypatch.setattr(lifecycle,"Store",MemoryStore)
+    monkeypatch.setattr(lifecycle.er,"async_get",lambda _:registry)
+    monkeypatch.setattr(lifecycle.er,"async_entries_for_config_entry",lambda *_:rows)
+    entry=NS(entry_id="abc",runtime_data=NS(v3=NS(vehicles={vin:NS(readings={},inventory_present=True)})))
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,True))
+    assert [row.original_name for row in rows] == ["Last trip","Next climate timer","Combined range"]
+    assert rows[2].name == "My custom range"
+    assert rows[2].entity_id == "sensor.hybrid_range"

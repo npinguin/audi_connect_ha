@@ -25,7 +25,7 @@ from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
-from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category
+from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category, canonical_entity_name
 
 
 def _binding_status(profile, key):
@@ -95,7 +95,7 @@ async def _send_climate(coordinator, vehicle, action, params=None):
 
 class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     """Native cabin climate: actual state, explicit on/off, optional setpoint."""
-    _attr_name = "Climate"
+    _attr_name = canonical_entity_name("climate.climatisation")
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
@@ -270,9 +270,9 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
         }
         self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{identifiers[kind]}"
         self._attr_name = {
-            "cloud": "Cloud last successful poll",
-            "age": "Vehicle data age",
-            "freshness": "Vehicle data freshness",
+            "cloud": canonical_entity_name("sensor.cloud_last_successful_poll"),
+            "age": canonical_entity_name("sensor.vehicle_data_age"),
+            "freshness": canonical_entity_name("sensor.vehicle_data_freshness"),
         }[kind]
 
     @property
@@ -365,7 +365,7 @@ class V3LocalServiceSensor(V3BaseEntity, SensorEntity):
         super().__init__(coordinator, vehicle)
         self.kind = kind
         self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{kind}"
-        self._attr_name = "Dealer (local)" if kind == "local_dealer" else "Service overview"
+        self._attr_name = canonical_entity_name("sensor." + kind)
         self._attr_icon = "mdi:store" if kind == "local_dealer" else "mdi:car-wrench"
 
     @property
@@ -421,7 +421,7 @@ class V3LocalServiceSensor(V3BaseEntity, SensorEntity):
 
 class V3ApiQuotaSensor(V3BaseEntity, RestoreSensor):
     """One account-level HA entity; never multiply quota sensors per VIN."""
-    _attr_name = "API requests remaining"
+    _attr_name = canonical_entity_name("sensor.api_requests_remaining")
     _attr_icon = "mdi:api"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -471,7 +471,7 @@ class V3ApiQuotaSensor(V3BaseEntity, RestoreSensor):
 
 
 class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):
-    _attr_name = "Refresh cloud data"
+    _attr_name = canonical_entity_name("button.v3_refresh_cloud")
     _attr_icon = "mdi:cloud-refresh"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -526,12 +526,8 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         self._attr_entity_registry_visible_default = not compatibility_hidden(vehicle, "sensor." + attribute["entity_key"])
         self._semantic_contract = contract
         self._allow_last_known = contract.get("display_last_known", False) is True
-        self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
-        for role in ("primary", "secondary"):
-            if attribute["entity_key"] == role + "_engine_range":
-                kind = engine_role(vehicle, role)
-                if kind:
-                    self._attr_name = "Electric range" if kind == "electric" else "Fuel range"
+        self._attr_name = (contract.get("name") if attribute.get("local") else
+                           canonical_entity_name("sensor." + attribute["entity_key"], vehicle)) or attribute["entity_key"].replace("_", " ").capitalize()
         self._attr_native_unit_of_measurement = contract.get("unit")
         self._attr_icon = contract.get("icon")
         if contract.get("device_class"):
@@ -603,13 +599,7 @@ class V3TripSensor(V3BaseEntity, SensorEntity):
         super().__init__(coordinator, vehicle)
         self.key = key
         self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{key}"
-        self._attr_name = {
-            "shortterm_current": "ShortTerm Trip Data",
-            "shortterm_reset": "ShortTerm Trip User Reset",
-            "longterm_current": "LongTerm Trip Data",
-            "longterm_reset": "LongTerm Trip User Reset",
-            "last_trip": "Last trip (CARIAD)",
-        }[key]
+        self._attr_name = canonical_entity_name("sensor." + key)
 
     @property
     def native_value(self):
@@ -635,7 +625,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
         self.attribute = attribute
         self._attr_unique_id = f'{vehicle.vin.lower()}_binary_sensor_{attribute["entity_key"]}'
         contract = attribute.get("contract") or binary_contract_for(attribute["entity_key"])
-        self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
+        self._attr_name = (contract.get("name") if attribute.get("local") else
+                           canonical_entity_name("binary_sensor." + attribute["entity_key"], vehicle)) or attribute["entity_key"].replace("_", " ").capitalize()
         if contract.get("device_class"):
             self._attr_device_class = BinarySensorDeviceClass(contract["device_class"])
         self._attr_icon = contract.get("icon")
@@ -697,15 +688,15 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
 # The workbench always shows unverified candidates without injecting unusable
 # lock/button/switch entities into a customer's HA device.
 CONTROL_BUTTONS = (
-    ("refresh_vehicle_data", "Request fresh vehicle data", "mdi:cloud-refresh", "remote", "refresh"),
-    ("flash_lights", "Flash lights", "mdi:car-light-high", "remote", "flash"),
-    ("start_engine", "Start engine", "mdi:car-key", "remote", "engine_start"),
-    ("stop_engine", "Stop engine", "mdi:car-off", "remote", "engine_stop"),
-    ("wake_vehicle_modern", "Wake vehicle", "mdi:car-connected", "remote", "wake"),
-    ("start_charging_modern", "Start charging", "mdi:ev-station", "charging", "start"),
-    ("stop_charging_modern", "Stop charging", "mdi:ev-station", "charging", "stop"),
-    ("start_window_heating_modern", "Start window heating", "mdi:car-defrost-rear", "climate", "window_heating_start"),
-    ("stop_window_heating_modern", "Stop window heating", "mdi:car-defrost-rear", "climate", "window_heating_stop"),
+    ("refresh_vehicle_data", canonical_entity_name("button.refresh_vehicle_data"), "mdi:cloud-refresh", "remote", "refresh"),
+    ("flash_lights", canonical_entity_name("button.flash_lights"), "mdi:car-light-high", "remote", "flash"),
+    ("start_engine", canonical_entity_name("button.start_engine"), "mdi:car-key", "remote", "engine_start"),
+    ("stop_engine", canonical_entity_name("button.stop_engine"), "mdi:car-off", "remote", "engine_stop"),
+    ("wake_vehicle_modern", canonical_entity_name("button.wake_vehicle_modern"), "mdi:car-connected", "remote", "wake"),
+    ("start_charging_modern", canonical_entity_name("button.start_charging_modern"), "mdi:ev-station", "charging", "start"),
+    ("stop_charging_modern", canonical_entity_name("button.stop_charging_modern"), "mdi:ev-station", "charging", "stop"),
+    ("start_window_heating_modern", canonical_entity_name("button.start_window_heating_modern"), "mdi:car-defrost-rear", "climate", "window_heating_start"),
+    ("stop_window_heating_modern", canonical_entity_name("button.stop_window_heating_modern"), "mdi:car-defrost-rear", "climate", "window_heating_stop"),
 )
 
 
@@ -755,7 +746,7 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
 
 
 class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
-    _attr_name = "Climate (compatibility)"
+    _attr_name = canonical_entity_name("switch.climate_quick_control")
     _attr_entity_registry_visible_default = False
     _attr_entity_registry_enabled_default = False
     _attr_icon = "mdi:car-air-conditioner"
@@ -795,7 +786,7 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
 
 
 class V3LockEntity(V3BaseEntity, LockEntity):
-    _attr_name = "Central locking"
+    _attr_name = canonical_entity_name("lock.lock")
     _attr_icon = "mdi:car-door-lock"
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
@@ -854,7 +845,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
 class V3ParkedTracker(V3BaseEntity, TrackerEntity):
     """V2-compatible GPS entity for the car's last PARKED position, not live GPS."""
 
-    _attr_name = "Position"
+    _attr_name = canonical_entity_name("device_tracker.position")
     _attr_entity_category = None
     _attr_icon = "mdi:car"
     _attr_should_poll = False
@@ -914,7 +905,7 @@ class V3ParkedTracker(V3BaseEntity, TrackerEntity):
 class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
     """V2 global charge-target identity; command gated by V3 route evidence."""
 
-    _attr_name = "Target state of charge"
+    _attr_name = canonical_entity_name("number.target_state_of_charge")
     _attr_entity_category = EntityCategory(canonical_entity_category("number.target_state_of_charge"))
     _attr_device_class = NumberDeviceClass.BATTERY
     _attr_native_unit_of_measurement = PERCENTAGE
@@ -965,8 +956,8 @@ class V3LocationChargeTargetNumber(V3ChargeTargetNumber):
         key = ("active_charging_profile_target_soc" if profile_id is None
                else f"charge_profile_{profile_id}_target_soc")
         self._attr_unique_id = f"{vehicle.vin.lower()}_number_{key}"
-        self._attr_name = ("Current location charge target" if profile_id is None
-                           else f"Profile {profile_id} charge target")
+        self._attr_name = (canonical_entity_name("number.active_charging_profile_target_soc") if profile_id is None
+                           else canonical_entity_name("number.charge_profile_{profile_id}_target_soc").format(profile_id=profile_id))
 
     @property
     def native_value(self):
@@ -1005,7 +996,7 @@ CLIMATE_SWITCHES = (
 
 class V3PreheaterSwitch(V3BaseEntity, SwitchEntity):
     """Historical preheater control, never infer state from cabin climate."""
-    _attr_name = "Preheater"
+    _attr_name = canonical_entity_name("switch.preheater_active")
     _attr_icon = "mdi:radiator"
 
     def __init__(self, coordinator, vehicle):
@@ -1053,8 +1044,7 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
         super().__init__(coordinator, vehicle)
         key, self.reading, self.field = descriptor
         self._attr_unique_id = f"{vehicle.vin.lower()}_switch_{key}"
-        metadata_key = "climatisation_window_heating_enabled" if key == "climatisation_window_heating" else key
-        self._attr_name = contract_for(metadata_key).get("name") or key.replace("_", " ").capitalize()
+        self._attr_name = canonical_entity_name("switch." + key)
 
     @property
     def is_on(self):
@@ -1086,7 +1076,7 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
 class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
     """V2 select identity, independent preferred-mode source and command gate."""
 
-    _attr_name = "Preferred charge mode"
+    _attr_name = canonical_entity_name("select.charge_mode")
     _attr_entity_category = EntityCategory(canonical_entity_category("select.charge_mode"))
     _attr_icon = "mdi:battery-clock"
 

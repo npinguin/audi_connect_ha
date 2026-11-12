@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
-from .product_contract import retired_pilot_entity, account_cloud_refresh_vin, entity_key, compatibility_hidden, canonical_entity_category, product_inventory
+from .product_contract import retired_pilot_entity, account_cloud_refresh_vin, entity_key, compatibility_hidden, canonical_entity_category, product_inventory, canonical_entity_name
 from homeassistant.const import EntityCategory
 
 
@@ -104,6 +104,12 @@ async def async_apply_v3_entity_visibility(
         if car is None and (not definition or definition.get("scope") != "account"):
             continue
         updates = {}
+        # Refresh only integration-owned original labels, even when no runtime
+        # entity is currently offered. Never rewrite a user name or entity ID.
+        label = canonical_entity_name(key, car)
+        if (label and "{profile_id}" not in label and hasattr(current, "original_name")
+                and current.original_name != label):
+            updates["original_name"] = label
         desired = canonical_entity_category(key)
         if definition is not None:
             category = EntityCategory(desired) if desired else None

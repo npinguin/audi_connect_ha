@@ -205,3 +205,23 @@ def engine_role(vehicle, role):
     return "electric" if value == "electric" else "fuel" if value in (
         "gasoline", "diesel", "petrol", "cng", "lpg"
     ) else None
+
+
+def canonical_entity_name(key, vehicle=None):
+    """Integration-owned product label; source, lifecycle and API family are metadata."""
+    from .attribute_contracts import binary_contract_for, contract_for
+    definition = product_inventory()["entities"].get(key)
+    if definition is None:
+        return None
+    platform, _, entity = key.partition(".")
+    if vehicle is not None and entity in ("primary_engine_range", "secondary_engine_range"):
+        role = engine_role(vehicle, entity.split("_", 1)[0])
+        if role:
+            return "Electric range" if role == "electric" else "Fuel range"
+    if definition.get("name"):
+        return definition["name"]
+    if platform == "sensor":
+        return contract_for(entity).get("name")
+    if platform == "binary_sensor":
+        return binary_contract_for(entity).get("name")
+    return None
