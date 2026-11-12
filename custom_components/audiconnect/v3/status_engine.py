@@ -39,6 +39,16 @@ def _captured(data: Any, path: str | None) -> str | None:
     return None
 
 
+def identity_retry_due(vehicles, poll_cycle, remaining_calls):
+    """Bounded read-only inventory recovery after an incomplete first result."""
+    if poll_cycle not in (2, 4, 8) or (
+            remaining_calls is not None and remaining_calls <= 12):
+        return False
+    return any(car.inventory_present and
+               not all((car.model, car.model_family, car.model_year, car.car_type))
+               for car in vehicles.values())
+
+
 class StatusEngine:
     def __init__(self, *, hass, entry, auth, transport, storage, vehicles, profiles,
                  discover, known_inventory, operation_request, api_record):
@@ -169,6 +179,11 @@ class StatusEngine:
         self._poll_cycles += 1
         if not self._inventory_ready() or self._poll_cycles % 24 == 0:
             await self.discover()
+        elif identity_retry_due(self.vehicles, self._poll_cycles, self.transport.remaining_calls):
+            try:
+                await self.discover()
+            except (RuntimeError, ValueError, OSError, TimeoutError):
+                pass  # An optional identity retry must not stop normal telemetry.
         cloud_reachable = False
         # Reuse identical GET responses across capabilities on the same car.
         # API family + VIN + exact path is the request identity; a route change
