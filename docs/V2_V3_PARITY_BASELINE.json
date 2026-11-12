@@ -2108,8 +2108,8 @@
       "v2_dynamic": false,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "Historical V2 button not reproduced in V3.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 control implemented and capability-gated. Real vehicle acceptance remains open; engine explicitly excludes Q8/PHEV and requires OEM capability and S-PIN.",
       "priority": "P1",
       "q8_v3_verified": false
     },
@@ -2123,8 +2123,8 @@
       "v2_dynamic": false,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "Historical V2 button not reproduced in V3.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 control implemented and capability-gated. Real vehicle acceptance remains open; engine explicitly excludes Q8/PHEV and requires OEM capability and S-PIN.",
       "priority": "P1",
       "q8_v3_verified": false
     },
@@ -2138,8 +2138,8 @@
       "v2_dynamic": false,
       "historical_ids": [],
       "historical_paths": [],
-      "v3_implementation": "missing",
-      "notes": "V2 writable switch not exposed in V3.",
+      "v3_implementation": "partial",
+      "notes": "Independent V3 control implemented and capability-gated. Real vehicle acceptance remains open; engine explicitly excludes Q8/PHEV and requires OEM capability and S-PIN.",
       "priority": "P1",
       "q8_v3_verified": false
     },
@@ -3957,7 +3957,7 @@
     {
       "name": "Preheater on/off",
       "covered_by": "switch.preheater_active, service.execute_vehicle_action",
-      "current_gap": "V3 preheater controls not implemented; legacy MBB POST blocked",
+      "current_gap": "V3 native command/control implemented; CARIAD live verification and legacy parity remain open.",
       "priority": "P1",
       "acceptance": "Legacy auth, security and status readback",
       "status": "open_not_q8_proven"
@@ -3981,7 +3981,7 @@
     {
       "name": "Start/Stop engine",
       "covered_by": "button.start_engine/button.stop_engine, service.start_engine/service.stop_engine",
-      "current_gap": "V3 absent; V2 feature gated and model-specific",
+      "current_gap": "V3 native command/control implemented; CARIAD live verification and legacy parity remain open.",
       "priority": "P2",
       "acceptance": "Never auto-enable on Q8 without OEM capability and risk review",
       "status": "open_not_q8_proven"
@@ -4086,7 +4086,7 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. All four fork-only engineering probe actions are removed from both runtime service surfaces. Legacy controls, complete derived-data parity and real integration coverage still open.",
+  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. All four fork-only engineering probe actions are removed from both runtime service surfaces. Legacy controls, complete derived-data parity and real integration coverage still open. Native preheater switch and scoped remote engine commands added; no real car acceptance claimed.",
   "product_scope_exclusions": {
     "temporary_runtime_probes": [
       "probe_api_paths",

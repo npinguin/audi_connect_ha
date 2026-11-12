@@ -23,6 +23,25 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         # Derived observations need no extra API route; HA setup can see them
         # directly while the original batch job remains in the polling plan.
 
+    # Historical auxiliary-heating status is distinct from electric cabin
+    # climatisation. Do not infer heating from a generic climate state.
+    path = "climatisation.auxiliaryHeatingStatus.value"
+    auxiliary = read_json_path(payload, path)
+    if isinstance(auxiliary, dict):
+        stamp = auxiliary.get("carCapturedTimestamp")
+        state = auxiliary.get("climatisationState")
+        if isinstance(state, str):
+            state = state.strip().lower()
+            active = True if state in ("heating", "on", "active") else (
+                False if state in ("off", "inactive", "stopped") else None
+            )
+            record("preheater_active", active, stamp, "climatisation", path)
+        for ident, field in (("preheater_duration", "climatisationDuration"),
+                             ("preheater_remaining", "remainingClimateTime")):
+            value = auxiliary.get(field)
+            if type(value) is int and value >= 0:
+                record(ident, value, stamp, "climatisation", path)
+
     # Derive native access booleans from explicit status enums, not from
     # absence of a "closed" token (unknown must never mean open/unlocked).
     path = "access.accessStatus.value"

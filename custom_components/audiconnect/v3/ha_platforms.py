@@ -14,6 +14,7 @@ from .entities import (
     V3ControlButton, V3ClimateQuickSwitch, V3LockEntity,
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
     V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
+    V3PreheaterSwitch,
 )
 from .historical_catalog import ATTRIBUTES
 
@@ -108,6 +109,13 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                         entities.append(V3LocationChargeTargetNumber(
                             coordinator, car, profile_id))
             elif platform == "switch":
+                preheater = f"{vin}:preheater_active"
+                if preheater not in seen and any(
+                    engine.control_enabled(car.vin, aspect, "climate")
+                    for aspect in ("preheater_start", "preheater_stop")
+                ):
+                    seen.add(preheater)
+                    entities.append(V3PreheaterSwitch(coordinator, car))
                 for descriptor in CLIMATE_SWITCHES:
                     key, reading, _ = descriptor
                     tag = f"{vin}:{key}"

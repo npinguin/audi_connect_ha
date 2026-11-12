@@ -180,7 +180,8 @@ class V3Engine:
         mode = op.get("request_mode")
         if mode in {"charging_settings_update", "charge_mode",
                     "charging_profile_update", "climate_settings_update",
-                    "climate_start_settings", "flash", "auxiliary_start"}:
+                    "climate_start_settings", "flash", "auxiliary_start",
+                    "engine_start"}:
             from .command_payloads import build
             body = await build(self, car, mode, params or {})
         return family, method, path, body
@@ -636,6 +637,12 @@ class V3Engine:
         key = f"{capability}.{aspect}"
         if key in p.discovery.disabled or p.discovery._active is not None:
             return None
+        # A saved Workbench result must never bypass current remote-engine
+        # permission, including the historical Q8/PHEV exclusion.
+        if capability == "remote" and aspect in ("engine_start", "engine_stop"):
+            from .command_policy import eligible_operation
+            if not eligible_operation(car, self.auth, capability, aspect):
+                return None
         ident = p.active.get(key)
         if ident and p.control_results.get(ident) == "worked" and not p.custom.get(ident, {}).get("variables"):
             return ident
@@ -684,6 +691,10 @@ class V3Engine:
             capability, aspect, vehicle.context
         )["available_operations"]:
             raise ValueError("Control not applicable to this car")
+        if capability == "remote" and aspect in ("engine_start", "engine_stop"):
+            from .command_policy import eligible_operation
+            if eligible_operation(vehicle, self.auth, capability, aspect) != operation:
+                raise ValueError("Remote engine operation is not permitted for this vehicle")
         if profile.registry.operations[operation]["method"] not in ("POST", "PUT"):
             raise ValueError("Read-only operation cannot be a control")
         async with self._actions:
@@ -712,7 +723,9 @@ class V3Engine:
                 "sequence": attempt.sequence, "operation": operation,
                 "transport": attempt.transport,
                 "status": response.status if response else None,
-                "response_preview": None if capability == "access" else safe_response_preview(
+                "response_preview": None if (capability == "access" or aspect in (
+                    "engine_start", "engine_stop", "preheater_start"
+                )) else safe_response_preview(
                     response.data if response else None,
                     vehicle_vin=vehicle.vin,
                 ),

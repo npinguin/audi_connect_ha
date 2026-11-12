@@ -114,6 +114,23 @@ async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
         return {"duration_s": 10, "mode": "flash", "userPosition": {
             "latitude": point["latitude"], "longitude": point["longitude"],
         }}
+    if mode == "engine_start":
+        # Only the OEM two-step proof sequence, for the already authorized VIN.
+        # The proof is transient and never stored, logged or returned by HA.
+        from .command_policy import eligible_operation
+        if eligible_operation(car, engine.auth, "remote", "engine_start") is None:
+            raise ValueError("Remote engine start not supported for this vehicle")
+        if params:
+            raise ValueError("Unexpected engine start parameters")
+        spin = engine.auth.service._spin
+        reply = await transport.request(
+            "cariad", "PUT", f"/vehicle/v1/engine/{vin}/userpromptproof",
+            body={"spin": spin}, explicit_action=True,
+        )
+        proof = reply.data.get("userPromptProof") if isinstance(reply.data, dict) else None
+        if not 200 <= reply.status < 300 or not isinstance(proof, str) or not proof or len(proof) > 4096:
+            raise ValueError("Audi did not provide an engine start proof; no start sent")
+        return {"securedActivationData": proof, "spin": spin}
     if mode == "auxiliary_start":
         spin = getattr(engine.auth.service, "_spin", None)
         duration = params.get("duration", 30)

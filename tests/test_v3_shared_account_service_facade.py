@@ -55,6 +55,10 @@ def test_v3_services_dispatch_only_to_approved_v3_engine_controls():
         ("stop_charger", "charging", "stop"),
         ("start_window_heating", "climate", "window_heating_start"),
         ("stop_window_heating", "climate", "window_heating_stop"),
+        ("start_engine", "remote", "engine_start"),
+        ("stop_engine", "remote", "engine_stop"),
+        ("start_preheater", "climate", "preheater_start"),
+        ("stop_preheater", "climate", "preheater_stop"),
     ):
         asyncio.run(_v3_service_command(engine, "TESTVIN", name, {"device_id": "device"}))
         engine.send_control.assert_awaited_with("TESTVIN", aspect, capability)
@@ -63,7 +67,7 @@ def test_v3_services_dispatch_only_to_approved_v3_engine_controls():
 def test_v3_unsupported_actions_fail_closed_and_do_not_invoke_v2():
     engine = SimpleNamespace(send_control=AsyncMock())
     for name in (
-        "start_engine", "stop_engine", "nonsense",
+        "nonsense",
     ):
         with pytest.raises(HomeAssistantError, match="not yet V3-verified"):
             asyncio.run(_v3_service_command(engine, "TESTVIN", name))

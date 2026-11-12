@@ -74,6 +74,23 @@ class CARIADExecutor:
             if (method != "GET" or body is not None or "?" in path or
                     not re.fullmatch(r"/vehicle/v1/trips/[A-Za-z0-9]{17}/(?:shortterm|longterm|shortterm/last)", resource)):
                 raise ValueError("Unreviewed Audi trip route")
+        elif resource.startswith("/vehicle/v1/engine/"):
+            import re
+            match = re.fullmatch(
+                r"/vehicle/v1/engine/[A-Za-z0-9]{17}/(userpromptproof|start|stop)",
+                resource,
+            )
+            if (not match or "?" in path or not explicit_action
+                    or method != ("PUT" if match[1] == "userpromptproof" else "POST")):
+                raise ValueError("Unreviewed Audi engine route")
+            action = match[1]
+            expected = {"spin"} if action == "userpromptproof" else {"spin", "securedActivationData"}
+            if action == "stop":
+                if body is not None:
+                    raise ValueError("Engine stop must be bodyless")
+            elif (not isinstance(body, dict) or set(body) != expected
+                    or any(not isinstance(v, str) or not v for v in body.values())):
+                raise ValueError("Invalid secure engine payload")
         elif not resource.startswith("/vehicle/v1/vehicles/"):
             raise ValueError("Path is outside the vehicle CARIAD API")
         host = "na" if auth.country == "US" else "emea"

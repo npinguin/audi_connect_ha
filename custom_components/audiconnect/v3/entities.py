@@ -419,6 +419,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
 CONTROL_BUTTONS = (
     ("refresh_vehicle_data", "Refresh vehicle data", "mdi:cloud-refresh", "remote", "refresh"),
     ("flash_lights", "Flash lights", "mdi:car-light-high", "remote", "flash"),
+    ("start_engine", "Start engine", "mdi:car-key", "remote", "engine_start"),
+    ("stop_engine", "Stop engine", "mdi:car-off", "remote", "engine_stop"),
     ("wake_vehicle_modern", "Wake vehicle", "mdi:car-connected", "remote", "wake"),
     ("start_charging_modern", "Start charging", "mdi:ev-station", "charging", "start"),
     ("stop_charging_modern", "Stop charging", "mdi:ev-station", "charging", "stop"),
@@ -698,6 +700,47 @@ CLIMATE_SWITCHES = (
     ("climatisation_zone_rear_left", "climatisationZoneRearLeft", "zoneRearLeftEnabled"),
     ("climatisation_zone_rear_right", "climatisationZoneRearRight", "zoneRearRightEnabled"),
 )
+
+
+class V3PreheaterSwitch(V3BaseEntity, SwitchEntity):
+    """Historical preheater control, never infer state from cabin climate."""
+    _attr_name = "Preheater"
+    _attr_icon = "mdi:radiator"
+
+    def __init__(self, coordinator, vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_switch_preheater_active"
+
+    @property
+    def is_on(self):
+        row = self.vehicle.readings.get("preheater_active")
+        if not _reading_available(row):
+            return None
+        value = row.get("value")
+        return value if type(value) is bool else None
+
+    @property
+    def available(self):
+        engine = self.coordinator.engine
+        return self.coordinator.last_update_success and any(
+            engine.control_enabled(self.vehicle.vin, aspect, "climate")
+            for aspect in ("preheater_start", "preheater_stop")
+        )
+
+    async def _send(self, aspect):
+        try:
+            await self.coordinator.engine.send_control(
+                self.vehicle.vin, aspect, "climate"
+            )
+        except (RuntimeError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+        self.async_write_ha_state()
+
+    async def async_turn_on(self, **kwargs):
+        await self._send("preheater_start")
+
+    async def async_turn_off(self, **kwargs):
+        await self._send("preheater_stop")
 
 
 class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):

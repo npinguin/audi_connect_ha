@@ -26,6 +26,8 @@ _V2_ACTIONS: dict[str, tuple[str, str]] = {
     "start_auxiliary_heating": ("climate", "preheater_start"),
     "refresh_vehicle_data": ("remote", "refresh"),
     "flash_lights": ("remote", "flash"),
+    "start_engine": ("remote", "engine_start"),
+    "stop_engine": ("remote", "engine_stop"),
     "set_target_soc": ("charging", "set_target_soc"),
     "set_charge_mode": ("charging", "set_charge_mode"),
     "set_location_charge_target": ("charging", "set_location_charge_target"),

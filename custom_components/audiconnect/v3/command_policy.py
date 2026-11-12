@@ -9,6 +9,20 @@ def eligible_operation(car, auth, capability, aspect):
         return any(k in reported and k not in impaired for k in keys)
     def readable(key):
         return key in car.readings and car.readings[key].get("value") is not None
+    if capability == "remote" and aspect in ("engine_start", "engine_stop"):
+        # Retain the historical remote-engine capability restriction. Never
+        # infer permission from an engine, region, or PIN alone.
+        model = (car.model or "").strip().lower()
+        family = (car.model_family or "").strip().lower()
+        if (not auth.uses_auth0 or model.startswith(("q8", "audi q8"))
+                or family.startswith(("q8", "audi q8"))
+                or (car.car_type or "").strip().lower() in {
+                    "electric", "hybrid", "phev", "plug-in hybrid", "plug_in_hybrid"
+                }
+                or not supports("remoteEngineStart")
+                or not getattr(auth.service, "_spin", None)):
+            return None
+        return "cariad.remote." + aspect
     if capability == "access" and aspect in ("lock", "unlock"):
         if (supports("access", "remoteLockUnlock") or
                 (readable("doorLockStatus") and "access" not in impaired)):

@@ -189,6 +189,16 @@
           "operations": [
             "cariad.remote.flash"
           ]
+        },
+        "engine_start": {
+          "operations": [
+            "cariad.remote.engine_start"
+          ]
+        },
+        "engine_stop": {
+          "operations": [
+            "cariad.remote.engine_stop"
+          ]
         }
       }
     }
@@ -828,6 +838,24 @@
       "family": "cariad",
       "method": "POST",
       "path": "/vehicle/v1/vehicles/{VIN}/auxiliaryheating/stop",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "bodyless",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.remote.engine_start": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/engine/{VIN}/start",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "engine_start",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.remote.engine_stop": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/engine/{VIN}/stop",
       "delivery": "manual",
       "priority": 0,
       "request_mode": "bodyless",
