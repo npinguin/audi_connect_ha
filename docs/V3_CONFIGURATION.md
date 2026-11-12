@@ -21,3 +21,7 @@ The Workbench remains optional for engineers and exceptional unsupported cases. 
 ## Audi Engineering Dashboard
 
 The optional admin-only V3 Development Workbench is presented as **Audi Engineering Dashboard** (same sidebar URL and configuration option). Overview summarizes vehicle data, controls and next actions. Capabilities scopes functions to one domain, with separate data/control views and S-PIN filters. Configure & test focuses on one function, with explicit approval, physical review and activation preserved. API evidence contains the detailed operation matrix, historical inventory, response previews and read-only scan. Changing vehicle clears selected actions and evidence before loading the new vehicle. No dashboard navigation sends vehicle commands.
+
+### Local engineering response inspection
+
+Select a route and choose Inspect actual JSON response. Detailed decoded response bodies (GET and command results) are masked using template placeholders `{VIN}`, `{SPIN}`, `{SECRET}`, `{LOCATION}`, `{PERSONAL}`, `{ID}`. This admin-only view reads bounded RAM evidence from existing calls; no additional Audi request and no disk persistence. After restart or eviction, rerun only a safe read if needed. Do not repeat a physical action for debug evidence. Diagnostics remain restricted and command bodies withheld. Response limits and masking are explicit; the engineering view is not a public export.

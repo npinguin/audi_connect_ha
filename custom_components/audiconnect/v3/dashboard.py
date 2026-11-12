@@ -458,6 +458,21 @@ async def ws_api_results(hass, connection, msg):
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/engineering_response",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("operation"): vol.All(str, vol.Length(min=1, max=120)),
+})
+@websocket_api.async_response
+async def ws_engineering_response(hass, connection, msg):
+    try:
+        engine = _engine(hass, msg["entry_id"])
+        connection.send_result(msg["id"], engine.engineering_response_for(msg["vin"], msg["operation"]))
+    except (ValueError, KeyError, RuntimeError):
+        connection.send_error(msg["id"], "v3_engineering_response_failed", "Response unavailable")
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/test_family_reads",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("family"): vol.In(("cariad", "mbb")),
@@ -488,7 +503,7 @@ async def async_setup_dashboard(hass) -> None:
             ws_review, ws_review_normal_command, ws_select, ws_save_candidate, ws_disable,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
-            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_test_family_reads,
+            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True
@@ -496,7 +511,7 @@ async def async_setup_dashboard(hass) -> None:
         hass,
         webcomponent_name="audiconnect-v3-panel",
         frontend_url_path=_PANEL,
-        module_url="/audiconnect_v3/panel.js?v=3.0.0b11-dashboard1",
+        module_url="/audiconnect_v3/panel.js?v=3.0.0b11-dashboard2",
         sidebar_title="Audi Engineering Dashboard",
         sidebar_icon="mdi:car-cog",
         require_admin=True,

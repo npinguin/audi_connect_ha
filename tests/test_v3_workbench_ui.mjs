@@ -295,3 +295,17 @@ test("review finding opens only the affected evidence without sending vehicle co
   await p._click({target:{closest:()=>({dataset:{action:"inspect-finding",index:"0"}})}});
   assert.equal(p.step,4);assert.equal(p.focusOperation,"cariad.test");
 });
+
+test("engineering response is explicitly inspected without sending an Audi request", async()=>{
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  p.step=4;p.apiHistory=[{operation:"test.read",family:"cariad",method:"GET",preview:{notice:"truncated"}}];
+  let calls=[];
+  p.api=async(name,data)=>{calls.push([name,data]);return {operation:data.operation,available:true,
+    payload:{vin:"{VIN}",target:15.5,detail:"<script>"},http_status:207};};
+  await p._click({target:{closest:()=>({dataset:{action:"inspect-response",operation:"test.read"}})}});
+  assert.equal(calls.length,1);assert.equal(calls[0][0],"engineering_response");
+  assert.match(p.shadowRoot.innerHTML,/15\.5/);assert.match(p.shadowRoot.innerHTML,/\{VIN\}/);
+  assert.match(p.shadowRoot.innerHTML,/&lt;script&gt;/);
+  p._resetVehicleSelection();assert.equal(p.responseDetail,null);
+});

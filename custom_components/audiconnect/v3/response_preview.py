@@ -140,3 +140,124 @@ def validate_schema_fields(rows: Any) -> None:
             raise ValueError("Invalid response schema field")
     if len(json.dumps(rows, ensure_ascii=True)) > MAX_SCHEMA_CHARS:
         raise ValueError("Excessive response schema inventory")
+
+
+# Engineering response cache is RAM-only and exposed through one admin WS
+# route. Its larger limit must never be used for shareable diagnostics.
+MAX_ENGINEERING_CHARS = 262144
+MAX_ENGINEERING_ROUTES = 12
+_JWT = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
+_AUTH_VALUE = re.compile(r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]+")
+_SECRET_QUERY = re.compile(r"(?i)([?&](?:access_token|refresh_token|id_token|token|password|code|spin|s-pin|client_secret|authorization)=)[^&#\s]+")
+_UUID = re.compile(r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
+_SECRET_KEY = re.compile(r"(?i)authorization|password|token|credential|secret|challenge|bearer|cookie|api.?key|private.?key|security.?code|user.?prompt.?proof|secured.?activation.?data|^pin$|^s.?pin$|^spin$")
+_LOCATION_KEY = re.compile(r"(?i)latitude|longitude|coordinates|location|position|street|address|^lat$|^lon$|^lng$")
+_PERSON_KEY = re.compile(r"(?i)email|phone|account.?id|user.?id|username|nickname|first.?name|last.?name|full.?name|customer.?id|device.?id")
+_IDENTIFIER_KEY = re.compile(r"(?i)request.?id|session.?id|correlation.?id|transaction.?id|command.?id|^id$")
+
+
+def engineering_response(payload: Any, *, vehicle_vin: str = "",
+                         spin: Any = None, secrets: tuple[str, ...] = ()) -> dict[str, Any]:
+    """Preserve decoded JSON and actual values; mask secrets, never raw headers.
+
+    No disk persistence. Budget is explicit; oversize content is not silently
+    replaced by top-level keys. This is best-effort redaction, not a public export.
+    """
+    import json
+    import math
+
+    remaining = MAX_ENGINEERING_CHARS - 1024
+    truncated = False
+    replacements = [(str(s), "{SECRET}") for s in secrets if isinstance(s, str) and s]
+    if isinstance(spin, (str, int)) and str(spin):
+        replacements.append((str(spin), "{SPIN}"))
+    replacements.sort(key=lambda item: len(item[0]), reverse=True)
+
+    def redact_text(value: str) -> str:
+        if vehicle_vin:
+            value = re.sub(re.escape(vehicle_vin), "{VIN}", value, flags=re.I)
+        value = _VIN.sub("{VIN}", value)
+        for secret, marker in replacements:
+            # Short PINs/credentials are matched only as a complete value or
+            # a delimited token, not embedded in ordinary timestamps/numbers.
+            if len(secret) >= 8:
+                value = value.replace(secret, marker)
+            elif value == secret:
+                value = marker
+            else:
+                value = re.sub(r"(?<![A-Za-z0-9])" + re.escape(secret) +
+                               r"(?![A-Za-z0-9])", marker, value)
+        value = _AUTH_VALUE.sub("{SECRET}", value)
+        value = _JWT.sub("{SECRET}", value)
+        value = _SECRET_QUERY.sub(lambda m: m.group(1) + "{SECRET}", value)
+        value = _EMAIL.sub("{PERSONAL}", value)
+        return _UUID.sub("{ID}", value)
+
+    def mask_for(key: str) -> str | None:
+        if re.search(r"(?i)^vin$|vehicle.?identification.?number|^vehicle.?id$", key):
+            return "{VIN}"
+        if re.search(r"(?i)^s.?pin$|^spin$|^pin$", key):
+            return "{SPIN}"
+        if _SECRET_KEY.search(key):
+            return "{SECRET}"
+        if _PERSON_KEY.search(key):
+            return "{PERSONAL}"
+        if _LOCATION_KEY.search(key):
+            return "{LOCATION}"
+        if _IDENTIFIER_KEY.search(key):
+            return "{ID}"
+        return None
+
+    def consume(value: Any) -> bool:
+        nonlocal remaining, truncated
+        cost = len(json.dumps(value, ensure_ascii=True, allow_nan=False)) + 8
+        if cost > remaining:
+            truncated = True
+            return False
+        remaining -= cost
+        return True
+
+    def visit(value: Any, depth: int = 0) -> Any:
+        nonlocal truncated
+        if depth >= 40 or remaining < 64:
+            truncated = True
+            return "[TRUNCATED]"
+        if isinstance(value, dict):
+            result = {}
+            consume({})
+            for key, child in value.items():
+                original = str(key)
+                name = redact_text(original)
+                if not consume(name) or remaining < 64:
+                    truncated = True
+                    result["[TRUNCATED]"] = True
+                    break
+                marker = mask_for(original)
+                if marker is not None:
+                    consume(marker)
+                    result[name] = marker
+                else:
+                    result[name] = visit(child, depth + 1)
+            return result
+        if isinstance(value, list):
+            consume([])
+            result = []
+            for item in value:
+                if remaining < 64:
+                    truncated = True
+                    result.append("[TRUNCATED]")
+                    break
+                result.append(visit(item, depth + 1))
+            return result
+        if isinstance(value, str):
+            value = redact_text(value)
+        elif type(value) is float and not math.isfinite(value):
+            value = "[NON-FINITE]"
+        elif value is not None and type(value) not in (bool, int, float):
+            value = "[UNSUPPORTED VALUE TYPE]"
+        if not consume(value):
+            return "[TRUNCATED]"
+        return value
+
+    response = visit(payload)
+    return {"payload": response, "truncated": truncated}

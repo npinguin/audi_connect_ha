@@ -49,6 +49,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.inventoryFilter = "all";
     this.functionMode = "all";
     this.apiHistory = [];
+    this.responseDetail = null;
     this.apiFamily = "vehicle";
     this.operationFilter = "all";
     this.focusOperation = "";
@@ -126,6 +127,7 @@ class AudiConnectV3Panel extends HTMLElement {
     if (!this.selected || !this.vin) { this.apiHistory = []; return; }
     const response = await this.api("api_results", this.selection);
     this.apiHistory = response.records || [];
+    this.responseDetail = null;
   }
 
   async _readRoutes() {
@@ -237,7 +239,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
-    this.apiHistory = []; this.capabilityStatus = {counts:{},rows:[]}; this.routeChoice = "";
+    this.apiHistory = []; this.responseDetail = null; this.capabilityStatus = {counts:{},rows:[]}; this.routeChoice = "";
     this.step = 1; this.apiFamily = "vehicle"; this.functionMode = "all"; this.discoveryGroup = "read_only";
     this.focusOperation = ""; this.operationFilter = "all"; this.operationMethod = "all";
   }
@@ -259,6 +261,14 @@ class AudiConnectV3Panel extends HTMLElement {
     const button = e.target.closest("button[data-action]");
     if (!button || this.loading) return;
     const action = button.dataset.action;
+    if (action === "inspect-response") {
+      this.loading = true; this.error = ""; this.responseDetail = null; this.render();
+      try { this.responseDetail = await this.api("engineering_response", {...this.selection, operation: button.dataset.operation}); }
+      catch (err) { this.error = String(err.message || err); }
+      finally { this.loading = false; this.render(); }
+      return;
+    }
+    if (action === "close-response") { this.responseDetail = null; this.render(); return; }
     if (action.startsWith("step-")) {
       this.step = Number(action.slice(5)); this.focusOperation = ""; this.render(); return;
     }
@@ -499,6 +509,18 @@ class AudiConnectV3Panel extends HTMLElement {
       path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=" + (entry?.job || "charging"),
       response_path:entry?.path && !entry.path.startsWith("/") && entry.path !== "-" ? entry.path :
         "charging.batteryStatus.value.currentSOC_pct"}, null, 2);
+  }
+
+  responseInspector(operation) {
+    if (!operation) return "";
+    const detail = this.responseDetail?.operation === operation ? this.responseDetail : null;
+    return `<div class="actions"><button data-action="inspect-response" data-operation="${escapeHTML(operation)}" ${this.loading?"disabled":""}>Inspect actual JSON response</button>
+      ${detail?'<button data-action="close-response">Close response</button>':""}</div>
+      ${detail?.available?`<div class="callout"><b>Local engineering response · HTTP ${escapeHTML(detail.http_status??"—")}</b>
+        <div>${escapeHTML(detail.at)} · ${escapeHTML(detail.method)} · ${escapeHTML(detail.family)}</div>
+        <p>Actual decoded JSON; sensitive values replaced with {VIN}, {SPIN}, {SECRET}, {LOCATION}, {PERSONAL} or {ID}. Not for public sharing. ${detail.truncated?"Size limit reached; response is partial.":"Within local inspection limits."}</p>
+        <pre style="max-height:none;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text">${escapeHTML(JSON.stringify(detail.payload,null,2))}</pre>
+      </div>`:detail?'<p>No detailed response in this HA session. Refresh a read-only route; do not repeat a vehicle action just to recover evidence.</p>':""}`;
   }
 
   render() {
@@ -825,7 +847,8 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="callout" style="margin-top:18px">
               <b>Latest saved response for this route</b>
               <div>${escapeHTML(lastSelectedResult?.at||"Never executed")} · HTTP ${escapeHTML(lastSelectedResult?.http_status??"-")} · ${escapeHTML(lastSelectedResult?.result||"not tested")}</div>
-              <details><summary>Redacted response preview</summary><pre>${escapeHTML(JSON.stringify(lastSelectedResult?.preview??"No recorded response",null,2))}</pre></details>
+              ${this.responseInspector(activeRoute)}
+              <details><summary>Restricted diagnostics preview</summary><pre>${escapeHTML(JSON.stringify(lastSelectedResult?.preview??"No recorded response",null,2))}</pre></details>
             </div>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===3&&this.controlAction?"block":"none"}">
@@ -862,7 +885,8 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="callout" style="margin-top:18px">
               <b>Last control execution</b>
               <div>${escapeHTML(lastSelectedResult?.at||"Never executed")} · HTTP ${escapeHTML(lastSelectedResult?.http_status??"-")} · ${escapeHTML(lastSelectedResult?.result||"not tested")}</div>
-              <p>Control response bodies are withheld. HTTP acceptance does not confirm the vehicle acted.</p>
+              ${this.responseInspector(activeRoute)}
+              <p>HTTP acceptance does not confirm the vehicle acted. Detailed response stays in local session memory; control bodies are not exported.</p>
             </div>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===4?"block":"none"}">
@@ -885,11 +909,12 @@ class AudiConnectV3Panel extends HTMLElement {
             ${records.map(r=>`<details class="record">
               <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · ${escapeHTML(r.at)}</summary>
               <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b> · ${escapeHTML(r.result)}</div>
-              <pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre>
+              ${this.responseInspector(r.operation)}
+              <details><summary>Restricted diagnostics preview</summary><pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre></details>
             </details>`).join("")||'<p>No saved API results yet.</p>'}
           </section>
           <p class="foot">Experimental mode. HTTP 200/202 confirms gateway acceptance, not vehicle action.
-          Only bounded redacted response previews stay in private local HA storage. V2 remains available for rollback.</p>`}
+          Detailed engineering responses are local, temporary and masked. Only restricted previews are persisted. V2 remains available for rollback.</p>`}
       </main>`;
   }
 }

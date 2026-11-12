@@ -675,8 +675,8 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
         super().__init__(coordinator, vehicle)
         self.key, self._attr_name, self._attr_icon, self.capability, self.action = descriptor
         self._attr_unique_id = f"{vehicle.vin.lower()}_button_{self.key}"
-        if self.key == "refresh_vehicle_data":
-            self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        category = canonical_entity_category("button." + self.key)
+        self._attr_entity_category = EntityCategory(category) if category else None
         if self.key == "wake_vehicle_modern":
             self._attr_entity_registry_enabled_default = False
 
@@ -821,6 +821,7 @@ class V3ParkedTracker(V3BaseEntity, TrackerEntity):
     """V2-compatible GPS entity for the car's last PARKED position, not live GPS."""
 
     _attr_name = "Position"
+    _attr_entity_category = None
     _attr_icon = "mdi:car"
     _attr_should_poll = False
     _attr_source_type = SourceType.GPS

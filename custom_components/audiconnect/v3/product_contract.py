@@ -138,7 +138,10 @@ def entity_projection_report(engine):
                "disabled_by": getattr(disabled, "value", None),
                "entity_category": getattr(getattr(entry, "entity_category", None), "value", None),
                "hidden_by": getattr(getattr(entry, "hidden_by", None), "value", None),
-               "original_icon": getattr(entry, "original_icon", None)}
+               "original_icon": getattr(entry, "original_icon", None),
+               "expected_category": canonical_entity_category(key) if key in product_inventory()["entities"] else None,
+               "category_drift": bool(key in product_inventory()["entities"] and
+                   getattr(getattr(entry, "entity_category", None), "value", None) != canonical_entity_category(key))}
         if key is None:
             suffix = uid.split("_", 1)[-1] if isinstance(uid, str) else ""
             row["key_fingerprint"] = hashlib.sha256(suffix.encode()).hexdigest()[:16]

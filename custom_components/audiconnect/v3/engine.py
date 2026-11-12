@@ -18,7 +18,7 @@ from .command_parameters import runtime_ready
 from .status_engine import StatusEngine
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
-from .response_preview import safe_response_preview
+from .response_preview import safe_response_preview, engineering_response, MAX_ENGINEERING_ROUTES
 from .api_observations import record_for, save_record
 from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
@@ -35,6 +35,7 @@ from .api_value_mappings import normalize_api_value
 from .historical_catalog import V2_JOBS
 from .read_discovery import record_jobs, pending_groups, reserve_group, summary as discovery_summary
 from ..const import (CONF_FILTER_VINS, CONF_REFRESH_AFTER_ACTION, CONF_UPDATE_SLEEP,
+                     CONF_SPIN, CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN,
                      DOMAIN, REFRESH_VEHICLE_DATA_COMPLETED_EVENT,
                      REFRESH_VEHICLE_DATA_FAILED_EVENT, UPDATE_SLEEP)
 
@@ -252,12 +253,33 @@ class V3Engine:
     def _api_record(self, profile: DevelopmentProfile, operation: str,
                     family: str, method: str, response: V3Response | None,
                     vin: str) -> None:
-        save_record(profile, operation, record_for(
+        record = record_for(
             family=family, method=method,
             http_status=response.status if response else None,
             payload=response.data if response else None, vin=vin,
             at=response.observed_at if response else None,
-        ))
+        )
+        save_record(profile, operation, record)
+        if response is not None:
+            settings = getattr(self.entry, "data", {})
+            known = [settings.get(key) for key in (CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN)]
+            # Redact any echoed credentials, without requesting or refreshing tokens.
+            service = getattr(self.auth, "service", None)
+            for name in ("_bearer_token_json", "audiToken", "vwToken"):
+                token = getattr(service, name, None)
+                if isinstance(token, dict):
+                    known.extend(token.get(k) for k in ("access_token", "refresh_token", "id_token"))
+            detail = engineering_response(response.data, vehicle_vin=vin,
+                                          spin=settings.get(CONF_SPIN), secrets=tuple(known))
+            profile.engineering_responses.pop(operation, None)
+            profile.engineering_responses[operation] = {
+                "operation": operation, "family": family, "method": method,
+                "http_status": record["http_status"], "at": record["at"], **detail,
+            }
+            while len(profile.engineering_responses) > MAX_ENGINEERING_ROUTES:
+                profile.engineering_responses.pop(next(iter(profile.engineering_responses)))
+        else:
+            profile.engineering_responses.pop(operation, None)
 
     async def test_family_reads(self, vin: str, family: str) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.
@@ -334,6 +356,15 @@ class V3Engine:
             for ident, record in reversed(list(profile.api_observations.items()))
             if family == "all" or record["family"] == family
         ]
+
+    def engineering_response_for(self, vin: str, operation: str) -> dict[str, Any]:
+        """Read latest local detail; never issue a request or restore raw payloads."""
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        detail = profile.engineering_responses.get(operation)
+        if detail is None:
+            return {"available": False, "operation": operation}
+        return {"available": True, **detail}
 
     async def poll(self) -> list[V3Vehicle]:
         cars = await self.status.poll()

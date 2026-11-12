@@ -310,3 +310,26 @@ async def test_failed_http_probe_does_not_mutate_attribute_state_or_ability():
         await engine.activate_attribute_route(
             VIN, "stateOfCharge", "cariad.selectivestatus.targeted"
         )
+
+@pytest.mark.asyncio
+async def test_local_response_detail_isolated_from_storage_diagnostics_and_vehicle_scope():
+    engine, transport, store = engine_for()
+    await engine.discover()
+    profile = engine.profiles[VIN.lower()]
+    payload = {"status": "accepted", "securityToken": "secret-value",
+               "settings": {"targetTemperature_C": 15.5}, "vin": VIN}
+    response = V3Response(202, payload, datetime.now(UTC))
+    engine._api_record(profile, "test.command", "cariad", "POST", response, VIN)
+    detail = engine.engineering_response_for(VIN, "test.command")
+    assert detail["available"] and detail["payload"]["status"] == "accepted"
+    assert detail["payload"]["securityToken"] == "{SECRET}"
+    assert detail["payload"]["settings"]["targetTemperature_C"] == 15.5
+    assert detail["payload"]["vin"] == "{VIN}"
+    assert "engineering_responses" not in profile.snapshot()
+    assert "15.5" not in json.dumps(profile.snapshot())
+    assert "15.5" not in json.dumps(engine.api_results_for(VIN))
+    with pytest.raises(ValueError):
+        engine.engineering_response_for("WAUZZZ4M0MD999999", "test.command")
+    assert len(transport.calls) == 1
+    engine._api_record(profile, "test.command", "cariad", "POST", None, VIN)
+    assert not engine.engineering_response_for(VIN, "test.command")["available"]

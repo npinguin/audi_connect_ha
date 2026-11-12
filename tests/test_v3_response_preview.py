@@ -46,3 +46,34 @@ def test_truncated_long_response_is_bounded():
     }))
     assert len(report) < 2800
     assert "more items omitted" in report
+
+def test_engineering_json_keeps_actual_nested_values_and_template_placeholders():
+    from custom_components.audiconnect.v3.response_preview import engineering_response
+    vin = "WAUZZZ4M0MD123456"
+    raw = {"vin": vin, "sPin": "1234", "authorization": "Bearer TEST",
+           "requestId": "123456789", "position": {"latitude": 50.1},
+           "climatisation": {"timers": [{"settings": {"targetTemperature_C": 15.5,
+               "enabled": True, "remaining": -256, "status": "invalid"}}]},
+           "message": "vehicle " + vin + " rejected configured-secret",
+           "echo": "configured-secret"}
+    detail = engineering_response(raw, vehicle_vin=vin, spin="1234", secrets=("configured-secret",))
+    payload = detail["payload"]
+    assert not detail["truncated"]
+    assert payload["vin"] == "{VIN}" and payload["sPin"] == "{SPIN}"
+    assert payload["authorization"] == "{SECRET}" and payload["position"] == "{LOCATION}"
+    assert payload["requestId"] == "{ID}"
+    assert payload["climatisation"] == raw["climatisation"]
+    assert payload["echo"] == "{SECRET}" and "configured-secret" not in json.dumps(detail)
+    assert vin not in json.dumps(detail) and "Bearer TEST" not in json.dumps(detail)
+
+
+def test_engineering_response_keeps_large_batch_values_and_bounds_oversize():
+    from custom_components.audiconnect.v3.response_preview import engineering_response, MAX_ENGINEERING_CHARS
+    data = {f"job{i}": {"items": [{"value": j, "state": "off"} for j in range(30)]}
+            for i in range(25)}
+    result = engineering_response(data)
+    assert not result["truncated"]
+    assert result["payload"] == data
+    oversized = engineering_response({"first": 15.5, "large": ["x"*1000]*1000})
+    assert oversized["truncated"] and oversized["payload"]["first"] == 15.5
+    assert len(json.dumps(oversized)) <= MAX_ENGINEERING_CHARS

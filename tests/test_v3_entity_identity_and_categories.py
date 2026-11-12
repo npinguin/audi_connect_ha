@@ -198,10 +198,13 @@ def test_b10_registry_migration_preserves_user_choices_and_restores_owned_change
         return NS(entity_id=suffix, unique_id=vin+"_"+suffix,
                   entity_category=category, hidden_by=hidden, disabled_by=disabled)
     door = row("binary_sensor_left_front_door_open", EntityCategory.DIAGNOSTIC)
+    position = row("device_tracker_position", EntityCategory.DIAGNOSTIC)
+    refresh = row("button_refresh_vehicle_data", EntityCategory.DIAGNOSTIC)
+    cloud = row("button_v3_refresh_cloud", EntityCategory.DIAGNOSTIC)
     quick = row("switch_climate_quick_control")
     user = row("sensor_climatisation_state", hidden=er.RegistryEntryHider.USER)
     disabled = row("sensor_hybrid_range", disabled=er.RegistryEntryDisabler.USER)
-    entries = {x.entity_id:x for x in (door,quick,user,disabled)}
+    entries = {x.entity_id:x for x in (door,position,refresh,cloud,quick,user,disabled)}
     def update(entity_id, **changes):
         for key,value in changes.items():
             setattr(entries[entity_id],key,value)
@@ -212,11 +215,16 @@ def test_b10_registry_migration_preserves_user_choices_and_restores_owned_change
     entry=NS(entry_id="abc",runtime_data=NS(v3=engine))
     asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,True))
     assert door.entity_category is None
+    assert position.entity_category is None
+    assert refresh.entity_category is None
+    assert cloud.entity_category == EntityCategory.DIAGNOSTIC
     assert quick.hidden_by == er.RegistryEntryHider.INTEGRATION
     assert user.hidden_by == er.RegistryEntryHider.USER
     assert disabled.disabled_by == er.RegistryEntryDisabler.USER
     asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,False))
     assert door.entity_category == EntityCategory.DIAGNOSTIC
+    assert position.entity_category == EntityCategory.DIAGNOSTIC
+    assert refresh.entity_category == EntityCategory.DIAGNOSTIC
     assert quick.hidden_by is None
     assert user.hidden_by == er.RegistryEntryHider.USER
     assert disabled.disabled_by == er.RegistryEntryDisabler.USER

@@ -277,6 +277,7 @@ class DevelopmentProfile:
         self.job_discovery: dict[str, str] = {}
         self.job_probe_attempts: dict[str, int] = {}
         self.api_observations: dict[str, dict[str, Any]] = {}
+        self.engineering_responses: dict[str, dict[str, Any]] = {}
         self.registry = CapabilityRegistry(deepcopy(self._base))
         self.discovery = GuidedActionDiscovery(
             self.registry, context, cooldown_seconds=cooldown_seconds
@@ -385,7 +386,7 @@ class DevelopmentProfile:
                      self.draft_selected, self.read_results, self.control_results,
                      self.attribute_routes, self.attribute_evidence, self.attribute_drafts,
                      self.attribute_route_evidence, self.job_discovery, self.job_probe_attempts,
-                     self.api_observations):
+                     self.api_observations, self.engineering_responses):
             data.clear()
 
     def confirm(

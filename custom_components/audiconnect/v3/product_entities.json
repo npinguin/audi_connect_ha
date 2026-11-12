@@ -529,21 +529,24 @@
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "diagnostic"
     },
     "sensor.vehicle_data_age": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "diagnostic"
     },
     "sensor.cloud_last_successful_poll": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "diagnostic"
     },
     "sensor.local_dealer": {
       "origin": "v2",
@@ -564,7 +567,8 @@
       "scope": "account",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "diagnostic"
     },
     "binary_sensor.plug_state": {
       "origin": "v2",
@@ -778,7 +782,8 @@
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": null
     },
     "button.flash_lights": {
       "origin": "v2",
@@ -848,42 +853,48 @@
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "switch.climatisation_at_unlock": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "switch.climatisation_zone_front_left": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "switch.climatisation_zone_front_right": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "switch.climatisation_zone_rear_left": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "switch.climatisation_zone_rear_right": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "number.target_state_of_charge": {
       "origin": "v2",
@@ -936,7 +947,8 @@
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": null
     },
     "sensor.last_trip": {
       "origin": "v3_product_extension",
@@ -957,7 +969,8 @@
       "scope": "account",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "diagnostic"
     }
   },
   "retired_v3_sensors": [

@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
-from .product_contract import retired_pilot_entity, account_cloud_refresh_vin, entity_key, compatibility_hidden, canonical_entity_category
+from .product_contract import retired_pilot_entity, account_cloud_refresh_vin, entity_key, compatibility_hidden, canonical_entity_category, product_inventory
 from homeassistant.const import EntityCategory
 
 
@@ -102,11 +102,10 @@ async def async_apply_v3_entity_visibility(
             continue
         updates = {}
         desired = canonical_entity_category(key)
-        if (key.startswith("binary_sensor.") and key != "binary_sensor.custom_attribute"
-                and current.entity_category == EntityCategory.DIAGNOSTIC and desired is None):
-            updates["entity_category"] = None
-        if desired == "config" and current.entity_category is None:
-            updates["entity_category"] = EntityCategory.CONFIG
+        if key in product_inventory()["entities"]:
+            category = EntityCategory(desired) if desired else None
+            if current.entity_category != category:
+                updates["entity_category"] = category
         if uid not in reviewed and compatibility_hidden(car, key):
             reviewed.add(uid)
             if current.hidden_by is None and current.disabled_by is None:

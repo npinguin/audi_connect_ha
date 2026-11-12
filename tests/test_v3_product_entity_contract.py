@@ -74,3 +74,13 @@ def test_canonical_category_resolves_from_shared_metadata_and_product_contract()
     for key in ("number.target_state_of_charge", "number.active_charging_profile_target_soc",
                 "number.charge_profile_{profile_id}_target_soc", "select.charge_mode"):
         assert canonical_entity_category(key) == "config"
+
+def test_product_diagnostic_allowlist_is_explicit_and_vehicle_properties_are_not_diagnostics():
+    from custom_components.audiconnect.v3.product_contract import canonical_entity_category
+    keys = product_inventory()["entities"]
+    assert {k for k in keys if canonical_entity_category(k) == "diagnostic"} == {
+        "sensor.api_requests_remaining", "sensor.cloud_last_successful_poll",
+        "sensor.vehicle_data_age", "sensor.vehicle_data_freshness", "button.v3_refresh_cloud",
+    }
+    assert canonical_entity_category("device_tracker.position") is None
+    assert canonical_entity_category("button.refresh_vehicle_data") is None
