@@ -156,3 +156,61 @@ def full_read_plan(profile, context, family):
         job = item[1].split("jobs=", 1)[-1] if "jobs=" in item[1] else None
         return (profile.job_discovery.get(job) == "observed", item[0])
     return sorted(candidates, key=priority), excluded
+
+
+def user_progress(car, profile, auth):
+    """Read coverage and control evidence are independent, never proof of support."""
+    from .historical_catalog import INVENTORY
+    from .control_resolution import control_decision
+    modern = car.context.auth == "auth0" or car.legacy_cariad
+    jobs = {}
+    if modern:
+        for job in V2_JOBS:
+            status = profile.job_discovery.get(job, "not_scanned")
+            jobs[job] = {"status": status, "assessed": status == "observed" or (
+                status == "not_observed" and profile.job_probe_attempts.get(job, 0) > 0)}
+    reads = {}
+    if "mobility" in profile.registry.capabilities and modern:
+        from .trips import CARIAD_TRIP_OPERATIONS
+        available = profile.registry.resolve("mobility", "status", car.context)["available_operations"]
+        for operation in CARIAD_TRIP_OPERATIONS:
+            if operation in available:
+                reads[operation] = profile.api_observations.get(operation, {}).get("http_status")
+    if car.context.auth == "legacy":
+        from .legacy_read_mappings import ROUTES
+        for kind in ROUTES:
+            operation = "mbb.discovery." + kind
+            reads[operation] = profile.api_observations.get(operation, {}).get("http_status")
+    def assessed_http(status):
+        return type(status) is int and (200 <= status < 300 or status in (400, 404, 405, 410, 422))
+    controls = []
+    for capability, definition in profile.registry.capabilities.items():
+        for action in definition.get("control", {}):
+            available = profile.registry.resolve(capability, action, car.context)["available_operations"]
+            decision = control_decision(car, profile, auth, capability, action)
+            physical = "worked" if any(profile.control_results.get(op) == "worked" for op in available) else (
+                "failed" if any(profile.control_results.get(op) == "failed" for op in available) else "not_tested")
+            controls.append({"capability": capability, "action": action,
+                "catalog_applicable": bool(available), "eligible": bool(decision["operation"]),
+                "status": decision["status"], "physical": physical})
+    owners = {row["id"]: row["capability"] for row in INVENTORY["jobs"]}
+    capabilities = {}
+    for name in profile.registry.capabilities:
+        subset = [row for job, row in jobs.items() if owners.get(job) == name]
+        actions = [row for row in controls if row["capability"] == name]
+        capabilities[name] = {"jobs_total": len(subset),
+            "jobs_assessed": sum(row["assessed"] for row in subset),
+            "jobs_observed": sum(row["status"] == "observed" for row in subset),
+            "controls_catalog_applicable": sum(row["catalog_applicable"] for row in actions),
+            "controls_physically_verified": sum(row["physical"] == "worked" for row in actions)}
+    total = len(jobs) + len(reads)
+    assessed = sum(row["assessed"] for row in jobs.values()) + sum(assessed_http(s) for s in reads.values())
+    applicable = [row for row in controls if row["catalog_applicable"]]
+    verified = sum(row["physical"] == "worked" for row in applicable)
+    return {"read_assessment_percent": round(100 * assessed / total, 1) if total else None,
+        "read_assessed": assessed, "read_total": total, "jobs": jobs,
+        "standalone_http": reads, "model_present": bool(car.model),
+        "controls_catalog_applicable": len(applicable), "controls_physically_verified": verified,
+        "control_verification_percent": round(100 * verified / len(applicable), 1) if applicable else None,
+        "controls": controls, "capabilities": capabilities,
+        "scope": "reviewed_read_assessment_not_vehicle_support; location excluded"}
