@@ -360,6 +360,7 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
             return self._discovery_progress()
         if self.kind == "freshness":
             from .freshness import capture_coverage
+            from .structured_details import details_for
             last = self.vehicle.readings.get("last_update_time", {}).get("value")
             return {
                 "vehicle_last_update": last,
@@ -373,6 +374,7 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
                 "last_cloud_poll_succeeded": getattr(engine, "last_cloud_poll_succeeded",
                                                         self.coordinator.last_update_success),
                 "freshness_basis": "oldest_observed_job_capture_not_unobserved_support",
+                **details_for(self.vehicle, "readiness_detail"),
                 "job_capture_coverage": capture_coverage(self.vehicle),
                 "discovery": self._discovery_progress(),
             }
@@ -628,6 +630,8 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             "climatisation_timer_enabled_count": ("climate_timers_detail", "ventilation_timers_detail"),
             "charging_state": ("charging_timers_detail", "departure_charging_timers_detail", "battery_care_detail", "charging_profile_context_detail"),
             "charging_mode": ("charging_timers_detail", "departure_charging_timers_detail", "battery_care_detail", "charging_profile_context_detail"),
+            "vehicle_reported_online": ("readiness_detail",),
+            "vehicle_reported_active": ("readiness_detail",),
         }
         details = details_for(self.vehicle, *detail_keys.get(self.attribute.get("entity_key"), ()))
         if self.attribute.get("entity_key") in ("charging_mode", "charging_state", "charging_timer_enabled_count"):
