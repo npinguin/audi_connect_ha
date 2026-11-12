@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feature/v3-clean-discovery
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       confirmation:
@@ -24,12 +27,15 @@ concurrency:
 
 jobs:
   verify:
-    if: github.ref == 'refs/heads/feature/v3-clean-discovery' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: >-
+      (github.ref == 'refs/heads/feature/v3-clean-discovery' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) ||
+      (github.event_name == 'pull_request' && github.head_ref == 'feature/v3-clean-discovery' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Match beta manifest, README and documentation
         run: |
