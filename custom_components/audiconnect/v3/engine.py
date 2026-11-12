@@ -67,8 +67,7 @@ class V3Engine:
         self._actions = asyncio.Lock()
         self._normal_action_at: dict[str, float] = {}
         self._wake_attempts: dict[str, list[float]] = {}
-        self._readonly_probe_at: dict[str, float] = {}
-        self._readonly_probe_lock = asyncio.Lock()
+        self._trip_poll_at: dict[str, float] = {}
         self._known_vehicle_inventory = False
         self._poll_cycles = 0
 
@@ -196,97 +195,53 @@ class V3Engine:
             at=response.observed_at if response else None,
         ))
 
-    async def restore_reads(self, vin: str, *, mode: str, update_trips: bool = False) -> dict[str, Any]:
-        """Prior fixbranch read-only actions, limited and explicitly invoked.
+    async def _poll_trips(self, car: V3Vehicle) -> None:
+        """Normal read-only trip data refresh; not a diagnostic probe service.
 
-        Only normalized trip values are retained in memory for HA sensors.
-        Diagnostic reports contain route names, status and safe schema keys.
+        Only applicable Auth0 vehicles use the three reviewed routes. The
+        shared poll cadence and quota protect the car and account; no extra
+        coordinator, user action, raw response storage or invented trip data.
         """
-        from .trips import describe_cariad_trip_schema, normalize_cariad_trip
+        from .trips import normalize_cariad_trip
         from .attribute_runtime import _capture_in_utc
 
-        car = self.require_vehicle(vin)
         if car.context.auth != "auth0":
-            raise ValueError("Modern Audi read-only probes require Auth0")
-        plans = {
-            "trips": [("shortterm", "shortterm_current"),
-                      ("longterm", "longterm_current"),
-                      ("shortterm/last", "last_trip")],
-            "vehicle_health": [("batterySupport", None),
-                               ("tyrePressure", None),
-                               ("vehicleHealthWarnings", None)],
-            "core": [(x, None) for x in ("userCapabilities", "charging",
-                        "chargingProfiles", "chargingTimers", "climatisation",
-                        "hybridCarAuxiliaryHeating", "parkingposition", "pendingrequests")],
-            "extended": [(x, None) for x in ("userCapabilities", "charging",
-                        "chargingProfiles", "chargingTimers", "climatisation",
-                        "hybridCarAuxiliaryHeating", "parkingposition", "pendingrequests",
-                        "climatisationTimers", "measurements", "vehicleHealthInspection",
-                        "tripStatistics", "auxiliaryHeating")],
-        }
-        if mode not in plans or (update_trips and mode != "trips"):
-            raise ValueError("Invalid Audi probe group")
-        async with self._readonly_probe_lock:
-            key = car.vin.lower()
-            now = time.monotonic()
-            last = self._readonly_probe_at.get(key)
-            if last is not None and now - last < 900:
-                raise RuntimeError("Audi read-only probe cooldown active (15 minutes)")
+            return
+        remaining = self.transport.remaining_calls
+        if remaining is not None and remaining < 20:
+            return
+        now = time.monotonic()
+        key = car.vin.lower()
+        last = self._trip_poll_at.get(key)
+        if last is not None and now - last < 10800:
+            return
+        self._trip_poll_at[key] = now
+        for suffix, state_key in (
+            ("shortterm", "shortterm_current"),
+            ("longterm", "longterm_current"),
+            ("shortterm/last", "last_trip"),
+        ):
             remaining = self.transport.remaining_calls
-            if remaining is not None and remaining < 20:
-                raise RuntimeError("Audi probe budget requires 20 remaining calls")
-            self._readonly_probe_at[key] = now
-            outcomes = []
-            normalized = 0
-            for suffix, state_key in plans[mode]:
-                remaining = self.transport.remaining_calls
-                if remaining is not None and remaining <= 12:
-                    break
-                if remaining is None and len(outcomes) >= 3:
-                    break
-                path = (f"/vehicle/v1/trips/{car.vin}/{suffix}" if mode == "trips"
-                        else f"/vehicle/v1/vehicles/{car.vin}/" +
-                        (suffix if suffix in ("parkingposition", "pendingrequests")
-                         else f"selectivestatus?jobs={suffix}"))
-                try:
-                    reply = await self.transport.request("cariad", "GET", path)
-                except (TimeoutError, OSError, RuntimeError, ValueError):
-                    outcomes.append({"source": suffix, "outcome": "transport_uncertain"})
-                    break
-                item = {"source": suffix, "http_status": reply.status,
-                        "outcome": "http_ok" if 200 <= reply.status < 300 else "http_error"}
-                outcomes.append(item)
-                if reply.status in (401, 403, 429) or reply.status >= 500:
-                    break
-                if not 200 <= reply.status < 300:
-                    continue
-                if mode == "trips":
-                    item["schema"] = describe_cariad_trip_schema(reply.data)
-                    if update_trips:
-                        trip, verdict = normalize_cariad_trip(reply.data)
-                        item["outcome"] = verdict
-                        if trip is not None:
-                            previous = car.trips.get(state_key, {})
-                            old_stamp = _capture_in_utc(previous.get("timestamp"))
-                            new_stamp = _capture_in_utc(trip.get("timestamp"))
-                            if old_stamp and (not new_stamp or new_stamp < old_stamp):
-                                item["outcome"] = "older_than_existing"
-                            else:
-                                car.trips[state_key] = trip
-                                normalized += 1
-                else:
-                    # Probe-only: never retain raw vehicle health, location,
-                    # request identifiers or trip history in diagnostics.
-                    data = reply.data
-                    value = data.get(suffix) if isinstance(data, dict) and suffix not in ("parkingposition", "pendingrequests") else data
-                    item["outcome"] = ("readable_response_not_command_proven"
-                                       if value and not (isinstance(value, dict) and "error" in value)
-                                       else "empty_or_error_response")
-            car.readonly_probe_report = {"group": mode, "normalized": normalized,
-                                         "attempted": len(outcomes), "results": outcomes}
-            if update_trips:
-                self._notify_discovery_change()
-            return car.readonly_probe_report
+            if remaining is not None and remaining <= 12:
+                break
+            try:
+                reply = await self.transport.request(
+                    "cariad", "GET", f"/vehicle/v1/trips/{car.vin}/{suffix}"
+                )
+            except (TimeoutError, OSError, RuntimeError, ValueError):
+                break
+            if reply.status in (401, 403, 429) or reply.status >= 500:
+                break
+            if not 200 <= reply.status < 300:
+                continue
+            trip, _ = normalize_cariad_trip(reply.data)
+            if trip is None:
+                continue
+            previous = _capture_in_utc(car.trips.get(state_key, {}).get("timestamp"))
+            incoming = _capture_in_utc(trip.get("timestamp"))
+            if previous and (not incoming or incoming < previous):
+                continue
+            car.trips[state_key] = trip
 
     async def test_family_reads(self, vin: str, family: str) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.
@@ -540,6 +495,30 @@ class V3Engine:
             await self._poll_parked_positions()
         if cloud_reachable:
             self.last_cloud_poll_success = datetime.now(UTC)
+            # Existing historical trip entities or explicitly reported trip
+            # capabilities opt into this normal data read, not route scanning.
+            # Avoid extra requests for vehicles without applicable evidence.
+            if hasattr(self.hass, "data"):
+                from homeassistant.helpers import entity_registry as er
+                registered = {
+                    entity.unique_id for entity in er.async_entries_for_config_entry(
+                        er.async_get(self.hass), self.entry.entry_id
+                    )
+                    if entity.domain == "sensor" and entity.disabled_by is None
+                }
+                for car in self.vehicles.values():
+                    profile = self.profiles[car.vin.lower()]
+                    prefix = f"{car.vin.lower()}_sensor_"
+                    known_trip = any(prefix + key in registered for key in (
+                        "shortterm_current", "longterm_current", "last_trip",
+                        "shortterm_reset", "longterm_reset",
+                    ))
+                    capability = bool(
+                        {"tripStatistics", "tripData"} &
+                        (car.advertised_capabilities - car.impaired_capabilities)
+                    )
+                    if len(profile.registry.capabilities) > 1 and (known_trip or capability):
+                        await self._poll_trips(car)
         for car in self.vehicles.values():
             captures = [
                 x.get("captured") for x in car.readings.values()
@@ -1089,7 +1068,7 @@ class V3Engine:
             p = self.profiles.get(car.vin.lower())
             vehicles.append({
                 "vehicle_slot": index,
-                "read_only_probe": car.readonly_probe_report,
+                "trip_data_sources": len(car.trips),
                 "context": {
                     "auth": car.context.auth,
                     "region": car.country, "model_family": car.model_family,

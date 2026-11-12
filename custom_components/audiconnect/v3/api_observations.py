@@ -12,7 +12,7 @@ from .response_preview import safe_response_preview
 MAX_ROUTES = 48
 MAX_PREVIEW_CHARS = 3800
 FAMILIES = frozenset(("cariad", "mbb", "graphql"))
-METHODS = frozenset(("GET", "POST"))
+METHODS = frozenset(("GET", "POST", "PUT"))
 OUTCOMES = frozenset((
     "http_ok", "http_error", "transport_uncertain",
     "verified", "readable_but_stale", "mapping_missing", "api_error",

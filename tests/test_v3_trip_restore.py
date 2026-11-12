@@ -28,3 +28,35 @@ def test_trip_normalization_never_invents_units_or_timestamp():
     assert trip["tripID"] is None
     assert normalize_cariad_trip({"mileage_km": 20})[0] is None
     assert normalize_cariad_trip({"timestamp": stamp, "averageFuelConsumption": 81})[0] is None
+
+
+def test_no_v3_probe_services_in_public_contract():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "custom_components" / "audiconnect"
+    yaml = (root / "services.yaml").read_text()
+    for name in ("probe_vehicle_health", "probe_trip_data", "refresh_trip_data"):
+        assert f"\n{name}:" not in yaml
+    init = (root / "__init__.py").read_text()
+    assert "if has_v2 and not hass.services.has_service(DOMAIN, SERVICE_PROBE_API_PATHS)" in init
+    assert "API probes are not a V3 product service" in init
+    engine = (root / "v3" / "engine.py").read_text()
+    assert "async def restore_reads(" not in engine
+    assert "await self._poll_trips(car)" in engine
+
+
+def test_trip_data_poll_uses_one_cadence_and_retains_existing_data():
+    import asyncio
+    from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    stamp = datetime.now(UTC).isoformat()
+    transport = NS(remaining_calls=100, request=AsyncMock(return_value=NS(
+        status=200, data={"data":[{"tripEndTimestamp": stamp, "mileage_km": 35}]}
+    )))
+    engine = NS(transport=transport, _trip_poll_at={})
+    asyncio.run(V3Engine._poll_trips(engine, car))
+    assert transport.request.await_count == 3
+    assert car.trips["shortterm_current"]["mileage"] == 35
+    asyncio.run(V3Engine._poll_trips(engine, car))
+    assert transport.request.await_count == 3

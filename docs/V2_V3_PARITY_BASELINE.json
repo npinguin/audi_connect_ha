@@ -4095,5 +4095,5 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "CARIAD historical read/write routes, climate settings, profile sliders, timer summaries, wake guard and explicit service parameter forwarding added; legacy, remaining derived sensors, prior-fix trip probes, Recorder and complete tests remain open."
+  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. V2-only upstream probe service remains untouched. Legacy controls, complete derived-data parity and real integration coverage still open."
 }

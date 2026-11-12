@@ -25,10 +25,10 @@ def test_new_sample_without_capture_does_not_inherit_timestamp():
     assert car.set_climate("off", now.isoformat(), route="a",
                            observed_at=now, http_status=200)
     assert car.climate_captured == now
-    assert car.set_climate("heating", None, route="b",
-                           observed_at=now, http_status=200)
-    assert car.climate_captured is None
-    assert car.capture_age_minutes is None
-    assert car.set_climate("off", "not-a-timestamp", route="c",
-                           observed_at=now, http_status=200)
-    assert car.climate_captured is None
+    assert not car.set_climate("heating", None, route="b",
+                               observed_at=now, http_status=200)
+    assert car.climate_captured == now
+    assert car.climate_state == "off"
+    assert not car.set_climate("heating", "not-a-timestamp", route="c",
+                               observed_at=now, http_status=200)
+    assert car.climate_captured == now
