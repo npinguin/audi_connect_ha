@@ -58,7 +58,8 @@
         "api_value_mappings.json",
         "api_value_mappings.py",
         "attribute_routes.py",
-        "operation_revision.py"
+        "operation_revision.py",
+        "custom_attributes.py"
       ],
       "responsibility": "operation and attribute definitions/validation"
     },

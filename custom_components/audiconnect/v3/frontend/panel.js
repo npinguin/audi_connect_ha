@@ -258,6 +258,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const readRoute = this.shadowRoot.getElementById("read-route")?.value || this.readChoice;
     const controlRoute = this.shadowRoot.getElementById("control-route")?.value || this.controlChoice;
     const rawReadDefinition = this.shadowRoot.getElementById("read-definition")?.value || "";
+    const rawNewAttribute = this.shadowRoot.getElementById("new-attribute-definition")?.value || "";
     const controlParameters = this.shadowRoot.getElementById("control-parameters")?.value || "{}";
     const approved = this.shadowRoot.getElementById("control-approval")?.checked === true;
     const approvalGroup = this.controlRoutes.find(r=>r.id===controlRoute)?.approval_group;
@@ -337,6 +338,14 @@ class AudiConnectV3Panel extends HTMLElement {
       } else if (action === "read-disable") {
         this.lastResult = await this.api("attribute_disable", {...this.selection,
           attribute: this.attribute});
+      } else if (action === "read-new") {
+        const definition = JSON.parse(rawNewAttribute);
+        this.lastResult = await this.api("attribute_add", {...this.selection, definition});
+        this.attribute = definition.attribute;
+        this.category = definition.attribute_definition.capability;
+        this.inventoryFilter = "all";
+        this.controlAction = "";
+        this.step = 3;
       } else if (action === "read-add") {
         this.lastResult = await this.api("attribute_add", {...this.selection,
           definition: JSON.parse(rawReadDefinition)});
@@ -402,9 +411,24 @@ class AudiConnectV3Panel extends HTMLElement {
     },null,2);
   }
 
+  get initialNewAttribute() {
+    return JSON.stringify({id:"user.read.example_pressure", attribute:"user.attribute.example_pressure",
+      family:"cariad", method:"GET", path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=example",
+      response_path:"/example/pressure", capture_path:"/example/carCapturedTimestamp",
+      attribute_definition:{id:"user.attribute.example_pressure", capability:"example", name:"Example pressure",
+        type:"number", unit:"bar", device_class:"pressure", state_class:"measurement", precision:1}}, null, 2);
+  }
+
   get initialReadRoute() {
     const entry = (this.capabilityStatus.rows || []).find(
       row => row.attribute === this.attribute && row.entity_key);
+    const selected = this.readRoutes.find(r=>r.id===this.readChoice);
+    if (this.attribute.startsWith("user.attribute.") && selected) {
+      return JSON.stringify({id:"user.read.new_mapping", attribute:this.attribute, family:selected.family,
+        method:"GET", path:selected.path, response_path:selected.response_paths[0],
+        ...(selected.capture_path ? {capture_path:selected.capture_path} : {}),
+        ...(selected.conversion ? {conversion:selected.conversion} : {})}, null, 2);
+    }
     return JSON.stringify({id:"user.read.new_mapping", attribute:this.attribute,
       family:"cariad", method:"GET",
       path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=" + (entry?.job || "charging"),
@@ -449,7 +473,7 @@ class AudiConnectV3Panel extends HTMLElement {
       ? r.capability === this.category
       : (r.approval_groups || []).includes(this.discoveryGroup));
     const canActivateRead = chosen?.result === "verified" ||
-      (chosen?.family === "mbb" && chosen?.result === "readable_but_stale");
+      ((chosen?.family === "mbb" || chosen?.allow_last_known) && chosen?.result === "readable_but_stale");
     const bg = "var(--primary-background-color, #f8fafc)";
     const body = "var(--primary-text-color, #111827)";
     this.shadowRoot.innerHTML = `
@@ -655,11 +679,16 @@ class AudiConnectV3Panel extends HTMLElement {
               <div class="tool"><label>Show attributes</label>
                 <select id="inventory-filter">
                   <option value="available" ${this.inventoryFilter==="available"?"selected":""}>Observed on this vehicle</option>
-                  <option value="all" ${this.inventoryFilter==="all"?"selected":""}>All historical V2 references</option>
+                  <option value="all" ${this.inventoryFilter==="all"?"selected":""}>All historical and local attributes</option>
                 </select>
               </div>
             </div>
             <h2>Read-only attributes · select a route</h2>
+            <details><summary>Add a vehicle-local sensor / capability group</summary>
+              <p>Illustrative JSON only: replace the example job and paths with an observed Audi response. Save creates a draft, not an active sensor. Test and activate explicitly.</p>
+              <textarea id="new-attribute-definition" rows="12">${escapeHTML(this.initialNewAttribute)}</textarea>
+              <button data-action="read-new" ${this.loading?"disabled":""}>Save local attribute</button>
+            </details>
             ${visibleAttributes.map(r=>`<div class="attribute-row">
               <div><b>${escapeHTML(r.entity_key.replaceAll("_"," "))}</b>
                 <div class="subline">${escapeHTML(r.attribute)} · ${escapeHTML(r.status)}</div></div>

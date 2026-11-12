@@ -51,7 +51,7 @@ def validate_definition(raw: Mapping[str, Any]) -> dict[str, Any]:
         if device is None:
             if unit not in (None, "%"):
                 raise ValueError("A unit requires an approved device class")
-        elif device not in _UNITS or unit not in _UNITS[device]:
+        elif not isinstance(device, str) or not isinstance(unit, str) or device not in _UNITS or unit not in _UNITS[device]:
             raise ValueError("Invalid device class/unit combination")
         if state not in (None, "measurement"):
             raise ValueError("Only measurement statistics are supported for custom attributes")
@@ -87,7 +87,7 @@ def normalize_local_value(value: Any, field: Mapping[str, Any]) -> Any:
     if kind == "boolean":
         return value if type(value) is bool else None
     if kind in ("number", "integer"):
-        if type(value) not in (int, float) or not math.isfinite(value):
+        if type(value) not in (int, float) or abs(value) > 1e100 or not math.isfinite(value):
             return None
         return int(value) if kind == "integer" and value == int(value) else (value if kind == "number" else None)
     if not isinstance(value, str) or not value or len(value) > 255:

@@ -340,8 +340,11 @@ class StatusEngine:
                 family, path, mappings = self._attribute_request(car, profile, ident, route)
                 unique.setdefault((family, path), []).append((ident, route, mappings))
             # Refuse an unbounded per-attribute request explosion.
-            for (family, path), selected in list(unique.items())[:4]:
-                if family not in ("cariad", "mbb"):
+            routes = list(unique.items())
+            start = ((self._poll_cycles - 1) * 4) % len(routes) if routes else 0
+            for (family, path), selected in (routes[start:] + routes[:start])[:4]:
+                if not (family == ("mbb" if car.context.auth == "legacy" else "cariad")
+                        or (family == "cariad" and car.legacy_cariad)):
                     continue
                 response = polled_responses.get((key, family, path))
                 if response is None:

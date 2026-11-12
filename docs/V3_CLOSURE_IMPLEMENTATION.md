@@ -35,3 +35,7 @@ Verified local CARIAD climate-start settings templates can map a declared typed 
 ### Shared execution history and context migration
 
 A bounded 50-record private command journal now records both HA and Workbench executions with origin, operation revision and separate backend/physical outcomes; old last-command records remain readable. The guided discovery review model is retained as the evidence UI, not a separate dispatcher. Vehicle context changes invalidate route bindings/evidence and in-memory observations while preserving definitions, user-disabled controls, history and pending uncertainty. Older-version HACS downgrade after adding new custom fields still requires backup/restore; runtime V2 fallback is distinct.
+
+### Post-b8 declarative local attributes and ownership
+
+The admin Workbench can define a new vehicle-local read-only attribute and capability presentation group with a namespaced identifier, typed value, HA metadata and GET response/capture mappings. A draft is not an HA entity; a successful test and explicit activation are required. Selected reads are deduplicated and rotated within the four-route poll budget. This is not arbitrary new control authorization. Historical V2 identity and the 59-operation global catalog are unchanged. Ownership completeness and the core domain-to-composition import boundary now have executable regression checks. Full dependency-cycle, typing/coverage and physical parity acceptance remain separate gates.
