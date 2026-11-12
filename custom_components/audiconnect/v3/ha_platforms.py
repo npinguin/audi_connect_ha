@@ -83,7 +83,11 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                             entities.append(V3TripSensor(coordinator, car, key))
                 profile = getattr(engine, "profiles", {}).get(vin)
                 attributes = attributes_for(profile)
-                for ident in car.readings:
+                # Canonical entities can be backed by declared alternative sources.
+                candidates = set(car.readings)
+                if platform == "sensor":
+                    candidates.update(("stateOfCharge", "TOTAL_RANGE", "TANK_LEVEL_IN_PERCENTAGE"))
+                for ident in sorted(candidates):
                     descriptor = attributes.get(ident)
                     if descriptor and descriptor.get("local") and ident not in profile.attribute_routes:
                         continue

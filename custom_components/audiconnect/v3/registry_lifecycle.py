@@ -80,6 +80,7 @@ async def async_apply_v3_entity_visibility(
     # Reversible default visibility migration, never disable/delete compatibility IDs.
     hidden = set(data.get("b10_hidden", []))
     reviewed = set(data.get("b10_reviewed", []))
+    categories = dict(data.get("b10_categories", {}))
     for entity_id in owned:
         current = registry.async_get(entity_id)
         uid = getattr(current, "unique_id", "")
@@ -89,6 +90,10 @@ async def async_apply_v3_entity_visibility(
         if not enabled:
             if uid in hidden and current.hidden_by == er.RegistryEntryHider.INTEGRATION:
                 registry.async_update_entity(entity_id, hidden_by=None)
+            if uid in categories:
+                previous, applied = categories[uid]
+                if getattr(current.entity_category, "value", None) == applied:
+                    registry.async_update_entity(entity_id, entity_category=EntityCategory(previous) if previous else None)
             continue
         if engine is None:
             continue
@@ -105,11 +110,14 @@ async def async_apply_v3_entity_visibility(
             if current.hidden_by is None and current.disabled_by is None:
                 updates["hidden_by"] = er.RegistryEntryHider.INTEGRATION
                 hidden.add(uid)
+        if "entity_category" in updates and uid not in categories:
+            categories[uid] = [getattr(current.entity_category, "value", None), getattr(updates["entity_category"], "value", None)]
         if updates:
             registry.async_update_entity(entity_id, **updates)
     if not enabled:
         hidden.clear()
         reviewed.clear()
+        categories.clear()
 
     # Historical V2 disable records are cleared; the cloud anchor is local
     # account metadata. Never save pilot retirement as a V2 restore candidate.
@@ -122,4 +130,6 @@ async def async_apply_v3_entity_visibility(
         result["b10_hidden"] = sorted(hidden)
     if reviewed:
         result["b10_reviewed"] = sorted(reviewed)
+    if categories:
+        result["b10_categories"] = categories
     await store.async_save(result)

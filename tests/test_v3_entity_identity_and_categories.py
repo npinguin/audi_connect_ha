@@ -176,3 +176,14 @@ def test_b10_compatibility_visibility_requires_evidence():
     assert not compatibility_hidden(car, "sensor.oil_level")
     car.readings["OIL_LEVEL_DIPSTICKS_PERCENTAGE"] = {"reason": "boolean_oil_level_use_binary"}
     assert compatibility_hidden(car, "sensor.oil_level")
+
+def test_b10_electric_sources_resolve_by_role_and_capture():
+    from custom_components.audiconnect.v3.product_contract import projection_reading, engine_role
+    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
+    car = NS(readings={"stateOfCharge": {"value": 70, "captured": "2026-11-12T08:00:00Z"},
+                       "primary_engine_type": {"value": "electric"},
+                       "primaryEngineRangePercent": {"value": 77, "captured": "2026-11-12T09:00:00Z"},
+                       "secondary_engine_type": {"value": "gasoline"},
+                       "secondaryEngineRangePercent": {"value": 100, "captured": "2026-11-12T10:00:00Z"}})
+    assert engine_role(car, "primary") == "electric"
+    assert projection_reading(car, ATTRIBUTES["stateOfCharge"])[1]["value"] == 77

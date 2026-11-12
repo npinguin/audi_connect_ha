@@ -56,6 +56,12 @@ def projection_reading(vehicle, attribute):
     ident = attribute["id"]
     canonical = ALIAS_OF.get(ident, ident)
     sources = [canonical, *sorted(a for a, target in ALIAS_OF.items() if target == canonical)]
+    if attribute["entity_key"] == "range":
+        sources.append("hybridRange")
+    if attribute["entity_key"] == "state_of_charge":
+        sources.extend(electric_soc_sources(vehicle))
+    if attribute["entity_key"] == "tank_level":
+        sources.extend(("fuelLevelFromEngine",))
     valid = [(a, vehicle.readings[a]) for a in sources
              if a in vehicle.readings and (vehicle.readings[a].get("value") is not None
                                          or vehicle.readings[a].get("status") == "invalid_value")]
@@ -152,10 +158,14 @@ def compatibility_hidden(vehicle, key):
     for role in ("primary", "secondary"):
         if key != "sensor." + role + "_engine_range_percent":
             continue
-        engine = readings.get(role + "_engine_type", {}).get("value")
-        if engine == "electric":
+        if engine_role(vehicle, role) == "electric":
             return readings.get("stateOfCharge", {}).get("value") is not None
-        # Fuel percentage is not necessarily the same as generic engine SOC.
+        if engine_role(vehicle, role) == "fuel":
+            # Never assume generic engine SOC means fuel; require explicit fuel value.
+            engine_fuel = readings.get(role + "EngineFuelLevel", {}).get("value")
+            engine_percent = readings.get(role + "EngineRangePercent", {}).get("value")
+            return type(engine_fuel) in (int, float) and engine_fuel == engine_percent and any(
+                readings.get(x, {}).get("value") is not None for x in ("TANK_LEVEL_IN_PERCENTAGE", "tank_level"))
     return False
 
 
@@ -167,3 +177,15 @@ def canonical_entity_category(key):
                "number.charge_profile_{profile_id}_target_soc", "select.charge_mode"):
         return "config"
     return None
+
+def electric_soc_sources(vehicle):
+    readings = vehicle.readings
+    return [role + "EngineRangePercent" for role in ("primary", "secondary")
+            if readings.get(role + "_engine_type", {}).get("value") == "electric"]
+
+
+def engine_role(vehicle, role):
+    value = vehicle.readings.get(role + "_engine_type", {}).get("value")
+    return "electric" if value == "electric" else "fuel" if value in (
+        "gasoline", "diesel", "petrol", "cng", "lpg"
+    ) else None

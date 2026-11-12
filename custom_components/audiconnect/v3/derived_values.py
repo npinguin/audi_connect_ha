@@ -44,6 +44,19 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         record("charging_complete_time", (stamp + timedelta(minutes=minutes)).isoformat(),
                remaining["captured"], "charging", remaining.get("path"))
 
+    # Explicit alternative fuel and range readings; engine SOC is not fuel by assumption.
+    engines = read_json_path(payload, "fuelStatus.rangeStatus.value")
+    if isinstance(engines, dict):
+        for role in ("primary", "secondary"):
+            obj = engines.get(role + "Engine")
+            if not isinstance(obj, dict):
+                continue
+            fuel = obj.get("currentFuelLevel_pct")
+            if type(fuel) in (int, float) and 0 <= fuel <= 100:
+                stamp = engines.get("carCapturedTimestamp")
+                path = "fuelStatus.rangeStatus.value." + role + "Engine.currentFuelLevel_pct"
+                record(role + "EngineFuelLevel", fuel, stamp, "fuelStatus", path)
+                record("fuelLevelFromEngine", fuel, stamp, "fuelStatus", path)
     # Historical auxiliary-heating status is distinct from electric cabin
     # climatisation. Do not infer heating from a generic climate state.
     path = "climatisation.auxiliaryHeatingStatus.value"

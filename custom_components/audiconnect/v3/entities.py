@@ -26,7 +26,7 @@ from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
-from .product_contract import projection_reading, compatibility_hidden
+from .product_contract import projection_reading, compatibility_hidden, engine_role
 
 
 def _binding_status(profile, key):
@@ -481,6 +481,11 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         self._semantic_contract = contract
         self._allow_last_known = contract.get("display_last_known", False) is True
         self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
+        for role in ("primary", "secondary"):
+            if attribute["entity_key"] == role + "_engine_range":
+                kind = engine_role(vehicle, role)
+                if kind:
+                    self._attr_name = "Electric range" if kind == "electric" else "Fuel range"
         self._attr_native_unit_of_measurement = contract.get("unit")
         self._attr_icon = contract.get("icon")
         if contract.get("device_class"):
@@ -598,6 +603,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
         if self.attribute.get("local") and self.attribute["id"] not in self.coordinator.engine.profiles[self.vehicle.vin.lower()].attribute_routes:
             return False
         reading = self.vehicle.readings.get(self.attribute["id"])
+        if self.is_on is None:
+            return False
         if self.attribute["id"] == "is_moving" and reading:
             # Historical parking endpoint indication, not a live GPS fix.
             age = _reading_age_minutes(reading.get("observed"))
