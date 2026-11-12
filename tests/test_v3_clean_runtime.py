@@ -927,3 +927,72 @@ async def test_guided_charging_alternative_only_after_definite_rejection(first_s
     else:
         assert result["operation"] == "cariad.charging.start"
         assert "previous_attempt" not in result
+
+
+@pytest.mark.asyncio
+async def test_golden_configure_discover_use_restart_without_workbench():
+    """Full reviewed catalog with synthetic OEM transport; no real vehicle contact."""
+    from unittest.mock import Mock
+    from types import SimpleNamespace as NS
+    from datetime import timedelta
+    from custom_components.audiconnect.v3.runtime import catalog_path
+    from custom_components.audiconnect.v3.ha_platforms import setup
+
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    store = FakeStore()
+    auth = FakeAuth()
+    auth.service = NS(_spin=None)
+    class Transport(FakeTransport):
+        charging = False
+        async def request(self, family, method, path, **kwargs):
+            self.calls.append((family, method, path, kwargs))
+            self.request_count += 1
+            stamp = datetime.now(UTC) + timedelta(milliseconds=10)
+            if method == "POST":
+                assert path.endswith("/charging/start")
+                assert store.records[VIN.lower()]["last_command"]["state"] == "pending"
+                self.charging = True
+            else:
+                assert method == "GET"
+            value = "charging" if self.charging else "readyForCharging"
+            return V3Response(200, {"charging": {
+                "chargingStatus": {"value": {"chargingState": value, "carCapturedTimestamp": stamp.isoformat()}},
+                "batteryStatus": {"value": {"currentSOC_pct": 65, "carCapturedTimestamp": stamp.isoformat()}}},
+                "climatisation": {"climatisationStatus": {"value": {
+                    "climatisationState": "off", "carCapturedTimestamp": stamp.isoformat()}}}}, stamp)
+    transport = Transport([])
+    engine = V3Engine(NS(), NS(entry_id="golden"), registry, auth=auth, transport=transport, storage=store)
+    await engine.poll()
+    assert all(call[1] == "GET" for call in transport.calls if len(call) > 1)
+    car = engine.require_vehicle(VIN)
+    assert car.model == "Audi Q8 TFSI e"
+    assert engine.control_enabled(VIN, "start", "charging")
+    assert not engine.profiles[VIN.lower()].control_results
+
+    def entities_for(engine):
+        result = []
+        coordinator = NS(engine=engine, async_add_listener=lambda cb: None, last_update_success=True)
+        entry = NS(entry_id="golden", runtime_data=NS(v3=engine, coordinator=coordinator),
+                   async_on_unload=lambda cb: None)
+        for platform in ("sensor", "switch", "climate", "binary_sensor", "button", "lock", "number", "select", "device_tracker"):
+            setup(platform, entry, result.extend)
+        return {entity.unique_id: entity for entity in result}
+
+    entities = entities_for(engine)
+    model_key, switch_key = VIN.lower()+"_sensor_model", VIN.lower()+"_switch_charging"
+    assert entities[model_key].native_value == "Audi Q8 TFSI e"
+    switch = entities[switch_key]
+    assert switch.available and switch.is_on is False
+    switch.async_write_ha_state = Mock()
+    await switch.async_turn_on()
+    assert switch.is_on is True
+    assert engine.profiles[VIN.lower()].last_command.state == "verified"
+    assert sum(call[1]=="POST" for call in transport.calls if len(call)>1) == 1
+
+    restarted = V3Engine(NS(), NS(entry_id="golden"), registry, auth=auth, transport=transport, storage=store)
+    await restarted.poll()
+    restored_entities = entities_for(restarted)
+    assert restored_entities[model_key].native_value == "Audi Q8 TFSI e"
+    assert restored_entities[switch_key].is_on is True
+    assert sum(call[1]=="POST" for call in transport.calls if len(call)>1) == 1
+    assert restarted.profiles[VIN.lower()].last_command.state == "verified"
