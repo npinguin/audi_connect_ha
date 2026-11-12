@@ -35,3 +35,6 @@ This documentation is **research**, not an active deployment or a manufacturer-e
 - [V3 upstream readiness](V3_UPSTREAM_READINESS.md) — draft PR, remaining machine-gate blockers, evidence checklist and proposed upstream release sequence.
 
 - [Upstream gap scan and API research roadmap](V3_UPSTREAM_GAP_AND_API_RESEARCH.md) — accepted contributions, community acceptance cases, prioritized API research and permission boundaries.
+
+- [b16 release notes](V3_RELEASE_NOTES_3.0.0b16.md) — Q8 completeness and capability discovery candidate.
+- [Q8 b15 diagnostics audit](V3_Q8_B15_AUDIT.md) — target-vehicle evidence and outstanding acceptance.

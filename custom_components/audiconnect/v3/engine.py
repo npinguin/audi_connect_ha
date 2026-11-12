@@ -472,7 +472,12 @@ class V3Engine:
         self._notify_discovery_change()
         rows = identity_rows(selected.data)
         candidate = V3Vehicle.from_graphql(rows[0], car.country) if rows else None
+        from .vehicle import select_vehicle_image
+        image_present = any(select_vehicle_image(row.get("vehicle"), car.vin) is not None
+                            for row in identity_rows(response.data) if isinstance(row, dict)
+                            and str(row.get("vin", "")).lower() == car.vin.lower())
         return {"operation": operation, "http_status": response.status,
+                "image_present": image_present,
                 "errors": selected.data["errors"], "vehicle_present": bool(rows),
                 "model_present": bool(candidate and candidate.model),
                 "year_present": bool(candidate and candidate.model_year),

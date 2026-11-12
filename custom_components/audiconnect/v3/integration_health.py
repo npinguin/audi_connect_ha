@@ -51,7 +51,7 @@ class IntegrationHealth:
                 and operation not in ("cariad.discovery.full", "cariad.selectivestatus.batch")
                 and not (discovery and jobs and all(j in V2_JOBS for j in jobs))):
             return
-        if method != "GET" and operation not in IDENTITY_QUERIES:
+        if method != "GET" and operation != "graphql.inventory.vehicleList":
             return
         status = getattr(response, "status", None)
         if status is None or not 200 <= status < 300:

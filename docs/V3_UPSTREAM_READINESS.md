@@ -73,3 +73,7 @@ The [upstream feature/evidence matrix](V3_UPSTREAM_FEATURE_MATRIX.md) now invent
 Sanitized Q8 b13 diagnostics confirm OEM model/year, PHEV with consistent sources, and 391 locally archived trips while current trip scopes are absent. A model/context rebind used to clear normalized snapshots; the archive only persisted individual trips. Preserve VIN-scoped completed trip snapshots and independently persist the last valid short/long/last scopes (no manufactured totals). Retry missing trip scopes and parked position at bounded regular intervals; explain flash prerequisite as temporarily blocked, not unsupported. No commands sent by these fixes.
 
 Optional OEM identity render: one separate fixed GraphQL read (`vehicle.renderPictures { mediaType url }`) per runtime, quota-gated, best effort. Only HTTPS mediaservice.audi.com URLs without credentials/known VIN; no image URL in shared diagnostics. Model sensor alone exposes the picture. Reference: [VAG Connect GraphQL](https://github.com/its-me-prash/vwgroup-connect-ha/blob/main/custom_components/vag_connect/cariad/api/graphql.py). Auth0 may lack media permission; no alternative login/token exchange or identity failure. Real render response still requires vehicle acceptance.
+
+## b16 evidence acquisition
+
+See [Q8 b15 audit](V3_Q8_B15_AUDIT.md) and [b16 release notes](V3_RELEASE_NOTES_3.0.0b16.md). Ordinary completeness and upstream gates remain false; no stable promotion.
