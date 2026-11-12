@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from .action_discovery import approval_group
-from .command_journal import CommandRecord
+from .command_journal import CommandRecord, check_command_sequence
 from .operation_revision import operation_revision
 from .command_parameters import map_parameters, runtime_ready
 from .command_readback import configure_readback, reconcile_readback, observe_command_response
@@ -117,7 +117,14 @@ class CommandEngine:
                 car = self.require_vehicle(vin)
             except ValueError:
                 continue
-            if reconcile_readback(profile.last_command, car):
+            # A linked refresh/wake has no physical state readback of its own.
+            # Continue reconciling the latest actual action, even after a wake.
+            latest = profile.last_command
+            record = latest
+            if latest.is_wake:
+                record = next((row for row in reversed(profile.command_journal)
+                               if row.origin == "home_assistant" and not row.is_wake), None)
+            if record is not None and reconcile_readback(record, car) and record is latest:
                 car.last_command_result = "verified"
 
     def refresh_bindings(self) -> None:
@@ -180,7 +187,7 @@ class CommandEngine:
             if profile.discovery._active is not None:
                 raise ValueError("Review the previous action before trying another")
             if profile.last_command is not None:
-                profile.last_command.check_next(time.time())
+                check_command_sequence(profile, time.time(), capability=capability, action=aspect)
             if f"{capability}.{aspect}" in profile.discovery.disabled:
                 raise ValueError("This action has been disabled by the user")
             if (profile.discovery.history and
@@ -276,7 +283,7 @@ class CommandEngine:
                         or (parent.capability == "remote" and parent.action in ("refresh", "wake"))):
                     raise RuntimeError("No eligible completed parent command for vehicle refresh")
             elif p.last_command is not None:
-                p.last_command.check_next(time.time(), capability=capability, action=aspect)
+                check_command_sequence(p, time.time(), capability=capability, action=aspect)
             if p.discovery.history and time.time() < (
                 p.discovery.history[-1].started_at + p.discovery.cooldown_seconds
             ):
