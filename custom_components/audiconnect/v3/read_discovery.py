@@ -248,7 +248,10 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
             schema = getattr(profile, "job_schema", {}).get(job, {})
             schema_status = ("truncated" if schema.get("truncated") else
                              "captured" if schema.get("fields") else "not_captured")
-            jobs[job] = {"status": status, "schema_inventory": schema_status,
+            attempts = profile.job_probe_attempts.get(job, 0)
+            jobs[job] = {"status": status, "attempts": attempts,
+                         "retry_exhausted": status == "inconclusive" and attempts >= MAX_TARGETED_PROBE_ATTEMPTS,
+                         "schema_inventory": schema_status,
                          "schema_field_count": len(schema.get("fields", [])),
                          "assessed": status in ("observed", "unsupported") or (
                 status == "not_observed" and profile.job_probe_attempts.get(job, 0) > 0)}
@@ -307,7 +310,16 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
     schema_captured = sum(row["schema_inventory"] == "captured" for row in jobs.values())
     attr_total = sum(row["attributes_total"] for row in capabilities.values())
     attr_normalized = sum(row["attributes_normalized"] for row in capabilities.values())
-    return {"read_assessment_percent": round(100 * assessed / total, 1) if total else None,
+    pending = {job for group in pending_groups(profile, max_groups=len(PROBE_GROUPS)) for job in group} if modern else set()
+    exhausted = [job for job, row in jobs.items() if row["retry_exhausted"]]
+    missing_reads = [op for op, value in reads.items() if not assessed_http(value)]
+    unresolved = [job for job, row in jobs.items() if row["status"] not in ("observed", "unsupported") and job not in pending]
+    read_state = ("discovering" if pending else "awaiting_data" if missing_reads else
+                  "complete_with_unresolved" if unresolved else "complete")
+    return {"read_state": read_state, "read_pending_jobs": sorted(pending),
+        "read_retry_exhausted_jobs": exhausted, "read_unresolved_jobs": unresolved,
+        "read_pending_standalone": missing_reads,
+        "read_assessment_percent": round(100 * assessed / total, 1) if total else None,
         "schema_inventory_captured_jobs": schema_captured, "schema_inventory_total_jobs": len(jobs),
         "schema_inventory_percent": round(100 * schema_captured / len(jobs), 1) if jobs else None,
         "schema_inventory_scope": "current_session_untruncated_capture_not_semantic_completeness",
