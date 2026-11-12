@@ -418,21 +418,13 @@ class V3Engine:
 
     async def test_identity_operation(self, vin: str, operation: str) -> dict[str, Any]:
         """One reviewed read, selected vehicle evidence, no activation."""
-        from .transport import (IDENTITY_OPERATIONS, GARAGE_OPERATION, POST_GARAGE_OPERATION, selected_garage_response,
+        from .transport import (IDENTITY_QUERIES, GARAGE_OPERATION, selected_garage_response,
                                 garage_rows, selected_identity_response, identity_rows)
-        if operation not in IDENTITY_OPERATIONS:
+        if operation != GARAGE_OPERATION and operation not in IDENTITY_QUERIES:
             raise ValueError("Unknown reviewed GraphQL operation")
         car = self.require_vehicle(vin)
         if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
             raise RuntimeError("Audi quota is low")
-        if operation == POST_GARAGE_OPERATION:
-            garage = await self.transport.test_identity_query(GARAGE_OPERATION)
-            self._api_record(self.profiles[car.vin.lower()], GARAGE_OPERATION, "cariad", "GET",
-                             selected_garage_response(garage, car.vin), car.vin)
-            if garage.status in (401, 403, 429):
-                raise RuntimeError("Garage request refused; comparison stopped")
-            if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
-                raise RuntimeError("Audi quota is low")
         response = await self.transport.test_identity_query(operation)
         is_garage = operation == GARAGE_OPERATION
         selected = selected_garage_response(response, car.vin) if is_garage else selected_identity_response(response, car.vin)
@@ -463,8 +455,8 @@ class V3Engine:
         """
         vehicle = self.require_vehicle(vin)
         if family == "graphql":
-            from .transport import IDENTITY_QUERIES, POST_GARAGE_OPERATION
-            routes = [op for op in IDENTITY_QUERIES if op != POST_GARAGE_OPERATION] if full else [INVENTORY_OPERATION]
+            from .transport import IDENTITY_QUERIES
+            routes = list(IDENTITY_QUERIES) if full else [INVENTORY_OPERATION]
             results = []
             for operation in routes:
                 if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:

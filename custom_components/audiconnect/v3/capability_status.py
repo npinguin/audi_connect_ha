@@ -26,7 +26,7 @@ from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .custom_attributes import attributes_for
 from .legacy_read_mappings import variant_for as legacy_variant_for
 from .read_discovery import summary as discovery_summary
-from .transport import INVENTORY_OPERATION, IDENTITY_QUERIES, IDENTITY_OPERATIONS, GARAGE_OPERATION, GARAGE_PATH
+from .transport import INVENTORY_OPERATION, IDENTITY_QUERIES, IDENTITY_OPERATIONS, GARAGE_OPERATION, GARAGE_PATH, POST_GARAGE_OPERATION
 
 GARAGE_FIELDS = {
     "garage_model": ("data[].model", "sensor.model", "Manufacturer model"),
@@ -362,7 +362,7 @@ def _cockpit(vehicle, profile, rows, controls):
     references = {row["operation"]: row for row in rows if row["source"] == "v2_reference_only"}
     journal = {row.operation: row for row in profile.command_journal}
     operations = []
-    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal) | set(IDENTITY_OPERATIONS)):
+    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal) | set(IDENTITY_QUERIES) | {GARAGE_OPERATION} | ({POST_GARAGE_OPERATION} if POST_GARAGE_OPERATION in (vehicle.identity_operation, vehicle.year_operation) else set())):
         op = catalog.get(ident, {})
         record = records.get(ident, {})
         ref = references.get(ident, {})
@@ -445,6 +445,8 @@ def _cockpit(vehicle, profile, rows, controls):
             operation["family"] = "cariad" if ident == GARAGE_OPERATION else "graphql"
             operation["path"] = GARAGE_PATH if ident == GARAGE_OPERATION else "/vgql/v1/graphql"
             operation["read_only"] = True
+            if ident == POST_GARAGE_OPERATION:
+                operation["reference_only"] = True
             operation["graphql_errors"] = evidence.get("graphql_errors", [])
             operation["auth_context"] = evidence.get("auth_context")
             fields = [{**field,

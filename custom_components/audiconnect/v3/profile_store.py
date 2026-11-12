@@ -48,9 +48,15 @@ def restore_profile(
     drafts = saved.get("identity_drafts", {})
     if not isinstance(drafts, dict) or len(drafts) > 20:
         raise DevelopmentProfileError("Invalid identity drafts")
+    from .transport import POST_GARAGE_OPERATION, INVENTORY_OPERATION
     for operation, body in drafts.items():
         if not isinstance(body, dict) or set(body) != {"query", "variables"}:
             raise DevelopmentProfileError("Invalid identity draft")
+        if operation == POST_GARAGE_OPERATION:
+            # The former comparison used the same query as vehicleList.
+            if INVENTORY_OPERATION in drafts:
+                continue
+            operation = INVENTORY_OPERATION
         profile.save_identity_draft(operation, body["query"], body["variables"])
     custom = saved.get("custom_routes", [])
     read = saved.get("read_evidence", {})

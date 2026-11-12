@@ -75,3 +75,13 @@ def test_runtime_identity_query_can_edit_har_fields_and_variables():
             validate_identity_body(bad)
     with pytest.raises(ValueError):
         GraphQLExecutor().plan(auth, "POST", "/vgql/v1/graphql", body)
+
+
+def test_retired_after_garage_is_evidence_only():
+    from custom_components.audiconnect.v3.transport import (
+        POST_GARAGE_OPERATION, IDENTITY_OPERATIONS, IDENTITY_QUERIES, identity_request_body,
+    )
+    assert POST_GARAGE_OPERATION in IDENTITY_OPERATIONS
+    assert POST_GARAGE_OPERATION not in IDENTITY_QUERIES
+    with pytest.raises(KeyError):
+        identity_request_body(POST_GARAGE_OPERATION)

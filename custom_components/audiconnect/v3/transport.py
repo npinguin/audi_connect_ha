@@ -84,14 +84,14 @@ _WEB_ORDERED_QUERY = """query GET_USER_VEHICLES_ORDERED_BY($orderBy: VehicleSort
 
 IDENTITY_QUERIES = {
     INVENTORY_OPERATION: _GRAPHQL_QUERY,
-    POST_GARAGE_OPERATION: _GRAPHQL_QUERY,
     "graphql.inventory.extended": _GRAPHQL_EXTENDED_QUERY,
     "graphql.inventory.modern": _GRAPHQL_MODERN_QUERY,
     "graphql.inventory.images": _GRAPHQL_IMAGES_QUERY,
     WEB_ORDERED_OPERATION: _WEB_ORDERED_QUERY,
 }
 
-IDENTITY_OPERATIONS = frozenset((*IDENTITY_QUERIES, GARAGE_OPERATION))
+IDENTITY_OPERATIONS = frozenset((*IDENTITY_QUERIES, GARAGE_OPERATION, POST_GARAGE_OPERATION))
+# afterGarage is retained only as a historical evidence/provenance identifier.
 
 def identity_request_body(operation: str) -> dict[str, Any]:
     query = IDENTITY_QUERIES[operation]

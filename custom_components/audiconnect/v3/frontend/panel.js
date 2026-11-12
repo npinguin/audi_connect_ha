@@ -651,7 +651,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const controls = filteredRows.filter(r => r.source === "v2_control_reference");
     const controlActions = (coverage.control_actions || []).filter(r =>
       (family === "all" || r.api_family === family) && entityMatches(r));
-    const identityOps = (coverage.operations || []).filter(o=>o.read_only && (o.capabilities||[]).includes("vehicle_identity") && operationMatches(o));
+    const identityOps = (coverage.operations || []).filter(o=>o.read_only && !o.reference_only && (o.capabilities||[]).includes("vehicle_identity") && operationMatches(o));
     const capabilityNames = [...new Set([...attributes,...controls,...controlActions].map(r => r.capability).concat(identityOps.length?["vehicle_identity"]:[], selectedEntity?.capabilities||[]))].filter(cap=>!selectedEntity||selectedEntity.capabilities.includes(cap)).sort();
     if (capabilityNames.length && !capabilityNames.includes(this.category) && this.step!==3) this.category=capabilityNames[0];
     const readable = attributes.filter(r => ["verified","readable_but_stale"].includes(r.status));
