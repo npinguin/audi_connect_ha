@@ -49,3 +49,18 @@ def test_specific_inventory_phev_is_consistent_with_generic_hybrid_and_conflict_
     assert powertrain_identity(car)["value"] is None
     sensor=V3ReadOnlySensor(NS(async_add_listener=lambda cb:None),car,ATTRIBUTES["carType"])
     assert sensor.native_value is None and not sensor.available
+
+
+def test_incomplete_identity_retries_are_bounded_and_quota_aware():
+    from types import SimpleNamespace
+    from custom_components.audiconnect.v3.status_engine import identity_retry_due
+    incomplete = SimpleNamespace(inventory_present=True, model="", model_family="",
+                                 model_year="2024", car_type="phev")
+    complete = SimpleNamespace(inventory_present=True, model="Q8 TFSI e",
+                               model_family="q8", model_year="2024", car_type="phev")
+    vehicles = {"a": incomplete, "b": complete}
+    assert [cycle for cycle in range(1, 24) if identity_retry_due(vehicles, cycle, 50)] == [2, 4, 8]
+    assert not identity_retry_due(vehicles, 2, 12)
+    assert identity_retry_due(vehicles, 2, None)
+    incomplete.inventory_present = False
+    assert not identity_retry_due(vehicles, 2, 50)
