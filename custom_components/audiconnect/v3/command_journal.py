@@ -120,7 +120,9 @@ class CommandRecord:
         ):
             raise ValueError("Invalid stored command context")
         if recover_pending and record.state in ("pending", "accepted_unconfirmed"):
-            record.state = "uncertain"  # Never replay an interrupted mutation.
+            if not (record.is_wake and record.state == "accepted_unconfirmed"
+                    and record.backend_result == "accepted_unconfirmed"):
+                record.state = "uncertain"  # Never replay an interrupted mutation.
         return record
 
 
@@ -152,7 +154,10 @@ def restore_history(rows):
         raise ValueError("Duplicate command journal ID")
     normal = next((record for record in reversed(records) if record.origin == "home_assistant"), None)
     if normal is not None and normal.state in ("pending", "accepted_unconfirmed"):
-        normal.state = "uncertain"
+        # An acknowledged preparatory wake has no actuator readback to wait for.
+        if not (normal.is_wake and normal.state == "accepted_unconfirmed"
+                and normal.backend_result == "accepted_unconfirmed"):
+            normal.state = "uncertain"
     for record in records:
         if record.origin == "workbench" and record.state in ("pending", "accepted_unconfirmed"):
             record.state = "uncertain"
