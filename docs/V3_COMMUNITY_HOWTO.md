@@ -38,7 +38,7 @@ A sleeping vehicle, expired session, permission failure, missing field or rate l
 
 ## 3. Engineers — discover, configure, test, activate, contribute
 
-**Development workflow (not yet released):** End-user validation reproduces the golden Configure → Discover → Use journey. Guided mode presents unresolved actions one at a time with Yes/No and OK/Not OK/Not sure; Expert mode lets an engineer select individual actions, retest and open the failed operation in the existing editor. The direct route editor remains available for technical experiments. Automatic safe alternative-route selection is still open. Both modes use the same runtime and physical consent boundary.
+**Development workflow (not yet released):** End-user validation reproduces the golden Configure → Discover → Use journey. Guided mode presents unresolved actions one at a time with Yes/No and OK/Not OK/Not sure; Expert mode lets an engineer select individual actions, retest and open the failed operation in the existing editor. The direct route editor remains available for technical experiments. Development supports one reviewed charging-equivalent route only after definitive non-execution evidence (405/410 with explicit unsupported indication); never after timeout, 5xx, acceptance or uncertainty. Supported fresh changed readback can verify without manual review. Read discovery exposes completion, unresolved work, pause and explicit recovery. Both modes use the same runtime and physical consent boundary.
 
 Do not wait for a Python change to start exploring. The Engineering Dashboard is an opt-in local laboratory. A finding on your own vehicle can become a reviewed catalog rule for other compatible vehicles.
 
