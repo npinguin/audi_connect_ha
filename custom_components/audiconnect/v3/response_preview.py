@@ -62,7 +62,7 @@ _SCHEMA_PATH = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\[\])*(?:\.[A-Za-z_][A-Za-
 _SCHEMA_TYPES = frozenset(("object", "array", "boolean", "integer", "number", "string", "null"))
 
 
-def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "") -> tuple[list[dict[str, str]], bool]:
+def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: bool = False) -> tuple[list[dict[str, str]], bool]:
     """Bounded structural inventory, with explicit sampling/truncation evidence."""
     from collections import deque
     from itertools import islice
@@ -70,7 +70,7 @@ def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "") -> tuple[list[
 
     queue = deque([(payload, "", 0)])
     rows: dict[tuple[str, str], dict[str, str]] = {}
-    budget = 640
+    budget = 4096 if all_items else 640
     truncated = False
     while queue and budget and len(rows) < MAX_SCHEMA_FIELDS:
         value, path, depth = queue.popleft()
@@ -102,13 +102,14 @@ def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "") -> tuple[list[
             truncated |= len(value) > 40
             for key, child in islice(value.items(), 40):
                 if (not isinstance(key, str) or not _SCHEMA_KEY.fullmatch(key)
-                        or _SENSITIVE.search(key) or _VIN.search(key)
+                        or (_SENSITIVE.search(key) and key != "windowLocation") or _VIN.search(key)
                         or (vehicle_vin and vehicle_vin.lower() in key.lower())):
                     continue
                 queue.append((child, f"{path}.{key}" if path else key, depth + 1))
         elif isinstance(value, list) and path:
-            truncated |= len(value) > 4
-            for child in value[:4]:
+            limit = 256 if all_items else 4
+            truncated |= len(value) > limit
+            for child in value[:limit]:
                 queue.append((child, path + "[]", depth + 1))
     truncated |= bool(queue)
     result = list(rows.values())
@@ -132,7 +133,9 @@ def validate_schema_fields(rows: Any) -> None:
     for row in rows:
         if (not isinstance(row, dict) or set(row) != {"path", "type", "quality"}
                 or not isinstance(row["path"], str) or len(row["path"]) > 220
-                or not _SCHEMA_PATH.fullmatch(row["path"]) or _SENSITIVE.search(row["path"])
+                or not _SCHEMA_PATH.fullmatch(row["path"])
+                or any(_SENSITIVE.search(part) for part in row["path"].split(".")
+                       if part.removesuffix("[]") != "windowLocation")
                 or _VIN.search(row["path"]) or not isinstance(row["type"], str)
                 or row["type"] not in _SCHEMA_TYPES
                 or row["quality"] not in ("observed", "null", "vendor_sentinel",
