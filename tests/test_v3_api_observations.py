@@ -67,7 +67,11 @@ def test_schema_inventory_is_bounded_redacted_and_supports_old_records():
     assert "coordinates" not in json.dumps(fields)
     rec = record_for(family="cariad", method="GET", http_status=207, vin=vin, payload=payload)
     assert rec["fields"] == fields
-    validate_record({k:v for k,v in rec.items() if k != "fields"})
+    # Both historical schemas are valid; orphan truncation metadata is not.
+    validate_record({k:v for k,v in rec.items() if k not in ("fields", "fields_truncated")})
+    validate_record({k:v for k,v in rec.items() if k != "fields_truncated"})
+    with pytest.raises(ValueError):
+        validate_record({k:v for k,v in rec.items() if k != "fields"})
     with pytest.raises(ValueError):
         validate_record({**rec, "fields": [{"path": "coordinates.lat", "type": "number", "quality": "observed"}]})
 
