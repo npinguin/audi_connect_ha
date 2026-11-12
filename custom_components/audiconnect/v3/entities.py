@@ -190,7 +190,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
         from .structured_details import details_for
         return {
-            **details_for(self.vehicle, "climate_timers_detail", "ventilation_timers_detail", "window_heating_detail", "climate_requests_detail"),
+            **details_for(self.vehicle, "climate_timers_detail", "ventilation_timers_detail", "departure_climate_timers_detail", "window_heating_detail", "climate_requests_detail"),
             "climatisation_without_external_power": (
                 self.vehicle.readings.get("climatisationWithoutExternalPower", {}).get("value")
                 if type(self.vehicle.readings.get("climatisationWithoutExternalPower", {}).get("value")) is bool
@@ -436,7 +436,9 @@ class V3LocalServiceSensor(V3BaseEntity, SensorEntity):
                 "configuration_path": "Audi Connect > Configure > Edit dealer and local service details",
                 **{k: v for k, v in data.items() if k != "dealer_name"},
             }
+        from .structured_details import details_for
         return {
+            **details_for(self.vehicle, "health_warning_evidence_detail"),
             "inspection_due_days": self._value("MAINTENANCE_INTERVAL_TIME_TO_INSPECTION"),
             "inspection_due_km": self._value("MAINTENANCE_INTERVAL_DISTANCE_TO_INSPECTION"),
             "oil_service_due_days": self._value("MAINTENANCE_INTERVAL_TIME_TO_OIL_CHANGE"),
@@ -622,10 +624,10 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         from .structured_details import details_for
         detail_keys = {
             "doors_trunk_status": ("door_detail", "window_detail", "access_overall_detail", "light_detail"),
-            "charging_timer_enabled_count": ("charging_timers_detail",),
+            "charging_timer_enabled_count": ("charging_timers_detail", "departure_charging_timers_detail", "battery_care_detail", "charging_profile_context_detail"),
             "climatisation_timer_enabled_count": ("climate_timers_detail", "ventilation_timers_detail"),
-            "charging_state": ("charging_timers_detail",),
-            "charging_mode": ("charging_timers_detail",),
+            "charging_state": ("charging_timers_detail", "departure_charging_timers_detail", "battery_care_detail", "charging_profile_context_detail"),
+            "charging_mode": ("charging_timers_detail", "departure_charging_timers_detail", "battery_care_detail", "charging_profile_context_detail"),
         }
         details = details_for(self.vehicle, *detail_keys.get(self.attribute.get("entity_key"), ()))
         if self.attribute.get("entity_key") in ("charging_mode", "charging_state", "charging_timer_enabled_count"):
