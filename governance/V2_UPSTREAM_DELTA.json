@@ -176,10 +176,10 @@
       "path": "custom_components/audiconnect/config_flow.py",
       "change": "modified",
       "upstream_blob": "ec9a7e83149d15c91058ed6b6cdc0825a542a800",
-      "development_blob": "87bd30d7782c1e638596c99ae4b7a1fc16a1f14f",
+      "development_blob": "5a8baf8b764165458849247e75fedb219c8821ea",
       "classification": "integration_seam",
       "owner": "integration",
-      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration; V3 user discovery and action-specific consent/review; simplified per-action Yes/No and OK/Not OK flow",
+      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration; V3 user discovery and action-specific consent/review; simplified per-action Yes/No and OK/Not OK flow; shared guided command and readback verification",
       "regression_tests": [
         "tests/test_v3_options_save.py"
       ],
