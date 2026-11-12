@@ -97,7 +97,7 @@ async def test_accepted_wake_does_not_block_immediate_climate_action(wake_action
     original_request = transport.request.side_effect
 
     async def request(family, method, path, **kwargs):
-        if method == "POST" and path.endswith("vehiclewakeup"):
+        if method == "POST" and path.endswith(("vehiclewakeup", "vehiclewakeuptrigger")):
             # Q8 b12 observed 204, no request ID or physical readback.
             return V3Response(204, {}, datetime.now(UTC), 50)
         return await original_request(family, method, path, **kwargs)
@@ -107,7 +107,7 @@ async def test_accepted_wake_does_not_block_immediate_climate_action(wake_action
     await engine.send_control(VIN, "start", "climate")
     posts = [c.args[2] for c in transport.request.await_args_list if c.args[1] == "POST"]
     assert len(posts) == 2
-    assert posts[0].endswith("vehiclewakeup")
+    assert posts[0].endswith(("vehiclewakeup", "vehiclewakeuptrigger"))
     assert posts[1].endswith("climatisation/start")
 
 
