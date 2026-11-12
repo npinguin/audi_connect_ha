@@ -299,6 +299,9 @@ class V3Engine:
             payload=detail["payload"] if detail else None, vin=vin,
             at=response.observed_at if response else None,
         )
+        if operation.startswith("cariad.mobility.status.") and operation != "cariad.mobility.status.parkingPosition":
+            if method == "GET":
+                record["preview"] = "[trip values withheld: private history]"
         save_record(profile, operation, record)
         # Share structural evidence per reviewed job, not private response values.
         if response is not None and detail is not None and isinstance(detail["payload"], dict):
