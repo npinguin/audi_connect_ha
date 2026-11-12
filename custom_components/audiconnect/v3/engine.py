@@ -13,6 +13,7 @@ from typing import Any
 from .auth import V3Auth
 from .action_discovery import approval_group, validate_approval
 from .command_engine import CommandEngine
+from .command_parameters import runtime_ready
 from .status_engine import StatusEngine
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
@@ -411,28 +412,26 @@ class V3Engine:
         }
 
     async def save_candidate(
-        self, vin: str, aspect: str, operation: str,
+        self, vin: str, aspect: str, operation: str, capability: str = "climate",
     ) -> None:
         """Save a planned test route without exposing unproven vehicle controls."""
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vehicle.vin.lower()]
-        profile.save_candidate("climate", aspect, operation)
+        profile.save_candidate(capability, aspect, operation)
         await self.storage.async_save(self.profiles)
 
-    async def select_working(self, vin: str, aspect: str, operation: str) -> None:
+    async def select_working(self, vin: str, aspect: str, operation: str, capability: str = "climate") -> None:
         """Admin selects another previously verified route; no request."""
         car = self.require_vehicle(vin)
         p = self.profiles[car.vin.lower()]
-        if p.custom.get(operation, {}).get("variables"):
-            raise DevelopmentProfileError(
-                "Dynamic parameters are test-only until V3 can save the input profile"
-            )
-        p.choose_working("climate", aspect, operation)
+        if not runtime_ready(p.custom.get(operation, {})):
+            raise DevelopmentProfileError("Dynamic parameters without semantic bindings remain test-only")
+        p.choose_working(capability, aspect, operation)
         await self.storage.async_save(self.profiles)
 
-    async def disable_action(self, vin: str, aspect: str) -> None:
+    async def disable_action(self, vin: str, aspect: str, capability: str = "climate") -> None:
         p = self.profiles[self.require_vehicle(vin).vin.lower()]
-        p.disable("climate", aspect)
+        p.disable(capability, aspect)
         await self.storage.async_save(self.profiles)
 
     async def send_control(self, vin: str, aspect: str, capability: str = "climate", *,

@@ -27,3 +27,7 @@ Do not mark static parity or release gates complete.
 ## Post-b8 V2 parity work
 
 Removed the dormant V2 probe implementation (account methods, service adapter, diagnostic report and standalone probe module). V3 family-read tests cover the supported engineering path. Refreshed the machine-readable operation inventory directly from the active catalog; added exact inventory regression and V2/V3 differential tests. No parity flag is promoted.
+
+### Parameterized controls
+
+Verified local CARIAD climate-start settings templates can map a declared typed variable to the canonical temperature parameter, with range validation at every invocation. PUT aliases are configurable only around the existing code-owned handler, exact approved endpoint and no replacement body. Generic admin route save/select/disable accepts capability and action. Other dynamic templates remain engineering-only until a semantic parameter contract is implemented; this is not arbitrary raw PUT support.

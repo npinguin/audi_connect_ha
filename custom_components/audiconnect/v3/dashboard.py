@@ -157,7 +157,7 @@ async def ws_add_route(hass, connection, msg):
 @websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/test",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): vol.In(("status", "start", "stop")),
+    vol.Required("aspect"): str,
     vol.Optional("capability", default="climate"): str,
     vol.Required("operation"): str, vol.Optional("parameters"): dict,
     vol.Optional("approval"): vol.In(("non_spin", "spin")),
@@ -175,6 +175,7 @@ async def ws_test(hass, connection, msg):
             result = await engine.approved_control_discovery(
                 msg["vin"], msg["aspect"], msg["operation"],
                 params=msg.get("parameters"), approval=msg.get("approval"),
+                capability=msg["capability"],
             )
         connection.send_result(msg["id"], result)
     except (ValueError, TypeError, KeyError, RuntimeError) as exc:
@@ -221,14 +222,15 @@ async def ws_review_normal_command(hass, connection, msg):
 @websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/select",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): vol.In(("status", "start", "stop")),
+    vol.Required("aspect"): str,
+    vol.Optional("capability", default="climate"): str,
     vol.Required("operation"): str,
 })
 @websocket_api.async_response
 async def ws_select(hass, connection, msg):
     try:
         await _engine(hass, msg["entry_id"]).select_working(
-            msg["vin"], msg["aspect"], msg["operation"]
+            msg["vin"], msg["aspect"], msg["operation"], capability=msg["capability"]
         )
         connection.send_result(msg["id"], {"selected": msg["operation"]})
     except (ValueError, RuntimeError, KeyError) as exc:
@@ -239,14 +241,15 @@ async def ws_select(hass, connection, msg):
 @websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/save_candidate",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): vol.In(("status", "start", "stop")),
+    vol.Required("aspect"): str,
+    vol.Optional("capability", default="climate"): str,
     vol.Required("operation"): str,
 })
 @websocket_api.async_response
 async def ws_save_candidate(hass, connection, msg):
     try:
         await _engine(hass, msg["entry_id"]).save_candidate(
-            msg["vin"], msg["aspect"], msg["operation"]
+            msg["vin"], msg["aspect"], msg["operation"], capability=msg["capability"]
         )
         connection.send_result(msg["id"], {
             "saved": msg["operation"], "activated": False,
@@ -259,13 +262,14 @@ async def ws_save_candidate(hass, connection, msg):
 @websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/disable",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): vol.In(("start", "stop")),
+    vol.Required("aspect"): str,
+    vol.Optional("capability", default="climate"): str,
 })
 @websocket_api.async_response
 async def ws_disable(hass, connection, msg):
     try:
         await _engine(hass, msg["entry_id"]).disable_action(
-            msg["vin"], msg["aspect"]
+            msg["vin"], msg["aspect"], capability=msg["capability"]
         )
         connection.send_result(msg["id"], {"disabled": msg["aspect"]})
     except (ValueError, RuntimeError) as exc:

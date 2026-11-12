@@ -8,6 +8,7 @@ from __future__ import annotations
 from .action_discovery import approval_group
 from .command_policy import eligible_operation
 from .operation_revision import operation_revision
+from .command_parameters import runtime_ready
 
 
 def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
@@ -58,7 +59,11 @@ def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
 
     ident = profile.active.get(key)
     if (ident and profile.control_results.get(ident) == "worked"
-            and not profile.custom.get(ident, {}).get("variables")
+            and runtime_ready(profile.custom.get(ident, {}))
+            and (not profile.custom.get(ident, {}).get("parameter_bindings")
+                 or eligible_operation(car, auth, capability, aspect) is not None)
+            and (not profile.custom.get(ident, {}).get("handler")
+                 or eligible_operation(car, auth, capability, aspect) == profile.custom[ident]["handler"])
             and (not restricted or ident == allowed) and currently_safe(ident)):
         revision = profile.active_revisions.get(key)
         if revision == operation_revision(profile.registry.operations[ident]):

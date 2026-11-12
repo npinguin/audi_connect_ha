@@ -18,6 +18,7 @@ from .action_discovery import DiscoveryError, GuidedActionDiscovery
 from .registry import CapabilityRegistry, RegistryError, VehicleContext
 from .command_journal import CommandRecord
 from .operation_revision import operation_revision
+from .command_parameters import validate_bindings, runtime_ready
 
 _ID = re.compile(r"^user\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}$")
 _VAR = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
@@ -76,6 +77,7 @@ def _validated_route(
     if not isinstance(data, Mapping) or set(data) - {
         "id", "capability", "aspect", "family", "method", "path",
         "variables", "body", "response_paths", "scope", "description",
+        "parameter_bindings", "handler",
     }:
         raise DevelopmentProfileError("Unknown custom operation fields")
     operation_id = data.get("id")
@@ -94,8 +96,15 @@ def _validated_route(
     if family not in known_families:
         raise DevelopmentProfileError("Unknown API family")
     method = data.get("method")
-    if method != ("GET" if aspect == "status" else "POST"):
-        raise DevelopmentProfileError("Only GET status and POST controls in pilot")
+    if (aspect == "status" and method != "GET") or (
+        aspect != "status" and method not in ("POST", "PUT")
+    ):
+        raise DevelopmentProfileError("Only GET status and POST/PUT controls")
+    handler = data.get("handler")
+    if method == "PUT" and not isinstance(handler, str):
+        raise DevelopmentProfileError("PUT requires an approved code-owned handler")
+    if handler is not None and method != "PUT":
+        raise DevelopmentProfileError("Handler aliases are reserved for approved PUT operations")
     path = data.get("path")
     if not isinstance(path, str) or not 1 <= len(path) <= 1024:
         raise DevelopmentProfileError("Invalid path length")
@@ -167,6 +176,16 @@ def _validated_route(
         raise DevelopmentProfileError("Invalid optional context scope")
     if "auth" in scope and scope["auth"] != known_families[family]["auth"]:
         raise DevelopmentProfileError("Context auth conflicts with API family")
+    bindings = data.get("parameter_bindings", {})
+    if bindings:
+        try:
+            bindings = validate_bindings(capability, aspect, variables, bindings)
+        except (ValueError, TypeError) as exc:
+            raise DevelopmentProfileError(str(exc)) from exc
+        if method != "POST" or family != "cariad" or path != "/vehicle/v1/vehicles/{VIN}/climatisation/start":
+            raise DevelopmentProfileError("Parameterized runtime route must use the approved climate-start endpoint")
+    elif not isinstance(bindings, dict):
+        raise DevelopmentProfileError("Invalid runtime parameter bindings")
     description = data.get("description", "")
     if not isinstance(description, str) or len(description) > 180:
         raise DevelopmentProfileError("Invalid route description")
@@ -182,6 +201,8 @@ def _validated_route(
         "response_paths": list(response_paths),
         "scope": dict(scope),
         "description": description,
+        **({"parameter_bindings": bindings} if bindings else {}),
+        **({"handler": handler} if handler is not None else {}),
     }
 
 
@@ -261,6 +282,14 @@ class DevelopmentProfile:
         """Add a user-authored operation, purely as a development definition."""
         data = _validated_route(operation, self._base["api_families"], self._base["capabilities"])
         ident = data["id"]
+        if data.get("handler"):
+            original = self._base["operations"].get(data["handler"], {})
+            definition = self._base["capabilities"][data["capability"]]
+            owned = (definition.get("control") or {}).get(data["aspect"], {}).get("operations", [])
+            if (data["handler"] not in owned or original.get("method") != "PUT"
+                    or original.get("family") != data["family"] or original.get("path") != data["path"]
+                    or not original.get("request_mode") or data["body"] is not None or data["variables"]):
+                raise DevelopmentProfileError("PUT alias must retain the approved handler, endpoint and body ownership")
         if ident in self.registry.operations:
             raise DevelopmentProfileError("Operation ID already exists")
         overlay = deepcopy(self._base)
@@ -278,6 +307,16 @@ class DevelopmentProfile:
             }
             if row["method"] == "GET":
                 op["response_paths"] = row["response_paths"]
+            if row.get("parameter_bindings"):
+                op["parameter_bindings"] = row["parameter_bindings"]
+            if row.get("handler"):
+                original = self._base["operations"][row["handler"]]
+                op["request_mode"] = original["request_mode"]
+                op["handler"] = row["handler"]
+                op["confirmation"] = original.get("confirmation")
+                for flag in ("legacy_compatible", "legacy_climate_level1"):
+                    if flag in original:
+                        op[flag] = original[flag]
             overlay["operations"][row_id] = op
             definition = overlay["capabilities"][row["capability"]]
             target = (

@@ -11,6 +11,7 @@ from typing import Any
 
 from .action_discovery import approval_group
 from .command_journal import CommandRecord
+from .command_parameters import map_parameters, runtime_ready
 from .command_readback import configure_readback, reconcile_readback
 from .control_resolution import control_decision, resolve_control
 from .response_preview import safe_response_preview
@@ -37,8 +38,11 @@ class CommandEngine:
 
     async def _command_request(self, car: V3Vehicle, ident: str,
                                params: dict[str, Any] | None = None):
-        family, method, path, body = self._operation_request(car, ident, params)
-        op = self.profiles[car.vin.lower()].registry.operations[ident]
+        profile = self.profiles[car.vin.lower()]
+        route = profile.custom.get(ident, {})
+        rendered = map_parameters(route, params) if route.get("parameter_bindings") else params
+        family, method, path, body = self._operation_request(car, ident, rendered)
+        op = profile.registry.operations[ident]
         mode = op.get("request_mode")
         if mode in ("mbb_climate_start", "mbb_climate_stop"):
             from .legacy_commands import climate_body
@@ -79,6 +83,9 @@ class CommandEngine:
                 ),
                 "status": profile.control_results.get(op, "not_tested"),
                 "active": profile.active.get(f"{capability}.{action}") == op,
+                "runtime_ready": runtime_ready(profile.custom.get(op, {})),
+                "parameter_bindings": profile.custom.get(op, {}).get("parameter_bindings", {}),
+                "request_mode": profile.registry.operations[op].get("request_mode"),
             }
             for op in applicable if profile.registry.operations[op]["method"] in ("POST", "PUT")
         ]
@@ -231,7 +238,7 @@ class CommandEngine:
         )
         if outcome == "worked":
             attempt = profile.discovery.history[-1]
-            if not profile.custom.get(attempt.operation, {}).get("variables"):
+            if runtime_ready(profile.custom.get(attempt.operation, {})):
                 profile.choose_working(
                     attempt.capability, attempt.action, attempt.operation
                 )

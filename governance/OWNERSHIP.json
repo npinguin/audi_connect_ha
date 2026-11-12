@@ -34,7 +34,8 @@
         "action_discovery.py",
         "request_status.py",
         "legacy_commands.py",
-        "command_readback.py"
+        "command_readback.py",
+        "command_parameters.py"
       ],
       "responsibility": "fast control resolution, explicit tests, execution and confirmation"
     },

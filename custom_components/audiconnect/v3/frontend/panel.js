@@ -317,6 +317,9 @@ class AudiConnectV3Panel extends HTMLElement {
           action: this.controlAction, operation: controlRoute,
           approval: approvalGroup, parameters: JSON.parse(controlParameters)
         });
+      } else if (action === "control-select") {
+        this.lastResult = await this.api("select", {...this.selection,
+          capability: this.controlCapability, aspect: this.controlAction, operation: controlRoute});
       } else if (action === "control-disable") {
         this.lastResult = await this.api("control_disable", {
           ...this.selection, capability: this.controlCapability,
@@ -391,9 +394,10 @@ class AudiConnectV3Panel extends HTMLElement {
       : ["remote","charging"].includes(capability) ? {} : null;
     return JSON.stringify({
       id:"user."+capability+"."+action+".alternative",
-      capability, aspect:action, family:"cariad", method:"POST",
+      capability, aspect:action, family:"cariad", method:selected?.method || "POST",
       path:selected?.path || "/vehicle/v1/vehicles/{VIN}/"+capability+"/"+action,
-      variables:{}, body,
+      variables:{}, body:selected?.method==="PUT"?null:body,
+      ...(selected?.method==="PUT"?{handler:selected.id}:{}),
       description:"Reviewed experimental command template"
     },null,2);
   }
@@ -706,7 +710,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===3&&this.controlAction?"block":"none"}">
-            <div class="eyebrow">Step 3 / Configure & test · POST control</div>
+            <div class="eyebrow">Step 3 / Configure & test · POST / PUT control</div>
             <h2>${escapeHTML(this.controlCapability.replaceAll("_"," "))} · ${escapeHTML(this.controlAction.replaceAll("_"," "))}</h2>
             <p>Send only one explicitly selected CARIAD command. HTTP 200/202 is not confirmation that the car acted. Never auto-retry with another variant.</p>
             <div class="warn">Before testing: be physically present, understand the action, and verify the result on the vehicle or myAudi. ${escapeHTML(this.controlRequirement)}</div>
@@ -719,13 +723,15 @@ class AudiConnectV3Panel extends HTMLElement {
             <p><b>Approval group:</b> ${escapeHTML(group==="spin"?"S-PIN protected":group==="non_spin"?"Without S-PIN":"Not available")}</p>
             ${group==="spin"&&!this.spinConfigured?'<p class="warn">Configure your S-PIN in the Audi account before protected discovery.</p>':""}
             ${selectedControl?.parameters_required?`<label for="control-parameters">Action parameters (JSON; never enter a PIN)</label>
-              <textarea id="control-parameters" rows="3">{}</textarea>`:""}
+              <textarea id="control-parameters" rows="3">{}</textarea>
+              ${Object.keys(selectedControl.parameter_bindings||{}).length?`<p>Semantic inputs: ${escapeHTML(Object.values(selectedControl.parameter_bindings).join(", "))}</p>`:""}`:""}
             <label style="display:flex;gap:8px;align-items:center">
               <input id="control-approval" type="checkbox" style="width:auto">
               I approve this exact action on the selected car and will verify its effect.
             </label>
             <div class="actions">
               <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.pending||group==="unsupported"||(group==="spin"&&!this.spinConfigured)?"disabled":""}>Send one test command</button>
+              <button data-action="control-select" ${this.loading||this.pending||selectedControl?.status!=="worked"||!selectedControl?.runtime_ready?"disabled":""}>Activate verified route</button>
               <button data-action="control-disable" ${this.loading||this.pending?"disabled":""}>Disable this control</button>
             </div>
             ${this.pending ? `<div class="warn" style="margin-top:18px">
