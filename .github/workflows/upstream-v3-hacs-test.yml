@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -36,7 +36,7 @@ jobs:
           folder = "custom_components/audiconnect"
           manifest = folder + "/manifest.json"
           assert subprocess.check_output(
-              ["git", "rev-parse", "HEAD^"], text=True
+              ["git", "merge-base", base, "HEAD"], text=True
           ).strip() == base
           changed = subprocess.check_output(
               ["git", "diff", "--name-only", base, "HEAD", "--", folder],
@@ -95,7 +95,10 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: github.repository == 'npinguin/audi_connect_ha' && github.ref == 'refs/heads/release/upstream-v3-b20' && github.event.head_commit.message == 'release(test): publish 3.0.0b20 upstream review prerelease'
+    if: >-
+      github.repository == 'npinguin/audi_connect_ha' &&
+      github.ref == 'refs/heads/release/upstream-v3-b20' &&
+      github.event.head_commit.message == 'release(test): publish 3.0.0b20 upstream review prerelease'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
