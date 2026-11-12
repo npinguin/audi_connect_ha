@@ -158,6 +158,30 @@
         "evidence_and_projection"
       ],
       "exceptions": "document observed constraint, existing owner, focused regression evidence; preserve security and quota"
+    },
+    "workbench": {
+      "principle": "template_driven_direct_field_editing",
+      "views": [
+        "overview",
+        "capabilities",
+        "configure_and_test",
+        "api_log"
+      ],
+      "source": "backend_operation_definition",
+      "navigation": "select_edit_execute_inspect_same_screen",
+      "details": "foldable_optional_complex_fields",
+      "validation": "basic_frontend_syntax_and_types; existing_backend_authoritative",
+      "preserve": [
+        "draft_values_on_error",
+        "explicit_activation",
+        "physical_command_consent",
+        "vehicle_scope"
+      ],
+      "prohibit": [
+        "parallel_frontend_catalog",
+        "mandatory_read_wizard",
+        "bespoke_editor_per_standard_operation"
+      ]
     }
   }
 }

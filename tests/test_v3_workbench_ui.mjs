@@ -194,7 +194,7 @@ test("Saving an access command template does not send a POST or require PIN inpu
   p.controlCapability="access";p.controlAction="lock";
   const data=p.initialControlRoute;
   const calls=[];
-  p.shadowRoot.getElementById = id=>({value:id==="control-definition"?data:"{}"});
+  assert.match(p.definitionFields("control",data), /data-field="path"/);
   p.api=async (name, args)=>{
     calls.push(name);
     if(name==="add_route"){
@@ -370,4 +370,30 @@ test("identity draft loads per template and reset restores built-in definition",
   assert.match(p.shadowRoot.innerHTML,/Save local draft/);
   p.openIdentityEditor(op,true);
   assert.equal(p.identityQuery,"{ userVehicles { vin } }");
+});
+
+
+test("template field edits survive rerender and invalid JSON without cross-vehicle drift", () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  const template=JSON.stringify({path:"/original",body:{action:"start"}});
+  const key=p.definitionKey("control",template);
+  p.definitionEdits.set(key+":path","/changed");
+  p.definitionEdits.set(key+":body",'{"action":"stop"}');
+  assert.match(p.definitionFields("control",template),/\/changed/);
+  assert.equal(p.definitionValue("control",template).body.action,"stop");
+  p.definitionEdits.set(key+":body","{");
+  assert.throws(()=>p.definitionValue("control",template),/Invalid JSON in body/);
+  assert.match(p.definitionFields("control",template),/data-field="body"/);
+  p.vin="VIN2";
+  assert.equal(p.definitionValue("control",template).path,"/original");
+});
+
+test("read editor seeds from selected backend mapping not unrelated charging defaults", () => {
+  const p=new Panel();p.attribute="doorLockStatus";
+  p.readChoice="cariad.selectivestatus.batch";
+  p.readRoutes=[{id:p.readChoice,kind:"shared_batch",family:"cariad",path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}",response_paths:["access.lock"]},
+    {id:"targeted",kind:"targeted_job",family:"cariad",path:"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=access",response_paths:["access.lock"]}];
+  const template=JSON.parse(p.initialReadRoute);
+  assert.equal(template.response_path,"access.lock");
+  assert.match(template.path,/jobs=access$/);
 });

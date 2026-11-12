@@ -152,6 +152,26 @@ Review new operation variants against this pattern first. Existing deviations
 are cleanup candidates, not permission to add more. Preserve semantic validation,
 credential isolation, physical safeguards and current release authorization.
 
+### Workbench UX — four views, template-driven direct editing
+
+Keep Overview (health and findings), Capabilities (functional coverage and
+entity links), Configure & Test (operation editing and execution), API Log
+(request/response evidence). They are complementary navigation views, not a
+mandatory sequential wizard.
+
+In Configure & Test, select an operation and edit field/value boxes on the
+same screen. Use actual backend template definitions, not invented defaults
+or a separate frontend catalog. Show simple fields directly; fold nested
+JSON, optional parameters, mapping details and technical evidence. Execute
+and inspect results in place, without a mandatory read-only confirmation.
+
+Frontend checks are basic syntax, types and required fields; existing backend
+validators remain authoritative for semantics, applicability, security and
+activation. Preserve edits on validation errors. Drafts remain distinct from
+active definitions. Saving must never actuate the vehicle; explicit physical
+command consent and review remain where required. No fifth view, new UI
+framework, or bespoke editor per ordinary operation.
+
 ### Change review / definition of done
 
 For each PR or engineering change, record in the existing PR description or

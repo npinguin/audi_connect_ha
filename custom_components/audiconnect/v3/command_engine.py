@@ -88,6 +88,10 @@ class CommandEngine:
                 "runtime_ready": runtime_ready(profile.custom.get(op, {})),
                 "parameter_bindings": profile.custom.get(op, {}).get("parameter_bindings", {}),
                 "request_mode": profile.registry.operations[op].get("request_mode"),
+                # Definition only; no resolved credentials.
+                "request_body": profile.registry.operations[op].get("request_body"),
+                "request_variables": profile.registry.operations[op].get("request_variables", {}),
+                "handler": profile.registry.operations[op].get("handler"),
             }
             for op in applicable if profile.registry.operations[op]["method"] in ("POST", "PUT")
         ]
