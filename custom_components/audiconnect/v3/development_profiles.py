@@ -543,6 +543,21 @@ class DevelopmentProfile:
             # mapping. Never keep advertising a known-broken command.
             self.active.pop(key)
 
+    def reject_test(self, sequence: int, *, now: float) -> None:
+        record = self.engineering_record(sequence)
+        if record is None or record.state != "rejected":
+            raise DevelopmentProfileError("No rejected command evidence")
+        attempt = self.discovery.reject_nonexecution(sequence, now=now)
+        record.completed_at = now
+        if sequence == self.invalidated_attempt_sequence:
+            self.invalidated_attempt_sequence = None
+            return
+        self.control_results[attempt.operation] = "failed"
+        key = f"{attempt.capability}.{attempt.action}"
+        if self.active.get(key) == attempt.operation:
+            self.active.pop(key)
+            self.active_revisions.pop(key, None)
+
     def record_status(
         self, capability: str, operation: str, *, http_status: int,
         schema_valid: bool, fresh: bool
