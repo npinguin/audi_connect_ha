@@ -130,51 +130,6 @@ async def ws_status(hass, connection, msg):
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
-    vol.Required("type"): "audiconnect/v3/routes",
-    vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): vol.In(("status", "start", "stop")),
-})
-@websocket_api.async_response
-async def ws_routes(hass, connection, msg):
-    try:
-        engine = _engine(hass, msg["entry_id"])
-        car = engine.require_vehicle(msg["vin"])
-        profile = engine.profiles[car.vin.lower()]
-        aspect = msg["aspect"]
-        allowed = profile.registry.resolve(
-            "climate", aspect, car.context
-        )["available_operations"]
-        rows = []
-        for ident in allowed:
-            op = profile.registry.operations[ident]
-            result = (
-                profile.read_results.get(ident, {}).get("outcome", "untested")
-                if aspect == "status" else
-                profile.control_results.get(ident, "untested")
-            )
-            rows.append({
-                "id": ident, "family": op["family"],
-                "method": op["method"], "path": op["path"],
-                "outcome": result, "selected":
-                profile.active.get(f"climate.{aspect}") == ident,
-                "custom": ident in profile.custom,
-            })
-        connection.send_result(msg["id"], {
-            "routes": rows,
-            "draft_candidate": profile.draft_selected.get(f"climate.{aspect}"),
-            "disabled": f"climate.{aspect}"
-            in profile.discovery.disabled,
-            "history": [
-                item.public() for item in profile.discovery.history
-                if item.action == aspect
-            ][-10:],
-        })
-    except (ValueError, KeyError) as exc:
-        connection.send_error(msg["id"], "v3_invalid_route", str(exc))
-
-
-@websocket_api.require_admin
-@websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/add_route",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("route"): dict,
@@ -188,35 +143,6 @@ async def ws_add_route(hass, connection, msg):
         connection.send_result(msg["id"], {"operation": result})
     except (ValueError, KeyError, TypeError) as exc:
         connection.send_error(msg["id"], "v3_invalid_route", str(exc))
-
-
-@websocket_api.require_admin
-@websocket_api.websocket_command({
-    vol.Required("type"): "audiconnect/v3/test",
-    vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): str,
-    vol.Optional("capability", default="climate"): str,
-    vol.Required("operation"): str, vol.Optional("parameters"): dict,
-    vol.Optional("approval"): vol.In(("non_spin", "spin")),
-})
-@websocket_api.async_response
-async def ws_test(hass, connection, msg):
-    try:
-        engine = _engine(hass, msg["entry_id"])
-        if msg["aspect"] == "status":
-            result = await engine.test_status_route(
-                msg["vin"], msg["operation"], params=msg.get("parameters"),
-                capability=msg["capability"],
-            )
-        else:
-            result = await engine.approved_control_discovery(
-                msg["vin"], msg["aspect"], msg["operation"],
-                params=msg.get("parameters"), approval=msg.get("approval"),
-                capability=msg["capability"],
-            )
-        connection.send_result(msg["id"], result)
-    except (ValueError, TypeError, KeyError, RuntimeError) as exc:
-        connection.send_error(msg["id"], "v3_test_failed", str(exc))
 
 
 @websocket_api.require_admin
@@ -272,46 +198,6 @@ async def ws_select(hass, connection, msg):
         connection.send_result(msg["id"], {"selected": msg["operation"]})
     except (ValueError, RuntimeError, KeyError) as exc:
         connection.send_error(msg["id"], "v3_select_failed", str(exc))
-
-
-@websocket_api.require_admin
-@websocket_api.websocket_command({
-    vol.Required("type"): "audiconnect/v3/save_candidate",
-    vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): str,
-    vol.Optional("capability", default="climate"): str,
-    vol.Required("operation"): str,
-})
-@websocket_api.async_response
-async def ws_save_candidate(hass, connection, msg):
-    try:
-        await _engine(hass, msg["entry_id"]).save_candidate(
-            msg["vin"], msg["aspect"], msg["operation"], capability=msg["capability"]
-        )
-        connection.send_result(msg["id"], {
-            "saved": msg["operation"], "activated": False,
-        })
-    except (ValueError, RuntimeError, KeyError) as exc:
-        connection.send_error(msg["id"], "v3_save_failed", str(exc))
-
-
-@websocket_api.require_admin
-@websocket_api.websocket_command({
-    vol.Required("type"): "audiconnect/v3/disable",
-    vol.Required("entry_id"): str, vol.Required("vin"): str,
-    vol.Required("aspect"): str,
-    vol.Optional("capability", default="climate"): str,
-})
-@websocket_api.async_response
-async def ws_disable(hass, connection, msg):
-    try:
-        await _engine(hass, msg["entry_id"]).disable_action(
-            msg["vin"], msg["aspect"], capability=msg["capability"]
-        )
-        connection.send_result(msg["id"], {"disabled": msg["aspect"]})
-    except (ValueError, RuntimeError) as exc:
-        connection.send_error(msg["id"], "v3_disable_failed", str(exc))
-
 
 
 @websocket_api.require_admin
@@ -608,8 +494,8 @@ async def async_setup_dashboard(hass) -> None:
             StaticPathConfig("/audiconnect_v3", str(frontend_dir), False)
         ])
         for handler in (
-            ws_list, ws_status, ws_routes, ws_add_route, ws_test,
-            ws_review, ws_review_normal_command, ws_select, ws_save_candidate, ws_disable,
+            ws_list, ws_status, ws_add_route,
+            ws_review, ws_review_normal_command, ws_select,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
             ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads, ws_test_identity_operation, ws_save_identity_draft, ws_trip_history,

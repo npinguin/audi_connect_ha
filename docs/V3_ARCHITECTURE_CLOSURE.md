@@ -1,6 +1,6 @@
 # Audi Connect V3 — Final Architecture Closure
 
-**Status:** accepted engineering direction; work packages open. Canonical branch: `feature/v3-clean-discovery`. Baseline: `284230a5deb3cc0e9366e26c96c87667f2d95a68` (3.0.0b8, 796 Python tests passed). Do not create a V4, parallel runtime or permanent feature branches. No beta/stable publication before the relevant gates.
+**Status:** current engineering direction; closure work packages remain open. Canonical branch: `feature/v3-clean-discovery` (draft PR #22). Audit 02 baseline: `ac89f6581b06fae96defd5e0858aa3b50e7ec43c`. Subsequent remediation commits and CI evidence are tracked in the PR. Last explicitly authorized experimental publication remains b17. Do not create a V4, parallel runtime or permanent feature branches. No beta/stable publication before the relevant gates.
 
 ## Scope and ownership
 
@@ -195,7 +195,7 @@ cleanup framework. Review is risk-based and part of the existing delivery flow.
 
 ## Governance and quality gates
 
-Proposed machine-readable artifacts: `governance/OWNERSHIP.json`, `DEPENDENCIES.json`, `UPSTREAM_V2_DELTA.json`, `QUALITY_GATES.json`. These are implementation deliverables, not existing gates. Enforce import/AST dependency direction, no cycles, lint/format, typed public contracts, risk-based coverage, HA lifecycle tests, generated parity/catalog inventories and no unexplained V2 drift. Exact-SHA pytest, Workbench, hassfest and HACS remain required. Do not assert coverage from source strings alone.
+Current machine-readable artifacts: `governance/OWNERSHIP.json`, `governance/V2_UPSTREAM_DELTA.json` and `governance/V3_COMPLETENESS_GATE.json`. Reuse these owners and existing CI; no separate governance framework. Dependency direction and complete cycle validation remain open. Enforce import/AST dependency direction, no cycles, lint/format, typed public contracts, risk-based coverage, HA lifecycle tests, generated parity/catalog inventories and no unexplained V2 drift. Exact-SHA pytest, Workbench, hassfest and HACS remain required. Do not assert coverage from source strings alone.
 
 ## Definition of Done
 
@@ -210,4 +210,4 @@ Proposed machine-readable artifacts: `governance/OWNERSHIP.json`, `DEPENDENCIES.
 - Simplify-before-adding review satisfied; replacement paths and migration validated, unjustified duplication removed.
 - Static code-complete acceptance and full CI before experimental publication; physical vehicle and rollback proof before stable.
 
-Current b8 is not code-complete and no gate is flipped by this design documentation. All illustrative schemas, target module paths and performance targets need implementation and validation.
+The current development branch is not accepted as code-complete and no gate is flipped by this design documentation. All illustrative schemas, target module paths and performance targets need implementation and validation.

@@ -134,3 +134,7 @@ Manual attribute tests record candidate evidence only. Activation persists the s
 ## Audit 02 — remove unproven automatic identity research
 
 Normal inventory uses the canonical original GraphQL request and validated last-known metadata. Removed automatic garage/after-garage/extended/modern recovery chain from discovery. Those definitions remain explicit Workbench research; successful manual comparison does not update production identity. Optional vehicle image delivery is a distinct product feature and retains its bounded read. Manufacturer model remains unresolved on the target vehicle; no claim of identity acceptance.
+
+## Audit 02 — retire pilot administration endpoints
+
+Removed obsolete `routes`, `test`, `save_candidate` and `disable` WebSocket handlers and the separate auto-activating status test facade. Read variants use attribute add/test/save/activate/disable; controls use the existing generic control workflow. New capability-level GET variants cannot be created through the old control route API. Stored legacy profile selections remain readable for compatibility until their explicit migration; no user data silently removed. Current architecture baseline and engineering lifecycle updated; software release gates remain closed.

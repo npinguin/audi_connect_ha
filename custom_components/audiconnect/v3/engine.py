@@ -12,20 +12,19 @@ import time
 from typing import Any
 
 from .auth import V3Auth
-from .action_discovery import approval_group, validate_approval
+from .action_discovery import validate_approval
 from .command_engine import CommandEngine
 from .command_parameters import runtime_ready
 from .status_engine import StatusEngine
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
 from .trip_archive import V3TripArchive
-from .response_preview import safe_response_preview, engineering_response, MAX_ENGINEERING_ROUTES, MAX_ENGINEERING_HISTORY
+from .response_preview import engineering_response, MAX_ENGINEERING_ROUTES, MAX_ENGINEERING_HISTORY
 from .api_observations import record_for, save_record
 from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
 from .transport import V3Response, V3Transport, INVENTORY_OPERATION
 from .vehicle import V3Vehicle
-from .freshness import timestamp_is_fresh, capture_field_timestamp as _captured
 from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
 from .custom_attributes import MAX_CUSTOM_ATTRIBUTES, attributes_for, descriptor, validate_definition
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
@@ -683,84 +682,23 @@ class V3Engine:
         return await self.commands.review_action(vin, sequence, outcome)
 
     async def add_route(self, vin: str, route: dict[str, Any]) -> str:
+        if route.get("aspect") == "status":
+            raise ValueError("Use an attribute read template")
         profile = self.profiles[self.require_vehicle(vin).vin.lower()]
         op = profile.add(route)
         await self.storage.async_save(self.profiles)
         return op
 
 
-    async def test_status_route(
-        self, vin: str, operation: str, *, params: dict[str, Any] | None = None,
-        capability: str = "climate",
-    ) -> dict[str, Any]:
-        """On-demand read-only GET test, with explicit response classification."""
-        car = self.require_vehicle(vin)
-        p = self.profiles[car.vin.lower()]
-        allowed = p.registry.resolve(
-            capability, "status", car.context
-        )["available_operations"]
-        if operation not in allowed:
-            raise ValueError("Status route not applicable to selected vehicle")
-        family, method, path, body = self._operation_request(
-            car, operation, params
-        )
-        if method != "GET" or family != "cariad" or body is not None:
-            raise ValueError("Only reviewed CARIAD GET discovery is available")
-        response = await self.transport.request(family, method, path)
-        self._api_record(p, operation, family, "GET", response, car.vin)
-        field_value, field = p.registry.extract(operation, response.data)
-        timestamp = _captured(response.data, field)
-        if capability == "climate":
-            valid = 200 <= response.status < 300 and car.set_climate(
-                field_value, timestamp, route=operation,
-                observed_at=response.observed_at, http_status=response.status,
-            )
-            if valid:
-                car.climate_field = field
-        else:
-            valid = 200 <= response.status < 300 and field_value is not None
-        fresh = bool(valid and timestamp_is_fresh(timestamp, response.observed_at))
-        verdict = p.record_status(
-            capability, operation, http_status=response.status,
-            schema_valid=valid, fresh=fresh,
-        )
-        if verdict == "worked" and not p.custom.get(operation, {}).get("variables"):
-            p.choose_working(capability, "status", operation)
-        await self.storage.async_save(self.profiles)
-        return {
-            "http_status": response.status,
-            "field": field,
-            "value": (car.climate_state if capability == "climate" else field_value) if valid else None,
-            "captured": timestamp if valid else None,
-            "result": verdict,
-            "schema_keys": sorted(response.data.keys())[:20]
-            if isinstance(response.data, dict) else [],
-            "response_preview": safe_response_preview(
-                response.data, vehicle_vin=car.vin
-            ),
-        }
-
-    async def save_candidate(
-        self, vin: str, aspect: str, operation: str, capability: str = "climate",
-    ) -> None:
-        """Save a planned test route without exposing unproven vehicle controls."""
-        vehicle = self.require_vehicle(vin)
-        profile = self.profiles[vehicle.vin.lower()]
-        profile.save_candidate(capability, aspect, operation)
-        await self.storage.async_save(self.profiles)
-
     async def select_working(self, vin: str, aspect: str, operation: str, capability: str = "climate") -> None:
-        """Admin selects another previously verified route; no request."""
+        """Admin activates a verified control; reads use attribute activation."""
+        if aspect == "status":
+            raise ValueError("Use attribute mapping activation for read routes")
         car = self.require_vehicle(vin)
         p = self.profiles[car.vin.lower()]
         if not runtime_ready(p.custom.get(operation, {})):
             raise DevelopmentProfileError("Dynamic parameters without semantic bindings remain test-only")
         p.choose_working(capability, aspect, operation)
-        await self.storage.async_save(self.profiles)
-
-    async def disable_action(self, vin: str, aspect: str, capability: str = "climate") -> None:
-        p = self.profiles[self.require_vehicle(vin).vin.lower()]
-        p.disable(capability, aspect)
         await self.storage.async_save(self.profiles)
 
     def _refresh_event(self, vin: str, record) -> None:

@@ -104,13 +104,13 @@ def test_workbench_capability_coverage_and_draft_storage_contract():
     client = (V3 / "frontend/panel.js").read_text()
     model = (V3 / "development_profiles.py").read_text()
     assert '"audiconnect/v3/status"' in dashboard
-    assert '"audiconnect/v3/save_candidate"' in dashboard
+    for retired in ("routes", "test", "save_candidate", "disable"):
+        assert f'"audiconnect/v3/{retired}"' not in dashboard
     assert 'this.api("status"' in client
     assert '"audiconnect/v3/attribute_save"' in dashboard
     assert 'this.api("attribute_save"' in client
     assert 'this.api("save_candidate"' not in client
-    assert "def save_candidate(" in model
-    assert '"draft_selected": dict(self.draft_selected)' in model
+    assert '"attribute_drafts": dict(self.attribute_drafts)' in model
 
 
 def test_experimental_authorization_does_not_change_release_gates():
