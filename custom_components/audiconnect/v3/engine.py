@@ -22,7 +22,7 @@ from .response_preview import safe_response_preview, engineering_response, MAX_E
 from .api_observations import record_for, save_record
 from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
-from .transport import V3Response, V3Transport
+from .transport import V3Response, V3Transport, INVENTORY_OPERATION
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
 from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
@@ -111,6 +111,7 @@ class V3Engine:
             CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
         )).split(",") if x.strip()}
         known: dict[str, V3Vehicle] = {}
+        inventory_items = {}
         complete = bool(found)
         for item in found:
             try:
@@ -152,6 +153,7 @@ class V3Engine:
                 vehicle.charging_profiles_captured = None
                 vehicle.trips.clear()
             known[parsed.vin.lower()] = vehicle
+            inventory_items[parsed.vin.lower()] = item
         # An empty or malformed inventory cannot revoke a vehicle. Require two
         # complete nonempty snapshots, or an explicit local VIN exclusion.
         for key, car in self.vehicles.items():
@@ -179,6 +181,15 @@ class V3Engine:
             )
         self.vehicles.update(known)
         self._known_vehicle_inventory = True
+        metadata = getattr(self.transport, "last_inventory_metadata", None)
+        if metadata is not None:
+            for vin, item in inventory_items.items():
+                # The exact decoded row for this vehicle only. Do not expose
+                # another vehicle's inventory even in an admin inspector.
+                response = V3Response(metadata.status, {"data": {"userVehicles": [item]}},
+                                      metadata.observed_at, metadata.remaining_calls, metadata.request)
+                self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
+                                 response, known[vin].vin)
 
     def _resolve_secure_body(
         self, vehicle: V3Vehicle, ident: str, family: str,

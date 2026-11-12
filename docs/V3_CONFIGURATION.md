@@ -45,3 +45,5 @@ All built-in entity names are functional, independent of API family and migratio
 ### Development after b12: operational controls and model
 
 Charging and Window heating use one native switch when both semantic command routes and a recognized vehicle status have been observed. Unknown states are not off; stale data is not live. Existing buttons are preserved for automation compatibility and hidden by default only when the switch has supporting evidence. Window status uses the separate front/rear status array, not the climate preference or legacy mirror heating. Manufacturer model and model year are read from inventory, independent of nickname. Public upstream examples document the window status shape and charging notReadyForCharging; actual Q8 on/off values still need verification in b12. No b13 release authorized.
+
+Inventory debugging: select GraphQL under API evidence to see the original decoded row of the selected vehicle and actual fixed read-only query, without other account vehicles. Its transport uses POST but is explicitly classified as read-only inventory, not a physical command. Restricted exported evidence does not contain the row.

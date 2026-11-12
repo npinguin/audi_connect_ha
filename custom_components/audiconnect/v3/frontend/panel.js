@@ -528,9 +528,9 @@ class AudiConnectV3Panel extends HTMLElement {
     return `<div class="callout"><b>HTTP ${escapeHTML(detail.http_status??"—")} · ${escapeHTML(detail.at)}</b>
       <h3>Request sent</h3>
       ${detail.request?`<pre style="max-height:none;user-select:text">${json(detail.request.payload)}</pre>`:"<p>Actual request was not recorded for this execution.</p>"}
-      <h3>Response received</h3>
+      <h3>${detail.operation==="graphql.inventory.vehicleList"?"Response received · selected vehicle only":"Response received"}</h3>
       <pre style="max-height:none;user-select:text">${json(detail.payload)}</pre>
-      <p class="helper">Masked JSON · ${detail.truncated||detail.request?.truncated?"Size limit reached; partial evidence.":"Within local inspection limits."} HTTP acceptance is not physical confirmation.</p>
+      <p class="helper">Masked JSON · ${detail.truncated||detail.request?.truncated?"Size limit reached; partial evidence.":"Within local inspection limits."} ${detail.operation==="graphql.inventory.vehicleList"?"Read-only inventory query; other vehicles excluded.":"HTTP acceptance is not physical confirmation."}</p>
     </div>`;
   }
 

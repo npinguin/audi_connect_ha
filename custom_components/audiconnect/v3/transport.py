@@ -6,7 +6,7 @@ Never execute a user-provided absolute URL or untrusted Authorization header.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,6 +16,7 @@ from .auth import V3Auth
 from .family_executors import build_family_executors
 from .quota import QuotaBudget
 
+INVENTORY_OPERATION = "graphql.inventory.vehicleList"
 _GRAPHQL_QUERY = """query vehicleList {
   userVehicles {
     vin
@@ -46,6 +47,7 @@ class V3Transport:
         self._request_lock = asyncio.Lock()
         self._request_count = 0
         self.executors = build_family_executors()
+        self.last_inventory_metadata: V3Response | None = None
 
     @property
     def remaining_calls(self) -> int | None:
@@ -111,6 +113,7 @@ class V3Transport:
                     )
 
     async def discover_vehicles(self) -> list[dict[str, Any]]:
+        self.last_inventory_metadata = None
         response = await self.request(
             "graphql", "POST", "/vgql/v1/graphql",
             body={"query": _GRAPHQL_QUERY}, explicit_action=True,
@@ -121,4 +124,6 @@ class V3Transport:
         vehicles = data.get("userVehicles") if isinstance(data, dict) else None
         if not isinstance(vehicles, list):
             raise RuntimeError("Audi vehicle list unavailable (not an empty account)")
+        # Only request metadata is retained here, not an account-wide raw response.
+        self.last_inventory_metadata = replace(response, data=None)
         return [car for car in vehicles if isinstance(car, dict)]

@@ -386,3 +386,30 @@ async def test_diagnostics_cover_all_product_capabilities_without_private_route_
     encoded=json.dumps(snapshot)
     assert "private_custom_route" not in encoded and VIN not in encoded
     assert "engineering_history" not in encoded
+
+
+@pytest.mark.asyncio
+async def test_inventory_evidence_is_per_vehicle_and_not_a_physical_command():
+    from custom_components.audiconnect.v3.transport import INVENTORY_OPERATION
+    from custom_components.audiconnect.v3.capability_status import build_status_report
+    engine,transport,_=engine_for()
+    other="WAUZZZ4M0MD123457"
+    async def inventory():
+        transport.last_inventory_metadata=V3Response(200,None,datetime.now(UTC),
+            request={"method":"POST","url":"https://example.invalid/vgql/v1/graphql",
+                     "body":{"query":"query vehicleList { userVehicles { vin } }"}})
+        return [{"vin":VIN,"nickname":"private nickname","vehicle":{"media":{"shortName":"Q8"}}},
+                {"vin":other,"nickname":"other private nickname","vehicle":{"media":{"shortName":"A6"}}}]
+    transport.discover_vehicles=inventory
+    await engine.discover()
+    detail=engine.engineering_response_for(VIN,INVENTORY_OPERATION)
+    assert detail["payload"]["data"]["userVehicles"]==[
+        {"vin":"{VIN}","nickname":"{PERSONAL}","vehicle":{"media":{"shortName":"Q8"}}}]
+    assert other not in json.dumps(detail) and "A6" not in json.dumps(detail)
+    assert detail["request"]["payload"]["method"]=="POST"
+    profile=engine.profiles[VIN.lower()]
+    assert "private nickname" not in json.dumps(profile.snapshot())
+    report=build_status_report(engine.vehicles[VIN.lower()],profile)
+    row=next(x for x in report["operations"] if x["operation"]==INVENTORY_OPERATION)
+    assert row["read_only"] and row["physical"]=="not_applicable"
+    assert "accepted_not_physically_verified" not in row["attention"]

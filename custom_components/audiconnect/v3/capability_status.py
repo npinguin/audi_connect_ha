@@ -23,6 +23,7 @@ from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .custom_attributes import attributes_for
 from .legacy_read_mappings import variant_for as legacy_variant_for
 from .read_discovery import summary as discovery_summary
+from .transport import INVENTORY_OPERATION
 
 # Source: V2 capability_jobs.BASE_SELECTIVE_JOBS and api_probe.py.
 # This is a migration backlog, not 24 proven V3 capabilities.
@@ -356,11 +357,17 @@ def _cockpit(vehicle, profile, rows, controls):
             reasons.append("physical_control_" + (command.state if command else physical))
         if http is not None and not 200 <= http < 300:
             reasons.append("http_error")
-        if (method in ("POST", "PUT") and http is not None and 200 <= http < 300
+        if (ident != INVENTORY_OPERATION and method in ("POST", "PUT") and http is not None and 200 <= http < 300
                 and physical != "worked" and not (command and command.state == "verified")):
             reasons.append("accepted_not_physically_verified")
         caps = sorted({row["capability"] for row in matching}
                       | ({command.capability} if command else set()))
+        if ident == INVENTORY_OPERATION:
+            caps = ["vehicle_status"]
+            active = True
+            applicable = [True]
+            schema = "valid" if http is not None and 200 <= http < 300 else schema
+            physical = "not_applicable"
         operation = {"operation": ident, "family": op.get("family") or record.get("family") or ref.get("api_family"),
                      "method": method, "path": op.get("path") or ref.get("path"), "capabilities": caps,
                      "applicability": ("applicable" if any(applicable) else
@@ -387,6 +394,9 @@ def _cockpit(vehicle, profile, rows, controls):
             fields.append({**field, "mapping": status, "attributes": matches})
         job = (op.get("path", "").split("jobs=", 1)[-1] if "jobs=" in op.get("path", "") else None)
         operation["job_evidence"] = profile.job_discovery.get(job) if job else None
+        if ident == INVENTORY_OPERATION:
+            operation["path"] = "/vgql/v1/graphql"
+            operation["read_only"] = True
         operation["fields"] = fields
         operation["fields_truncated"] = record.get("fields_truncated")
         if any(field["mapping"] == "review_unmapped" for field in fields):
@@ -427,7 +437,7 @@ def _cockpit(vehicle, profile, rows, controls):
 
 def diagnostic_route_label(ident, registry):
     """Keep known discovery identifiers, never export custom route names."""
-    if ident in registry.operations or ident in ("cariad.discovery.full", "cariad.selectivestatus.batch"):
+    if ident in registry.operations or ident in ("cariad.discovery.full", "cariad.selectivestatus.batch", INVENTORY_OPERATION):
         return ident
     if ident.startswith("cariad.discovery."):
         jobs = ident.removeprefix("cariad.discovery.").split("_")
@@ -470,7 +480,7 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
         {key: item.get(key) for key in ("operation", "family", "method", "applicability",
             "tested", "http_status", "schema", "physical", "last_command_state",
             "active", "job_evidence", "fields_truncated")}
-        for item in report["operations"] if item["operation"] in base_registry.operations
+        for item in report["operations"] if item["operation"] in base_registry.operations or item["operation"] == INVENTORY_OPERATION
     ]
     return {
         "capabilities": summaries,
