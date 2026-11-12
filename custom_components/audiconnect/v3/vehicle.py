@@ -19,6 +19,8 @@ class V3Vehicle:
     country: str
     car_type: str = ""
     auth_family: str = "auth0"
+    legacy_cariad: bool = False
+    legacy_api_level: int = 0
     climate_state: str | None = None
     climate_captured: datetime | None = None
     last_status_observed: datetime | None = None
@@ -65,6 +67,7 @@ class V3Vehicle:
         return VehicleContext(
             auth=self.auth_family, region=self.country,
             vehicle_type=self.car_type, model_family=self.model_family,
+            legacy_cariad=self.legacy_cariad, legacy_api_level=self.legacy_api_level,
         )
 
     @property

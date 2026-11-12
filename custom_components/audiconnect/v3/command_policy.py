@@ -10,19 +10,24 @@ def eligible_operation(car, auth, capability, aspect):
     def readable(key):
         return key in car.readings and car.readings[key].get("value") is not None
     if not auth.uses_auth0:
-        if capability == "climate" and aspect in ("start", "start_with_settings", "stop") and car.climate_state is not None:
-            return "mbb.climate.stop" if aspect == "stop" else "mbb.climate.start"
-        if capability == "access" and aspect in ("lock", "unlock") and (
-                readable("doorLockStatus") or readable("any_door_unlocked")) and getattr(auth.service, "_spin", None):
-            return "mbb.access." + aspect
-        # The reviewed V2/fixbranch uses CARIAD-only routes for other writes.
-        return None
+        if capability == "access" and aspect in ("lock", "unlock"):
+            if (readable("doorLockStatus") or readable("any_door_unlocked")) and getattr(auth.service,"_spin",None):
+                return "mbb.access." + aspect
+            return None
+        if capability == "climate" and aspect in ("start", "start_with_settings", "stop") and (
+                not car.legacy_cariad or car.legacy_api_level != 1):
+            if car.climate_state is not None:
+                return "mbb.climate.stop" if aspect == "stop" else "mbb.climate.start"
+            return None
+        if not car.legacy_cariad or (capability=="remote" and aspect=="wake"):
+            return None
+        # Other historical commands already use the legacy IDK bearer against CARIAD.
     if capability == "remote" and aspect in ("engine_start", "engine_stop"):
         # Retain the historical remote-engine capability restriction. Never
         # infer permission from an engine, region, or PIN alone.
         model = (car.model or "").strip().lower()
         family = (car.model_family or "").strip().lower()
-        if (not auth.uses_auth0 or model.startswith(("q8", "audi q8"))
+        if ((not auth.uses_auth0 and not car.legacy_cariad) or model.startswith(("q8", "audi q8"))
                 or family.startswith(("q8", "audi q8"))
                 or (car.car_type or "").strip().lower() in {
                     "electric", "hybrid", "phev", "plug-in hybrid", "plug_in_hybrid"

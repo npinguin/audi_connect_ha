@@ -216,7 +216,8 @@
       "response_paths": [
         "climatisation.climatisationStatus.value.climatisationState",
         "climatisation.auxiliaryHeatingStatus.value.climatisationState"
-      ]
+      ],
+      "legacy_compatible": true
     },
     "cariad.climate.status.probe": {
       "family": "cariad",
@@ -227,7 +228,8 @@
       "response_paths": [
         "climatisation.climatisationStatus.value.climatisationState",
         "climatisation.auxiliaryHeatingStatus.value.climatisationState"
-      ]
+      ],
+      "legacy_compatible": true
     },
     "mbb.climate.status": {
       "family": "mbb",
@@ -247,7 +249,9 @@
       "priority": 0,
       "request_mode": "bodyless",
       "confirmation": "vehicle_readback",
-      "notes": "Manual test only: bodyless climate start; no auto execution or retries. Actual vehicle support must be confirmed."
+      "notes": "Manual test only: bodyless climate start; no auto execution or retries. Actual vehicle support must be confirmed.",
+      "legacy_compatible": true,
+      "legacy_climate_level1": true
     },
     "cariad.climate.start.vehicle_settings": {
       "family": "cariad",
@@ -256,7 +260,9 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "climate_start_settings",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true,
+      "legacy_climate_level1": true
     },
     "cariad.climate.stop": {
       "family": "cariad",
@@ -265,7 +271,9 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "bodyless",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true,
+      "legacy_climate_level1": true
     },
     "mbb.climate.start": {
       "family": "mbb",
@@ -274,7 +282,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "mbb_climate_start",
-      "confirmation": "legacy_request_poll"
+      "confirmation": "legacy_request_poll",
+      "legacy_climate_level0": true
     },
     "mbb.climate.stop": {
       "family": "mbb",
@@ -283,7 +292,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "mbb_climate_stop",
-      "confirmation": "legacy_request_poll"
+      "confirmation": "legacy_request_poll",
+      "legacy_climate_level0": true
     },
     "cariad.status.access": {
       "family": "cariad",
@@ -295,7 +305,8 @@
         "access.accessStatus.value.doorLockStatus",
         "access"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.activeVentilation": {
       "family": "cariad",
@@ -306,7 +317,8 @@
       "response_paths": [
         "activeVentilation"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.auxiliaryHeating": {
       "family": "cariad",
@@ -317,7 +329,8 @@
       "response_paths": [
         "auxiliaryHeating"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.batteryChargingCare": {
       "family": "cariad",
@@ -328,7 +341,8 @@
       "response_paths": [
         "batteryChargingCare"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.batterySupport": {
       "family": "cariad",
@@ -339,7 +353,8 @@
       "response_paths": [
         "batterySupport"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.charging": {
       "family": "cariad",
@@ -367,7 +382,8 @@
         "charging.chargingSettings.value.autoUnlockPlugWhenChargedAC",
         "charging"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.chargingProfiles": {
       "family": "cariad",
@@ -379,7 +395,8 @@
         "chargingProfiles.chargingProfilesStatus.value.profiles",
         "chargingProfiles"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.chargingTimers": {
       "family": "cariad",
@@ -391,7 +408,8 @@
         "chargingTimers.chargingTimersStatus.value.timers",
         "chargingTimers"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.climatisation": {
       "family": "cariad",
@@ -414,7 +432,8 @@
         "climatisation.climatisationSettings.value.zoneRearRightEnabled",
         "climatisation"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.climatisationTimers": {
       "family": "cariad",
@@ -426,7 +445,8 @@
         "climatisationTimers.climatisationTimersStatus.value.timers",
         "climatisationTimers"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.departureProfiles": {
       "family": "cariad",
@@ -437,7 +457,8 @@
       "response_paths": [
         "departureProfiles"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.departureTimers": {
       "family": "cariad",
@@ -448,7 +469,8 @@
       "response_paths": [
         "departureTimers"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.fuelStatus": {
       "family": "cariad",
@@ -467,7 +489,8 @@
         "fuelStatus.rangeStatus.value.secondaryEngine.currentSOC_pct",
         "fuelStatus"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.honkAndFlash": {
       "family": "cariad",
@@ -478,7 +501,8 @@
       "response_paths": [
         "honkAndFlash"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.hybridCarAuxiliaryHeating": {
       "family": "cariad",
@@ -489,7 +513,8 @@
       "response_paths": [
         "hybridCarAuxiliaryHeating"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.lvBattery": {
       "family": "cariad",
@@ -500,7 +525,8 @@
       "response_paths": [
         "lvBattery"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.measurements": {
       "family": "cariad",
@@ -514,7 +540,8 @@
         "measurements.rangeStatus.value.adBlueRange",
         "measurements"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.oilLevel": {
       "family": "cariad",
@@ -526,7 +553,8 @@
         "oilLevel.oilLevelStatus.value.value",
         "oilLevel"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.readiness": {
       "family": "cariad",
@@ -539,7 +567,8 @@
         "readiness.readinessStatus.value.connectionState.isActive",
         "readiness"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.userCapabilities": {
       "family": "cariad",
@@ -551,7 +580,8 @@
         "userCapabilities.capabilitiesStatus.value",
         "userCapabilities"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.vehicleHealthInspection": {
       "family": "cariad",
@@ -566,7 +596,8 @@
         "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_km",
         "vehicleHealthInspection"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.vehicleHealthWarnings": {
       "family": "cariad",
@@ -577,7 +608,8 @@
       "response_paths": [
         "vehicleHealthWarnings"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "cariad.status.vehicleLights": {
       "family": "cariad",
@@ -589,7 +621,8 @@
         "vehicleLights.lightsStatus.value.lights",
         "vehicleLights"
       ],
-      "notes": "V2 reference job; verify per vehicle before activation"
+      "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
     },
     "mbb.charging.status.charger": {
       "family": "mbb",
@@ -661,7 +694,8 @@
         "data",
         "parkingPosition"
       ],
-      "notes": "Location sensitive: never automatically discovered or polled"
+      "notes": "Location sensitive: never automatically discovered or polled",
+      "legacy_compatible": true
     },
     "cariad.mobility.status.tripStatistics": {
       "family": "cariad",
@@ -672,7 +706,8 @@
       "response_paths": [
         "tripStatistics"
       ],
-      "notes": "Historical V2 trip statistics: explicitly tested only"
+      "notes": "Historical V2 trip statistics: explicitly tested only",
+      "legacy_compatible": true
     },
     "cariad.remote.wake": {
       "family": "cariad",
@@ -692,7 +727,8 @@
       "priority": 10,
       "confirmation": "physical_vehicle_readback",
       "request_mode": "json",
-      "request_body": {}
+      "request_body": {},
+      "legacy_compatible": true
     },
     "cariad.charging.stop": {
       "family": "cariad",
@@ -702,7 +738,8 @@
       "priority": 10,
       "confirmation": "physical_vehicle_readback",
       "request_mode": "json",
-      "request_body": {}
+      "request_body": {},
+      "legacy_compatible": true
     },
     "cariad.charging.start.combined": {
       "family": "cariad",
@@ -714,7 +751,8 @@
       "request_mode": "json",
       "request_body": {
         "action": "start"
-      }
+      },
+      "legacy_compatible": true
     },
     "cariad.charging.stop.combined": {
       "family": "cariad",
@@ -726,7 +764,8 @@
       "request_mode": "json",
       "request_body": {
         "action": "stop"
-      }
+      },
+      "legacy_compatible": true
     },
     "cariad.access.lock": {
       "family": "cariad",
@@ -762,7 +801,8 @@
       "priority": 10,
       "confirmation": "physical_vehicle_readback",
       "request_mode": "json",
-      "request_body": {}
+      "request_body": {},
+      "legacy_compatible": true
     },
     "cariad.climate.window_heating_stop": {
       "family": "cariad",
@@ -772,7 +812,8 @@
       "priority": 10,
       "confirmation": "physical_vehicle_readback",
       "request_mode": "json",
-      "request_body": {}
+      "request_body": {},
+      "legacy_compatible": true
     },
     "cariad.charging.settings": {
       "family": "cariad",
@@ -781,7 +822,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "charging_settings_update",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.charging.mode": {
       "family": "cariad",
@@ -790,7 +832,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "charge_mode",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.charging.profiles": {
       "family": "cariad",
@@ -799,7 +842,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "charging_profile_update",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.climate.settings": {
       "family": "cariad",
@@ -808,7 +852,9 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "climate_settings_update",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true,
+      "legacy_climate_level1": true
     },
     "cariad.remote.refresh": {
       "family": "cariad",
@@ -817,7 +863,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "bodyless",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.remote.flash": {
       "family": "cariad",
@@ -826,7 +873,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "flash",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.climate.preheater_start": {
       "family": "cariad",
@@ -835,7 +883,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "auxiliary_start",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.climate.preheater_stop": {
       "family": "cariad",
@@ -844,7 +893,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "bodyless",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.remote.engine_start": {
       "family": "cariad",
@@ -853,7 +903,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "engine_start",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "cariad.remote.engine_stop": {
       "family": "cariad",
@@ -862,7 +913,8 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "bodyless",
-      "confirmation": "vehicle_readback"
+      "confirmation": "vehicle_readback",
+      "legacy_compatible": true
     },
     "mbb.access.lock": {
       "family": "mbb",

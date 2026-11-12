@@ -56,7 +56,7 @@ def restore_profile(
         if (
             result not in ("worked", "failed")
             or operation not in profile.registry.operations
-            or profile.registry.operations[operation]["method"] != "POST"
+            or profile.registry.operations[operation]["method"] not in ("POST","PUT")
         ):
             raise DevelopmentProfileError("Malformed action evidence")
         profile.control_results[operation] = result

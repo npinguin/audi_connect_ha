@@ -66,9 +66,25 @@ class CARIADExecutor:
             raise ValueError("Unsupported CARIAD operation")
         if method != "GET" and not explicit_action:
             raise ValueError("CARIAD mutations need direct user intent")
-        if not auth.uses_auth0:
-            raise ValueError("CARIAD operation requires Auth0")
         resource = _checked_path(path)
+        if not auth.uses_auth0:
+            import re
+            if not getattr(auth, "has_cariad_bearer", False):
+                raise ValueError("CARIAD operation requires Auth0 or a reviewed legacy bearer")
+            # Exact historical V2 routes only. No custom legacy CARIAD URL,
+            # modern access challenge or explicit Auth0 wake trigger.
+            match = re.fullmatch(r"/vehicle/v1/vehicles/[A-Za-z0-9]{17}/(.+)", resource)
+            suffix = match[1] if match else ""
+            allowed = (method == "GET" and suffix in ("selectivestatus","parkingposition","pendingrequests"))
+            allowed |= (method == "POST" and suffix in (
+                "charging/start","charging/stop","charging/start-stop","climatisation/start","climatisation/stop",
+                "windowheating/start","windowheating/stop","vehiclewakeup","honkandflash",
+                "auxiliaryheating/start","auxiliaryheating/stop"))
+            allowed |= (method == "PUT" and suffix in (
+                "charging/settings","charging/mode","charging/profiles","climatisation/settings"))
+            allowed |= bool(re.fullmatch(r"/vehicle/v1/engine/[A-Za-z0-9]{17}/(?:userpromptproof|start|stop)",resource))
+            if not allowed:
+                raise ValueError("Unreviewed legacy-bearer CARIAD route")
         if resource.startswith("/vehicle/v1/trips/"):
             import re
             if (method != "GET" or body is not None or "?" in path or

@@ -97,6 +97,15 @@ class V3Auth:
     def uses_auth0(self) -> bool:
         return self.service.uses_auth0
 
+    @property
+    def has_cariad_bearer(self) -> bool:
+        token = getattr(self.service, "_bearer_token_json", None)
+        return isinstance(token, dict) and isinstance(token.get("access_token"), str) and bool(token["access_token"])
+
+    @property
+    def legacy_api_level(self) -> int:
+        return int(getattr(self.service, "_api_level", 0) or 0)
+
     def access_token(self, family: str) -> str:
         """Only reviewed family tokens; never expose in diagnostics."""
         if family == "cariad":

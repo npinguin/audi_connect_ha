@@ -57,6 +57,8 @@ class VehicleContext:
     region: str = ""
     vehicle_type: str = ""
     model_family: str = ""
+    legacy_cariad: bool = False
+    legacy_api_level: int = 0
 
 
 @dataclass
@@ -216,6 +218,16 @@ class CapabilityRegistry:
             op = self.operations[ident]
             family = self.families[op["family"]]
             scope = {**op.get("scope", {}), "auth": family["auth"]}
+            # Legacy IDK sessions also carry a CARIAD bearer. Only exact
+            # built-in historical routes opt in; custom routes never do.
+            if (context.auth == "legacy" and family["auth"] == "auth0"
+                    and context.legacy_cariad and op.get("legacy_compatible") is True
+                    and (not op.get("legacy_climate_level1") or context.legacy_api_level == 1)):
+                scope["auth"] = "legacy"
+            if (context.auth == "legacy" and context.legacy_cariad and context.legacy_api_level == 1
+                    and op.get("legacy_climate_level0") is True):
+                excluded.append({"operation": ident, "reason": "legacy_climate_api_level"})
+                continue
             if op.get("implementation") == "not_implemented":
                 excluded.append({"operation": ident, "reason": "adapter_not_implemented"})
             elif any(getattr(context, k, None) != v for k, v in scope.items()):

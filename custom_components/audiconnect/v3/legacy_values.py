@@ -23,7 +23,15 @@ def observe_legacy(car,profile,kind,response):
         status="verified" if fresh else "readable_but_stale"
         car.readings[key]={"value":value,"captured":stamp,"observed":response.observed_at.isoformat(),
             "status":status,"family":"mbb","path":path or kind,"job":None}
-        profile.attribute_evidence[key]={"status":status,"path":path or kind,"job":None,"source":"mbb.legacy","timestamp_present":bool(stamp)}
+        # Persist only evidence that the existing route-schema validator can
+        # reconstruct. Derived values remain in memory, like CARIAD derived
+        # readings; do not corrupt the saved profile with raw field IDs.
+        from .historical_catalog import ATTRIBUTES
+        from .legacy_read_mappings import variant_for
+        variant=variant_for(key)
+        if key in ATTRIBUTES and variant and path in variant["response_paths"]:
+            profile.attribute_evidence[key]={"status":status,"path":path,
+                "job":ATTRIBUTES[key]["job"],"source":"mbb.legacy","timestamp_present":bool(stamp)}
     numeric={"stateOfCharge","actualChargeRate","chargingPower","remainingChargingTime","hybridRange","primaryEngineRange","secondaryEngineRange","remainingClimatisationTime","max_charge_current"}
     for ident,(name,path) in FIELDS.items():
         if name!=kind: continue

@@ -91,6 +91,8 @@ class V3Engine:
                 continue
             vehicle = self.vehicles.get(parsed.vin.lower(), parsed)
             vehicle.auth_family = "auth0" if self.auth.uses_auth0 else "legacy"
+            vehicle.legacy_cariad = not self.auth.uses_auth0 and bool(getattr(self.auth,"has_cariad_bearer",False))
+            vehicle.legacy_api_level = getattr(self.auth,"legacy_api_level",0)
             known[parsed.vin.lower()] = vehicle
         if not known:
             if found and excluded:
@@ -329,7 +331,7 @@ class V3Engine:
         """
         vehicle = self.require_vehicle(vin)
         expected = "mbb" if vehicle.context.auth == "legacy" else "cariad"
-        if family != expected:
+        if family != expected and not (family=="cariad" and vehicle.legacy_cariad):
             raise ValueError("API family is not applicable to this vehicle")
         profile = self.profiles[vehicle.vin.lower()]
         outcomes: list[dict[str, Any]] = []
@@ -409,6 +411,20 @@ class V3Engine:
         for key, vehicle in self.vehicles.items():
             profile = self.profiles[key]
             if vehicle.context.auth == "legacy" and len(profile.registry.capabilities) > 1:
+                if vehicle.legacy_cariad:
+                    # V2 reads selective-status even on its legacy IDK session.
+                    path = f"/vehicle/v1/vehicles/{vehicle.vin}/selectivestatus?jobs={','.join(planned_jobs(vehicle,profile))}"
+                    try:
+                        reply = await self.transport.request("cariad","GET",path)
+                    except (RuntimeError,ValueError,OSError,TimeoutError):
+                        reply = None
+                    if reply and 200<=reply.status<300:
+                        polled_responses[(key,"cariad",path)] = reply
+                        observe_read_only(vehicle,profile,reply.data,reply.observed_at)
+                        record_jobs(profile,tuple(path.rsplit("jobs=",1)[-1].split(",")),status=reply.status,payload=reply.data)
+                        row=vehicle.readings.get("climatisationState",{})
+                        vehicle.set_climate(row.get("value"),row.get("captured"),route="cariad.climate.status.batch",observed_at=reply.observed_at,http_status=reply.status)
+                        cloud_reachable = True
                 if await self._poll_legacy(vehicle, profile, polled_responses):
                     cloud_reachable = True
                 continue
@@ -632,17 +648,17 @@ class V3Engine:
         from .parking import parse_parked_position, keep_newest_position
 
         registry = er.async_get(self.hass)
-        permitted = {
-            entity.unique_id
-            for entity in er.async_entries_for_config_entry(
-                registry, self.entry.entry_id
-            )
+        trackers = {
+            entity.unique_id: entity.disabled_by
+            for entity in er.async_entries_for_config_entry(registry,self.entry.entry_id)
             if entity.domain == "device_tracker"
-            and entity.disabled_by is None
         }
         for car in self.vehicles.values():
-            if (car.context.auth != "auth0"
-                    or f"{car.vin.lower()}_device_tracker_position" not in permitted):
+            tracker=f"{car.vin.lower()}_device_tracker_position"
+            enabled=(tracker in trackers and trackers[tracker] is None)
+            discovered=(tracker not in trackers and "parkingPosition" in car.advertised_capabilities
+                        and "parkingPosition" not in car.impaired_capabilities)
+            if (car.context.auth != "auth0" and not car.legacy_cariad) or not (enabled or discovered):
                 continue
             if (self.transport.remaining_calls is not None
                     and self.transport.remaining_calls <= 12):
@@ -656,12 +672,22 @@ class V3Engine:
                 return
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 return
+            if reply.status == 204:
+                # Match historical V2 movement indication, explicitly a
+                # parking endpoint signal, not a live location fix.
+                car.readings["is_moving"] = {"value":True,"captured":None,
+                    "observed":reply.observed_at.isoformat(),"status":"readable_but_stale",
+                    "family":"cariad","path":"parkingposition HTTP 204","job":None}
+                continue
             if not 200 <= reply.status < 300:
                 continue
             point = parse_parked_position(reply.data)
             if point and keep_newest_position(car.position, point):
                 car.position = point
                 stamp = point.get("timestamp")
+                car.readings["is_moving"] = {"value":False,"captured":None,
+                    "observed":reply.observed_at.isoformat(),"status":"readable_but_stale",
+                    "family":"cariad","path":"parkingposition parked sample","job":None}
                 if stamp:
                     for ident in ("position_last_updated", "park_time"):
                         car.readings[ident] = {
@@ -730,7 +756,8 @@ class V3Engine:
         ident = p.active.get(key)
         if (ident and p.control_results.get(ident) == "worked"
                 and not p.custom.get(ident, {}).get("variables")
-                and (not restricted or ident == allowed)):
+                and (not restricted or ident == allowed)
+                and ident in p.registry.resolve(capability,aspect,car.context)["available_operations"]):
             return ident
         if len(p.registry.capabilities) <= 1:
             return None
@@ -793,7 +820,7 @@ class V3Engine:
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vin.lower()]
         family = profile.registry.operations.get(operation, {}).get("family")
-        if family != ("cariad" if self.auth.uses_auth0 else "mbb"):
+        if family not in ("cariad","mbb") or (family=="mbb" and self.auth.uses_auth0):
             raise ValueError("Control is not applicable to this authentication family")
         if operation not in profile.registry.resolve(
             capability, aspect, vehicle.context
