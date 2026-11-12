@@ -394,7 +394,7 @@ async def ws_control_test(hass, connection, msg):
         value = await engine.approved_control_discovery(
             msg["vin"], msg["action"], msg["operation"],
             capability=msg["capability"], approval=msg["approval"],
-            params=msg.get("parameters"),
+            params=msg.get("parameters"), guided=msg.get("end_user", False), expert=msg.get("expert", False),
         )
         connection.send_result(msg["id"], value)
     except (ValueError, KeyError, RuntimeError, TypeError) as exc:
