@@ -936,7 +936,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const operations = (coverage.operations || []).filter(o => (family === "all" || o.family === family) && operationMatches(o)
       && (!this.capabilityFilter || (o.capabilities||[]).includes(this.capabilityFilter)));
     const matchesSearch = value => !this.searchText || JSON.stringify(value).toLowerCase().includes(this.searchText.toLowerCase());
-    const matchingOperations = operations.filter(o => matchesSearch(o) &&
+    const matchingOperations = operations.filter(o => (!o.retired_experiment || this.operationFilter === "historical" || this.focusOperation === o.operation) && matchesSearch(o) &&
       (this.operationMethod === "all" || o.method === this.operationMethod) &&
       (this.operationFilter === "all" ||
        this.operationFilter === "tested" && o.tested ||

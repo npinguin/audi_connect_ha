@@ -460,6 +460,7 @@ def _cockpit(vehicle, profile, rows, controls):
                 operation["reference_only"] = True
                 operation["retired_experiment"] = True
                 operation["active"] = False
+                active = False
             operation["graphql_errors"] = evidence.get("graphql_errors", [])
             operation["auth_context"] = evidence.get("auth_context")
             fields = [{**field,

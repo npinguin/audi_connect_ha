@@ -52,18 +52,18 @@ def test_specific_inventory_phev_is_consistent_with_generic_hybrid_and_conflict_
 
 
 def test_incomplete_identity_retries_are_bounded_and_quota_aware():
-    from types import SimpleNamespace
-    from custom_components.audiconnect.v3.status_engine import identity_retry_due
-    incomplete = SimpleNamespace(inventory_present=True, model="", model_family="",
-                                 model_year="2024", car_type="phev")
-    complete = SimpleNamespace(inventory_present=True, model="Q8 TFSI e",
-                               model_family="q8", model_year="2024", car_type="phev")
+    from custom_components.audiconnect.v3.status_engine import identity_refresh_due
+    incomplete = V3Vehicle(VIN, "Audi", "", "", "DE", car_type="phev", model_year="2024")
+    complete = V3Vehicle(VIN, "Audi", "Q8 TFSI e", "q8", "DE", car_type="phev", model_year="2024")
+    complete.image_url = "https://mediaservice.audi.com/render/example.png"
     vehicles = {"a": incomplete, "b": complete}
-    assert [cycle for cycle in range(1, 24) if identity_retry_due(vehicles, cycle, 50)] == [2, 4, 8]
-    assert not identity_retry_due(vehicles, 2, 12)
-    assert identity_retry_due(vehicles, 2, None)
+    assert not identity_refresh_due(vehicles, 1799, 50)
+    assert identity_refresh_due(vehicles, 1800, 50)
+    assert not identity_refresh_due(vehicles, 1800, 12)
+    assert identity_refresh_due(vehicles, 1800, None)
     incomplete.inventory_present = False
-    assert not identity_retry_due(vehicles, 2, 50)
+    assert not identity_refresh_due(vehicles, 1800, 50)
+    assert identity_refresh_due(vehicles, 86400, 50)
 
 
 def test_oem_render_selection_only_accepts_public_audi_cdn():

@@ -99,10 +99,11 @@ async def ws_status(hass, connection, msg):
         report["fast_bindings"] = profile.fast_bindings
         from .product_contract import entity_projection_report, entity_key
         report["account_entity_projection"] = entity_projection_report(engine)
-        from .transport import IDENTITY_QUERIES, WEB_ORDERED_OPERATION, identity_request_body
+        from .transport import IDENTITY_QUERIES
         report["identity_templates"] = {key: value for key, value in IDENTITY_QUERIES.items()
                                         if key in ("graphql.inventory.vehicleList", "graphql.inventory.images")}
-        report["identity_drafts"] = getattr(profile, "identity_drafts", {})
+        report["identity_drafts"] = {key: value for key, value in getattr(profile, "identity_drafts", {}).items()
+                                     if key in report["identity_templates"]}
         report["identity_fixed_parameters"] = {}
         # Admin-only actual HA entity IDs for the selected VIN, never in exported diagnostics.
         if hasattr(hass, "states") and hasattr(hass, "data"):

@@ -350,7 +350,7 @@ class V3ProfileStorage:
         saved = await self._store.async_load() or {}
         records = saved.get("profiles", {}) if isinstance(saved, dict) else {}
         row = records.get(vehicle_key, {}) if isinstance(records, dict) else {}
-        return validate_identity(row.get("manufacturer_identity") if isinstance(row, dict) else None, region)
+        return validate_identity(row.get("manufacturer_identity") if isinstance(row, dict) else None, region, vehicle_key)
 
     async def async_load(
         self, catalog: CapabilityRegistry,
