@@ -250,3 +250,20 @@ test("Discovery modes do not send commands; exact approval is required", async (
   assert.equal(sent[0].args.approval,"spin");
   assert.equal(sent[0].args.operation,"cariad.access.unlock");
 });
+
+test("cockpit separates tested operations, active bindings and physical evidence", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad",start_enabled:true}]}];
+  p.capabilityStatus={counts:{},rows:[],operations:[
+    {operation:"test.read",family:"cariad",method:"GET",tested:true,active:true,schema:"valid",fields:[{path:"oil.level",type:"boolean",quality:"valid",mapping:"unmapped"}]},
+    {operation:"test.command",family:"cariad",method:"POST",tested:true,active:false,physical:"unknown",attention:["needs physical proof"]},
+    {operation:"test.pending",family:"cariad",method:"GET",tested:false}
+  ],findings:[{severity:"warning",reason:"needs physical proof",capability:"climate"}]};
+  p.render();
+  assert.match(p.shadowRoot.innerHTML,/Climate start: enabled/);
+  assert.match(p.shadowRoot.innerHTML,/oil.level/);
+  assert.match(p.shadowRoot.innerHTML,/test.pending/);
+  await p._change({target:{id:"operation-filter",value:"attention"}});
+  assert.match(p.shadowRoot.innerHTML,/test.command/);
+  assert.doesNotMatch(p.shadowRoot.innerHTML,/test.pending/);
+});

@@ -28,6 +28,8 @@ class AudiConnectV3Panel extends HTMLElement {
     this.inventoryFilter = "all";
     this.apiHistory = [];
     this.apiFamily = "vehicle";
+    this.operationFilter = "all";
+    this.operationMethod = "all";
     this.readRoutes = [];
     this.readChoice = "";
     this.readDraft = "";
@@ -193,6 +195,12 @@ class AudiConnectV3Panel extends HTMLElement {
       this.render();
     } else if (e.target.id === "inventory-filter") {
       this.inventoryFilter = e.target.value;
+      this.render();
+    } else if (e.target.id === "operation-filter") {
+      this.operationFilter = e.target.value;
+      this.render();
+    } else if (e.target.id === "operation-method") {
+      this.operationMethod = e.target.value;
       this.render();
     } else if (e.target.id === "api-family") {
       this.apiFamily = e.target.value;
@@ -450,6 +458,17 @@ class AudiConnectV3Panel extends HTMLElement {
     const rows = coverage.rows || [];
     const vehicleFamily = car?.api_family || "cariad";
     const family = this.apiFamily === "vehicle" ? vehicleFamily : this.apiFamily;
+    const operations = (coverage.operations || []).filter(o => family === "all" || o.family === family);
+    const visibleOperations = operations.filter(o =>
+      (this.operationMethod === "all" || o.method === this.operationMethod) &&
+      (this.operationFilter === "all" ||
+       this.operationFilter === "tested" && o.tested ||
+       this.operationFilter === "untested" && !o.tested && !o.reference_only ||
+       this.operationFilter === "active" && o.active ||
+       this.operationFilter === "attention" && (o.attention || []).length ||
+       this.operationFilter === "historical" && o.reference_only));
+    const findings = coverage.findings || [];
+    const projection = coverage.account_entity_projection || {};
     const filteredRows = rows.filter(r => family === "all" || r.api_family === family);
     const attributes = filteredRows.filter(r => r.entity_key &&
       ["v3_live_evidence","v2_attribute_reference"].includes(r.source));
@@ -567,7 +586,8 @@ class AudiConnectV3Panel extends HTMLElement {
               <option value="vehicle" ${this.apiFamily==="vehicle"?"selected":""}>This vehicle · ${escapeHTML(vehicleFamily.toUpperCase())}</option>
               <option value="cariad" ${this.apiFamily==="cariad"?"selected":""}>CARIAD · modern</option>
               <option value="mbb" ${this.apiFamily==="mbb"?"selected":""}>MBB · legacy</option>
-              <option value="all" ${this.apiFamily==="all"?"selected":""}>All historical API families</option>
+              <option value="graphql" ${this.apiFamily==="graphql"?"selected":""}>GraphQL</option>
+              <option value="all" ${this.apiFamily==="all"?"selected":""}>All API families</option>
             </select></div>
         </div>
         <div class="steps">
@@ -608,7 +628,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <div class="summary">${escapeHTML(counts.observed_jobs??0)} CARIAD jobs observed · ${escapeHTML(counts.not_observed_jobs??0)} not observed</div></div>
             <div class="card"><div class="eyebrow">Climate & controls</div>
               <div class="stat">${escapeHTML(status)}</div>
-              <div class="summary">Climate start: ${car.start_enabled?"verified":"not tested"} · Stop: ${car.stop_enabled?"verified":"not tested"}</div></div>
+              <div class="summary">Climate start: ${car.start_enabled?"enabled":"not enabled"} · Stop: ${car.stop_enabled?"enabled":"not enabled"}</div></div>
           </div>
           <section class="card" style="margin-bottom:18px;display:${this.step===1?"block":"none"}">
             <div class="eyebrow">Step 1 / Automatic discovery</div>
@@ -621,6 +641,16 @@ class AudiConnectV3Panel extends HTMLElement {
               ${escapeHTML(counts.not_scanned_jobs??0)} jobs pending.</div>
               <div class="family-hint">Not observed does not mean unsupported. V2 history does not equal V3 validation.</div>
             </div>
+            <h2>Attention & next actions</h2>
+            <p>Vehicle-level evidence findings. Opening a capability does not send a command.</p>
+            <div class="coverage-table"><table>
+              <thead><tr><th>Severity</th><th>Finding</th><th>Evidence / next step</th></tr></thead>
+              <tbody>${findings.map(f=>`<tr><td><b>${escapeHTML(f.severity)}</b></td>
+                <td>${escapeHTML(f.reason)}<div class="subline">${escapeHTML(f.operation||f.attribute||"")}</div></td>
+                <td>${f.capability?`<button data-action="open-capability" data-capability="${escapeHTML(f.capability)}">Review ${escapeHTML(f.capability)}</button>`:"Review vehicle identity or evidence"}</td></tr>`).join("") || '<tr><td colspan="3">No findings reported in this snapshot.</td></tr>'}</tbody>
+            </table></div>
+            <h2>Home Assistant projection · account</h2>
+            <p>${escapeHTML(projection.registered??"—")} registered · ${escapeHTML(projection.projected??"—")} projected. ${Object.entries(projection.counts||{}).map(([k,v])=>escapeHTML(k)+": "+escapeHTML(v)).join(" · ")}</p>
             <details><summary>Historical V2 inventory totals</summary>
             <div class="line" style="justify-content:flex-start;gap:16px;font-size:var(--ha-font-size-m,14px);margin-bottom:14px">
               <span><b>${escapeHTML(counts.v2_attribute_inventory??0)}</b> V2 attribute references</span>
@@ -638,14 +668,39 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="cap-grid">${capabilityNames.map(cap=>{
                 const a=attributes.filter(r=>r.capability===cap);
                 const ct=controls.filter(r=>r.capability===cap);
+                const ca=controlActions.filter(r=>r.capability===cap);
+                const op=operations.filter(r=>(r.capabilities||[]).includes(cap)&&!r.reference_only);
+                const summary=(coverage.capability_summary||[]).find(r=>r.capability===cap);
                 const verified=a.filter(r=>r.status==="verified").length;
                 const stale=a.filter(r=>r.status==="readable_but_stale").length;
                 return `<button class="cap-card" data-action="open-capability" data-capability="${escapeHTML(cap)}">
                   <b>${escapeHTML(cap.replaceAll("_"," "))}</b>
                   <div class="subline">${verified} verified · ${stale} stale</div>
-                  <div class="subline">${a.length} read-only attributes · ${ct.length} controls</div>
+                  <div class="subline">${a.length} read-only attributes · ${ca.length||ct.length} controls</div>
+                  <div class="subline">${op.filter(r=>r.tested).length}/${op.length} API operations tested · ${op.filter(r=>r.active).length} active</div>
+                  <div class="subline">${ca.filter(r=>r.enabled).length} controls enabled · ${ca.filter(r=>r.physical_evidence==="worked"||r.physical_evidence==="verified").length} physically verified</div>
+                  <div class="subline">${findings.filter(r=>r.capability===cap).length} attention findings</div>
+                  ${summary&&family===vehicleFamily?`<div class="subline">${Object.entries(summary.job_status||{}).map(([k,v])=>escapeHTML(k)+": "+escapeHTML(v)).join(" · ")}</div>`:""}
                 </button>`;
               }).join("")}</div>
+            <h2>API operations · validation matrix</h2>
+            <p>Tested, active, schema validity and physical confirmation are independent. HTTP 2xx/207 alone is not proof of a working command or complete mapping.</p>
+            <div class="line">
+              <label>Evidence <select id="operation-filter">${["all","tested","untested","active","attention","historical"].map(v=>`<option value="${v}" ${this.operationFilter===v?"selected":""}>${v}</option>`).join("")}</select></label>
+              <label>Method <select id="operation-method">${["all","GET","POST","PUT","DELETE"].map(v=>`<option value="${v}" ${this.operationMethod===v?"selected":""}>${v}</option>`).join("")}</select></label>
+            </div>
+            <p>${visibleOperations.length} matching / ${operations.length} operations · ${operations.filter(o=>o.tested).length} tested · ${operations.filter(o=>o.active).length} active · ${operations.filter(o=>o.reference_only).length} historical only</p>
+            <div class="coverage-table"><table>
+              <thead><tr><th>Operation / capability</th><th>Test & HTTP</th><th>Mapping / binding</th><th>Physical / attention</th></tr></thead>
+              <tbody>${visibleOperations.map(o=>`<tr>
+                <td><b>${escapeHTML(o.operation)}</b><div class="subline">${escapeHTML(o.family)} · ${escapeHTML(o.method)} · ${escapeHTML((o.capabilities||[]).join(", "))}</div><code>${escapeHTML(o.path||"")}</code></td>
+                <td><b>${o.reference_only?"Historical only":o.tested?"Tested":"Not tested"}</b><div class="subline">HTTP ${escapeHTML(o.http_status??"—")} · ${escapeHTML(o.transport||"unknown")} · ${escapeHTML(o.last_test||"")}</div></td>
+                <td>Schema: ${escapeHTML(o.schema||"unknown")}<div class="subline">${o.active?"ACTIVE":"Inactive"} · ${escapeHTML(o.applicability||"unknown")}</div>
+                  ${(o.fields||[]).length?`<details><summary>${o.fields.length} response fields · bounded sample</summary>${o.fields.map(f=>`<div class="subline"><code>${escapeHTML(f.path)}</code> · ${escapeHTML(f.type)} · ${escapeHTML(f.quality)} · ${escapeHTML(f.mapping)} ${escapeHTML((f.attributes||[]).join(", "))}</div>`).join("")}</details>`:""}</td>
+                <td>Physical: ${escapeHTML(o.physical||"not verified")}<div class="subline">${escapeHTML(o.last_command_state||"")} ${escapeHTML(o.backend_result||"")}</div>
+                  <div class="subline">${escapeHTML((o.attention||[]).join(" · "))}</div></td>
+              </tr>`).join("") || '<tr><td colspan="4">No matching operations.</td></tr>'}</tbody>
+            </table></div>
             <details>
               <summary style="cursor:pointer;font-weight:700;padding:8px 0">
                 Technical evidence — ${escapeHTML(filteredRows.length)} selected-family records
@@ -656,7 +711,7 @@ class AudiConnectV3Panel extends HTMLElement {
                 <tbody>${filteredRows.map((r)=>`<tr>
                   <td><b>${escapeHTML(r.capability)}</b>
                     <div class="subline">${escapeHTML(r.aspect)}</div></td>
-                  <td><code>${escapeHTML(r.attribute)}</code></td>
+                  <td><code>${escapeHTML(r.attribute)}</code><div class="subline">${escapeHTML(r.platform||"")} · ${escapeHTML(r.value_type||"")} ${escapeHTML(r.issue||"")}</div></td>
                   <td><b>${escapeHTML(r.api_family)}</b>
                     <div class="subline"><code>${escapeHTML(r.method)} ${escapeHTML(r.path)}</code></div></td>
                   <td><b>${escapeHTML(r.status)}</b>
