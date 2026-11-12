@@ -437,11 +437,12 @@ class AudiConnectV3Panel extends HTMLElement {
       finally { this.loading = false; this.render(); } return;
     }
     const readRoute = this.shadowRoot.getElementById("read-route")?.value || this.readChoice;
-    const controlRoute = this.shadowRoot.getElementById("control-route")?.value || this.controlChoice;
+    const endUser = this.step===5;
+    const controlRoute = endUser ? this.controlChoice : this.shadowRoot.getElementById("control-route")?.value || this.controlChoice;
     const readTemplate = this.initialReadRoute;
     const newAttributeTemplate = this.initialNewAttribute;
     const controlParameters = this.shadowRoot.getElementById("control-parameters")?.value || "{}";
-    const approved = this.shadowRoot.getElementById("control-approval")?.checked === true;
+    const approved = this.shadowRoot.getElementById(endUser?"end-user-approval":"control-approval")?.checked === true;
     const approvalGroup = this.controlRoutes.find(r=>r.id===controlRoute)?.approval_group;
     const controlTemplate = this.initialControlRoute;
     const executionReview = action === "execution-review" ? {
@@ -493,7 +494,7 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("control_test", {
           ...this.selection, capability: this.controlCapability,
           action: this.controlAction, operation: controlRoute,
-          approval: approvalGroup, parameters: this.parameterValues(this.controlRoutes.find(r=>r.id===controlRoute),controlParameters)
+          approval: approvalGroup, ...(endUser?{end_user:true,parameters:{}}:{parameters: this.parameterValues(this.controlRoutes.find(r=>r.id===controlRoute),controlParameters)})
         });
       } else if (action === "discard-route") {
         this.lastResult = await this.api("discard_route", {...this.selection, operation:button.dataset.operation});
@@ -750,8 +751,8 @@ class AudiConnectV3Panel extends HTMLElement {
       <p>${rows.filter(c=>c.eligible).length} eligible · ${escapeHTML(p.controls_physically_verified??0)} physically verified / ${escapeHTML(p.controls_catalog_applicable??0)} applicable. Select one action, inspect the parked vehicle and approve it explicitly.</p>
       ${rows.map(c=>{const test=candidates.find(x=>x.capability===c.capability&&x.action===c.action);return `<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability,c.action))}</b> · ${escapeHTML(friendly(c.status))} · ${escapeHTML(friendly(c.physical))}<div class="subline">${escapeHTML(friendly(c.reason||""))}</div></div>${test&&c.physical!=="worked"?`<button data-action="end-user-select" data-operation="${escapeHTML(test.operation)}" ${this.loading||this.pending?"disabled":""}>Verify</button>`:""}</div>`;}).join("")}
       ${candidate&&route&&!this.pending?`<div class="callout"><b>${escapeHTML(candidate.label)}</b><p>Exact route: <code>${escapeHTML(candidate.operation)}</code>. One real physical command. Be present at the safely parked vehicle and able to restore its state.</p>
-      <label><input type="checkbox" id="control-approval"> I accept this specific action and its risks</label>
-      <button data-action="control-test" ${this.loading||this.capabilityBlocked(candidate.capability)?"disabled":""}>Execute once</button></div>`:""}
+      <label><input type="checkbox" id="end-user-approval" style="width:auto"> I accept this specific action and its risks</label>
+      <button data-action="control-test" ${this.loading||this.controlDisabled||this.capabilityBlocked(candidate.capability)||(candidate.approval_group==="spin"&&!this.spinConfigured)?"disabled":""}>Execute once</button></div>`:""}
       <h3>4 · Recovery &amp; timing</h3>
       <p>Last poll: ${escapeHTML(this.localTime(timing.last_poll_attempt))} · Last success: ${escapeHTML(this.localTime(timing.last_poll_success))} · Poll interval: ${timing.poll_interval_seconds==null?"unknown":escapeHTML(timing.poll_interval_seconds/60)+" min"} · Quota: ${escapeHTML(health.quota_remaining??"unknown")}</p>
       ${(health.active_findings||[]).map(f=>`<div class="subline">${escapeHTML(friendly(f.code))} · ${escapeHTML(f.source)} ${f.http_status?"· HTTP "+escapeHTML(f.http_status):""}</div>`).join("")}
