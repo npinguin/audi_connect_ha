@@ -987,6 +987,19 @@ class V3Engine:
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
 
+    async def resume_read_discovery(self, vin: str):
+        """Explicit recovery: retry only unresolved targeted reads; no mutations."""
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        for job in tuple(profile.job_probe_attempts):
+            if profile.job_discovery.get(job) not in ("observed", "unsupported"):
+                profile.job_probe_attempts.pop(job, None)
+        await self.storage.async_save(self.profiles)
+        coordinator = getattr(getattr(self.entry, "runtime_data", None), "coordinator", None)
+        if coordinator is not None and self.health.snapshot(self, car)["status"] != "rate_limited":
+            await coordinator.async_request_refresh()
+        return self.discovery_progress(car, profile)
+
     def discovery_progress(self, car, profile):
         """One read-only coverage contract for diagnostics and user entities."""
         from .read_discovery import user_progress
