@@ -80,3 +80,19 @@ def test_shared_parameter_contracts_reject_bad_types_and_supply_ui_schema():
         with pytest.raises(ValueError):
             validate_parameter(invalid, soc)
     assert temperature_celsius({"temp_f": 68}, None) == pytest.approx(20)
+
+
+def test_charge_mode_is_a_declarative_template_and_put_alias_inherits_it():
+    p = workspace()
+    original = p.registry.operations["cariad.charging.mode"]
+    assert map_parameters(original, {"value": "timer"}) == {"VALUE": "timer"}
+    with pytest.raises(ValueError):
+        map_parameters(original, {"value": "unsupported"})
+    with pytest.raises(ValueError):
+        map_parameters(original, {"value": "timer", "extra": 1})
+    ident = p.add({"id": "user.charging.set_charge_mode.reviewed",
+                   "capability": "charging", "aspect": "set_charge_mode",
+                   "family": "cariad", "method": "PUT",
+                   "path": original["path"], "handler": "cariad.charging.mode"})
+    assert p.registry.operations[ident]["request_body"] == original["request_body"]
+    assert map_parameters(p.registry.operations[ident], {"value": "manual"}) == {"VALUE": "manual"}

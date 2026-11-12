@@ -835,6 +835,10 @@
       "delivery": "manual",
       "priority": 0,
       "request_mode": "charge_mode",
+      "request_variables": {"VALUE": "string"},
+      "parameter_bindings": {"VALUE": "value"},
+      "input_schema": {"value": {"type": "string", "enum": ["manual", "timer"], "required": true}},
+      "request_body": {"preferredChargeMode": "{VALUE}"},
       "confirmation": "vehicle_readback",
       "legacy_compatible": true
     },

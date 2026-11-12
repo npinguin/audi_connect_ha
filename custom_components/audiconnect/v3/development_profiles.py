@@ -328,9 +328,13 @@ class DevelopmentProfile:
                 op["request_mode"] = original["request_mode"]
                 op["handler"] = row["handler"]
                 op["confirmation"] = original.get("confirmation")
-                for flag in ("legacy_compatible", "legacy_climate_level1"):
+                for flag in ("legacy_compatible", "legacy_climate_level1",
+                             "input_schema", "parameter_bindings"):
                     if flag in original:
                         op[flag] = original[flag]
+                if "input_schema" in original:
+                    op["request_variables"] = original["request_variables"]
+                    op["request_body"] = original["request_body"]
             overlay["operations"][row_id] = op
             definition = overlay["capabilities"][row["capability"]]
             target = (

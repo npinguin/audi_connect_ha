@@ -78,3 +78,13 @@ async def test_guided_action_sends_exactly_one_post_and_requires_confirmation(
     assert outcome["physical_result"] == "requires_user_confirmation"
     assert not engine.control_enabled(VIN, action, capability)
     assert f"{capability}.{action}" not in engine.profiles[VIN.lower()].active
+
+
+@pytest.mark.asyncio
+async def test_charge_mode_template_renders_exact_oem_request_without_preflight():
+    engine, car = make_engine()
+    family, method, path, body = await engine.commands._command_request(
+        car, "cariad.charging.mode", {"value": "timer"})
+    assert (family, method, path, body) == (
+        "cariad", "PUT", f"/vehicle/v1/vehicles/{VIN}/charging/mode",
+        {"preferredChargeMode": "timer"})

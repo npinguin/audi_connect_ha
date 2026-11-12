@@ -110,3 +110,7 @@ Registry, historical batch mappings and targeted attribute routes now share orde
 ## Cleanup slice 8 — shared settings-preserving update
 
 Charging and climate settings updates now share a single reviewed read/validate/patch implementation. The two endpoints retain their existing distinct preservation policies (charging rejects unknown fields; climate preserves unrelated reported fields). Charging profiles and climate start with settings retain their specific domain handlers. No arbitrary PUT or generic workflow language added.
+
+## Cleanup slice 9 — declarative parameterized charge-mode operation
+
+The reviewed charge-mode PUT now declares its enum, binding and body in the existing operation catalog and uses the common renderer. Its code-specific payload branch is removed. Reviewed PUT aliases inherit the exact original template, not editable replacement bodies; existing custom input restrictions remain. Operation revisions change when definitions change, so prior local physical evidence is not automatically transferred.

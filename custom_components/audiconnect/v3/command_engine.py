@@ -42,14 +42,14 @@ class CommandEngine:
                                params: dict[str, Any] | None = None):
         profile = self.profiles[car.vin.lower()]
         route = profile.custom.get(ident, {})
-        rendered = map_parameters(route, params) if route.get("parameter_bindings") else params
-        family, method, path, body = self._operation_request(car, ident, rendered)
         op = profile.registry.operations[ident]
+        rendered = map_parameters(op if op.get("input_schema") else route, params)
+        family, method, path, body = self._operation_request(car, ident, rendered)
         mode = op.get("request_mode")
         if mode in ("mbb_climate_start", "mbb_climate_stop"):
             from .legacy_commands import climate_body
             body = climate_body(mode, params or {})
-        elif mode in {"charging_settings_update", "charge_mode",
+        elif mode in {"charging_settings_update",
                     "charging_profile_update", "climate_settings_update",
                     "climate_start_settings", "flash", "auxiliary_start",
                     "engine_start"}:

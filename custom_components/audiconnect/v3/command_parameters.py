@@ -21,7 +21,6 @@ _BINDABLE = {
 # Shared input contracts for built-in command preparation and Workbench fields.
 # Settings updates with heterogeneous OEM field types retain their reviewed handler.
 SOC = {"type": "integer", "minimum": 20, "maximum": 100, "step": 5, "required": True}
-CHARGE_MODE = {"type": "string", "enum": ["manual", "timer"], "required": True}
 DURATION = {"type": "integer", "minimum": 10, "maximum": 60, "step": 10, "default": 30}
 TEMPERATURE = {"temp_c": {"type": "number", "minimum": 15, "maximum": 30},
                "temp_f": {"type": "number", "minimum": 59, "maximum": 86}}
@@ -61,6 +60,8 @@ def temperature_celsius(params, default):
 
 def parameter_schema(operation, route):
     """Expose the existing input contract; no credentials or vehicle values."""
+    if operation.get("input_schema"):
+        return operation["input_schema"]
     variables = operation.get("request_variables", {})
     if variables:
         bindings = route.get("parameter_bindings", {})
@@ -72,7 +73,6 @@ def parameter_schema(operation, route):
                     for var, name in bindings.items()}
         return {name: {"type": kind, "required": True} for name, kind in variables.items()}
     return {
-        "charge_mode": {"value": CHARGE_MODE},
         "charging_settings_update": {"value": SOC},
         "charging_profile_update": {"value": SOC, "profile_id": {"type": "integer"}},
         "auxiliary_start": {"duration": DURATION},
@@ -99,16 +99,19 @@ def map_parameters(route, supplied):
     bindings = route.get("parameter_bindings", {})
     if not bindings:
         return supplied
-    schema = _BINDABLE[(route["capability"], route["aspect"])]
+    schema = route.get("input_schema") or {
+        name: {"type": "number", "minimum": limits[1], "maximum": limits[2]}
+        for name, limits in _BINDABLE[(route["capability"], route["aspect"])].items()
+    }
+    variables = route.get("request_variables", route.get("variables", {}))
     supplied = supplied or {}
     if set(supplied) != set(bindings.values()):
         raise ValueError("Supply the exact declared semantic command parameters")
     rendered = {}
     for variable, semantic in bindings.items():
         value = supplied[semantic]
-        _, low, high = schema[semantic]
-        validate_parameter(value, {"type": "number", "minimum": low, "maximum": high})
-        if route["variables"][variable] == "integer":
+        validate_parameter(value, schema[semantic])
+        if variables[variable] == "integer":
             if int(value) != value:
                 raise ValueError("Command parameter requires an integer")
             value = int(value)

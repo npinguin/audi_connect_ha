@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 from .registry import read_json_path
-from .command_parameters import SOC, CHARGE_MODE, DURATION, validate_parameter, temperature_celsius
+from .command_parameters import SOC, DURATION, validate_parameter, temperature_celsius
 
 CHARGE_FIELDS = frozenset({
     "maxChargeCurrentAC_A", "maxChargeCurrentAC",
@@ -68,8 +68,6 @@ async def patch_settings(transport, vin, mode, params):
 
 async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
     vin, transport = car.vin, engine.transport
-    if mode == "charge_mode":
-        return {"preferredChargeMode": validate_parameter(params.get("value"), CHARGE_MODE)}
     if mode in _SETTINGS_PATCHES:
         return await patch_settings(transport, vin, mode, params)
     if mode == "charging_profile_update":
