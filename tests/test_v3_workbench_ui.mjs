@@ -593,3 +593,19 @@ test("End-user validation projects native progress and does not execute on openi
   assert.equal(p.step,5);assert.deepEqual(calls,["control_routes"]);
   assert.match(p.shadowRoot.innerHTML,/I accept this specific action/);
 });
+
+
+test("End-user control test ignores hidden engineering inputs and requires separate explicit consent", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";p.step=5;p.controlCapability="climate";p.controlAction="start";p.controlChoice="cariad.climate.start.stored";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  p.controlRoutes=[{id:p.controlChoice,family:"cariad",approval_group:"non_spin"}];
+  p.capabilityStatus={rows:[],end_user_progress:{controls:[]},end_user_candidates:[]};
+  const calls=[];p.api=async(name,args)=>{calls.push([name,args]);if(name==="control_test")return {sequence:1};if(name==="status")return p.capabilityStatus;if(name==="control_routes")return {routes:p.controlRoutes};if(name==="api_results")return {records:[]};if(name==="list")return {integrations:p.entries};throw Error(name);};
+  const click=()=>p._click({target:{closest:()=>({dataset:{action:"control-test"}})}});
+  p.shadowRoot.getElementById=id=>id==="control-approval"?{checked:true}:id==="control-route"?{value:"wrong.route"}:null;
+  await click();assert.equal(calls.length,0);assert.match(p.error,/Approve this exact/);
+  p.shadowRoot.getElementById=id=>id==="end-user-approval"?{checked:true}:id==="control-route"?{value:"wrong.route"}:null;
+  await click();
+  const sent=calls.find(([name])=>name==="control_test")[1];
+  assert.equal(sent.operation,"cariad.climate.start.stored");assert.equal(sent.end_user,true);assert.deepEqual(sent.parameters,{});
+});
