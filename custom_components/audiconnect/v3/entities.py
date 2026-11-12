@@ -190,7 +190,11 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
         from .structured_details import details_for
         return {
-            **details_for(self.vehicle, "climate_timers_detail", "ventilation_timers_detail", "window_heating_detail"),
+            **details_for(self.vehicle, "climate_timers_detail", "ventilation_timers_detail", "window_heating_detail", "climate_requests_detail"),
+            "climatisation_without_external_power": (
+                self.vehicle.readings.get("climatisationWithoutExternalPower", {}).get("value")
+                if type(self.vehicle.readings.get("climatisationWithoutExternalPower", {}).get("value")) is bool
+                else None),
             "v3_capability": "climate",
             "api_route": self.vehicle.climate_source,
             "vehicle_captured": self.vehicle.climate_captured.isoformat()
@@ -621,8 +625,14 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             "charging_timer_enabled_count": ("charging_timers_detail",),
             "climatisation_timer_enabled_count": ("climate_timers_detail", "ventilation_timers_detail"),
             "charging_state": ("charging_timers_detail",),
+            "charging_mode": ("charging_timers_detail",),
         }
         details = details_for(self.vehicle, *detail_keys.get(self.attribute.get("entity_key"), ()))
+        if self.attribute.get("entity_key") in ("charging_mode", "charging_state", "charging_timer_enabled_count"):
+            preferred = self.vehicle.readings.get("preferredChargeMode", {})
+            details["preferred_charge_mode"] = (preferred.get("value")
+                if preferred.get("value") in ("manual", "timer") else None)
+            details["preferred_charge_mode_captured"] = preferred.get("captured")
         if self.attribute.get("entity_key") == "charging_timer_enabled_count":
             details.update({"charging_profiles": self.vehicle.charging_profiles,
                             "active_charging_profile_id": self.vehicle.active_charging_profile_id,
