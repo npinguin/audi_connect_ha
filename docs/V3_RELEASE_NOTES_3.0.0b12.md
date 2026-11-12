@@ -2,6 +2,18 @@
 
 Experimental HACS test only. Publication requires exact-SHA validation. V2 remains the default and rollback runtime; no static parity, physical acceptance or stable promotion is claimed.
 
+## Community value — more than a new release
+
+V3 introduces a capability-driven evolution of Audi Connect: more vehicle information, native Home Assistant controls, reliable interpretation of data and a way for the community to discover and contribute missing functions. Ordinary users can use eligible known capabilities without configuring API routes; explorers can investigate gaps; engineers can discover, configure, test and locally activate verified routes where supported, then share reusable evidence.
+
+- **Users:** connect myAudi, select V3 and use the native vehicle entities.
+- **Explorers:** enable the optional Engineering Dashboard and investigate read-only capabilities, data and mapping gaps.
+- **Engineers:** discover alternative paths, configure local attributes or command candidates, validate the result, activate eligible verified routes, and contribute the evidence for reviewed shared catalog rules.
+
+See the [community quick start and engineering how-to](V3_COMMUNITY_HOWTO.md) for exact UI steps and a contribution template, and the [proposed upstream README section](V3_UPSTREAM_README.md) for community-facing release messaging.
+
+This section describes b12 and its intended contribution model; it does not claim new post-b12 functionality, automated contribution export/import, full parity or stable readiness. This is a documentation supplement on the development branch; the published b12 tag remains unchanged.
+
 ## Changes
 
 - One primary native Climate entity with separate semantic on/off and target temperature, backed by eligible OEM routes. Explicit start/stop buttons retired by identity; compatibility switch remains opt-in.
