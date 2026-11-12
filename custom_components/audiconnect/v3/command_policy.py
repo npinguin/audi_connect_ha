@@ -63,6 +63,20 @@ def eligible_operation(car, auth, capability, aspect):
     if capability == "charging" and (supports("charging") or (
         readable("chargingState") and "charging" not in impaired
     )):
+        # A generic charging capability does not prove all parameter writes.
+        if aspect == "set_target_soc":
+            value = car.readings.get("targetstateOfCharge", {}).get("value")
+            if type(value) not in (int, float) or not 0 <= value <= 100:
+                return None
+        elif aspect == "set_charge_mode":
+            modes = car.readings.get("availableChargeModes", {}).get("value")
+            if not isinstance(modes, list) or not any(mode in ("manual", "timer") for mode in modes):
+                return None
+        elif aspect == "set_location_charge_target":
+            if not any(type(row.get("id")) is int and type(row.get("targetSOC_pct")) in (int, float)
+                       and 0 <= row["targetSOC_pct"] <= 100
+                       for row in getattr(car, "charging_profiles", ()) if isinstance(row, dict)):
+                return None
         return {
             "start": "cariad.charging.start", "stop": "cariad.charging.stop",
             "set_target_soc": "cariad.charging.settings",
