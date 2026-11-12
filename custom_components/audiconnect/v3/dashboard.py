@@ -161,6 +161,21 @@ async def ws_add_route(hass, connection, msg):
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/discard_route",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("operation"): vol.All(str, vol.Length(min=1, max=120)),
+})
+@websocket_api.async_response
+async def ws_discard_route(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).discard_unused_route(msg["vin"], msg["operation"])
+        connection.send_result(msg["id"], {"deleted": True})
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        connection.send_error(msg["id"], "v3_discard_route_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/review",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("sequence"): int,
@@ -529,7 +544,7 @@ async def async_setup_dashboard(hass) -> None:
             StaticPathConfig("/audiconnect_v3", str(frontend_dir), False)
         ])
         for handler in (
-            ws_list, ws_status, ws_add_route,
+            ws_list, ws_status, ws_add_route, ws_discard_route,
             ws_review, ws_review_normal_command, ws_select,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
