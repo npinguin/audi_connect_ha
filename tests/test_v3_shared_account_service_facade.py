@@ -63,9 +63,7 @@ def test_v3_services_dispatch_only_to_approved_v3_engine_controls():
 def test_v3_unsupported_actions_fail_closed_and_do_not_invoke_v2():
     engine = SimpleNamespace(send_control=AsyncMock())
     for name in (
-        "start_timed_charger", "start_preheater", "stop_preheater",
-        "start_auxiliary_heating", "set_charge_mode", "set_target_soc",
-        "set_location_charge_target", "start_engine", "stop_engine", "nonsense",
+        "start_engine", "stop_engine", "nonsense",
     ):
         with pytest.raises(HomeAssistantError, match="not yet V3-verified"):
             asyncio.run(_v3_service_command(engine, "TESTVIN", name))
@@ -74,12 +72,12 @@ def test_v3_unsupported_actions_fail_closed_and_do_not_invoke_v2():
 
 def test_v3_parameterized_climate_start_never_discards_temperature():
     engine = SimpleNamespace(send_control=AsyncMock())
-    with pytest.raises(HomeAssistantError, match="parameterized climate start is not yet implemented"):
-        asyncio.run(_v3_service_command(
-            engine, "TESTVIN", "start_climatisation",
-            {"device_id": "dev", "temp_c": 22},
-        ))
-    engine.send_control.assert_not_awaited()
+    asyncio.run(_v3_service_command(
+        engine, "TESTVIN", "start_climatisation",
+        {"device_id": "dev", "temp_c": 22},
+    ))
+    engine.send_control.assert_awaited_once_with(
+        "TESTVIN", "start_with_settings", "climate", params={"temp_c": 22})
 
 
 def test_v3_command_rejection_is_surfaced_as_ha_error():

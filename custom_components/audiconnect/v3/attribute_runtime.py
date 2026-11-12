@@ -99,5 +99,7 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
             profile.attribute_routes[ident] = "cariad.selectivestatus.batch"
         mapped += 1
         fresh_count += int(fresh)
+    from .derived_values import observe_derived
+    observe_derived(vehicle, profile, payload, observed_at, _accept_observation)
     vehicle.v2_initial_discovery_completed = True
     return {"mapped": mapped, "fresh": fresh_count}

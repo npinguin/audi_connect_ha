@@ -13,6 +13,7 @@ from .entities import (
     V3ReadOnlySensor, V3StatusSensor, V3CloudRefreshButton,
     V3ControlButton, V3ClimateQuickSwitch, V3LockEntity,
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
+    V3LocationChargeTargetNumber, CLIMATE_SWITCHES, V3ClimateSettingSwitch,
 )
 from .historical_catalog import ATTRIBUTES
 
@@ -56,7 +57,8 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 async_add_entities([V3ChargeTargetNumber(coordinator, car)])
             else:
                 async_add_entities([V3ChargeModeSelect(coordinator, car)])
-        return
+        if platform == "select":
+            return
     elif platform not in ("binary_sensor", "switch", "lock"):
         raise ValueError("Unknown Audi V3 Home Assistant platform")
 
@@ -66,7 +68,7 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
             vin = car.vin.lower()
             profile = engine.profiles.get(vin)
             if platform in ("sensor", "binary_sensor"):
-                for ident in (profile.attribute_routes if profile else ()):
+                for ident in car.readings:
                     descriptor = ATTRIBUTES.get(ident)
                     if not descriptor or descriptor["platform"] != platform:
                         continue
@@ -93,7 +95,20 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     ):
                         seen.add(tag)
                         entities.append(V3ControlButton(coordinator, car, descriptor))
+            elif platform == "number":
+                for profile_id in [None, *[x["id"] for x in car.charging_profiles]]:
+                    tag = f"{vin}:profile:{profile_id}"
+                    if tag not in seen and car.charging_profiles:
+                        seen.add(tag)
+                        entities.append(V3LocationChargeTargetNumber(
+                            coordinator, car, profile_id))
             elif platform == "switch":
+                for descriptor in CLIMATE_SWITCHES:
+                    key, reading, _ = descriptor
+                    tag = f"{vin}:{key}"
+                    if tag not in seen and reading in car.readings:
+                        seen.add(tag)
+                        entities.append(V3ClimateSettingSwitch(coordinator, car, descriptor))
                 if (vin not in seen
                     and engine.control_enabled(car.vin, "start")
                     and engine.control_enabled(car.vin, "stop")):

@@ -19,7 +19,7 @@ from .registry import CapabilityRegistry
 from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
-from .attribute_runtime import planned_jobs, observe_read_only
+from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
 from .legacy_read_mappings import FIELDS as MBB_FIELDS
@@ -869,7 +869,7 @@ class V3Engine:
         }
         if 200 <= response.status < 300 and value is not None and len(str(value)) <= 10000:
             last = car.readings.get(attribute)
-            if not last or fresh or not last.get("fresh"):
+            if _accept_observation(last, captured):
                 car.readings[attribute] = {
                     "value": value, "captured": captured,
                     "observed": response.observed_at.isoformat(),

@@ -618,6 +618,85 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
         )
 
 
+class V3LocationChargeTargetNumber(V3ChargeTargetNumber):
+    """V2 active or named charging profile target, using immutable profile ID."""
+
+    def __init__(self, coordinator, vehicle, profile_id=None):
+        super().__init__(coordinator, vehicle)
+        self.profile_id = profile_id
+        key = ("active_charging_profile_target_soc" if profile_id is None
+               else f"charge_profile_{profile_id}_target_soc")
+        self._attr_unique_id = f"{vehicle.vin.lower()}_number_{key}"
+        self._attr_name = ("Current location charge target" if profile_id is None
+                           else f"Profile {profile_id} charge target")
+
+    @property
+    def native_value(self):
+        profile_id = (self.vehicle.active_charging_profile_id
+                      if self.profile_id is None else self.profile_id)
+        profile = next((x for x in self.vehicle.charging_profiles
+                        if x["id"] == profile_id), None)
+        value = profile.get("targetSOC_pct") if profile else None
+        return float(value) if type(value) in (int, float) else None
+
+    @property
+    def available(self):
+        return self.native_value is not None and self.coordinator.engine.control_enabled(
+            self.vehicle.vin, "set_location_charge_target", "charging")
+
+    async def async_set_native_value(self, value):
+        if not self.available or not float(value).is_integer():
+            raise HomeAssistantError("Audi charge profile not available")
+        await self.coordinator.engine.send_control(
+            self.vehicle.vin, "set_location_charge_target", "charging",
+            params={"value": int(value), "profile_id": self.profile_id},
+        )
+
+
+CLIMATE_SWITCHES = (
+    ("climatisation_window_heating", "climatisationWindowHeatingEnabled", "windowHeatingEnabled"),
+    ("climatisation_at_unlock", "climatisationAtUnlock", "climatizationAtUnlock"),
+    ("climatisation_zone_front_left", "climatisationZoneFrontLeft", "zoneFrontLeftEnabled"),
+    ("climatisation_zone_front_right", "climatisationZoneFrontRight", "zoneFrontRightEnabled"),
+    ("climatisation_zone_rear_left", "climatisationZoneRearLeft", "zoneRearLeftEnabled"),
+    ("climatisation_zone_rear_right", "climatisationZoneRearRight", "zoneRearRightEnabled"),
+)
+
+
+class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator, vehicle, descriptor):
+        super().__init__(coordinator, vehicle)
+        key, self.reading, self.field = descriptor
+        self._attr_unique_id = f"{vehicle.vin.lower()}_switch_{key}"
+        self._attr_name = key.replace("_", " ").capitalize()
+
+    @property
+    def is_on(self):
+        value = self.vehicle.readings.get(self.reading, {}).get("value")
+        return value if type(value) is bool else None
+
+    @property
+    def available(self):
+        return self.is_on is not None and self.coordinator.engine.control_enabled(
+            self.vehicle.vin, "set_settings", "climate")
+
+    async def _write(self, value):
+        if not self.available:
+            raise HomeAssistantError("Audi climate setting unavailable")
+        await self.coordinator.engine.send_control(
+            self.vehicle.vin, "set_settings", "climate",
+            params={self.field: value},
+        )
+
+    async def async_turn_on(self, **kwargs):
+        await self._write(True)
+
+    async def async_turn_off(self, **kwargs):
+        await self._write(False)
+
+
 class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
     """V2 select identity, independent preferred-mode source and command gate."""
 

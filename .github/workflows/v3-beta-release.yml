@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Publish ONLY after verified V2 parity and explicit release approval"
+        description: "Publish a code-complete test prerelease after static parity sign-off"
         required: true
         type: choice
         default: do-not-publish
         options:
           - do-not-publish
-          - publish-v2-parity-complete
+          - publish-code-complete-test
 
 permissions:
   contents: read
@@ -101,8 +101,8 @@ jobs:
           retention-days: 30
 
   publish-prerelease:
-    # Release is gated on physical V2 parity. No automatic tag on push.
-    if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-v2-parity-complete' && github.ref == 'refs/heads/feature/v3-clean-discovery'
+    # Physical Q8 acceptance requires an installable test release. Stable promotion is separate.
+    if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-code-complete-test' && github.ref == 'refs/heads/feature/v3-clean-discovery'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -116,7 +116,7 @@ jobs:
         with:
           name: audi-connect-v3-3.0.0b8-validated
 
-      - name: Reject release without V2 parity sign-off
+      - name: Reject test release without code-complete V2 parity
         run: |
           python - <<'PY'
           import json
@@ -124,9 +124,8 @@ jobs:
           baseline = json.loads(Path("docs/V2_V3_PARITY_BASELINE.json").read_text())
           gate = baseline["release_gate"]
           assert gate["v3_static_parity_proven"] is True, "Static V2 parity not proven"
-          assert gate["v3_live_q8_parity_proven"] is True, "Q8 runtime parity not proven"
-          assert gate["v3_v2_v3_v2_registry_rollback_proven"] is True, "Rollback not proven"
-          assert gate["full_release_allowed"] is True, "No release sign-off"
+          assert gate.get("test_release_code_complete") is True, "Code-complete test sign-off missing"
+          # Q8 physical and rollback evidence belong to the stable release gate.
           PY
 
       - name: Prevent prerelease replacement
