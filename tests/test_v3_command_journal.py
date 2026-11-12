@@ -110,3 +110,22 @@ def test_http_outcome_is_per_command_and_survives_restart():
     recovered = restore_profile(model(), p.discovery.context, p.snapshot())
     assert [r.http_status for r in recovered.command_journal] == [502, 204]
     assert CommandRecord.restore({k:v for k,v in normal.snapshot().items() if k != "http_status"}).http_status is None
+
+def test_full_protected_journal_rejects_insertion_atomically():
+    import pytest
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfileError
+
+    p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
+    for i in range(HISTORY_LIMIT):
+        record = CommandRecord.begin("access", "unlock", "cariad.access.unlock", i)
+        record.state = "uncertain"
+        p.track_command(record)
+    before = p.snapshot()
+    last = p.last_command
+    with pytest.raises(DevelopmentProfileError, match="journal full"):
+        p.track_command(CommandRecord.begin("charging", "start", "cariad.charging.start", 100))
+    assert p.snapshot() == before
+    assert p.last_command is last
+    restored = restore_profile(model(), p.discovery.context, p.snapshot())
+    assert len(restored.command_journal) == HISTORY_LIMIT
+    assert restored.last_command.command_id == last.command_id
