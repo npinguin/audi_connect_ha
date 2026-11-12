@@ -471,7 +471,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const projection = coverage.account_entity_projection || {};
     const filteredRows = rows.filter(r => family === "all" || r.api_family === family);
     const attributes = filteredRows.filter(r => r.entity_key &&
-      ["v3_live_evidence","v2_attribute_reference"].includes(r.source));
+      ["v3_live_evidence","v2_attribute_reference","local_attribute_definition"].includes(r.source));
     const controls = filteredRows.filter(r => r.source === "v2_control_reference");
     const controlActions = (coverage.control_actions || []).filter(r =>
       family === "all" || r.api_family === family);
@@ -678,7 +678,7 @@ class AudiConnectV3Panel extends HTMLElement {
                   <div class="subline">${verified} verified · ${stale} stale</div>
                   <div class="subline">${a.length} read-only attributes · ${ca.length||ct.length} controls</div>
                   <div class="subline">${op.filter(r=>r.tested).length}/${op.length} API operations tested · ${op.filter(r=>r.active).length} active</div>
-                  <div class="subline">${ca.filter(r=>r.enabled).length} controls enabled · ${ca.filter(r=>r.physical_evidence==="worked"||r.physical_evidence==="verified").length} physically verified</div>
+                  <div class="subline">${ca.filter(r=>r.enabled).length} controls enabled · ${ca.filter(r=>r.physical_evidence==="local_verified").length} physically verified</div>
                   <div class="subline">${findings.filter(r=>r.capability===cap).length} attention findings</div>
                   ${summary&&family===vehicleFamily?`<div class="subline">${Object.entries(summary.job_status||{}).map(([k,v])=>escapeHTML(k)+": "+escapeHTML(v)).join(" · ")}</div>`:""}
                 </button>`;
@@ -711,7 +711,7 @@ class AudiConnectV3Panel extends HTMLElement {
                 <tbody>${filteredRows.map((r)=>`<tr>
                   <td><b>${escapeHTML(r.capability)}</b>
                     <div class="subline">${escapeHTML(r.aspect)}</div></td>
-                  <td><code>${escapeHTML(r.attribute)}</code><div class="subline">${escapeHTML(r.platform||"")} · ${escapeHTML(r.value_type||"")} ${escapeHTML(r.issue||"")}</div></td>
+                  <td><code>${escapeHTML(r.attribute)}</code><div class="subline">${escapeHTML(r.platform||"")} · ${escapeHTML(r.value_type||"")} ${escapeHTML(r.semantic_issue||"")}</div></td>
                   <td><b>${escapeHTML(r.api_family)}</b>
                     <div class="subline"><code>${escapeHTML(r.method)} ${escapeHTML(r.path)}</code></div></td>
                   <td><b>${escapeHTML(r.status)}</b>

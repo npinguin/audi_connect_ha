@@ -409,6 +409,8 @@ def _cockpit(vehicle, profile, rows, controls):
                 matches = ["oil_level_binary"]
             fields.append({**field, "mapping": status, "attributes": matches})
         operation["fields"] = fields
+        if any(field["mapping"] == "review_unmapped" for field in fields):
+            reasons.append("unmapped_response_fields_review")
         operations.append(operation)
         for reason in reasons:
             findings.append({"id": "operation:" + ident + ":" + reason, "severity": "review",
