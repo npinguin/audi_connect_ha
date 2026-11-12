@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from .entities import (
-    CONTROL_BUTTONS, V3ClimateEntity, V3ReadOnlyBinarySensor,
+    CONTROL_BUTTONS, V3ClimateEntity, V3ReadOnlyBinarySensor, V3TripSensor,
     V3ReadOnlySensor, V3StatusSensor, V3CloudRefreshButton,
     V3ControlButton, V3ClimateQuickSwitch, V3LockEntity,
     V3ParkedTracker, V3ChargeTargetNumber, V3ChargeModeSelect,
@@ -67,6 +67,12 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
         for car in engine.vehicles.values():
             vin = car.vin.lower()
             if platform in ("sensor", "binary_sensor"):
+                if platform == "sensor":
+                    for key in car.trips:
+                        tag = f"{vin}:{key}"
+                        if tag not in seen:
+                            seen.add(tag)
+                            entities.append(V3TripSensor(coordinator, car, key))
                 for ident in car.readings:
                     descriptor = ATTRIBUTES.get(ident)
                     if not descriptor or descriptor["platform"] != platform:

@@ -31,6 +31,8 @@ class V3Vehicle:
     charging_profiles: list[dict[str, Any]] = field(default_factory=list)
     active_charging_profile_id: int | None = None
     charging_profiles_captured: str | None = None
+    trips: dict[str, dict[str, Any]] = field(default_factory=dict)
+    readonly_probe_report: dict[str, Any] = field(default_factory=dict)
     advertised_capabilities: set[str] = field(default_factory=set)
     impaired_capabilities: set[str] = field(default_factory=set)
     v2_initial_discovery_completed: bool = False

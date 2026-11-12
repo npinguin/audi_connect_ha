@@ -20,6 +20,51 @@ probe_api_paths:
       selector:
         boolean:
 
+probe_vehicle_health:
+  name: Probe Audi vehicle health (read-only)
+  description: >
+    Run exactly three opt-in GET-only probes for 12V battery support, tyre
+    pressure and vehicle health warnings. No restore switch or group selection
+    is needed. No vehicle control actions or background requests. Shares the
+    15-minute per-vehicle cooldown and Audi rate-limit safeguards with the
+    other diagnostic probes. Download Audi Connect diagnostics to see results.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: audiconnect
+
+probe_trip_data:
+  name: Probe Audi trip endpoints (read-only)
+  description: >
+    Check three modern CARIAD trip routes using bounded GET requests. This
+    only checks reachability; it does not update trip sensor values. To read
+    validated trip data into existing sensors, use Read modern Audi trip data.
+    Shares the 15-minute cooldown and API-budget safeguards.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: audiconnect
+
+refresh_trip_data:
+  name: Read modern Audi trip data
+  description: >
+    Explicit, read-only CARIAD shortterm, longterm and last-trip GET requests.
+    Attempts to restore existing trip sensors only when real data has a
+    timestamp and supported measurement fields. No automatic polling, writes,
+    location history or guessed consumption units. Maximum three requests
+    with a shared 15-minute cooldown and an API quota guard.
+    Inspect the sanitized diagnostics for schema outcomes.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: audiconnect
+
 set_local_dealer:
   name: Set local dealer and service information
   description: >-

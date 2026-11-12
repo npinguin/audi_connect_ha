@@ -67,6 +67,8 @@ class V3Engine:
         self._actions = asyncio.Lock()
         self._normal_action_at: dict[str, float] = {}
         self._wake_attempts: dict[str, list[float]] = {}
+        self._readonly_probe_at: dict[str, float] = {}
+        self._readonly_probe_lock = asyncio.Lock()
         self._known_vehicle_inventory = False
         self._poll_cycles = 0
 
@@ -193,6 +195,98 @@ class V3Engine:
             payload=response.data if response else None, vin=vin,
             at=response.observed_at if response else None,
         ))
+
+    async def restore_reads(self, vin: str, *, mode: str, update_trips: bool = False) -> dict[str, Any]:
+        """Prior fixbranch read-only actions, limited and explicitly invoked.
+
+        Only normalized trip values are retained in memory for HA sensors.
+        Diagnostic reports contain route names, status and safe schema keys.
+        """
+        from .trips import describe_cariad_trip_schema, normalize_cariad_trip
+        from .attribute_runtime import _capture_in_utc
+
+        car = self.require_vehicle(vin)
+        if car.context.auth != "auth0":
+            raise ValueError("Modern Audi read-only probes require Auth0")
+        plans = {
+            "trips": [("shortterm", "shortterm_current"),
+                      ("longterm", "longterm_current"),
+                      ("shortterm/last", "last_trip")],
+            "vehicle_health": [("batterySupport", None),
+                               ("tyrePressure", None),
+                               ("vehicleHealthWarnings", None)],
+            "core": [(x, None) for x in ("userCapabilities", "charging",
+                        "chargingProfiles", "chargingTimers", "climatisation",
+                        "hybridCarAuxiliaryHeating", "parkingposition", "pendingrequests")],
+            "extended": [(x, None) for x in ("userCapabilities", "charging",
+                        "chargingProfiles", "chargingTimers", "climatisation",
+                        "hybridCarAuxiliaryHeating", "parkingposition", "pendingrequests",
+                        "climatisationTimers", "measurements", "vehicleHealthInspection",
+                        "tripStatistics", "auxiliaryHeating")],
+        }
+        if mode not in plans or (update_trips and mode != "trips"):
+            raise ValueError("Invalid Audi probe group")
+        async with self._readonly_probe_lock:
+            key = car.vin.lower()
+            now = time.monotonic()
+            last = self._readonly_probe_at.get(key)
+            if last is not None and now - last < 900:
+                raise RuntimeError("Audi read-only probe cooldown active (15 minutes)")
+            remaining = self.transport.remaining_calls
+            if remaining is not None and remaining < 20:
+                raise RuntimeError("Audi probe budget requires 20 remaining calls")
+            self._readonly_probe_at[key] = now
+            outcomes = []
+            normalized = 0
+            for suffix, state_key in plans[mode]:
+                remaining = self.transport.remaining_calls
+                if remaining is not None and remaining <= 12:
+                    break
+                if remaining is None and len(outcomes) >= 3:
+                    break
+                path = (f"/vehicle/v1/trips/{car.vin}/{suffix}" if mode == "trips"
+                        else f"/vehicle/v1/vehicles/{car.vin}/" +
+                        (suffix if suffix in ("parkingposition", "pendingrequests")
+                         else f"selectivestatus?jobs={suffix}"))
+                try:
+                    reply = await self.transport.request("cariad", "GET", path)
+                except (TimeoutError, OSError, RuntimeError, ValueError):
+                    outcomes.append({"source": suffix, "outcome": "transport_uncertain"})
+                    break
+                item = {"source": suffix, "http_status": reply.status,
+                        "outcome": "http_ok" if 200 <= reply.status < 300 else "http_error"}
+                outcomes.append(item)
+                if reply.status in (401, 403, 429) or reply.status >= 500:
+                    break
+                if not 200 <= reply.status < 300:
+                    continue
+                if mode == "trips":
+                    item["schema"] = describe_cariad_trip_schema(reply.data)
+                    if update_trips:
+                        trip, verdict = normalize_cariad_trip(reply.data)
+                        item["outcome"] = verdict
+                        if trip is not None:
+                            previous = car.trips.get(state_key, {})
+                            old_stamp = _capture_in_utc(previous.get("timestamp"))
+                            new_stamp = _capture_in_utc(trip.get("timestamp"))
+                            if old_stamp and (not new_stamp or new_stamp < old_stamp):
+                                item["outcome"] = "older_than_existing"
+                            else:
+                                car.trips[state_key] = trip
+                                normalized += 1
+                else:
+                    # Probe-only: never retain raw vehicle health, location,
+                    # request identifiers or trip history in diagnostics.
+                    data = reply.data
+                    value = data.get(suffix) if isinstance(data, dict) and suffix not in ("parkingposition", "pendingrequests") else data
+                    item["outcome"] = ("readable_response_not_command_proven"
+                                       if value and not (isinstance(value, dict) and "error" in value)
+                                       else "empty_or_error_response")
+            car.readonly_probe_report = {"group": mode, "normalized": normalized,
+                                         "attempted": len(outcomes), "results": outcomes}
+            if update_trips:
+                self._notify_discovery_change()
+            return car.readonly_probe_report
 
     async def test_family_reads(self, vin: str, family: str) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.
@@ -995,6 +1089,7 @@ class V3Engine:
             p = self.profiles.get(car.vin.lower())
             vehicles.append({
                 "vehicle_slot": index,
+                "read_only_probe": car.readonly_probe_report,
                 "context": {
                     "auth": car.context.auth,
                     "region": car.country, "model_family": car.model_family,

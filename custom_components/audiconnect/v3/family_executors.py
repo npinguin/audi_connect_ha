@@ -69,7 +69,12 @@ class CARIADExecutor:
         if not auth.uses_auth0:
             raise ValueError("CARIAD operation requires Auth0")
         resource = _checked_path(path)
-        if not resource.startswith("/vehicle/v1/vehicles/"):
+        if resource.startswith("/vehicle/v1/trips/"):
+            import re
+            if (method != "GET" or body is not None or "?" in path or
+                    not re.fullmatch(r"/vehicle/v1/trips/[A-Za-z0-9]{17}/(?:shortterm|longterm|shortterm/last)", resource)):
+                raise ValueError("Unreviewed Audi trip route")
+        elif not resource.startswith("/vehicle/v1/vehicles/"):
             raise ValueError("Path is outside the vehicle CARIAD API")
         host = "na" if auth.country == "US" else "emea"
         headers = _headers(auth.access_token(self.family))

@@ -78,7 +78,10 @@ def test_full_v2_platform_and_dynamic_number_inventory():
 def test_v2_service_ids_and_all_execute_action_options_are_captured():
     source = (SRC / "services.yaml").read_text()
     declared = set(re.findall(r"^([a-z][a-z_]+):\s*$", source, re.M))
-    assert declared | {"refresh_cloud_data"} == set(BASE["v2_services"])
+    # Prior fixbranch additions are V3 restore-only, not upstream V2 services.
+    restore = {"probe_vehicle_health", "probe_trip_data", "refresh_trip_data"}
+    assert restore <= declared
+    assert (declared - restore) | {"refresh_cloud_data"} == set(BASE["v2_services"])
     section = source.split("execute_vehicle_action:", 1)[1].split(
         "start_climate_control:", 1
     )[0]

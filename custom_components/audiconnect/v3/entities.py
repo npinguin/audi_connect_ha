@@ -334,6 +334,37 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         }
 
 
+class V3TripSensor(V3BaseEntity, SensorEntity):
+    """Historical V2 trip timestamp plus normalized, unit-explicit attributes."""
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator, vehicle, key):
+        super().__init__(coordinator, vehicle)
+        self.key = key
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_{key}"
+        self._attr_name = {
+            "shortterm_current": "ShortTerm Trip Data",
+            "shortterm_reset": "ShortTerm Trip User Reset",
+            "longterm_current": "LongTerm Trip Data",
+            "longterm_reset": "LongTerm Trip User Reset",
+            "last_trip": "Last trip (CARIAD)",
+        }[key]
+
+    @property
+    def native_value(self):
+        from .attribute_runtime import _capture_in_utc
+        return _capture_in_utc(self.vehicle.trips.get(self.key, {}).get("timestamp"))
+
+    @property
+    def available(self):
+        return self.native_value is not None
+
+    @property
+    def extra_state_attributes(self):
+        return {k: v for k, v in self.vehicle.trips.get(self.key, {}).items()
+                if k not in ("tripID", "timestamp") and v is not None}
+
+
 class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
     """Mirror V2's binary conversion for fields with an actual known mapping."""
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle, attribute: dict[str, Any]):

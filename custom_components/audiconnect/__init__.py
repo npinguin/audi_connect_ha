@@ -265,6 +265,27 @@ def _async_register_services(hass: HomeAssistant) -> None:
         else:
             await account.refresh_vehicle_data(vin)
 
+    async def _v3_restore_reads(service: ServiceCall, mode: str, *, trips: bool = False) -> None:
+        result = _resolve_service_call(hass, service)
+        if result is None:
+            raise HomeAssistantError("Audi device not found")
+        vin, engine = result
+        if not isinstance(engine, V3Engine):
+            raise HomeAssistantError("This read-only restore action is available in V3")
+        try:
+            await engine.restore_reads(vin, mode=mode, update_trips=trips)
+        except (RuntimeError, ValueError) as err:
+            raise HomeAssistantError(str(err)) from err
+
+    async def _handle_probe_vehicle_health(service: ServiceCall) -> None:
+        await _v3_restore_reads(service, "vehicle_health")
+
+    async def _handle_probe_trip_data(service: ServiceCall) -> None:
+        await _v3_restore_reads(service, "trips")
+
+    async def _handle_refresh_trip_data(service: ServiceCall) -> None:
+        await _v3_restore_reads(service, "trips", trips=True)
+
     async def _handle_probe_api_paths(service: ServiceCall) -> None:
         """Explicit user action. A diagnostics download never triggers probes."""
         result = _resolve_service_call(hass, service)
@@ -272,7 +293,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await account.test_family_reads(vin, "cariad")
+            if account.require_vehicle(vin).context.auth == "legacy":
+                await account.test_family_reads(vin, "mbb")
+            else:
+                await _v3_restore_reads(service, "extended" if service.data.get("extended") else "core")
         else:
             await account.connection.probe_read_only_api(
                 vin, extended=service.data.get("extended", False)
@@ -399,6 +423,17 @@ def _async_register_services(hass: HomeAssistant) -> None:
             _handle_probe_api_paths,
             schema=PROBE_SCHEMA,
         )
+    # V3 restore-only services; the V2 implementation remains untouched.
+    if any(isinstance(getattr(getattr(e, "runtime_data", None), "v3", None), V3Engine)
+           for e in hass.config_entries.async_entries(DOMAIN)):
+        for name, handler in (
+            ("probe_vehicle_health", _handle_probe_vehicle_health),
+            ("probe_trip_data", _handle_probe_trip_data),
+            ("refresh_trip_data", _handle_refresh_trip_data),
+        ):
+            if not hass.services.has_service(DOMAIN, name):
+                hass.services.async_register(DOMAIN, name, handler,
+                    schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA)
     if not hass.services.has_service(DOMAIN, SERVICE_SET_LOCAL_DEALER):
         hass.services.async_register(
             DOMAIN,
