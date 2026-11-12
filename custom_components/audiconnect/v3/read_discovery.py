@@ -331,7 +331,7 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
         "scope": "selective-status jobs and reviewed standard trip/legacy resources; not vehicle support"}
 
 
-def user_test_candidates(engine, car, profile):
+def user_test_candidates(engine, car, profile, *, include_verified=False):
     """Only simple, reviewed, currently eligible native operations."""
     from .control_resolution import control_decision
     from .action_discovery import approval_group
@@ -356,7 +356,7 @@ def user_test_candidates(engine, car, profile):
             continue
         decision = control_decision(car, profile, engine.auth, capability, action)
         operation = decision["operation"]
-        if not operation or operation in profile.custom or decision["status"] == "local_verified":
+        if not operation or operation in profile.custom or (decision["status"] == "local_verified" and not include_verified):
             continue
         op = profile.registry.operations[operation]
         group = approval_group(capability, action, op)
