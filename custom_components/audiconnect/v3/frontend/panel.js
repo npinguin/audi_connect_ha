@@ -66,7 +66,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.searchText = "";
     this.entityFilter = "";
     this.focusOperation = "";
-    this.identityOperation = ""; this.identityQuery = ""; this.identityVariables = "{}"; this.identityExecution = null;
+    this.identityOperation = ""; this.identityExecution = null;
     this.operationMethod = "all";
     this.capabilityFilter = ""; this.logOutcome = "all"; this.logFrom = ""; this.logTo = "";
     this.readRoutes = [];
@@ -241,7 +241,7 @@ class AudiConnectV3Panel extends HTMLElement {
   _resetVehicleSelection() {
     this.definitionEdits.clear();
     this.entityFilter = "";
-    this.identityOperation = ""; this.identityQuery = ""; this.identityVariables = "{}"; this.identityExecution = null;
+    this.identityOperation = ""; this.identityExecution = null;
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
@@ -270,11 +270,19 @@ class AudiConnectV3Panel extends HTMLElement {
     if(this.step===3) this.step=2;
     this.render();
   }
+  get identityDefinition() {
+    const operation=this.identityOperation;
+    const draft=this.capabilityStatus.identity_drafts?.[operation];
+    return JSON.stringify({query:draft?.query ?? this.identityTemplate(operation),
+      variables:draft?.variables ?? this.capabilityStatus.identity_fixed_parameters?.[operation]?.variables ?? {}});
+  }
   openIdentityEditor(operation, useDefault=false) {
     this.identityOperation = operation;
-    const draft = useDefault ? null : this.capabilityStatus.identity_drafts?.[operation];
-    this.identityQuery = draft?.query ?? this.identityTemplate(operation);
-    this.identityVariables = JSON.stringify(draft?.variables ?? this.capabilityStatus.identity_fixed_parameters?.[operation]?.variables ?? {}, null, 2);
+    if (useDefault) {
+      const key=this.definitionKey("identity",this.identityDefinition);
+      this.definitionEdits.set(key+":query",this.identityTemplate(operation));
+      this.definitionEdits.set(key+":variables",JSON.stringify(this.capabilityStatus.identity_fixed_parameters?.[operation]?.variables ?? {},null,2));
+    }
     this.identityExecution = null;
     this.attribute = ""; this.controlAction = "";
     this.category = "vehicle_identity"; this.step = 3; this.render();
@@ -421,10 +429,7 @@ class AudiConnectV3Panel extends HTMLElement {
       outcome:this.shadowRoot.getElementById("review-outcome-"+button.dataset.index)?.value || "unreviewed",
       comment:this.shadowRoot.getElementById("review-comment-"+button.dataset.index)?.value || ""
     } : null;
-    if (action === "identity-submit" || action === "identity-save") {
-      this.identityQuery = this.shadowRoot.getElementById("identity-query")?.value || "";
-      this.identityVariables = this.shadowRoot.getElementById("identity-variables")?.value || "{}";
-    }
+    const identityDefinition = this.identityDefinition;
     this.loading = true; this.error = ""; this.render();
     try {
       if (action === "refresh") {
@@ -439,12 +444,11 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("review_normal_command", {...this.selection, command_id: command.command_id});
       } else if (action === "identity-save") {
         this.lastResult = await this.api("save_identity_draft", {...this.selection, operation:this.identityOperation,
-          query:this.identityQuery, variables:JSON.parse(this.identityVariables)});
+          ...this.definitionValue("identity",identityDefinition)});
       } else if (action === "identity-submit") {
         const args = {...this.selection, operation:this.identityOperation};
         if (this.identityOperation.startsWith("graphql.")) {
-          args.query = this.identityQuery;
-          args.variables = JSON.parse(this.identityVariables);
+          Object.assign(args,this.definitionValue("identity",identityDefinition));
         }
         const result = await this.api("test_identity_operation", args);
         this.identityExecution = result.execution || result;
@@ -564,6 +568,7 @@ class AudiConnectV3Panel extends HTMLElement {
       const current = this.definitionEdits.get(key + ":" + field) ?? initial;
       const attrs = `data-definition="${escapeHTML(key)}" data-field="${escapeHTML(field)}"`;
       const label = `<label>${escapeHTML(field.replaceAll("_"," "))}${optionalField?" (optional)":""}</label>`;
+      if (field === "query") return `<label>Query template<textarea ${attrs} rows="10" spellcheck="false">${escapeHTML(current)}</textarea></label>`;
       return simple
         ? `<div class="definition-row">${label}<input ${attrs} type="text" value="${escapeHTML(current)}" spellcheck="false"></div>`
         : `<details><summary>${escapeHTML(field.replaceAll("_"," "))}${optionalField?" (optional)":""}</summary><textarea ${attrs} rows="4" spellcheck="false">${escapeHTML(current)}</textarea></details>`;
@@ -1108,7 +1113,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="section-head"><h2>Configure &amp; test</h2><button data-action="step-2">‹ Capabilities</button></div>
             <label>Vehicle Identity · API operation<select id="identity-operation"><option value="">Choose a source</option>${identityOps.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.identityOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
             ${this.identityOperation?`<p><b>${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.method)} ${escapeHTML(identityOps.find(o=>o.operation===this.identityOperation)?.path)}</b> · Read-only</p>
-              ${this.identityOperation.startsWith("graphql.")?`<label>Query template<textarea id="identity-query" rows="10" spellcheck="false">${escapeHTML(this.identityQuery)}</textarea></label><label>Variables (JSON)<textarea id="identity-variables" rows="3" spellcheck="false">${escapeHTML(this.identityVariables)}</textarea></label>${this.capabilityStatus.identity_fixed_parameters?.[this.identityOperation]? `<p>myAudi web document tested using native Audi bearer authentication; not a web session replay.</p>`:""}`:"<p>Fixed read-only garage inventory GET.</p>"}
+              ${this.identityOperation.startsWith("graphql.")?`${this.definitionFields("identity",this.identityDefinition)}${this.capabilityStatus.identity_fixed_parameters?.[this.identityOperation]? `<p>myAudi web document tested using native Audi bearer authentication; not a web session replay.</p>`:""}`:"<p>Fixed read-only garage inventory GET.</p>"}
               <div class="actions"><button class="primary" data-action="identity-submit" ${this.loading?"disabled":""}>Submit</button>${this.identityOperation.startsWith("graphql.")?`<button data-action="identity-save" ${this.loading?"disabled":""}>Save local draft</button>`:""}<button data-action="identity-reset">Reset template</button><button data-action="identity-evidence" data-operation="${escapeHTML(this.identityOperation)}">API Log</button></div>
               <p class="helper">Experiments do not change active mappings. Edited GraphQL supports one userVehicles selection with vin, orderBy and renderPictures mediaTypes. No mutations, arbitrary hosts or directives.</p>
               ${this.identityExecution?this.responseInspector(this.identityOperation,this.identityExecution):this.responseInspector(this.identityOperation)}
