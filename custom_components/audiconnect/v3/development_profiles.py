@@ -259,6 +259,17 @@ def render_request(data: Mapping[str, Any], *, vehicle_values: Mapping[str, str]
                  safe="," if k == "JOBS" and not experimental else "")
         for k, v in values.items()
     }
+    path = data["path"].format_map(encoded)
+    body = data.get("request_body")
+    if data.get("request_mode") == "secure_spin" and body is None:
+        body = {"spin": "{SPIN}"}  # Older immutable catalogs.
+    return {
+        "method": data["method"],
+        "family": data["family"],
+        "relative_path": path,
+        "json_body": _fill_request(body, values),
+        "experimental_only": experimental,
+    }
 
 
 class DevelopmentProfile:
@@ -604,14 +615,3 @@ class DevelopmentProfile:
         experimental = operation in self.custom
         return render_request(data, vehicle_values=vehicle_values, user_values=user_values,
                               experimental=experimental)
-        path = data["path"].format_map(encoded)
-        body = data.get("request_body")
-        if data.get("request_mode") == "secure_spin" and body is None:
-            body = {"spin": "{SPIN}"}  # Older immutable catalogs.
-        return {
-            "method": data["method"],
-            "family": data["family"],
-            "relative_path": path,
-            "json_body": _fill_request(body, values),
-            "experimental_only": experimental,
-        }
