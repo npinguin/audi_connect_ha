@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from .registry import read_json_path
+from .freshness import timestamp_is_fresh
 
 _TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$")
 _CLOCK = re.compile(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9](?::[0-5][0-9])?$")
@@ -125,7 +126,9 @@ def observe_structured(vehicle, payload, observed_at, accepts):
     def put(key, value, captured, path):
         if value is not None and accepts(vehicle.readings.get(key), captured):
             vehicle.readings[key] = {"value": value, "captured": captured,
-                "observed": observed_at.isoformat(), "path": path, "family": "cariad"}
+                "observed": observed_at.isoformat(), "path": path, "family": "cariad",
+                "job": path.split(".", 1)[0],
+                "status": "verified" if timestamp_is_fresh(captured, observed_at) else "readable_but_stale"}
 
     for key, path, field, normalizer, limit in (
         ("charging_timers_detail", "chargingTimers.chargingTimersStatus.value", "timers", _timer, 30),
