@@ -153,7 +153,9 @@ class V3Engine:
                 vehicle.charging_profiles.clear()
                 vehicle.active_charging_profile_id = None
                 vehicle.charging_profiles_captured = None
-                vehicle.trips.clear()
+                # Completed trip snapshots are VIN-scoped historical facts.
+                # A refined model/auth context invalidates control evidence, not trips.
+                self.status._trip_poll_at.pop(parsed.vin.lower(), None)
             known[parsed.vin.lower()] = vehicle
             inventory_items[parsed.vin.lower()] = item
         # An empty or malformed inventory cannot revoke a vehicle. Require two
@@ -852,6 +854,9 @@ class V3Engine:
                 "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
                 "discovery_progress": self.discovery_progress(car, p) if p else {},
                 "trip_archive_evidence": {"record_count": len(car.trip_history),
+                    "snapshot_scopes": sorted(car.trips),
+                    "snapshot_sources": {key: row.get("source") for key, row in car.trips.items()},
+                    "parking_position_present": car.position is not None,
                     "scope": "observed_normalized_records_not_lifetime_history",
                     "complete_odometer_interval_count": sum(
                         row.get("startMileage") is not None and row.get("overallMileage") is not None

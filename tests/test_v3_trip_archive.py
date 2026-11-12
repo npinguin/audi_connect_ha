@@ -80,3 +80,27 @@ def test_duplicate_records_in_single_response_preserve_complementary_metrics():
     assert len(rows) == 1
     assert rows[0]["totalFuelConsumption"] == 0.5
     assert rows[0]["totalElectricConsumption"] == 4
+
+
+def test_scoped_trip_snapshots_survive_restart_and_never_replace_longterm_with_history():
+    async def scenario():
+        car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+        key = VIN.lower()
+        observe_cariad_trip(car, "cariad.mobility.status.lastTrip",
+                            {"data": _row(totalFuelConsumption_L=0.5)})
+        observe_cariad_trip(car, "cariad.mobility.status.longTerm",
+                            {"data": _row(tripType="longTerm", mileage_km=4000)})
+        store = SimpleNamespace(async_load=AsyncMock(return_value={"vehicles": {}}),
+                                async_save=AsyncMock())
+        archive = V3TripArchive.__new__(V3TripArchive)
+        archive._store, archive._lock = store, asyncio.Lock()
+        await archive.save({key: car})
+        store.async_load.return_value = store.async_save.call_args.args[0]
+        restored = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+        await archive.restore({key: restored})
+        assert restored.trips["last_trip"]["totalFuelConsumption"] == 0.5
+        assert restored.trips["longterm_current"]["mileage"] == 4000
+        assert len(restored.trip_history) == 1
+        observe_cariad_trip(restored, "cariad.mobility.status.lastTrip", {"data": _row()})
+        assert restored.trips["last_trip"]["totalFuelConsumption"] == 0.5
+    asyncio.run(scenario())

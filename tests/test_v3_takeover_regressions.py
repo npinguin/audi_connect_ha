@@ -238,3 +238,21 @@ def test_structural_vin_redaction_does_not_drop_real_engine_type_fields():
     assert "measurements.primaryEngineType" in paths
     assert "measurements.secondaryEngineType" in paths
     assert not any(VIN in path for path in paths)
+
+
+def test_advertised_flash_is_temporarily_blocked_not_unknown_without_position():
+    from pathlib import Path
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.control_resolution import control_decision
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    car.advertised_capabilities.add("honkAndFlash")
+    registry = CapabilityRegistry.from_json_file(Path(__file__).resolve().parents[1] /
+        "custom_components/audiconnect/v3/full_catalog.json")
+    profile = DevelopmentProfile(registry, car.context)
+    auth = SimpleNamespace(uses_auth0=True, service=SimpleNamespace(_spin=None))
+    result = control_decision(car, profile, auth, "remote", "flash")
+    assert result["status"] == "temporarily_blocked"
+    assert result["reason"] == "parking_position_missing"
+    car.position = {"latitude": 50.0, "longitude": 4.0}
+    assert control_decision(car, profile, auth, "remote", "flash")["operation"] == "cariad.remote.flash"

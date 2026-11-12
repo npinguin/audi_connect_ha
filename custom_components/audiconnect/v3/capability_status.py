@@ -468,7 +468,8 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
             operation = decision["operation"]
             controls.append({
                 "capability": capability, "action": action,
-                "binding_status": decision["status"], "eligible": operation is not None,
+                "binding_status": decision["status"], "reason": decision.get("reason"),
+                "eligible": operation is not None,
                 "operation": diagnostic_route_label(operation, base_registry) if operation else None,
                 "physical_evidence": profile.control_results.get(operation, "not_tested") if operation else "not_tested",
             })

@@ -129,10 +129,17 @@ class StatusEngine:
         now = time.monotonic()
         key = car.vin.lower()
         last = self._trip_poll_at.get(key)
-        if last is not None and now - last < 10800:
+        profile = self.profiles[key]
+        # Retry missing scopes at the ordinary poll cadence, not a 3-hour
+        # penalty after a quota/transport/partial-response failure.
+        from .trips import CARIAD_TRIP_OPERATIONS
+        expected = [scope for op, scope in CARIAD_TRIP_OPERATIONS.items()
+                    if not read_excluded(profile, op)] if car.context.auth != "legacy" else [
+                        "shortterm_current", "longterm_current"]
+        interval = 10800 if all(car.trips.get(scope) for scope in expected) else 900
+        if last is not None and now - last < interval:
             return
         self._trip_poll_at[key] = now
-        profile = self.profiles[key]
         if car.context.auth == "legacy":
             from .trips import normalize_mbb_trips
             from datetime import timedelta
@@ -402,7 +409,11 @@ class StatusEngine:
                 if 200 <= response.status < 300:
                     cloud_reachable = True
         # Retain the V2 GPS tracker contract without adding a new cloud poller.
-        if self._poll_cycles == 1 or self._poll_cycles % 12 == 0:
+        # First recovery attempt may be skipped by quota or a context change.
+        # Retry missing positions every 4 cycles, while normal reads stay sparse.
+        if (self._poll_cycles == 1 or self._poll_cycles % 12 == 0 or
+                (self._poll_cycles % 4 == 0 and any(
+                    car.inventory_present and car.position is None for car in self.vehicles.values()))):
             await self._poll_parked_positions()
         self.last_cloud_poll_succeeded = cloud_reachable
         if cloud_reachable:

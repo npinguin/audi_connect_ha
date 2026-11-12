@@ -14,9 +14,9 @@ from .command_parameters import runtime_ready
 def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
     key = f"{capability}.{aspect}"
 
-    def decision(status, operation=None):
+    def decision(status, operation=None, reason=None):
         return {
-            "status": status,
+            "status": status, "reason": reason,
             "operation": operation,
             "revision": operation_revision(profile.registry.operations[operation]) if operation else None,
         }
@@ -36,6 +36,14 @@ def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
     except ValueError:
         return decision("unknown")
 
+    if capability == "remote" and aspect == "flash":
+        # A supported command may be temporarily blocked by a missing
+        # prerequisite. Never confuse this with unsupported hardware.
+        if "honkAndFlash" in car.impaired_capabilities:
+            return decision("temporarily_blocked", reason="capability_impaired")
+        if "honkAndFlash" in car.advertised_capabilities and car.position is None:
+            return decision("temporarily_blocked", reason="parking_position_missing")
+
     def currently_safe(ident):
         if ident not in available:
             return False
@@ -51,6 +59,10 @@ def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
             "charging": {"charging"},
             "climate": {"climatisation"},
         }.get(capability, set())
+        if capability == "remote" and aspect == "flash":
+            relevant = {"honkAndFlash"}
+            if car.position is None:
+                return False
         if capability == "climate" and aspect.startswith("preheater_"):
             relevant = {"auxiliaryHeating", "hybridCarAuxiliaryHeating"}
         if relevant and relevant & impaired:

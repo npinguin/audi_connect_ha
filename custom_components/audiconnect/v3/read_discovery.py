@@ -254,7 +254,7 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
                 "failed" if any(profile.control_results.get(op) == "failed" for op in available) else "not_tested")
             controls.append({"capability": capability, "action": action,
                 "catalog_applicable": bool(available), "eligible": bool(decision["operation"]),
-                "status": decision["status"], "physical": physical})
+                "status": decision["status"], "reason": decision.get("reason"), "physical": physical})
     owners = {row["id"]: row["capability"] for row in INVENTORY["jobs"]}
     capabilities = {}
     for name in registry.capabilities:

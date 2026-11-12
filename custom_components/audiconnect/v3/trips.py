@@ -282,5 +282,7 @@ def observe_cariad_trip(vehicle, operation, payload):
     incoming = _timestamp(trip.get("timestamp"))
     if previous is not None and (incoming is None or incoming < previous):
         return False
-    vehicle.trips[key] = trip
+    from .trip_archive import merge_snapshots
+    # Same completed trip with partial values must not erase earlier metrics.
+    vehicle.trips.update(merge_snapshots({key: vehicle.trips.get(key)}, {key: trip}))
     return True

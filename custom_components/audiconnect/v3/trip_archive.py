@@ -25,11 +25,12 @@ _UNITS = {
 }
 
 
-def clean_trip(row):
+def clean_trip(row, *, allow_longterm=False, allow_legacy=False):
     """Revalidate stored and incoming rows; only completed modern trips."""
-    if not isinstance(row, Mapping) or row.get("source") != "cariad_modern":
+    if not isinstance(row, Mapping) or row.get("source") not in (
+            ("cariad_modern", "mbb_legacy") if allow_legacy else ("cariad_modern",)):
         return None
-    if row.get("tripType") not in (None, "shortTerm"):
+    if row.get("tripType") not in ((None, "shortTerm", "longTerm") if allow_longterm else (None, "shortTerm")):
         return None
     stamp = _timestamp(row.get("timestamp"))
     if stamp is None:
@@ -40,9 +41,9 @@ def clean_trip(row):
     vehicle_type = row.get("vehicleType")
     return {
         "timestamp": stamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-        "tripType": "shortTerm", "vehicleType": vehicle_type if vehicle_type in
+        "tripType": row.get("tripType") if allow_longterm or allow_legacy else "shortTerm", "vehicleType": vehicle_type if vehicle_type in
         ("hybrid", "phev", "electric", "combustion") else None,
-        "source": "cariad_modern", "tripID": None, "units": dict(_UNITS), **values,
+        "source": row["source"], "tripID": None, "units": dict(_UNITS), **values,
     }
 
 
@@ -83,6 +84,31 @@ def merge_history(*groups):
     return sorted(records.values(), key=lambda row: row["timestamp"], reverse=True)[:MAX_TRIP_HISTORY]
 
 
+_SCOPES = ("last_trip", "shortterm_current", "longterm_current", "shortterm_reset", "longterm_reset")
+
+
+def merge_snapshots(*groups):
+    """Retain last valid values per OEM scope; never derive cumulative totals from history."""
+    result = {}
+    for group in groups:
+        if not isinstance(group, Mapping):
+            continue
+        for key in _SCOPES:
+            row = clean_trip(group.get(key), allow_longterm=key == "longterm_current" or key == "longterm_reset",
+                             allow_legacy=True)
+            if row is None:
+                continue
+            old = result.get(key)
+            if old is None or _timestamp(row["timestamp"]) > _timestamp(old["timestamp"]):
+                result[key] = row
+            elif (_timestamp(row["timestamp"]) == _timestamp(old["timestamp"])
+                  and row["source"] == old["source"]
+                  and all(row[field] is None or old[field] is None or row[field] == old[field]
+                          for field in ("startMileage", "overallMileage"))):
+                result[key] = {**old, **{k: v for k, v in row.items() if v is not None}}
+    return result
+
+
 class V3TripArchive:
     """Private HA storage, separate from evidence and configuration."""
 
@@ -94,23 +120,31 @@ class V3TripArchive:
     async def _load(self):
         data = await self._store.async_load()
         if data is None:
-            return {}
+            return {}, {}
         if not isinstance(data, dict) or not isinstance(data.get("vehicles"), dict):
             raise ValueError("Invalid Audi trip archive")
-        return data["vehicles"]
+        snapshots = data.get("snapshots", {})
+        if not isinstance(snapshots, dict):
+            raise ValueError("Invalid Audi trip snapshots")
+        return data["vehicles"], snapshots
 
     async def restore(self, vehicles):
         async with self._lock:
-            records = await self._load()
+            records, snapshots = await self._load()
             for key, car in vehicles.items():
                 car.trip_history = merge_history(records.get(key, []), car.trip_history)
+                car.trips.update(merge_snapshots(snapshots.get(key, {}), car.trips))
 
     async def save(self, vehicles):
         async with self._lock:
-            records = await self._load()
-            updated = dict(records)
+            records, snapshots = await self._load()
+            updated, current = dict(records), dict(snapshots)
             for key, car in vehicles.items():
-                if car.inventory_present and car.trip_history:
+                if not car.inventory_present:
+                    continue
+                if car.trip_history:
                     updated[key] = merge_history(records.get(key, []), car.trip_history)
-            if updated != records:
-                await self._store.async_save({"vehicles": updated})
+                if car.trips:
+                    current[key] = merge_snapshots(snapshots.get(key, {}), car.trips)
+            if updated != records or current != snapshots:
+                await self._store.async_save({"vehicles": updated, "snapshots": current})
