@@ -697,3 +697,25 @@ async def test_engineering_review_waits_for_in_flight_dispatch():
     assert profile.discovery._active is None
     assert engine.control_enabled(VIN, "start")
     assert transport.request_count == 2
+
+@pytest.mark.asyncio
+async def test_queued_engineering_command_rechecks_vehicle_after_lock():
+    import asyncio
+
+    engine, transport, _ = engine_for(status())
+    await engine.poll()
+    profile = engine.profiles[VIN.lower()]
+
+    def unavailable(vin):
+        raise ValueError("Vehicle no longer available")
+
+    async with engine.commands._actions:
+        task = asyncio.create_task(engine.test_action(
+            VIN, "start", "cariad.climate.start.stored"
+        ))
+        await asyncio.sleep(0)
+        engine.commands.require_vehicle = unavailable
+    with pytest.raises(ValueError, match="Vehicle no longer available"):
+        await task
+    assert transport.request_count == 1
+    assert profile.discovery._active is None
