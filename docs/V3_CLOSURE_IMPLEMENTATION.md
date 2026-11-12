@@ -31,3 +31,7 @@ Removed the dormant V2 probe implementation (account methods, service adapter, d
 ### Parameterized controls
 
 Verified local CARIAD climate-start settings templates can map a declared typed variable to the canonical temperature parameter, with range validation at every invocation. PUT aliases are configurable only around the existing code-owned handler, exact approved endpoint and no replacement body. Generic admin route save/select/disable accepts capability and action. Other dynamic templates remain engineering-only until a semantic parameter contract is implemented; this is not arbitrary raw PUT support.
+
+### Shared execution history and context migration
+
+A bounded 50-record private command journal now records both HA and Workbench executions with origin, operation revision and separate backend/physical outcomes; old last-command records remain readable. The guided discovery review model is retained as the evidence UI, not a separate dispatcher. Vehicle context changes invalidate route bindings/evidence and in-memory observations while preserving definitions, user-disabled controls, history and pending uncertainty. Older-version HACS downgrade after adding new custom fields still requires backup/restore; runtime V2 fallback is distinct.

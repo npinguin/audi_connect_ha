@@ -107,12 +107,32 @@ class V3Engine:
             if parsed.vin.lower() in excluded:
                 continue
             vehicle = self.vehicles.get(parsed.vin.lower(), parsed)
+            old_context = vehicle.context
+            if parsed.model:
+                vehicle.model = parsed.model
+                vehicle.model_family = parsed.model_family
+            if parsed.car_type:
+                vehicle.car_type = parsed.car_type
+            vehicle.country = parsed.country
             vehicle.inventory_present = True
             vehicle.inventory_misses = 0
             vehicle.name = parsed.name
             vehicle.auth_family = "auth0" if self.auth.uses_auth0 else "legacy"
             vehicle.legacy_cariad = not self.auth.uses_auth0 and bool(getattr(self.auth,"has_cariad_bearer",False))
             vehicle.legacy_api_level = getattr(self.auth,"legacy_api_level",0)
+            profile = self.profiles.get(parsed.vin.lower())
+            if profile is not None and vehicle.context != old_context:
+                profile.rebind_context(vehicle.context)
+                vehicle.advertised_capabilities.clear()
+                vehicle.impaired_capabilities.clear()
+                vehicle.readings.clear()
+                vehicle.capability_readings.clear()
+                vehicle.climate_state = vehicle.climate_captured = None
+                vehicle.position = None
+                vehicle.charging_profiles.clear()
+                vehicle.active_charging_profile_id = None
+                vehicle.charging_profiles_captured = None
+                vehicle.trips.clear()
             known[parsed.vin.lower()] = vehicle
         # An empty or malformed inventory cannot revoke a vehicle. Require two
         # complete nonempty snapshots, or an explicit local VIN exclusion.

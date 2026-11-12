@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .action_discovery import ActionAttempt
-from .command_journal import CommandRecord
+from .command_journal import CommandRecord, restore_history
 from .operation_revision import operation_revision
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
@@ -29,7 +29,19 @@ def restore_profile(
     """Validate and restore user paths and proven selections, without requests."""
     if not isinstance(saved, Mapping) or saved.get("schema_version") != 1:
         raise DevelopmentProfileError("Invalid V3 profile version")
-    profile = DevelopmentProfile(catalog, context, cooldown_seconds=cooldown_seconds)
+    saved_context = saved.get("vehicle_context")
+    old_context = context
+    if saved_context is not None:
+        try:
+            old_context = VehicleContext(**saved_context)
+        except (ValueError, TypeError) as exc:
+            raise DevelopmentProfileError("Invalid saved vehicle context") from exc
+        if (old_context.auth not in ("auth0", "legacy") or type(old_context.legacy_cariad) is not bool
+                or type(old_context.legacy_api_level) is not int
+                or any(not isinstance(value, str) or len(value) > 100 for value in
+                       (old_context.region, old_context.vehicle_type, old_context.model_family))):
+            raise DevelopmentProfileError("Invalid saved vehicle context")
+    profile = DevelopmentProfile(catalog, old_context, cooldown_seconds=cooldown_seconds)
     custom = saved.get("custom_routes", [])
     read = saved.get("read_evidence", {})
     control = saved.get("control_evidence", {})
@@ -44,15 +56,17 @@ def restore_profile(
         raise DevelopmentProfileError("Malformed local development profile")
     for operation in custom:
         profile.add(operation)
-    if saved.get("last_command") is not None:
-        try:
-            profile.last_command = CommandRecord.restore(saved["last_command"])
-        except ValueError as exc:
-            raise DevelopmentProfileError("Invalid stored normal command") from exc
-        if profile.last_command.operation not in profile.registry.operations:
-            # Preserve uncertainty even when an operation was removed in a catalog update.
-            if not profile.last_command.unresolved:
-                profile.last_command = None
+    try:
+        if "command_journal" in saved:
+            profile.command_journal, profile.last_command = restore_history(saved["command_journal"])
+        if profile.last_command is None and saved.get("last_command") is not None:
+            profile.track_command(CommandRecord.restore(saved["last_command"]))
+    except ValueError as exc:
+        raise DevelopmentProfileError("Invalid stored command journal") from exc
+    invalidated = saved.get("invalidated_attempt_sequence")
+    if invalidated is not None and (type(invalidated) is not int or invalidated < 1):
+        raise DevelopmentProfileError("Invalid context-invalidated attempt")
+    profile.invalidated_attempt_sequence = invalidated
     for operation, result in read.items():
         if not isinstance(result, dict) or set(result) != {
             "http_status", "schema_valid", "fresh", "outcome"
@@ -225,6 +239,7 @@ def restore_profile(
                 profile.discovery.preferred[key] = operation
     # Catalog-match cache is not an authorization source; recomputed at poll.
     profile.fast_bindings = {}
+    profile.rebind_context(context)
     return profile
 
 

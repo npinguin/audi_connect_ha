@@ -11,6 +11,7 @@ from typing import Any
 
 from .action_discovery import approval_group
 from .command_journal import CommandRecord
+from .operation_revision import operation_revision
 from .command_parameters import map_parameters, runtime_ready
 from .command_readback import configure_readback, reconcile_readback
 from .control_resolution import control_decision, resolve_control
@@ -205,6 +206,10 @@ class CommandEngine:
                     family, method, path, body = await self._command_request(vehicle, operation, params)
                 response = await self._dispatch_command(vehicle, family, method, path, body)
                 profile.observe_http(attempt.sequence, response.status)
+                record = profile.engineering_record(attempt.sequence)
+                if record is not None and family == "cariad":
+                    from .request_status import request_id_of
+                    record.request_id = request_id_of(response.data)
                 self._api_record(profile, operation, family, method, response, vehicle.vin)
             except (TimeoutError, OSError, RuntimeError, ValueError):
                 profile.observe_http(attempt.sequence, None)
@@ -238,7 +243,8 @@ class CommandEngine:
         )
         if outcome == "worked":
             attempt = profile.discovery.history[-1]
-            if runtime_ready(profile.custom.get(attempt.operation, {})):
+            if (profile.control_results.get(attempt.operation) == "worked"
+                    and runtime_ready(profile.custom.get(attempt.operation, {}))):
                 profile.choose_working(
                     attempt.capability, attempt.action, attempt.operation
                 )
@@ -273,9 +279,10 @@ class CommandEngine:
             else:
                 family, method, path, body = await self._command_request(car, ident, params)
             self._reserve_wake(vin, ident)
-            record = CommandRecord.begin(capability, aspect, ident, time.time())
+            record = CommandRecord.begin(capability, aspect, ident, time.time(),
+                                         operation_revision=operation_revision(p.registry.operations[ident]))
             configure_readback(record, params)
-            p.last_command = record
+            p.track_command(record)
             # If storage fails here, no physical action is attempted.
             await self.storage.async_save(self.profiles)
             try:
@@ -301,15 +308,21 @@ class CommandEngine:
                     elif family == "mbb":
                         from .legacy_commands import confirm
                         car.last_command_result = await confirm(self.transport, path, response.data)
+                    record.backend_result = car.last_command_result
                     if car.last_command_result in ("backend_completed", "rejected"):
                         record.state = car.last_command_result
+                        record.completed_at = max(record.started_at, time.time())
+                    elif car.last_command_result in ("unknown", "quota_limited", "pending"):
+                        record.state = "uncertain"
             except asyncio.CancelledError:
                 # The pre-dispatch journal is already durable; restart restores uncertainty.
                 record.state = "uncertain"
+                record.backend_result = "transport_uncertain"
                 car.last_command_result = "transport_uncertain"
                 raise
             except (TimeoutError, OSError, RuntimeError, ValueError) as err:
                 record.state = "uncertain"
+                record.backend_result = "transport_uncertain"
                 car.last_command_result = "transport_uncertain"
                 self._api_record(p, ident, family, method, None, car.vin)
                 await self.storage.async_save(self.profiles)
@@ -328,6 +341,7 @@ class CommandEngine:
             if record is None or record.command_id != command_id or not record.unresolved:
                 raise ValueError("No matching unresolved normal command")
             record.state = "reviewed"
+            record.completed_at = max(record.started_at, time.time())
             await self.storage.async_save(self.profiles)
             self._notify_discovery_change()
 

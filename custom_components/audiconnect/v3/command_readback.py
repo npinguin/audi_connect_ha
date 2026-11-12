@@ -56,4 +56,5 @@ def reconcile_readback(record, car, now=None) -> bool:
     if type(value) is bool or value not in record.readback_values:
         return False
     record.state = "verified"
+    record.completed_at = max(record.started_at, now.timestamp())
     return True

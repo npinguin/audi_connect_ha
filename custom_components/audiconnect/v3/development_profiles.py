@@ -9,6 +9,7 @@ V3-owned dispatcher. No arbitrary hosts, auth headers, python or Jinja eval.
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import asdict
 import re
 from string import Formatter
 from typing import Any, Mapping
@@ -16,7 +17,7 @@ from urllib.parse import quote
 
 from .action_discovery import DiscoveryError, GuidedActionDiscovery
 from .registry import CapabilityRegistry, RegistryError, VehicleContext
-from .command_journal import CommandRecord
+from .command_journal import CommandRecord, HISTORY_LIMIT, legacy_snapshot
 from .operation_revision import operation_revision
 from .command_parameters import validate_bindings, runtime_ready
 
@@ -264,6 +265,8 @@ class DevelopmentProfile:
         self.read_results: dict[str, dict[str, Any]] = {}
         self.control_results: dict[str, str] = {}
         self.last_command: CommandRecord | None = None
+        self.command_journal: list[CommandRecord] = []
+        self.invalidated_attempt_sequence: int | None = None
         self.attribute_routes: dict[str, str] = {}
         self.attribute_evidence: dict[str, dict[str, Any]] = {}
         self.attribute_drafts: dict[str, str] = {}
@@ -337,14 +340,52 @@ class DevelopmentProfile:
     def candidates(self, capability: str, action: str) -> list[dict[str, str]]:
         return self.discovery.candidates(capability, action)
 
+    def track_command(self, record: CommandRecord) -> None:
+        """One bounded journal for both origins; last_command is a compatibility pointer."""
+        self.command_journal.append(record)
+        if record.origin == "home_assistant":
+            self.last_command = record
+        self.command_journal[:] = self.command_journal[-HISTORY_LIMIT:]
+
+    def engineering_record(self, sequence: int) -> CommandRecord | None:
+        return next((record for record in reversed(self.command_journal)
+                     if record.origin == "workbench" and record.engineering_sequence == sequence), None)
+
     def begin_test(self, capability: str, action: str, operation: str, *, now: float):
         """Called only after an authenticated user clicks Test."""
-        return self.discovery.begin(
+        attempt = self.discovery.begin(
             capability, action, operation, user_initiated=True, now=now
         )
+        self.track_command(CommandRecord.begin(
+            capability, action, operation, now, origin="workbench",
+            engineering_sequence=attempt.sequence,
+            operation_revision=operation_revision(self.registry.operations[operation]),
+        ))
+        return attempt
 
     def observe_http(self, sequence: int, status: int | None) -> None:
         self.discovery.observe_transport(sequence, http_status=status)
+        record = self.engineering_record(sequence)
+        if record is not None:
+            record.state = ("accepted_unconfirmed" if status is not None and 200 <= status < 300
+                            else "uncertain" if status is None or status >= 500 else "rejected")
+            record.backend_result = ("accepted_unconfirmed" if record.state == "accepted_unconfirmed"
+                                     else "transport_uncertain" if record.state == "uncertain" else "rejected")
+
+    def rebind_context(self, context: VehicleContext) -> None:
+        """Preserve local definitions and unresolved commands, invalidate old applicability evidence."""
+        if context == self.discovery.context:
+            return
+        if self.discovery._active is not None:
+            self.invalidated_attempt_sequence = self.discovery._active.sequence
+        self.discovery.context = context
+        self.discovery.preferred.clear()
+        for data in (self.active, self.active_revisions, self.fast_bindings,
+                     self.draft_selected, self.read_results, self.control_results,
+                     self.attribute_routes, self.attribute_evidence, self.attribute_drafts,
+                     self.attribute_route_evidence, self.job_discovery, self.job_probe_attempts,
+                     self.api_observations):
+            data.clear()
 
     def confirm(
         self, sequence: int, *, worked: bool | None,
@@ -357,6 +398,16 @@ class DevelopmentProfile:
             now=now,
         )
         key = f"{attempted.capability}.{attempted.action}"
+        record = self.engineering_record(sequence)
+        if record is not None:
+            record.state = "verified" if worked is True else "physical_failed" if worked is False else "uncertain"
+            if worked is not None:
+                record.completed_at = now
+        if sequence == self.invalidated_attempt_sequence:
+            self.discovery.preferred.pop(key, None)
+            if worked is not None:
+                self.invalidated_attempt_sequence = None
+            return  # A review of an old vehicle context is not proof for the new one.
         if attempted.result in ("worked", "failed"):
             self.control_results[attempted.operation] = attempted.result
         if attempted.result != "worked" and self.active.get(key) == attempted.operation:
@@ -439,6 +490,8 @@ class DevelopmentProfile:
         """Safe local profile record. No VIN, tokens or raw HTTP payloads."""
         return {
             "schema_version": 1,
+            "vehicle_context": asdict(self.discovery.context),
+            "invalidated_attempt_sequence": self.invalidated_attempt_sequence,
             "custom_routes": deepcopy(list(self.custom.values())),
             "active": dict(self.active),
             "active_revisions": dict(self.active_revisions),
@@ -446,7 +499,8 @@ class DevelopmentProfile:
             "draft_selected": dict(self.draft_selected),
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),
-            "last_command": self.last_command.snapshot() if self.last_command else None,
+            "last_command": legacy_snapshot(self.last_command) if self.last_command else None,
+            "command_journal": [row.snapshot() for row in self.command_journal],
             "attribute_routes": dict(self.attribute_routes),
             "attribute_evidence": deepcopy(self.attribute_evidence),
             "attribute_drafts": dict(self.attribute_drafts),
