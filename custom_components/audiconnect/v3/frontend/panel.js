@@ -341,6 +341,17 @@ class AudiConnectV3Panel extends HTMLElement {
       this.step = Number(action.slice(5)); this.render(); return;
     }
     if (action === "clear-operation") { this.focusOperation = ""; this.render(); return; }
+    if (action === "definition-json") {
+      const id=button.dataset.editor;
+      const template=this.editorTemplate(id);
+      try {
+        const key=this.definitionKey(id,template);
+        const raw=this.shadowRoot.getElementById("definition-json-"+id)?.value || "";
+        this.loadDefinitionJSON(id,template,raw);
+        this.error="";
+      } catch (err) { this.error=String(err.message||err); }
+      this.render(); return;
+    }
     if (action === "filter-entity") { this.selectEntityFilter(button.dataset.entity); return; }
     if (action === "open-operation") {
       this.focusOperation = button.dataset.operation || "";
@@ -461,7 +472,7 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("test_family_reads", {...this.selection, family, full:action==="family-full-test"});
       } else if (action === "control-add") {
         this.lastResult = await this.api("add_route", {
-          ...this.selection, route: this.definitionValue("control", controlTemplate, {parameter_bindings:null})
+          ...this.selection, route: this.definitionValue("control", controlTemplate)
         });
         this.controlChoice = this.lastResult.operation || this.controlChoice;
       } else if (action === "control-test") {
@@ -558,7 +569,33 @@ class AudiConnectV3Panel extends HTMLElement {
     return JSON.stringify([id, this.selected, this.vin, id==="identity"?this.identityOperation:"", template]);
   }
 
-  definitionFields(id, template, optional = {}) {
+  editorTemplate(id) {
+    return {"read":this.initialReadRoute,"new-attribute":this.initialNewAttribute,
+      "control":this.initialControlRoute,"identity":this.identityDefinition}[id];
+  }
+
+  editorOptional(id) {
+    return {"read":{capture_path:null,conversion:null},"new-attribute":{conversion:null},
+      "control":{parameter_bindings:null,scope:null,handler:null,response_paths:null},"identity":{}}[id] || {};
+  }
+
+  loadDefinitionJSON(id, template, raw) {
+    const value=JSON.parse(raw);
+    const base=JSON.parse(template);
+    const optional=this.editorOptional(id);
+    if (!value || Array.isArray(value) || typeof value!=="object" ||
+        Object.keys(value).some(k=>!Object.hasOwn(base,k)&&!Object.hasOwn(optional,k)))
+      throw Error("Unknown definition fields");
+    if (Object.keys(base).some(k=>!Object.hasOwn(value,k)&&!Object.hasOwn(optional,k)))
+      throw Error("Missing definition fields");
+    const key=this.definitionKey(id,template);
+    for (const [field,original] of Object.entries({...optional,...base})) {
+      const v=value[field];
+      this.definitionEdits.set(key+":"+field, v===undefined?"":typeof original==="string"||field==="capture_path"?String(v):JSON.stringify(v,null,2));
+    }
+  }
+
+  definitionFields(id, template, optional = this.editorOptional(id)) {
     const fields = {...JSON.parse(template), ...Object.fromEntries(Object.entries(optional).filter(([key])=>!Object.hasOwn(JSON.parse(template),key)))};
     const key = this.definitionKey(id, template);
     return Object.entries(fields).map(([field,value]) => {
@@ -572,10 +609,14 @@ class AudiConnectV3Panel extends HTMLElement {
       return simple
         ? `<div class="definition-row">${label}<input ${attrs} type="text" value="${escapeHTML(current)}" spellcheck="false"></div>`
         : `<details><summary>${escapeHTML(field.replaceAll("_"," "))}${optionalField?" (optional)":""}</summary><textarea ${attrs} rows="4" spellcheck="false">${escapeHTML(current)}</textarea></details>`;
-    }).join("");
+    }).join("") + (() => {
+      let json="";
+      try { json=JSON.stringify(this.definitionValue(id,template,optional),null,2); } catch {}
+      return `<details><summary>Copy / paste definition JSON</summary><p class="helper">Definition only, not test evidence. Review fields and save a new ID; importing never executes or activates.</p><textarea id="definition-json-${escapeHTML(id)}" rows="6" spellcheck="false">${escapeHTML(json)}</textarea><button data-action="definition-json" data-editor="${escapeHTML(id)}">Load JSON into editor</button></details>`;
+    })();
   }
 
-  definitionValue(id, template, optional = {}) {
+  definitionValue(id, template, optional = this.editorOptional(id)) {
     const fields = {...JSON.parse(template), ...Object.fromEntries(Object.entries(optional).filter(([key])=>!Object.hasOwn(JSON.parse(template),key)))};
     const key = this.definitionKey(id, template);
     const result = {};
@@ -1088,7 +1129,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <details open style="margin-top:18px">
               <summary>Advanced · Add an alternative command template</summary>
               <p>System variables: <code>{VIN}</code> is filled from this car. <code>{SPIN}</code> is filled securely from the configured Audi account, only for Access Lock/Unlock using <code>{"spin":"{SPIN}"}</code>. Do not enter or save a real S-PIN.</p>
-              ${this.definitionFields("control", this.initialControlRoute, {parameter_bindings:null})}
+              ${this.definitionFields("control", this.initialControlRoute)}
               <div class="actions"><button data-action="control-add" ${this.loading||this.pending?"disabled":""}>Save alternative route · no command sent</button></div>
             </details>
             <div class="callout" style="margin-top:18px">
