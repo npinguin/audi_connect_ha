@@ -822,11 +822,16 @@ class V3Engine:
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
 
+    def discovery_progress(self, car, profile):
+        """One read-only coverage contract for diagnostics and user entities."""
+        from .read_discovery import user_progress
+        return user_progress(car, profile, self.auth, base_registry=self.registry,
+                             parking_allowed=self.status.parking_read_allowed(car))
+
     def diagnostics(self) -> dict[str, Any]:
         """No VIN, tokens, literal user routes, response bodies or coordinates."""
         from .capability_status import diagnostic_capability_summary, diagnostic_route_label
         from .vehicle import powertrain_identity
-        from .read_discovery import user_progress
         vehicles = []
         for index, car in enumerate(self.vehicles.values(), 1):
             p = self.profiles.get(car.vin.lower())
@@ -845,7 +850,7 @@ class V3Engine:
                                       "powertrain": powertrain_identity(car)},
                 "capability_evidence": diagnostic_capability_summary(car, p, self.registry, self.auth) if p else {},
                 "job_schema_evidence": getattr(p, "job_schema", {}) if p else {},
-                "discovery_progress": user_progress(car, p, self.auth, base_registry=self.registry) if p else {},
+                "discovery_progress": self.discovery_progress(car, p) if p else {},
                 "trip_archive_evidence": {"record_count": len(car.trip_history),
                     "scope": "observed_normalized_records_not_lifetime_history",
                     "complete_odometer_interval_count": sum(

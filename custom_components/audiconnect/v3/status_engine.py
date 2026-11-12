@@ -461,6 +461,17 @@ class StatusEngine:
         # The composition root persists status and control bindings together.
         return list(self.vehicles.values())
 
+    def parking_read_allowed(self, car):
+        """Same explicit tracker policy for discovery planning and coverage."""
+        if not hasattr(self.hass, "data"):
+            return None  # Unknown in a synthetic/no-registry context.
+        from homeassistant.helpers import entity_registry as er
+        registry = er.async_get(self.hass)
+        tracker = f"{car.vin.lower()}_device_tracker_position"
+        return not any(entity.domain == "device_tracker" and
+                       entity.unique_id == tracker and entity.disabled_by is not None
+                       for entity in er.async_entries_for_config_entry(registry, self.entry.entry_id))
+
     async def _poll_parked_positions(self) -> None:
         """Infrequent GET for the user's existing Audi parked GPS tracker.
 
@@ -468,22 +479,12 @@ class StatusEngine:
         """
         if not hasattr(self.hass, "data"):
             return  # synthetic test engines without the HA registry
-        from homeassistant.helpers import entity_registry as er
         from .parking import parse_parked_position, keep_newest_position
 
-        registry = er.async_get(self.hass)
-        trackers = {
-            entity.unique_id: entity.disabled_by
-            for entity in er.async_entries_for_config_entry(registry,self.entry.entry_id)
-            if entity.domain == "device_tracker"
-        }
         for car in self.vehicles.values():
             if not car.inventory_present:
                 continue
-            tracker=f"{car.vin.lower()}_device_tracker_position"
-            enabled=(tracker in trackers and trackers[tracker] is None)
-            discovered=tracker not in trackers  # No separate approval for read-only discovery.
-            if (car.context.auth != "auth0" and not car.legacy_cariad) or not (enabled or discovered):
+            if (car.context.auth != "auth0" and not car.legacy_cariad) or not self.parking_read_allowed(car):
                 continue
             if (self.transport.remaining_calls is not None
                     and self.transport.remaining_calls <= 12):

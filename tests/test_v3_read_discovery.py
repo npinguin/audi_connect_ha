@@ -102,6 +102,11 @@ def test_standalone_discovery_progress_survives_snapshot_and_transient_failure()
     assert result["read_assessed"] == 2
     assert result["controls_physically_verified"] == 0
     assert result["read_assessment_percent"] == round(200 / 28, 1)
+    disabled = user_progress(car, profile, auth, parking_allowed=False)
+    assert disabled["read_total"] == 27
+    assert disabled["excluded_read_routes"] == {
+        "cariad.mobility.status.parkingPosition": "tracker_disabled_by_user"}
+    assert disabled["read_assessment_percent"] == round(200 / 27, 1)
 
 
 def test_unknown_jobs_remain_in_normal_batch_only_explicit_job_negative_excludes():

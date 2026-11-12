@@ -470,7 +470,10 @@ async def test_direct_command_response_uses_actual_vehicle_status():
 
 @pytest.mark.asyncio
 async def test_standalone_schema_evidence_and_discovery_export_without_trip_values():
-    engine, _, _ = engine_for()
+    registry = CapabilityRegistry.from_json_file(
+        CATALOG.parents[2] / "custom_components/audiconnect/v3/full_catalog.json")
+    engine = V3Engine(SimpleNamespace(), SimpleNamespace(entry_id="example"),
+                      registry, auth=FakeAuth(), transport=FakeTransport([]), storage=FakeStore())
     await engine.discover()
     profile = engine.profiles[VIN.lower()]
     operation = "cariad.mobility.status.lastTrip"

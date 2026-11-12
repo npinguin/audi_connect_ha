@@ -211,7 +211,7 @@ def read_excluded(profile, operation):
     return operation in getattr(profile, "unsupported_reads", ())
 
 
-def user_progress(car, profile, auth, *, base_registry=None):
+def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=None):
     """Read coverage and control evidence are independent, never proof of support."""
     from .historical_catalog import INVENTORY, CANONICAL_ATTRIBUTES
     from .control_resolution import control_decision
@@ -228,11 +228,15 @@ def user_progress(car, profile, auth, *, base_registry=None):
                          "assessed": status in ("observed", "unsupported") or (
                 status == "not_observed" and profile.job_probe_attempts.get(job, 0) > 0)}
     reads = {}
+    excluded_reads = {}
     if "mobility" in profile.registry.capabilities and modern:
         from .trips import CARIAD_TRIP_OPERATIONS
         available = profile.registry.resolve("mobility", "status", car.context)["available_operations"]
         for operation in (*CARIAD_TRIP_OPERATIONS, "cariad.mobility.status.parkingPosition", "cariad.mobility.status.tripStatistics"):
             if operation in available:
+                if operation == "cariad.mobility.status.parkingPosition" and parking_allowed is False:
+                    excluded_reads[operation] = "tracker_disabled_by_user"
+                    continue
                 reads[operation] = getattr(profile, "standalone_discovery", {}).get(operation, profile.api_observations.get(operation, {}).get("http_status"))
     if car.context.auth == "legacy":
         from .legacy_read_mappings import ROUTES
@@ -293,5 +297,7 @@ def user_progress(car, profile, auth, *, base_registry=None):
             "truncated": bool(schema.get("truncated")), "http_status": schema.get("http_status")}
             for operation in reads
             if (schema := getattr(profile, "job_schema", {}).get(operation))},
-        "excluded_reads": ["user-disabled GPS tracker (if disabled)", "custom and reference-only routes"],
+        "excluded_read_routes": excluded_reads,
+        "excluded_reads": ["custom and reference-only routes"],
+        "parking_policy": "disabled" if parking_allowed is False else "enabled" if parking_allowed is True else "unknown",
         "scope": "selective-status jobs and reviewed standard trip/legacy resources; not vehicle support"}

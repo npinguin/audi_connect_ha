@@ -310,7 +310,11 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
         from .read_discovery import user_progress
         engine = self.coordinator.engine
         profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
-        return user_progress(self.vehicle, profile, engine.auth) if profile is not None else {}
+        if profile is None:
+            return {}
+        if hasattr(engine, "discovery_progress"):
+            return engine.discovery_progress(self.vehicle, profile)
+        return user_progress(self.vehicle, profile, engine.auth)
 
     def _vehicle_age(self):
         from .freshness import capture_coverage
