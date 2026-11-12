@@ -60,6 +60,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.functionMode = "all";
     this.apiHistory = [];
     this.engineeringHistory = [];
+    this.executionReviews = [];
     this.apiFamily = "vehicle";
     this.operationFilter = "all";
     this.searchText = "";
@@ -141,10 +142,11 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   async _apiResults() {
-    if (!this.selected || !this.vin) { this.apiHistory = []; this.engineeringHistory = []; return; }
+    if (!this.selected || !this.vin) { this.apiHistory = []; this.engineeringHistory = []; this.executionReviews = []; return; }
     const response = await this.api("api_results", {...this.selection, include_engineering:true});
     this.apiHistory = response.records || [];
     this.engineeringHistory = response.engineering_history || [];
+    this.executionReviews = response.execution_reviews || [];
   }
 
   async _readRoutes() {
@@ -236,7 +238,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
-    this.apiHistory = []; this.engineeringHistory = []; this.capabilityStatus = {counts:{},rows:[]};
+    this.apiHistory = []; this.engineeringHistory = []; this.executionReviews = []; this.capabilityStatus = {counts:{},rows:[]};
     this.step = 1; this.apiFamily = "vehicle"; this.functionMode = "all"; this.discoveryGroup = "read_only";
     this.focusOperation = ""; this.operationFilter = "all"; this.operationMethod = "all";
     this.searchText = ""; this.inventoryFilter = "all";
@@ -400,6 +402,11 @@ class AudiConnectV3Panel extends HTMLElement {
     const approved = this.shadowRoot.getElementById("control-approval")?.checked === true;
     const approvalGroup = this.controlRoutes.find(r=>r.id===controlRoute)?.approval_group;
     const controlTemplate = this.initialControlRoute;
+    const executionReview = action === "execution-review" ? {
+      operation:button.dataset.operation, at:button.dataset.at,
+      outcome:this.shadowRoot.getElementById("review-outcome-"+button.dataset.index)?.value || "unreviewed",
+      comment:this.shadowRoot.getElementById("review-comment-"+button.dataset.index)?.value || ""
+    } : null;
     if (action === "identity-submit" || action === "identity-save") {
       this.identityQuery = this.shadowRoot.getElementById("identity-query")?.value || "";
       this.identityVariables = this.shadowRoot.getElementById("identity-variables")?.value || "{}";
@@ -409,7 +416,10 @@ class AudiConnectV3Panel extends HTMLElement {
       if (action === "refresh") {
         await this._load(); return;
       }
-      if (action === "review-normal") {
+      if (action === "execution-review") {
+        this.lastResult = await this.api("review_execution", {...this.selection, ...executionReview});
+        await this._apiResults();
+      } else if (action === "review-normal") {
         const command = this.unresolvedCommands().find(row=>row.command_id===button.dataset.command);
         if (!command) throw new Error("No unresolved command");
         this.lastResult = await this.api("review_normal_command", {...this.selection, command_id: command.command_id});
@@ -636,6 +646,17 @@ class AudiConnectV3Panel extends HTMLElement {
       response_path:source?.response_paths?.[0] || (entry?.path !== "-" ? entry?.path || "" : ""),
       ...(source?.capture_path ? {capture_path:source.capture_path} : {}),
       ...(source?.conversion ? {conversion:source.conversion} : {})}, null, 2);
+  }
+
+  executionReviewFields(row, index) {
+    if (!row.at) return "";
+    const review = this.executionReviews.find(item=>item.operation===row.operation && item.at===row.at);
+    return `<details><summary>Engineering review · ${escapeHTML(review?.outcome || "unreviewed")}</summary>
+      <p>Private note for this execution; does not activate a route or prove physical execution. Do not enter secrets.</p>
+      <label>Review outcome <select id="review-outcome-${index}">${["unreviewed","worked","failed","inconclusive"].map(v=>`<option value="${v}" ${review?.outcome===v?"selected":""}>${v}</option>`).join("")}</select></label>
+      <label>Comment <textarea id="review-comment-${index}" maxlength="500" rows="2">${escapeHTML(review?.comment || "")}</textarea></label>
+      <button data-action="execution-review" data-index="${index}" data-operation="${escapeHTML(row.operation)}" data-at="${escapeHTML(row.at)}">Save review</button>
+    </details>`;
   }
 
   responseInspector(operation, execution=null) {
@@ -1069,11 +1090,12 @@ class AudiConnectV3Panel extends HTMLElement {
               <label>To (UTC) <input type="date" id="log-to" value="${escapeHTML(this.logTo)}"></label>
             </div>
             <p>Search includes retained masked requests and replies. HTTP outcome is not physical verification.</p>
-            ${this.step===4?this.executionRows(operations, records, family, selectedEntity).map(({record:r,detail})=>`<details class="record" open>
+            ${this.step===4?this.executionRows(operations, records, family, selectedEntity).map(({record:r,detail},index)=>`<details class="record" open>
               <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · <time datetime="${escapeHTML(r.at||"")}">${escapeHTML(this.localTime(r.at))}</time></summary>
               <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b></div>
               ${(operations.find(o=>o.operation===(r.template||r.operation))?.mappings||[]).map(m=>`<div class="subline"><button data-action="${m.capability==="vehicle_identity"?"open-identity":"open-capability"}" data-capability="${escapeHTML(m.capability)}">${escapeHTML(m.capability)}</button> · ${this.entityLinks(m.entity_ids)||escapeHTML(m.entity_key||"No published entity")} · <code>${escapeHTML(m.field||"")}</code></div>`).join("")}
               ${detail?this.responseInspector(r.operation,detail):`<h3>Restricted historical response</h3><pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre><p>Actual request and full response were not retained.</p>`}
+              ${this.executionReviewFields(r,index)}
             </details>`).join("")||'<p>No saved API results yet.</p>':""}
           </section>
           <p class="foot">Experimental mode. HTTP 200/202 confirms gateway acceptance, not vehicle action.
