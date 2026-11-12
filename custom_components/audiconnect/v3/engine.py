@@ -676,12 +676,13 @@ class V3Engine:
         return await self.commands.review_action(vin, sequence, outcome)
 
     async def add_route(self, vin: str, route: dict[str, Any]) -> str:
-        if route.get("aspect") == "status":
-            raise ValueError("Use an attribute read template")
-        profile = self.profiles[self.require_vehicle(vin).vin.lower()]
-        op = profile.add(route)
-        await self.storage.async_save(self.profiles)
-        return op
+        async with self.commands._actions:
+            if route.get("aspect") == "status":
+                raise ValueError("Use an attribute read template")
+            profile = self.profiles[self.require_vehicle(vin).vin.lower()]
+            op = profile.add(route)
+            await self.storage.async_save(self.profiles)
+            return op
 
 
     async def discard_unused_route(self, vin: str, operation: str) -> None:
@@ -693,14 +694,15 @@ class V3Engine:
 
     async def select_working(self, vin: str, aspect: str, operation: str, capability: str = "climate") -> None:
         """Admin activates a verified control; reads use attribute activation."""
-        if aspect == "status":
-            raise ValueError("Use attribute mapping activation for read routes")
-        car = self.require_vehicle(vin)
-        p = self.profiles[car.vin.lower()]
-        if not runtime_ready(p.custom.get(operation, {})):
-            raise DevelopmentProfileError("Dynamic parameters without semantic bindings remain test-only")
-        p.choose_working(capability, aspect, operation)
-        await self.storage.async_save(self.profiles)
+        async with self.commands._actions:
+            if aspect == "status":
+                raise ValueError("Use attribute mapping activation for read routes")
+            car = self.require_vehicle(vin)
+            p = self.profiles[car.vin.lower()]
+            if not runtime_ready(p.custom.get(operation, {})):
+                raise DevelopmentProfileError("Dynamic parameters without semantic bindings remain test-only")
+            p.choose_working(capability, aspect, operation)
+            await self.storage.async_save(self.profiles)
 
     def _refresh_event(self, vin: str, record) -> None:
         """Retain historical event IDs, never report an unconfirmed refresh as complete."""
@@ -826,19 +828,20 @@ class V3Engine:
         return self.status._record_attribute_response(car, profile, attribute, route, mappings, response, publish=publish)
 
     async def test_attribute_route(self, vin: str, attribute: str, route: str) -> dict[str, Any]:
-        car = self.require_vehicle(vin)
-        profile = self.profiles[car.vin.lower()]
-        family, path, mappings = self._attribute_request(car, profile, attribute, route)
-        if family != ("mbb" if car.context.auth == "legacy" else "cariad") and not (
-            family == "cariad" and car.legacy_cariad
-        ):
-            raise ValueError("Read route is not applicable to this vehicle API family")
-        response = await self.transport.request(family, "GET", path)
-        variant = get_read_variant(attribute, route, profile.attribute_custom, attributes_for(profile))
-        self._api_record(profile, variant["evidence_operation"], family, "GET", response, car.vin)
-        result = self._record_attribute_response(car, profile, attribute, route, mappings, response, publish=False)
-        await self.storage.async_save(self.profiles)
-        return result
+        async with self.commands._actions:
+            car = self.require_vehicle(vin)
+            profile = self.profiles[car.vin.lower()]
+            family, path, mappings = self._attribute_request(car, profile, attribute, route)
+            if family != ("mbb" if car.context.auth == "legacy" else "cariad") and not (
+                family == "cariad" and car.legacy_cariad
+            ):
+                raise ValueError("Read route is not applicable to this vehicle API family")
+            response = await self.transport.request(family, "GET", path)
+            variant = get_read_variant(attribute, route, profile.attribute_custom, attributes_for(profile))
+            self._api_record(profile, variant["evidence_operation"], family, "GET", response, car.vin)
+            result = self._record_attribute_response(car, profile, attribute, route, mappings, response, publish=False)
+            await self.storage.async_save(self.profiles)
+            return result
 
     async def save_attribute_candidate(self, vin: str, attribute: str, route: str) -> None:
         car = self.require_vehicle(vin)
