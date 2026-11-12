@@ -39,3 +39,7 @@ candidates, not verified native bearer routes or active capabilities.
 
 No raw capture, identity values, URLs containing identifiers, tokens, cookies,
 CSRF values or personal data are included in this repository.
+
+## Current development — reviewed identity adoption
+
+The existing Workbench identity test endpoint now has an explicit adoption path for fresh, same-VIN, same-market OEM model evidence from a reviewed fixed query or garage operation. Edited experimental queries remain non-activating. Adoption uses existing context reconciliation and the private identity cache, not a new authentication or fallback mechanism. It is not proof that any alternative returns valid model data on a new real installation. Validate the fixed webOrdered and garage results with fresh target diagnostics before promoting a source to automatic discovery. No browser token or cookie reuse. Identity remains a release blocker.
