@@ -198,10 +198,17 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
     path = "vehicleLights.lightsStatus.value"
     lights = read_json_path(payload, path)
     if isinstance(lights, dict) and isinstance(lights.get("lights"), list):
-        states = [x.get("status") for x in lights["lights"] if isinstance(x, dict)]
-        if states and all(x in ("on", "off") for x in states):
-            record("parking_light", "on" in states, lights.get("carCapturedTimestamp"),
+        # Explicit component identity is mandatory; headlights are not parking lights.
+        # Unknown or conflicting evidence cannot imply OFF.
+        states = [x.get("status") for x in lights["lights"] if isinstance(x, dict)
+                  and x.get("name") in ("parkingLight", "parkingLights")]
+        if states and all(x in ("on", "off") for x in states) and len(set(states)) == 1:
+            record("parking_light", states[0] == "on", lights.get("carCapturedTimestamp"),
                    "vehicleLights", path)
+        else:
+            from .attribute_runtime import record_invalid_observation
+            record_invalid_observation(car, "parking_light", lights.get("carCapturedTimestamp"),
+                                       observed_at, path, "vehicleLights", "unknown_parking_light_state")
     oil = read_json_path(payload, "oilLevel.oilLevelStatus.value")
     if isinstance(oil, dict) and type(oil.get("value")) is bool:
         record("oil_level_binary", not oil["value"], oil.get("carCapturedTimestamp"),
@@ -251,9 +258,10 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 car.readings.pop(ident, None)
             if active and active["preferredChargingTimes"]:
                 times = active["preferredChargingTimes"]
-                window = next((x for x in times if x.get("enabled") is True), times[0])
-                record("preferred_charging_time_start", window.get("startTimeLocal"), captured, "chargingProfiles", path)
-                record("preferred_charging_time_end", window.get("endTimeLocal"), captured, "chargingProfiles", path)
+                window = next((x for x in times if x.get("enabled") is True), None)
+                if window is not None:
+                    record("preferred_charging_time_start", window.get("startTimeLocal"), captured, "chargingProfiles", path)
+                    record("preferred_charging_time_end", window.get("endTimeLocal"), captured, "chargingProfiles", path)
 
     for job, count in (("chargingTimers", "charging_timer_enabled_count"),
                        ("climatisationTimers", "climatisation_timer_enabled_count")):
