@@ -617,3 +617,22 @@ test("Expert mode tests selected action out of order and opens failed route for 
   assert.equal(JSON.parse(p.initialControlRoute).path,"/vehicle/v1/vehicles/{VIN}/charging/stop");
   assert.notEqual(JSON.parse(p.initialControlRoute).id,second.operation);
 });
+
+
+test("End-user validation includes real native entity state and refreshes only from local diagnostics", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";p.step=5;p._loaded=true;
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  p.capabilityStatus={rows:[],end_user_progress:{controls:[]},entity_links:[
+    {contract_key:"sensor.discovery_coverage",entity_ids:["sensor.audi_discovery"],operations:[],capabilities:[],attributes:[]},
+    {contract_key:"sensor.state_of_charge",entity_ids:["sensor.audi_soc"],operations:[],capabilities:["charging"],attributes:[]}
+  ]};
+  const states={"sensor.audi_discovery":{state:"80"},"sensor.audi_soc":{state:"65"}};
+  p._hass={states};p.render();
+  assert.match(p.shadowRoot.innerHTML,/2 entities with an available HA state/);
+  assert.match(p.shadowRoot.innerHTML,/sensor.audi_soc/);
+  const calls=[];p.api=async(name)=>{calls.push(name);return p.capabilityStatus;};
+  p.hass={states:{...states,"sensor.other":{state:"on"}}};assert.equal(calls.length,0);
+  p.hass={states:{...states,"sensor.audi_discovery":{state:"100"}}};
+  await Promise.resolve();await Promise.resolve();
+  assert.deepEqual(calls,["status"]);
+});
