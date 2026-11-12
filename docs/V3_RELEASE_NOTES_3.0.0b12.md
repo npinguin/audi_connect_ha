@@ -16,3 +16,7 @@ Experimental HACS test only. Publication requires exact-SHA validation. V2 remai
 Back up HA, select b12 in HACS and restart. Confirm native climate on/off and setpoint, actual readback, clean entity names, registry identity and retained automations. Check request and response inspection, full read-only discovery and updated diagnostics. Hidden aliases may appear in HA administrative views with HA's own Hidden marker.
 
 Open: charging and window heating native switches pending status evidence, model identity, timer and health mapping, remaining legacy routes, physical Q8/ICE/BEV acceptance and rollback validation. No claim of stable readiness.
+
+## Release candidate correction
+
+The first unpublished candidate passed 849 tests but failed three release metadata checks: stale manifest blob in the V2 delta register and two b11-specific test expectations. The corrected candidate derives test expectations from the active manifest and validates the matching authorization, notes, package and exact-parent guard. No test gate is bypassed and no existing tag is replaced.

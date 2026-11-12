@@ -107,3 +107,5 @@ One product contract per entity; metadata references resolve from the owning cat
 Observed job freshness must not be masked by a newer unrelated capture. Age retains the newest-capture meaning for compatibility; freshness is conservative across observed jobs, not proof of unobserved coverage. Response field samples must report truncation; timestamp metadata must not be reported as a missing functional entity.
 
 Capability job ownership is derived from the existing historical inventory (not a second UI mapping). Diagnostics include all catalog capabilities and safe built-in operation/command evidence; live eligibility is distinct from physical proof, custom names are masked, and no raw request/response history is exported.
+
+Release metadata regression tests derive the active beta version from the manifest and independently check the matching authorization, notes, package/checksum names, workflow intent and exact-parent guard. Do not hardcode a prior beta in reusable tests. Keep the V2 delta blob register synchronized with the actual manifest; its exact comparison remains mandatory.

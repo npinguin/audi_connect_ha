@@ -21,3 +21,5 @@ This documentation is **research**, not an active deployment or a manufacturer-e
 - [b10 release notes](V3_RELEASE_NOTES_3.0.0b10.md) — authorized experimental HACS test; stable gate remains closed.
 
 - [b11 release notes](V3_RELEASE_NOTES_3.0.0b11.md) — experimental HACS test, exact-SHA validation required.
+
+- [b12 release notes](V3_RELEASE_NOTES_3.0.0b12.md) — experimental HACS test, exact-SHA validation required.

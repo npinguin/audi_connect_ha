@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,13 +11,28 @@ AUDI = ROOT / "custom_components" / "audiconnect"
 V3 = AUDI / "v3"
 
 
+def current_beta():
+    version = json.loads((AUDI / "manifest.json").read_text())["version"]
+    match = re.fullmatch(r"3\.0\.0b([1-9][0-9]*)", version)
+    assert match, f"Unexpected experimental version: {version}"
+    return version, ROOT / f"governance/B{match.group(1)}_EXPERIMENTAL_TEST_RELEASE.json"
+
+
 def test_beta_manifest_version_and_hacs_metadata_are_consistent():
     manifest = json.loads((AUDI / "manifest.json").read_text())
     hacs = json.loads((ROOT / "hacs.json").read_text())
-    notes = (ROOT / "docs/V3_RELEASE_NOTES_3.0.0b11.md").read_text()
+    version, _ = current_beta()
+    notes = (ROOT / f"docs/V3_RELEASE_NOTES_{version}.md").read_text()
+    workflow = (ROOT / ".github/workflows/v3-beta-release.yml").read_text()
+    readme = (ROOT / "readme.md").read_text()
     assert manifest["domain"] == "audiconnect"  # no second config entry
-    assert manifest["version"] == "3.0.0b11"
-    assert "3.0.0b11" in notes
+    assert manifest["version"] == version
+    assert f"# Audi Connect {version}" in notes
+    assert version in readme
+    assert f'expected = "{version}"' in workflow
+    assert f"audi_connect_v3_{version}.zip" in workflow
+    assert f"SHA256SUMS_V3_{version}.txt" in workflow
+    assert f"--notes-file docs/V3_RELEASE_NOTES_{version}.md" in workflow
     assert hacs["homeassistant"] == "2026.7.0"
     assert "npinguin/audi_connect_ha" in manifest["documentation"]
     assert manifest["issue_tracker"].endswith("npinguin/audi_connect_ha/issues")
@@ -95,18 +111,25 @@ def test_workbench_capability_coverage_and_draft_storage_contract():
     assert '"draft_selected": dict(self.draft_selected)' in model
 
 
-def test_b11_experimental_authorization_does_not_change_release_gates():
-    authorization = json.loads((ROOT / "governance/B11_EXPERIMENTAL_TEST_RELEASE.json").read_text())
+def test_experimental_authorization_does_not_change_release_gates():
+    version, authorization_path = current_beta()
+    authorization = json.loads(authorization_path.read_text())
     gate = json.loads((ROOT / "docs/V2_V3_PARITY_BASELINE.json").read_text())["release_gate"]
     workflow = (ROOT / ".github/workflows/v3-beta-release.yml").read_text()
-    assert authorization["version"] == "3.0.0b11"
+    assert authorization["version"] == version
+    assert authorization["normal_release_gates_unchanged"] is True
+    assert authorization["release_intent"] == f"release(test): publish {version} HACS prerelease"
+    assert re.fullmatch(r"[0-9a-f]{40}", authorization["base_commit"])
+    assert authorization_path.relative_to(ROOT).as_posix() in workflow
+    assert f'assert authorization["base_commit"] == "{authorization["base_commit"]}"' in workflow
+    assert f'test "$(git rev-parse HEAD^)" = "{authorization["base_commit"]}"' in workflow
     assert authorization["classification"] == "experimental_hacs_test_only"
     assert authorization["stable_promotion_allowed"] is False
     assert authorization["static_parity_claimed"] is False
     assert gate["v3_static_parity_proven"] is False
     assert gate["test_release_code_complete"] is False
     assert gate["full_release_allowed"] is False
-    assert "github.event.head_commit.message == 'release(test): publish 3.0.0b11 HACS prerelease'" in workflow
+    assert f"github.event.head_commit.message == '{authorization['release_intent']}'" in workflow
     assert "publish-code-complete-test" in workflow
     assert "--prerelease --latest=false" in workflow
     assert "needs: verify" in workflow

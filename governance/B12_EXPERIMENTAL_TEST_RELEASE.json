@@ -4,7 +4,7 @@
   "classification": "experimental_hacs_test_only",
   "authorized_by": "explicit maintainer request for a HACS test release",
   "date": "2026-11-12",
-  "base_commit": "e36b8c2e9e3606b082559880adb5d34364029c55",
+  "base_commit": "947db85e09f3608cc13cf064581618fd7d59ae90",
   "branch": "feature/v3-clean-discovery",
   "release_intent": "release(test): publish 3.0.0b12 HACS prerelease",
   "static_parity_claimed": false,
