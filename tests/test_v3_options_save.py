@@ -92,17 +92,19 @@ def test_form_can_render_v3_workbench_option_when_mode_is_v3():
 
 @pytest.mark.asyncio
 async def test_user_discovery_never_dispatches_without_exact_single_action_consent(monkeypatch):
-    from custom_components.audiconnect.v3 import read_discovery
     from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3 import read_discovery
+
     flow = OptionsFlowHandler()
-    car = SimpleNamespace(vin="WAUZZZ4M0MD123456", name="Test car")
+    car = SimpleNamespace(vin="WAUZZZ4M0MD123456", name="Synthetic test car")
     profile = SimpleNamespace(discovery=SimpleNamespace(_active=None), last_command=None)
     engine = SimpleNamespace(approved_control_discovery=AsyncMock(return_value={"sequence": 1}))
     flow._discovery_context = lambda: (engine, car, profile)
-    flow._discovery_action = "access.unlock"
-    original = ("Unlock vehicle", "access", "unlock", "cariad.access.unlock", "spin")
+    flow._discovery_action = "climate.start"
+    route = "cariad.climate.start.stored"
+    original = ("Start cabin climate", "climate", "start", route, "non_spin")
     flow._discovery_candidate = original
-    monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {"access.unlock": original})
+    monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {"climate.start": original})
     flow.async_step_discovery = AsyncMock(return_value={"step_id": "discovery"})
     flow.async_step_discovery_review = AsyncMock(return_value={"step_id": "review"})
     result = await flow.async_step_discovery_consent({"accept": False})
@@ -110,16 +112,16 @@ async def test_user_discovery_never_dispatches_without_exact_single_action_conse
     engine.approved_control_discovery.assert_not_awaited()
     flow._discovery_candidate = original
     monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {
-        "access.unlock": ("Unlock vehicle", "access", "unlock", "another.route", "spin")})
+        "climate.start": ("Start cabin climate", "climate", "start", "another.route", "non_spin")})
     result = await flow.async_step_discovery_consent({"accept": True})
     assert result["step_id"] == "discovery"
     engine.approved_control_discovery.assert_not_awaited()
     flow._discovery_candidate = original
-    monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {"access.unlock": original})
+    monkeypatch.setattr(read_discovery, "user_test_candidates", lambda *args: {"climate.start": original})
     result = await flow.async_step_discovery_consent({"accept": True})
     assert result["step_id"] == "review"
     engine.approved_control_discovery.assert_awaited_once_with(
-        car.vin, "unlock", "cariad.access.unlock", approval="spin", capability="access")
+        car.vin, "start", route, approval="non_spin", capability="climate", guided=True)
     assert flow._discovery_candidate is None
     await flow.async_step_discovery_consent({"accept": True})
     assert engine.approved_control_discovery.await_count == 1
