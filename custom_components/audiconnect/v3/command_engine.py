@@ -226,18 +226,28 @@ class CommandEngine:
             from .control_resolution import reviewed_alternative
             car = self.require_vehicle(vin)
             context = car.context
+            profile = self.profiles[vin.lower()]
+            alternative = reviewed_alternative(capability, aspect, operation) if guided else None
+            if alternative and (alternative in profile.custom or alternative not in profile.registry.resolve(
+                    capability, aspect, context)["available_operations"] or
+                    approval_group(capability, aspect, profile.registry.operations[alternative]) != approval):
+                alternative = None
+            revision = operation_revision(profile.registry.operations[alternative]) if alternative else None
             result = await self._test_action_once(vin, aspect, operation, params=params,
                 capability=capability, guided=guided, expert=expert, approval=approval)
-            alternative = reviewed_alternative(capability, aspect, operation) if guided else None
             if not alternative or result["physical_result"] != "rejected":
                 return result
             profile = self.profiles[vin.lower()]
             # Respect the same per-vehicle cooldown; no detached background work.
             delay = profile.discovery.history[-1].started_at + profile.discovery.cooldown_seconds - time.time()
+            if delay > 15:
+                return {**result, "alternative": "paused_cooldown"}
             if delay > 0:
                 await asyncio.sleep(delay)
             remaining = getattr(self.transport, "remaining_calls", None)
-            if car.context != context or (remaining is not None and remaining <= 12):
+            if (car.context != context or self.profiles.get(vin.lower()) is not profile
+                    or operation_revision(profile.registry.operations[alternative]) != revision
+                    or (remaining is not None and remaining <= 12)):
                 return {**result, "alternative": "paused_context_or_quota"}
             from .read_discovery import user_test_candidates
             candidate = user_test_candidates(self, car, profile, include_verified=expert).get(f"{capability}.{aspect}")
@@ -247,6 +257,8 @@ class CommandEngine:
                 next_result = await self._test_action_once(vin, aspect, alternative, params=params,
                     capability=capability, guided=True, expert=expert, approval=approval)
             except (ValueError, RuntimeError, OSError, TimeoutError):
+                if profile.discovery._active is not None:
+                    raise  # The alternate may have been dispatched; preserve pending uncertainty.
                 return {**result, "alternative": "paused_check_status"}
             return {**next_result, "previous_attempt": {"operation": operation,
                         "sequence": result["sequence"], "status": result["status"], "result": "rejected"}}
