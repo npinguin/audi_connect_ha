@@ -140,21 +140,21 @@
       },
       "discovery": {
         "title": "Vehicle discovery",
-        "description": "{vehicle}: read assessment {read}% ({assessed}/{total}); physically verified controls {verified}/{controls} catalog candidates. Read assessment is not proof of vehicle support. Refresh is read-only. Choose a single physical test or finish.",
+        "description": "{vehicle}: read assessment {read}% ({assessed}/{total}); physically verified controls {verified}/{controls} catalog candidates. Read assessment is not proof of vehicle support. Refresh is read-only. No remaining eligible tests in this session. Finish or refresh read discovery.",
         "data": {
           "action": "Next action"
         }
       },
       "discovery_consent": {
-        "title": "Accept physical vehicle action",
+        "title": "Discover vehicle function?",
         "description": "{vehicle} — {action}. This will send one real command to the vehicle and may unlock or lock doors, change charging or climate operation, or flash lights. Ensure the vehicle is safely parked, you are authorized and present, nobody is endangered, and you can inspect and restore its state. No automatic retries or subsequent actions.",
         "data": {
-          "accept": "I explicitly accept this specific action and its risks"
+          "accept": "Yes — test this action now (unchecked = No / skip)"
         }
       },
       "discovery_review": {
-        "title": "Confirm physical result",
-        "description": "{vehicle}: {action}. Transport result: {transport}. Check the actual vehicle, not merely its cloud response. If uncertain, leave the result pending; other physical tests are blocked.",
+        "title": "Did it work?",
+        "description": "{vehicle}: {action}. Transport result: {transport}. Check the actual vehicle, not just its cloud response. OK saves the working route. Not OK records failure. Not sure leaves the action pending; no additional physical test is sent.",
         "data": {
           "outcome": "Observed outcome"
         }
