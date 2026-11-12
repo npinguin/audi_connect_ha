@@ -72,6 +72,7 @@ def _timer(row):
         result.update(_compact({
             "start_datetime_local": _local_datetime(single.get("startDateTimeLocal")),
             "target_datetime_local": _local_datetime(single.get("targetDateTimeLocal")),
+            "departure_datetime_local": _local_datetime(single.get("departureDateTimeLocal")),
             "start_datetime": _zoned_datetime(single.get("startDateTime")),
             "target_datetime": _zoned_datetime(single.get("targetDateTime")),
         }))
@@ -132,6 +133,23 @@ def _service(row):
                      "status": _tokens(status) if isinstance(status, list) else _token(status)})
 
 
+def _warning(row):
+    """Known Audi warning/campaign fields, no embedded SVG or personal IDs."""
+    if not isinstance(row, dict):
+        return None
+    return _compact({
+        "message_id": _token(row.get("messageId")),
+        "event_id": _token(row.get("eventId")),
+        "category": _token(row.get("category")),
+        "priority": _token(row.get("priority")),
+        "icon_color": _token(row.get("iconColor")),
+        "type": _token(row.get("type")),
+        "occurred_at": _zoned_datetime(row.get("timeOfOccurrence")),
+        "online_update_relevance": _token(row.get("oruRelevant")),
+        "text": row["text"][:300] if isinstance(row.get("text"), str) else None,
+    }) or None
+
+
 def _request_status(row):
     """Observed OEM command metadata; never imply physical success or replay."""
     if not isinstance(row, dict):
@@ -183,9 +201,32 @@ def observe_structured(vehicle, payload, observed_at, accepts):
     warnings_path = "vehicleHealthWarnings.warningLights.value"
     warnings = read_json_path(payload, warnings_path)
     if isinstance(warnings, dict):
+        lights = _array(warnings.get("warningLights"), _warning, 50)
+        campaigns = _array(warnings.get("campaigns"), _warning, 50)
         put("health_warning_evidence_detail", {"envelope_present": True,
-            "warning_state": "unknown", "empty_envelope": not bool(warnings)},
+            "warning_state": "reported" if lights and lights["normalized_count"] else "unknown",
+            "empty_envelope": not bool(warnings),
+            "warnings": lights, "campaigns": campaigns,
+            "mileage_km": warnings["mileage_km"] if type(warnings.get("mileage_km")) in (int, float)
+                and 0 <= warnings["mileage_km"] <= 2000000 else None},
             warnings.get("carCapturedTimestamp"), warnings_path)
+    readiness_path = "readiness.readinessStatus.value"
+    readiness = read_json_path(payload, readiness_path)
+    if isinstance(readiness, dict):
+        connection = readiness.get("connectionState")
+        warning = readiness.get("connectionWarning")
+        data = {}
+        if isinstance(connection, dict):
+            data.update(_compact({"online": _boolean(connection.get("isOnline")),
+                "active": _boolean(connection.get("isActive")),
+                "battery_power_level": _token(connection.get("batteryPowerLevel")),
+                "daily_power_budget_available": _boolean(connection.get("dailyPowerBudgetAvailable"))}))
+        if isinstance(warning, dict):
+            data.update(_compact({
+                "insufficient_battery_warning": _boolean(warning.get("insufficientBatteryLevelWarning")),
+                "daily_power_budget_warning": _boolean(warning.get("dailyPowerBudgetWarning"))}))
+        if data:
+            put("readiness_detail", data, readiness.get("carCapturedTimestamp"), readiness_path)
     for care_path in ("batteryChargingCare.chargingCareSettings.value",
                       "charging.chargingCareSettings.value"):
         care = read_json_path(payload, care_path)
