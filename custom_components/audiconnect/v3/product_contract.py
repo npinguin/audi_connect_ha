@@ -56,11 +56,12 @@ def projection_reading(vehicle, attribute):
     ident = attribute["id"]
     canonical = ALIAS_OF.get(ident, ident)
     sources = [canonical, *sorted(a for a, target in ALIAS_OF.items() if target == canonical)]
-    if attribute["entity_key"] == "range":
+    key = attribute.get("entity_key") or ATTRIBUTES.get(canonical, {}).get("entity_key")
+    if key == "range":
         sources.append("hybridRange")
-    if attribute["entity_key"] == "state_of_charge":
+    if key == "state_of_charge":
         sources.extend(electric_soc_sources(vehicle))
-    if attribute["entity_key"] == "tank_level":
+    if key == "tank_level":
         sources.extend(("fuelLevelFromEngine",))
     valid = [(a, vehicle.readings[a]) for a in sources
              if a in vehicle.readings and (vehicle.readings[a].get("value") is not None
