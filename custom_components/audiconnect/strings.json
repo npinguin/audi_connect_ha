@@ -147,7 +147,7 @@
       },
       "discovery_consent": {
         "title": "Discover vehicle function?",
-        "description": "{vehicle} — {action}. This will send one real command to the vehicle and may unlock or lock doors, change charging or climate operation, or flash lights. Ensure the vehicle is safely parked, you are authorized and present, nobody is endangered, and you can inspect and restore its state. No automatic retries or subsequent actions.",
+        "description": "{vehicle} — {action}. This authorizes this specific physical action on the vehicle and may unlock or lock doors, change charging or climate operation, or flash lights. Ensure the vehicle is safely parked, you are authorized and present, nobody is endangered, and you can inspect and restore its state. Only a definitively rejected command may use one reviewed equivalent route. No automatic repeat after uncertainty and no other action.",
         "data": {
           "accept": "Yes — test this action now (unchecked = No / skip)"
         }
