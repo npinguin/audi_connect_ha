@@ -394,21 +394,22 @@ class DevelopmentProfile:
         return self.discovery.candidates(capability, action)
 
     def track_command(self, record: CommandRecord) -> None:
-        """One bounded journal for both origins; last_command is a compatibility pointer."""
-        self.command_journal.append(record)
-        if record.origin == "home_assistant":
-            self.last_command = record
+        """One bounded journal for both origins; failed insertion is atomic."""
+        latest = record if record.origin == "home_assistant" else self.last_command
+        rows = [*self.command_journal, record]
         # Keep security review and active engineering attempts; routine errors are bounded history.
-        while len(self.command_journal) > HISTORY_LIMIT:
+        while len(rows) > HISTORY_LIMIT:
             active = self.discovery._active
-            index = next((i for i, row in enumerate(self.command_journal)
+            index = next((i for i, row in enumerate(rows)
                           if not (row.origin == "home_assistant" and row.requires_review)
                           and not (active is not None and row.origin == "workbench"
                                    and row.engineering_sequence == active.sequence)
-                          and row is not self.last_command), None)
+                          and row is not latest and row is not record), None)
             if index is None:
                 raise DevelopmentProfileError("Command journal full of unresolved commands")
-            self.command_journal.pop(index)
+            rows.pop(index)
+        self.command_journal[:] = rows
+        self.last_command = latest
 
     def engineering_record(self, sequence: int) -> CommandRecord | None:
         return next((record for record in reversed(self.command_journal)
