@@ -61,12 +61,10 @@ def explicitly_unsupported(payload):
 def record_jobs(profile: Any, requested: tuple[str, ...], *,
                 status: int, payload: Any) -> None:
     """Store only response-presence evidence, never raw Audi response content."""
-    if not getattr(profile, "job_discovery", None) or isinstance(profile.job_discovery, dict):
-        pass
     for job in requested:
         if job not in _JOBS:
             continue
-        if status in (401, 403, 429) or status >= 500 or not isinstance(payload, dict):
+        if not 200 <= status < 300 or not isinstance(payload, dict):
             # Temporary cloud/auth errors do not mean unsupported.
             if profile.job_discovery.get(job) not in ("observed", "unsupported"):
                 profile.job_discovery[job] = "inconclusive"
@@ -96,14 +94,15 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
                 stack.extend(item.values())
             elif isinstance(item, list):
                 stack.extend(item[:16])
-        if found or any(item["job"] == job for item in profile.attribute_evidence.values()):
+        if found or (profile.job_discovery.get(job) != "unsupported" and any(
+                item.get("job") == job for item in profile.attribute_evidence.values())):
             profile.job_discovery[job] = "observed"
         elif profile.job_discovery.get(job) not in ("observed", "unsupported"):
             profile.job_discovery[job] = "not_observed"
 
 
 def pending_groups(profile: Any, *, max_groups: int) -> list[tuple[str, ...]]:
-    """Fair, finite probe plan; each job is targeted at most once automatically."""
+    """One supplementary targeted probe per job; unknown jobs remain in the regular batch."""
     groups = []
     for group in PROBE_GROUPS:
         pending = tuple(job for job in group
@@ -193,7 +192,7 @@ STANDALONE_READS = frozenset(
 
 
 def record_standalone_read(profile, operation, status, payload=None):
-    """Persist assessment, not values; a transient error cannot erase coverage."""
+    """Persist assessment and explicit route exclusions; a temporary error cannot erase coverage."""
     if operation not in STANDALONE_READS or not hasattr(profile, "standalone_discovery"):
         return
     unsupported = getattr(profile, "unsupported_reads", None)
