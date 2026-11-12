@@ -53,8 +53,21 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
                 profile.job_discovery[job] = "inconclusive"
             continue
         top = payload.get(job)
-        found = (top is not None and top != {} and top != [] and
-                 not (isinstance(top, Mapping) and "error" in top))
+        found = False
+        stack = [top]
+        budget = 64
+        while stack and budget:
+            budget -= 1
+            item = stack.pop()
+            if isinstance(item, Mapping):
+                if item.get("error") is not None:
+                    continue
+                if "value" in item and item["value"] not in (None, {}, []):
+                    found = True
+                    break
+                stack.extend(item.values())
+            elif isinstance(item, list):
+                stack.extend(item[:16])
         if found or any(item["job"] == job for item in profile.attribute_evidence.values()):
             profile.job_discovery[job] = "observed"
         elif profile.job_discovery.get(job) != "observed":

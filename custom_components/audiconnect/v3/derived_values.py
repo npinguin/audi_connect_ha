@@ -23,6 +23,79 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         # Derived observations need no extra API route; HA setup can see them
         # directly while the original batch job remains in the polling plan.
 
+    # Derive native access booleans from explicit status enums, not from
+    # absence of a "closed" token (unknown must never mean open/unlocked).
+    path = "access.accessStatus.value"
+    block = read_json_path(payload, path)
+    if isinstance(block, dict):
+        captured = block.get("carCapturedTimestamp")
+        names = {"frontLeft": "left_front", "frontRight": "right_front",
+                 "rearLeft": "left_rear", "rearRight": "right_rear"}
+        opened, unlocked, windows = [], [], []
+        for row in block.get("doors", []) if isinstance(block.get("doors"), list) else []:
+            if not isinstance(row, dict):
+                continue
+            name, states = row.get("name"), row.get("status")
+            if not isinstance(states, list) or "unsupported" in states:
+                continue
+            open_state = True if "open" in states else False if "closed" in states else None
+            lock_state = True if "unlocked" in states else False if "locked" in states else None
+            if name in names:
+                record(names[name] + "_door_open", open_state, captured, "access", path)
+                opened.append(open_state)
+                unlocked.append(lock_state)
+            elif name == "trunk":
+                record("trunk_open", open_state, captured, "access", path)
+                record("trunk_unlocked", lock_state, captured, "access", path)
+                opened.append(open_state)
+                unlocked.append(lock_state)
+            elif name == "bonnet":
+                record("hood_open", open_state, captured, "access", path)
+        # Positive is conclusive even if other components are not present.
+        # Negative requires complete, known evidence; no fabricated safe state.
+        for key, values in (("any_door_open", opened), ("any_door_unlocked", unlocked)):
+            value = True if True in values else False if len(values) >= 3 and all(x is False for x in values) else None
+            record(key, value, captured, "access", path)
+        if True in opened:
+            record("doors_trunk_status", "Open", captured, "access", path)
+        elif opened and all(x is False for x in opened):
+            lock = block.get("doorLockStatus")
+            if lock in ("locked", "unlocked"):
+                record("doors_trunk_status", "Locked" if lock == "locked" else "Closed", captured, "access", path)
+        for row in block.get("windows", []) if isinstance(block.get("windows"), list) else []:
+            if not isinstance(row, dict):
+                continue
+            name, states = row.get("name"), row.get("status")
+            if not isinstance(states, list) or "unsupported" in states:
+                continue
+            state = True if "open" in states else False if "closed" in states else None
+            key = (names[name] + "_window_open" if name in names else
+                   {"sunRoof": "sun_roof", "roofCover": "roof_cover"}.get(name))
+            if key:
+                record(key, state, captured, "access", path)
+                windows.append(state)
+        record("any_window_open", True if True in windows else
+               False if len(windows) >= 4 and all(x is False for x in windows) else None,
+               captured, "access", path)
+    path = "vehicleLights.lightsStatus.value"
+    lights = read_json_path(payload, path)
+    if isinstance(lights, dict) and isinstance(lights.get("lights"), list):
+        states = [x.get("status") for x in lights["lights"] if isinstance(x, dict)]
+        if states and all(x in ("on", "off") for x in states):
+            record("parking_light", "on" in states, lights.get("carCapturedTimestamp"),
+                   "vehicleLights", path)
+    oil = read_json_path(payload, "oilLevel.oilLevelStatus.value")
+    if isinstance(oil, dict) and type(oil.get("value")) is bool:
+        record("oil_level_binary", not oil["value"], oil.get("carCapturedTimestamp"),
+               "oilLevel", "oilLevel.oilLevelStatus.value")
+    # The preference block may lack a timestamp. Borrow ONLY the sibling
+    # charging status clock from this response, matching the historical source.
+    mode = read_json_path(payload, "charging.chargeMode.value")
+    charge = read_json_path(payload, "charging.chargingStatus.value")
+    if isinstance(mode, dict) and isinstance(charge, dict):
+        captured = mode.get("carCapturedTimestamp") or charge.get("carCapturedTimestamp")
+        for key in ("preferredChargeMode", "availableChargeModes"):
+            record(key, mode.get(key), captured, "charging", "charging.chargeMode.value")
     path = "chargingProfiles.chargingProfilesStatus.value"
     block = read_json_path(payload, path)
     if isinstance(block, dict) and isinstance(block.get("profiles"), list):

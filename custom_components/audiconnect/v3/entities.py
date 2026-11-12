@@ -195,7 +195,8 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
         if self.kind == "cloud":
             return self.coordinator.engine.last_cloud_poll_success
         if self.kind == "age":
-            return self.vehicle.capture_age_minutes
+            ages = [_reading_age_minutes(x.get("captured")) for x in self.vehicle.readings.values()]
+            return min((x for x in ages if x is not None), default=None)
         if self.kind == "poll":
             return "online" if self.coordinator.last_update_success else "failed"
         if self.vehicle.climate_state is None:
@@ -304,6 +305,11 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
     def native_value(self):
         reading = self.vehicle.readings.get(self.attribute["id"])
         value = reading.get("value") if reading else None
+        if self.device_class == SensorDeviceClass.TIMESTAMP:
+            from .attribute_runtime import _capture_in_utc
+            return _capture_in_utc(value)
+        if self.attribute["id"] in ("vehicleReportedOnline", "vehicleReportedActive") and type(value) is bool:
+            return ("online" if value else "offline") if self.attribute["id"] == "vehicleReportedOnline" else ("active" if value else "inactive")
         return value if isinstance(value, (str, int, float, bool)) else None
 
     @property

@@ -293,6 +293,12 @@ class V3Engine:
             if chosen in routes:
                 routes.remove(chosen)
                 routes.insert(0, chosen)
+            # A selected targeted climate route must never starve the common
+            # vehicle batch. The shared GET is always first in the full V3 runtime.
+            batch = "cariad.climate.status.batch"
+            if len(profile.registry.capabilities) > 1 and batch in routes:
+                routes.remove(batch)
+                routes.insert(0, batch)
             attempted_paths: set[str] = set()
             attempted_operations: set[str] = set()
             # Bounded GET discovery, no auto wake and no repeated duplicate URL.
@@ -360,8 +366,12 @@ class V3Engine:
                         schema_valid=True, fresh=fresh,
                     )
                     if fresh:
-                        profile.choose_working("climate", "status", ident)
-                        break
+                        if chosen is None or chosen == ident or chosen not in routes:
+                            profile.choose_working("climate", "status", ident)
+                        if ident != "cariad.climate.status.batch" or chosen in (None, ident) or len(profile.registry.capabilities) <= 1:
+                            break
+                        # The selected alternate still gets its own bounded read.
+                        continue
                     # A stale value can lead to another distinct bounded GET.
                     continue
                 profile.record_status(
@@ -436,6 +446,26 @@ class V3Engine:
             await self._poll_parked_positions()
         if cloud_reachable:
             self.last_cloud_poll_success = datetime.now(UTC)
+        for car in self.vehicles.values():
+            captures = [
+                x.get("captured") for x in car.readings.values()
+                if isinstance(x.get("captured"), str)
+            ]
+            from .attribute_runtime import _capture_in_utc
+            valid = [x for x in (_capture_in_utc(v) for v in captures) if x is not None]
+            for ident, value, stamp in (
+                ("last_update_time", max(valid).isoformat() if valid else None,
+                 max(valid).isoformat() if valid else None),
+                ("model", car.model or None, None),
+            ):
+                if value is not None:
+                    car.readings[ident] = {
+                        "value": value, "captured": stamp,
+                        "observed": datetime.now(UTC).isoformat(),
+                        "status": "readable_but_stale", "family": "cariad",
+                        "path": "vehicle_capture" if ident == "last_update_time" else "graphql.vehicle.media",
+                        "job": None,
+                    }
         # One local write per scheduled discovery cycle; keep learned routes
         # and evidence across HA restarts without touching integration options.
         await self.storage.async_save(self.profiles)
@@ -481,6 +511,16 @@ class V3Engine:
             point = parse_parked_position(reply.data)
             if point and keep_newest_position(car.position, point):
                 car.position = point
+                stamp = point.get("timestamp")
+                if stamp:
+                    for ident in ("position_last_updated", "park_time"):
+                        car.readings[ident] = {
+                            "value": stamp, "captured": stamp,
+                            "observed": reply.observed_at.isoformat(),
+                            "status": "readable_but_stale", "family": "cariad",
+                            "path": "parkingposition.data.carCapturedTimestamp",
+                            "job": None,
+                        }
 
     def require_vehicle(self, vin: str) -> V3Vehicle:
         vehicle = self.vehicles.get(vin.lower())

@@ -6,7 +6,7 @@
       "name": "Range",
       "unit": "km",
       "device_class": "distance",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": 0,
       "category": null,
       "display_last_known": true
@@ -15,7 +15,7 @@
       "name": "Tank level",
       "unit": "%",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -33,7 +33,7 @@
       "name": "Service inspection time",
       "unit": "d",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -42,7 +42,7 @@
       "name": "Service inspection distance",
       "unit": "km",
       "device_class": "distance",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": 0,
       "category": null,
       "display_last_known": true
@@ -51,7 +51,7 @@
       "name": "Oil change time",
       "unit": "d",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -60,7 +60,7 @@
       "name": "Oil change distance",
       "unit": "km",
       "device_class": "distance",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": 0,
       "category": null,
       "display_last_known": true
@@ -69,7 +69,7 @@
       "name": "Oil level",
       "unit": "%",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -78,7 +78,7 @@
       "name": "AdBlue range",
       "unit": "km",
       "device_class": "distance",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": 0,
       "category": null,
       "display_last_known": true
@@ -123,7 +123,7 @@
       "name": "Primary engine range",
       "unit": "km",
       "device_class": "distance",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": 0,
       "category": null,
       "display_last_known": true
@@ -132,7 +132,7 @@
       "name": "Primary engine Percent",
       "unit": "%",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -150,7 +150,7 @@
       "name": "Secondary engine range",
       "unit": "km",
       "device_class": "distance",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": 0,
       "category": null,
       "display_last_known": true
@@ -159,7 +159,7 @@
       "name": "Secondary engine Percent",
       "unit": "%",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -168,7 +168,7 @@
       "name": "hybrid Range",
       "unit": "km",
       "device_class": "distance",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": 0,
       "category": null,
       "display_last_known": true
@@ -177,7 +177,7 @@
       "name": "State of charge",
       "unit": "%",
       "device_class": "battery",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -204,7 +204,7 @@
       "name": "Charging power",
       "unit": "kW",
       "device_class": "power",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": false
@@ -232,7 +232,7 @@
       "name": "Target State of charge",
       "unit": "%",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -278,7 +278,7 @@
       "name": "Remaining Climatisation Time",
       "unit": "min",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": false
@@ -368,7 +368,7 @@
       "name": "Charging AC current limit",
       "unit": "A",
       "device_class": "current",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -416,7 +416,7 @@
       "state_class": null,
       "precision": null,
       "category": null,
-      "display_last_known": false
+      "display_last_known": true
     },
     "shortterm_current": {
       "name": "ShortTerm Trip Data",
@@ -425,7 +425,7 @@
       "state_class": null,
       "precision": null,
       "category": null,
-      "display_last_known": false
+      "display_last_known": true
     },
     "shortterm_reset": {
       "name": "ShortTerm Trip User Reset",
@@ -434,7 +434,7 @@
       "state_class": null,
       "precision": null,
       "category": null,
-      "display_last_known": false
+      "display_last_known": true
     },
     "longterm_current": {
       "name": "LongTerm Trip Data",
@@ -443,7 +443,7 @@
       "state_class": null,
       "precision": null,
       "category": null,
-      "display_last_known": false
+      "display_last_known": true
     },
     "longterm_reset": {
       "name": "LongTerm Trip User Reset",
@@ -452,7 +452,7 @@
       "state_class": null,
       "precision": null,
       "category": null,
-      "display_last_known": false
+      "display_last_known": true
     },
     "model": {
       "name": "Model",
@@ -485,7 +485,7 @@
       "name": "Max charge current",
       "unit": "A",
       "device_class": "current",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": false
@@ -539,7 +539,7 @@
       "name": "Outdoor Temperature",
       "unit": "°C",
       "device_class": "temperature",
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": false
@@ -551,7 +551,7 @@
       "state_class": null,
       "precision": null,
       "category": null,
-      "display_last_known": false
+      "display_last_known": true
     },
     "position_last_updated": {
       "name": "Position Last Updated",
@@ -560,13 +560,13 @@
       "state_class": null,
       "precision": null,
       "category": null,
-      "display_last_known": false
+      "display_last_known": true
     },
     "preheater_duration": {
       "name": "Preheater runtime",
       "unit": "min",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -575,7 +575,7 @@
       "name": "Preheater remaining",
       "unit": "min",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": false
@@ -602,7 +602,7 @@
       "name": "Active Charging Profile Min SoC",
       "unit": "%",
       "device_class": null,
-      "state_class": null,
+      "state_class": "measurement",
       "precision": null,
       "category": null,
       "display_last_known": true
@@ -654,5 +654,6 @@
     }
   },
   "description": "display_last_known is an attribute-contract presentation policy, never an API freshness override. Active/safety states require recent vehicle capture.",
-  "presentation_rule": "All vehicle readings/settings (including odometer, service and charging profiles) are normal HA entities; EntityCategory.DIAGNOSTIC is reserved for cloud/integration health. Keep platform and unique_id unchanged."
+  "presentation_rule": "All vehicle readings/settings (including odometer, service and charging profiles) are normal HA entities; EntityCategory.DIAGNOSTIC is reserved for cloud/integration health. Keep platform and unique_id unchanged.",
+  "metadata_source": "Historical V2 repair metadata from feature/restore-audi-data (bc1a8a3); explicit sensor descriptors, not guessed state classes."
 }

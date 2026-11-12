@@ -79,18 +79,16 @@ class V3Vehicle:
         self.climate_http_status = http_status
         if not isinstance(value, str) or value.strip().lower() in _INVALID:
             return False
+        from .attribute_runtime import _capture_in_utc
+        incoming = _capture_in_utc(captured)
+        if self.climate_captured is not None and (
+            incoming is None or incoming < self.climate_captured
+        ):
+            return False
         self.climate_state = value.strip().lower()
         self.climate_source = route
         self.last_status_observed = observed_at
-        # Never inherit the prior value's timestamp for a new sample.
-        self.climate_captured = None
-        if isinstance(captured, str):
-            try:
-                candidate = datetime.fromisoformat(captured.replace("Z", "+00:00"))
-            except ValueError:
-                candidate = None
-            if candidate is not None and candidate.tzinfo is not None:
-                self.climate_captured = candidate.astimezone(UTC)
+        self.climate_captured = incoming
         return True
 
     @property

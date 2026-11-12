@@ -28,6 +28,13 @@ def planned_jobs(vehicle: Any, profile: Any) -> tuple[str, ...]:
         job for job, result in getattr(profile, "job_discovery", {}).items()
         if result == "observed"
     )
+    # Keep explicitly advertised jobs as well as observed jobs. A partial
+    # 207/error does not erase previously learned readable capabilities.
+    reported = getattr(vehicle, "advertised_capabilities", set())
+    impaired = getattr(vehicle, "impaired_capabilities", set())
+    active.update(job for job in V2_JOBS if job in reported and job not in impaired)
+    if "oilLevelStatus" in reported and "oilLevelStatus" not in impaired:
+        active.add("oilLevel")
     active.update(("climatisation", "userCapabilities"))
     return tuple(job for job in V2_JOBS if job in active)
 
@@ -76,6 +83,12 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         if len(str(value)) > 10000:
             continue
         fresh = timestamp_is_fresh(row["captured"], observed_at)
+        # Do not override a manually selected source with a default batch.
+        selected = profile.attribute_routes.get(ident)
+        if selected and selected != "cariad.selectivestatus.batch":
+            continue
+        if ident in ("remainingClimatisationTime", "remainingChargingTime") and type(value) in (int, float) and value < 0:
+            continue  # negative vendor sentinel is not an active duration
         previous = vehicle.readings.get(ident)
         if not _accept_observation(previous, row["captured"]):
             continue
@@ -84,6 +97,7 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
             "observed": observed_at.isoformat(), "fresh": fresh,
             "path": row["path"], "job": row["job"],
             "status": "verified" if fresh else "readable_but_stale",
+            "family": "cariad",
         }
         profile.attribute_evidence[ident] = {
             "status": "verified" if fresh else "readable_but_stale",
