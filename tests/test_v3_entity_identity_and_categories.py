@@ -117,3 +117,51 @@ def test_v2_source_remains_unmodified_and_v3_owns_categories():
     v3 = (root / "v3" / "entities.py").read_text()
     assert "_attr_entity_category = EntityCategory.DIAGNOSTIC" in v3
     assert 'if contract.get("category") == "diagnostic"' in v3
+
+
+def test_exact_pilot_retirement_and_single_account_refresh_anchor(monkeypatch):
+    """No display-name matching; retain registry records, V2 and user choices."""
+    MemoryStore.state = {}
+    vin = "wauzzz4m0md123456"
+    other = "wauzzz4m0md123457"
+    names = {
+        "sensor.pilot": (vin + "_sensor_v3_climate_capability", None),
+        "sensor.health_pilot": (vin + "_sensor_v3_poll_status", None),
+        "sensor.v2": (vin + "_sensor_climatisation_state", None),
+        "button.refresh": (vin + "_button_v3_refresh_cloud", None),
+        "button.duplicate": (other + "_button_v3_refresh_cloud", None),
+        "button.vehicle": (vin + "_button_refresh_vehicle_data", None),
+        "sensor.user_pilot": (other + "_sensor_v3_climate_capability", er.RegistryEntryDisabler.USER),
+        "sensor.other_entry": (vin + "_sensor_v3_poll_status", None),
+    }
+    entries = {eid: NS(entity_id=eid, unique_id=uid, disabled_by=disabled)
+               for eid, (uid, disabled) in names.items()}
+    updates = []
+    def update(entity_id, *, disabled_by):
+        updates.append(entity_id)
+        entries[entity_id].disabled_by = disabled_by
+    registry = NS(async_get=entries.get, async_update_entity=update)
+    monkeypatch.setattr(lifecycle, "Store", MemoryStore)
+    monkeypatch.setattr(lifecycle.er, "async_get", lambda _: registry)
+    monkeypatch.setattr(lifecycle.er, "async_entries_for_config_entry",
+                        lambda *_: [v for k,v in entries.items() if k != "sensor.other_entry"])
+    engine = NS(vehicles={other: NS(inventory_present=True), vin: NS(inventory_present=True)})
+    entry = NS(entry_id="abc", runtime_data=NS(v3=engine))
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, True))
+    assert engine.cloud_refresh_vin == vin
+    assert set(updates) == {"sensor.pilot", "sensor.health_pilot", "button.duplicate"}
+    assert entries["sensor.v2"].disabled_by is None
+    assert entries["button.vehicle"].disabled_by is None
+    assert entries["sensor.user_pilot"].disabled_by == er.RegistryEntryDisabler.USER
+    assert entries["sensor.other_entry"].disabled_by is None
+    # The anchor is stable for the current runtime, even if its VIN disappears.
+    engine.vehicles[vin].inventory_present = False
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, True))
+    assert engine.cloud_refresh_vin == vin
+    # On reload the remaining car may inherit account refresh, restoring only
+    # its migration-disabled button, never a user-disabled one.
+    engine.cloud_refresh_vin = None
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, True))
+    assert engine.cloud_refresh_vin == other
+    assert entries["button.duplicate"].disabled_by is None
+    assert entries["button.refresh"].disabled_by == er.RegistryEntryDisabler.INTEGRATION

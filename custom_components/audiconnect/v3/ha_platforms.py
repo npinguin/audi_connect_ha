@@ -27,6 +27,9 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
     if engine is None:
         raise ValueError("V3 platform forwarded without V3 engine")
     seen: set[str] = set()
+    if not hasattr(engine, "projected_entities"):
+        engine.projected_entities = {}
+    projected = engine.projected_entities.setdefault(platform, set())
 
     if platform not in ("sensor", "binary_sensor", "button", "switch", "lock",
                          "climate", "device_tracker", "number", "select"):
@@ -34,6 +37,12 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
 
     def add_verified() -> None:
         entities: list[Any] = []
+        if platform == "button":
+            anchor = getattr(engine, "cloud_refresh_vin", None) or account_cloud_refresh_vin(engine.vehicles)
+            if anchor and anchor in engine.vehicles and "account:cloud_refresh" not in seen:
+                seen.add("account:cloud_refresh")
+                engine.cloud_refresh_vin = anchor
+                entities.append(V3CloudRefreshButton(coordinator, engine.vehicles[anchor]))
         for car in engine.vehicles.values():
             if not car.inventory_present:
                 continue
@@ -50,9 +59,6 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     add_once(f"{vin}:local:{kind}", V3LocalServiceSensor, kind)
                 if "account:quota" not in seen:
                     add_once("account:quota", V3ApiQuotaSensor, entry.entry_id)
-            elif platform == "button":
-                if vin == account_cloud_refresh_vin(engine.vehicles):
-                    add_once("account:cloud_refresh", V3CloudRefreshButton)
             elif platform == "climate":
                 add_once(f"{vin}:climate", V3ClimateEntity)
             elif platform == "device_tracker":
@@ -134,6 +140,7 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     seen.add(vin)
                     entities.append(V3LockEntity(coordinator, car))
         if entities:
+            projected.update(entity.unique_id for entity in entities)
             async_add_entities(entities)
 
     add_verified()

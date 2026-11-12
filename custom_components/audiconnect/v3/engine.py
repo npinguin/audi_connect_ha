@@ -68,6 +68,8 @@ class V3Engine:
         self.vehicles: dict[str, V3Vehicle] = {}
         self.profiles: dict[str, DevelopmentProfile] = {}
         self._known_vehicle_inventory = False
+        self.cloud_refresh_vin: str | None = None
+        self.projected_entities: dict[str, set[str]] = {}
         self.commands = CommandEngine(
             auth=self.auth, transport=lambda: self.transport, storage=self.storage,
             profiles=self.profiles, require_vehicle=self.require_vehicle,

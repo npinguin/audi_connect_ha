@@ -415,6 +415,11 @@ class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):
         super().__init__(coordinator, vehicle)
         self._attr_unique_id = f"{vehicle.vin.lower()}_button_v3_refresh_cloud"
 
+    @property
+    def available(self) -> bool:
+        # An account refresh is independent of one VIN or a failed cloud poll.
+        return True
+
     async def async_press(self) -> None:
         # GET refresh; not a vehicle-wake POST. Polling budget stays enforced.
         await self.coordinator.async_request_refresh()

@@ -23,7 +23,7 @@ def test_retired_ids_are_exact_and_v2_ids_are_preserved():
     assert not retired_pilot_entity(VIN + "_sensor_climatisation_state")
     assert not retired_pilot_entity(VIN + "_button_refresh_vehicle_data")
     assert not retired_pilot_entity("some_other_sensor_v3_poll_status")
-    assert account_cloud_refresh_vin({VIN: None, "other": None}) == VIN
+    assert account_cloud_refresh_vin({VIN: None, "zzzzzzzzzzzzzzzzz": None}) == VIN
 
 
 @pytest.mark.asyncio

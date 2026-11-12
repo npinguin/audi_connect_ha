@@ -26,4 +26,5 @@ def test_recovered_sensor_requires_vehicle_specific_evidence():
     visibility = (ROOT / "v3" / "registry_lifecycle.py").read_text()
     assert "recorded & owned" in visibility
     assert "registry.async_update_entity(entity_id, disabled_by=None)" in visibility
-    assert "disabled_by=er.RegistryEntryDisabler.INTEGRATION" not in visibility
+    assert "retired_pilot_entity(unique_id) or duplicate_refresh" in visibility
+    # Exact migration behaviour is exercised in test_v3_entity_identity_and_categories.

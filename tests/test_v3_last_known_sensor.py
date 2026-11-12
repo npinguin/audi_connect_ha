@@ -24,6 +24,7 @@ def test_passive_last_known_held_without_marking_live():
     fake = SimpleNamespace(
         vehicle=SimpleNamespace(readings={"stateOfCharge": row}),
         attribute={"capability": "charging", "id": "stateOfCharge"},
+        _allow_last_known=True,
     )
     attrs = V3ReadOnlySensor.extra_state_attributes.fget(fake)
     assert attrs["vehicle_freshness"] == "stale_last_known"

@@ -21,7 +21,7 @@ def auth():
               access_token=lambda family: "fake-token")
 
 def eligible_car():
-    car = V3Vehicle(VIN, "Audi", "Audi A6", "a6", "DE")
+    car = V3Vehicle(VIN, "Audi", "Audi A6", "a6", "DE", car_type="gasoline")
     car.advertised_capabilities.add("remoteEngineStart")
     return car
 

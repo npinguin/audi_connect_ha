@@ -221,16 +221,11 @@ async def test_later_vehicle_restores_saved_candidate():
 
 
 @pytest.mark.asyncio
-async def test_stale_status_can_try_distinct_get_candidate():
-    engine, transport, _ = engine_for(
-        status(captured=False), status(value="heating"),
-    )
-    engine.registry.operations["cariad.climate.status.probe"]["path"] += "&detail=1"
+async def test_missing_capture_does_not_schedule_manual_climate_candidates():
+    engine, transport, _ = engine_for(status(captured=False))
     await engine.poll()
-    assert len([c for c in transport.calls if len(c) > 1]) == 2
-    assert engine.profiles[VIN.lower()].active["climate.status"] == (
-        "cariad.climate.status.probe"
-    )
+    assert len([c for c in transport.calls if len(c) > 1]) == 1
+    assert "climate.status" not in engine.profiles[VIN.lower()].active
 
 @pytest.mark.asyncio
 async def test_historical_sensors_recovered_and_targeted_selection_affects_real_poll():

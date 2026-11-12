@@ -5,8 +5,8 @@ from __future__ import annotations
 def status_groups(profile, context):
     """Only scheduled or explicitly selected GETs start a capability group.
 
-    Existing scheduled routes may try bounded alternatives. Manual catalog
-    inventory alone never creates a new scheduled request.
+    Only scheduled routes and explicitly selected alternatives may poll.
+    Missing jobs are handled by the bounded read-discovery owner.
     """
     groups = []
     for capability, definition in profile.registry.capabilities.items():
@@ -20,7 +20,11 @@ def status_groups(profile, context):
             chosen = None
         if not scheduled and not chosen:
             continue
-        candidates = list(routes if scheduled else [chosen])
+        # Manual inventory belongs in Workbench; missing jobs are handled by
+        # the bounded read-discovery scheduler, not an every-poll climate scan.
+        candidates = list(scheduled)
+        if chosen and chosen not in candidates:
+            candidates.append(chosen)
         if chosen in candidates:
             candidates.remove(chosen)
             candidates.insert(0, chosen)

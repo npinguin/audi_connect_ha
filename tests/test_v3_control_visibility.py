@@ -21,4 +21,5 @@ def test_registry_never_hides_v2_entities_to_gate_v3_controls():
     assert "async_entries_for_config_entry" in src
     assert "RegistryEntryDisabler.INTEGRATION" in src  # restore only
     assert "registry.async_update_entity(entity_id, disabled_by=None)" in src
-    assert "disabled_by=er.RegistryEntryDisabler.INTEGRATION" not in src
+    assert "retired_pilot_entity(unique_id) or duplicate_refresh" in src
+    # Exact migration behaviour is exercised in test_v3_entity_identity_and_categories.

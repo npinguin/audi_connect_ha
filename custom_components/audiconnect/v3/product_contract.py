@@ -15,4 +15,5 @@ def retired_pilot_entity(unique_id: str) -> bool:
 
 def account_cloud_refresh_vin(vehicles):
     """Use one stable existing VIN identity per account, preserving single-car IDs."""
-    return next(iter(vehicles), None)
+    return next((vin for vin in sorted(vehicles)
+                 if getattr(vehicles[vin], "inventory_present", True)), None)

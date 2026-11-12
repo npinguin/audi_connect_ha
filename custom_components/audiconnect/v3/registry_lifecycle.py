@@ -5,8 +5,9 @@ V2 entity-registry entries merely because a V3 API value is missing or old.
 The entity may be temporarily unavailable until V3 provides a compatible
 implementation, but its entity_id, unique_id, automations and history survive.
 
-Undo only disablement previously recorded by this integration. Preserve user
-disabled entities and never touch entities belonging to another config entry.
+Undo only recorded V2 disablement. Explicit retired V3-only pilot identities
+and duplicate account cloud actions are the sole retirement exceptions.
+Preserve registry history, user choices and account ownership.
 """
 from __future__ import annotations
 
@@ -45,17 +46,41 @@ async def async_apply_v3_entity_visibility(
     # Keep registry records and user choices for rollback and manual recovery.
     runtime = getattr(entry, "runtime_data", None)
     engine = getattr(runtime, "v3", None)
-    primary = account_cloud_refresh_vin(engine.vehicles) if engine is not None else None
+    primary = None
+    duplicate_ids = set(data.get("retired_duplicate_cloud_refresh", []))
+    if engine is not None:
+        # Retain the account anchor over reload and inventory reordering. If
+        # the anchor disappears, choose a present vehicle only during setup.
+        primary = getattr(engine, "cloud_refresh_vin", None)
+        if primary is None:
+            saved = data.get("cloud_refresh_anchor")
+            primary = (saved if saved in engine.vehicles and
+                       engine.vehicles[saved].inventory_present else
+                       account_cloud_refresh_vin(engine.vehicles))
+            engine.cloud_refresh_vin = primary
+
     for entity_id in owned:
         current = registry.async_get(entity_id)
         unique_id = getattr(current, "unique_id", "")
-        duplicate_refresh = bool(primary and unique_id.endswith("_button_v3_refresh_cloud")
-                                 and unique_id[:-len("_button_v3_refresh_cloud")] in engine.vehicles
-                                 and unique_id != f"{primary}_button_v3_refresh_cloud")
+        suffix = "_button_v3_refresh_cloud"
+        old_vin = unique_id[:-len(suffix)] if unique_id.endswith(suffix) else ""
+        duplicate_refresh = bool(primary and len(old_vin) == 17 and old_vin.isalnum()
+                                 and old_vin != primary)
         if current is not None and (retired_pilot_entity(unique_id) or duplicate_refresh):
             if current.disabled_by is None:
                 registry.async_update_entity(entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+                if duplicate_refresh:
+                    duplicate_ids.add(unique_id)
+        elif (primary and unique_id == f"{primary}{suffix}" and unique_id in duplicate_ids
+              and current.disabled_by == er.RegistryEntryDisabler.INTEGRATION):
+            registry.async_update_entity(entity_id, disabled_by=None)
+            duplicate_ids.discard(unique_id)
 
-    # Once existing migration changes have been restored, never create fresh
-    # disable records again. An unavailable entity is not a missing registry ID.
-    await store.async_save({"entity_ids": []})
+    # Historical V2 disable records are cleared; the cloud anchor is local
+    # account metadata. Never save pilot retirement as a V2 restore candidate.
+    result = {"entity_ids": []}
+    if primary or data.get("cloud_refresh_anchor"):
+        result["cloud_refresh_anchor"] = primary or data["cloud_refresh_anchor"]
+    if duplicate_ids:
+        result["retired_duplicate_cloud_refresh"] = sorted(duplicate_ids)
+    await store.async_save(result)
