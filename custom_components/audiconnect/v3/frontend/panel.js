@@ -154,6 +154,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.readRoutes = data.routes || [];
     this.readDraft = data.draft || "";
     this.readActive = data.active || "";
+    this.readDisabled = data.disabled === true;
     this.readChoice = this.readRoutes.some(r => r.id === this.readChoice) ? this.readChoice :
       this.readRoutes.some(r => r.id === this.readDraft) ? this.readDraft :
       this.readRoutes.some(r => r.id === this.readActive) ? this.readActive :
@@ -169,6 +170,7 @@ class AudiConnectV3Panel extends HTMLElement {
     });
     this.controlRoutes = value.routes || [];
     this.controlRequirement = value.requires || "";
+    this.controlDisabled = value.binding?.status === "user_disabled";
     this.spinConfigured = value.spin_configured === true;
     this.controlChoice = this.controlRoutes.some(r=>r.id===this.controlChoice)
       ? this.controlChoice : value.active && this.controlRoutes.some(r=>r.id===value.active)
@@ -408,10 +410,10 @@ class AudiConnectV3Panel extends HTMLElement {
       } else if (action === "control-select") {
         this.lastResult = await this.api("select", {...this.selection,
           capability: this.controlCapability, aspect: this.controlAction, operation: controlRoute});
-      } else if (action === "control-disable") {
+      } else if (action === "control-disable" || action === "control-enable") {
         this.lastResult = await this.api("control_disable", {
           ...this.selection, capability: this.controlCapability,
-          action: this.controlAction
+          action: this.controlAction, disabled:action==="control-disable"
         });
       } else if (action === "read-test") {
         this.lastResult = await this.api("attribute_test", {...this.selection,
@@ -422,9 +424,9 @@ class AudiConnectV3Panel extends HTMLElement {
       } else if (action === "read-activate") {
         this.lastResult = await this.api("attribute_activate", {...this.selection,
           attribute: this.attribute, operation: readRoute});
-      } else if (action === "read-disable") {
+      } else if (action === "read-disable" || action === "read-enable") {
         this.lastResult = await this.api("attribute_disable", {...this.selection,
-          attribute: this.attribute});
+          attribute: this.attribute, disabled:action==="read-disable"});
       } else if (action === "read-new") {
         const definition = this.definitionValue("new-attribute", newAttributeTemplate, {conversion:null});
         this.lastResult = await this.api("attribute_add", {...this.selection, definition});
@@ -649,8 +651,9 @@ class AudiConnectV3Panel extends HTMLElement {
     const capabilityNames = [...new Set([...attributes,...controls,...controlActions].map(r => r.capability).concat(identityOps.length?["vehicle_identity"]:[], selectedEntity?.capabilities||[]))].filter(cap=>!selectedEntity||selectedEntity.capabilities.includes(cap)).sort();
     if (capabilityNames.length && !capabilityNames.includes(this.category) && this.step!==3) this.category=capabilityNames[0];
     const readable = attributes.filter(r => ["verified","readable_but_stale"].includes(r.status));
-    const visibleAttributes = attributes.filter(r => matchesSearch(r) && (this.searchText || r.capability === this.category) &&
-      (this.inventoryFilter !== "available" || ["verified","readable_but_stale"].includes(r.status)));
+    const visibleAttributes = attributes.filter(r => matchesSearch(r) && (this.searchText || this.inventoryFilter==="disabled" || r.capability === this.category) &&
+      (this.inventoryFilter !== "available" || ["verified","readable_but_stale"].includes(r.status)) &&
+      (this.inventoryFilter !== "disabled" || r.status==="disabled_by_user"));
     const chosen = this.readRoutes.find(r => r.id === this.readChoice);
     const activeRoute = this.controlAction ? this.controlChoice :
       this.attribute ? this.readChoice : "";
@@ -660,7 +663,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const applicableFamily = family === "graphql" || (["cariad","mbb"].includes(vehicleFamily) && (family === "all" || family === vehicleFamily));
     const selectedControl = this.controlRoutes.find(r=>r.id===this.controlChoice);
     const group = selectedControl?.approval_group;
-    const groupActions = controlActions.filter(r => r.capability === this.category &&
+    const groupActions = controlActions.filter(r => (this.inventoryFilter==="disabled" ? r.binding_status==="user_disabled" : r.capability === this.category) &&
       (this.discoveryGroup === "read_only" || (r.approval_groups || []).includes(this.discoveryGroup)));
     const freshCount = readable.filter(r=>r.status==="verified").length;
     const staleCount = readable.length-freshCount;
@@ -892,6 +895,7 @@ class AudiConnectV3Panel extends HTMLElement {
                 <select id="inventory-filter">
                   <option value="available" ${this.inventoryFilter==="available"?"selected":""}>Observed on this vehicle</option>
                   <option value="all" ${this.inventoryFilter==="all"?"selected":""}>All historical and local attributes</option>
+                  <option value="disabled" ${this.inventoryFilter==="disabled"?"selected":""}>Disabled by user (all capabilities)</option>
                 </select>
               </div>
             </div>
@@ -914,7 +918,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <p>Wake-up, Climate ON/OFF, Lock/Unlock, charging and other vehicle actions are NEVER automatically tested. Select a control to test one API route while at the car.</p>
             ${groupActions.map(r=>`<div class="attribute-row">
               <div><b>${escapeHTML(actionName(r.capability,r.action))}</b>
-                <div class="subline">${pill(r.status,r.physical_evidence==="local_verified"?"Verified on vehicle":r.status==="verified"?"Previously verified":friendly(r.status))} ${r.enabled?pill("neutral","Enabled"):""} · ${r.candidate_count} routes</div><div class="subline">${this.entityLinks(r.entity_ids)||"No registered entity"}</div></div>
+                <div class="subline">${pill(r.binding_status==="user_disabled"?"disabled_by_user":r.status,r.binding_status==="user_disabled"?"Disabled by user":r.physical_evidence==="local_verified"?"Verified on vehicle":r.status==="verified"?"Previously verified":friendly(r.status))} ${r.enabled?pill("neutral","Enabled"):""} · ${r.candidate_count} routes</div><div class="subline">${this.entityLinks(r.entity_ids)||"No registered entity"}</div></div>
               <button data-action="select-control" data-capability="${escapeHTML(r.capability)}"
                 data-control="${escapeHTML(r.action)}" ${!r.candidate_count?"disabled":""}>Inspect & test ›</button>
             </div>`).join("")||'<p>No supported control routes for this vehicle API family.</p>'}
@@ -940,7 +944,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <button data-action="read-test" class="primary" ${!this.readChoice||this.loading?"disabled":""}>Test read-only GET</button>
               <button data-action="read-save" ${!this.readChoice||this.loading?"disabled":""}>Save candidate</button>
               <button data-action="read-activate" ${!canActivateRead||this.loading?"disabled":""}>Activate for polling</button>
-              <button data-action="read-disable" ${!this.readActive||this.loading?"disabled":""}>Disable attribute</button>
+              ${this.readDisabled?`<button data-action="read-enable" ${this.loading?"disabled":""}>Resume automatic discovery</button>`:`<button data-action="read-disable" ${this.loading?"disabled":""}>Disable data mapping</button>`}
             </div>
             <details open style="margin-top:18px"><summary>Advanced · define another API path and response mapping</summary>
               <p>Only safe relative CARIAD GET paths. JSON definitions are for engineering cases; no credentials, tokens or external URLs.</p>
@@ -973,9 +977,9 @@ class AudiConnectV3Panel extends HTMLElement {
               I approve this exact action on the selected car and will verify its effect.
             </label>
             <div class="actions">
-              <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.pending||this.capabilityBlocked(this.controlCapability)||group==="unsupported"||(group==="spin"&&!this.spinConfigured)?"disabled":""}>Send one test command</button>
+              <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.controlDisabled||this.pending||this.capabilityBlocked(this.controlCapability)||group==="unsupported"||(group==="spin"&&!this.spinConfigured)?"disabled":""}>Send one test command</button>
               <button data-action="control-select" ${this.loading||this.pending||selectedControl?.status!=="worked"||!selectedControl?.runtime_ready?"disabled":""}>Activate verified route</button>
-              <button data-action="control-disable" ${this.loading||this.pending?"disabled":""}>Disable this control</button>
+              ${this.controlDisabled?`<button data-action="control-enable" ${this.loading||this.pending?"disabled":""}>Re-enable control</button>`:`<button data-action="control-disable" ${this.loading||this.pending?"disabled":""}>Disable this control</button>`}
             </div>
             <details open style="margin-top:18px">
               <summary>Advanced · Add an alternative command template</summary>
