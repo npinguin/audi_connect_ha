@@ -17,7 +17,7 @@ def test_safe_read_record_roundtrip_and_no_vin_or_secret():
     ctx=VehicleContext(auth="auth0")
     profile=DevelopmentProfile(reg,ctx)
     rec=record_for(family="cariad",method="GET",http_status=200,
-        vin="WAUZZZ4M0MD123456",at=datetime.now(UTC),
+        vin="WAUZZZ4M0MD123456",at=datetime(2026, 1, 1, 0, 0, 0, tzinfo=UTC),
         payload={"charging":{"value":{"soc":97}},"vin":"WAUZZZ4M0MD123456",
                  "email":"test@example.com","spin":"1234","coordinates":[50.1,4.2]})
     save_record(profile,"cariad.status.charging",rec)
@@ -25,6 +25,7 @@ def test_safe_read_record_roundtrip_and_no_vin_or_secret():
     for secret in ("WAUZZZ4M0MD123456","test@example.com","1234","50.1"):
         assert secret not in data
     assert '"soc": 97' in data
+    assert rec["preview"]["coordinates"] == "[redacted]"
     loaded=restore_profile(reg,ctx,profile.snapshot())
     assert loaded.api_observations==profile.api_observations
 
