@@ -28,3 +28,29 @@ def binary_contract_for(entity_key: str) -> dict[str, Any]:
 def binary_contracts() -> dict[str, dict[str, Any]]:
     path = Path(__file__).with_name("binary_contracts.json")
     return json.loads(path.read_text(encoding="utf-8"))["attributes"]
+
+def semantic_value_issue(entity_key: str, value: Any, contract: dict | None = None) -> str | None:
+    """Validate numeric telemetry without coercing booleans to numbers."""
+    import math
+
+    contract = contract if contract is not None else contract_for(entity_key)
+    if entity_key == "oil_level" and type(value) is bool:
+        return "boolean_oil_level_use_binary"
+    if value is None:
+        return None
+    numeric = (contract.get("unit") is not None
+               or contract.get("state_class") in ("measurement", "total", "total_increasing")
+               or entity_key == "remaining_charging_time")
+    if numeric and (type(value) not in (int, float)
+                    or abs(value) > 1e100 or not math.isfinite(value)):
+        return "numeric_type_required"
+    if contract.get("unit") == "%" and not 0 <= value <= 100:
+        return "percentage_out_of_range"
+    if entity_key in ("remaining_charging_time", "remaining_climatisation_time",
+                      "preheater_duration", "preheater_remaining") and value < 0:
+        return "negative_duration"
+    if entity_key == "climatisation_state" and isinstance(value, str) and value.strip().lower() in (
+        "", "invalid", "unknown", "unsupported", "unavailable", "error"
+    ):
+        return "invalid_climate_state"
+    return None

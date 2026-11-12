@@ -3,7 +3,9 @@ from __future__ import annotations
 import math
 from .legacy_read_mappings import FIELDS, FIELD_IDS
 from .registry import read_json_path
-from .attribute_runtime import _accept_observation, _capture_in_utc
+from .attribute_runtime import _accept_observation, _capture_in_utc, record_invalid_observation
+from .attribute_contracts import semantic_value_issue
+from .historical_catalog import ATTRIBUTES
 from .freshness import timestamp_is_fresh
 
 def _number(value):
@@ -18,6 +20,12 @@ def observe_legacy(car,profile,kind,response):
     def record(key,value,stamp=None,path=None):
         if value is None or (isinstance(value,str) and value.lower() in ("","invalid","unknown","unsupported","unavailable")):
             return
+        descriptor = ATTRIBUTES.get(key, {})
+        issue = semantic_value_issue(descriptor.get("entity_key", key), value)
+        if issue:
+            record_invalid_observation(car, key, stamp, response.observed_at, path or kind,
+                                       None, issue, "mbb")
+            return
         if not _accept_observation(car.readings.get(key),stamp): return
         fresh=timestamp_is_fresh(stamp,response.observed_at)
         status="verified" if fresh else "readable_but_stale"
@@ -26,7 +34,6 @@ def observe_legacy(car,profile,kind,response):
         # Persist only evidence that the existing route-schema validator can
         # reconstruct. Derived values remain in memory, like CARIAD derived
         # readings; do not corrupt the saved profile with raw field IDs.
-        from .historical_catalog import ATTRIBUTES
         from .legacy_read_mappings import variant_for
         variant=variant_for(key)
         if key in ATTRIBUTES and variant and path in variant["response_paths"]:
@@ -40,7 +47,8 @@ def observe_legacy(car,profile,kind,response):
         stamp=(parent.get("carCapturedTimestamp") or parent.get("tsCarCaptured")) if isinstance(parent,dict) else None
         if ident in numeric:
             value=_number(value)
-            if value is not None and value<0: continue
+            if value is not None and value < 0 and ident not in ("remainingChargingTime", "remainingClimatisationTime"):
+                continue
         if ident=="glass_surface_heating" and isinstance(value,str):
             value={"true":True,"false":False}.get(value.lower())
         record(ident,value,stamp,path)
@@ -84,6 +92,8 @@ def observe_legacy(car,profile,kind,response):
         "ADBLUE_RANGE","OIL_LEVEL_DIPSTICKS_PERCENTAGE"}
     for key,(value,stamp) in found.items():
         if key=="OIL_LEVEL_DIPSTICKS_PERCENTAGE" and type(value) is bool:
+            record_invalid_observation(car, key, stamp, response.observed_at, key, None,
+                                       "boolean_oil_level_use_binary", "mbb")
             record("oil_level_binary",not value,stamp,key)
         elif key in numeric_fields:
             record(key,_number(value),stamp,key)

@@ -9,7 +9,8 @@ from .development_profiles import DevelopmentProfile
 from .transport import V3Response
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
-from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation
+from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation, record_invalid_observation
+from .attribute_contracts import semantic_value_issue
 from .custom_attributes import attributes_for, normalize_local_value
 from .attribute_routes import get_read_variant, read_variants
 from .historical_catalog import ATTRIBUTES, capture_time, read_path, V2_JOBS
@@ -529,10 +530,17 @@ class StatusEngine:
         definition = attributes_for(profile)[attribute]
         if definition.get("local"):
             value = normalize_local_value(value, definition)
+        issue = semantic_value_issue(definition["entity_key"], value, definition.get("contract"))
         captured = (read_path(response.data, variant["capture_path"]) if variant.get("capture_path")
-                    else capture_time(response.data, field)) if value is not None else None
+                    else capture_time(response.data, field)) if matched is not None else None
         if not isinstance(captured, str):
             captured = None
+        if issue and 200 <= response.status < 300:
+            active = profile.attribute_routes.get(attribute)
+            if active == operation or active is None:
+                record_invalid_observation(car, attribute, captured, response.observed_at,
+                                           field, definition["job"], issue, family)
+            value = None
         fresh = timestamp_is_fresh(captured, response.observed_at)
         if not 200 <= response.status < 300:
             outcome = "api_error"

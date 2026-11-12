@@ -8,6 +8,7 @@ from typing import Any
 from .freshness import timestamp_is_fresh
 from .historical_catalog import ATTRIBUTES, V2_JOBS, advertised_capabilities, extract_attributes
 from .api_value_mappings import normalize_api_value, transform_for
+from .attribute_contracts import semantic_value_issue
 
 
 def planned_jobs(vehicle: Any, profile: Any) -> tuple[str, ...]:
@@ -61,6 +62,17 @@ def _accept_observation(previous: dict[str, Any] | None, captured: Any) -> bool:
     return incoming is not None and incoming >= prior
 
 
+def record_invalid_observation(vehicle: Any, ident: str, captured: Any, observed_at: datetime,
+                               path: str, job: str | None, reason: str, family: str = "cariad") -> None:
+    """Invalidate a contradictory newer sample without accepting old cache."""
+    if _accept_observation(vehicle.readings.get(ident), captured):
+        vehicle.readings[ident] = {
+            "value": None, "captured": captured, "observed": observed_at.isoformat(),
+            "fresh": False, "path": path, "job": job, "status": "invalid_value",
+            "family": family, "reason": reason,
+        }
+
+
 def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: datetime) -> dict[str, int]:
     if not isinstance(payload, dict):
         return {"mapped": 0, "fresh": 0}
@@ -76,6 +88,14 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         except ValueError:
             # Misconfigured or incompatible response mapping is not a valid sensor.
             continue
+        selected = profile.attribute_routes.get(ident)
+        if selected and selected != "cariad.selectivestatus.batch":
+            continue
+        issue = semantic_value_issue(row["entity_key"], value)
+        if issue:
+            record_invalid_observation(vehicle, ident, row["captured"], observed_at,
+                                       row["path"], row["job"], issue)
+            continue
         if isinstance(value, str) and value.strip().lower() in (
             "unknown", "invalid", "unsupported", "unavailable", "error", ""
         ) and not (ident == "externalPower" and value.strip().lower() == "unavailable"):
@@ -83,12 +103,6 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         if len(str(value)) > 10000:
             continue
         fresh = timestamp_is_fresh(row["captured"], observed_at)
-        # Do not override a manually selected source with a default batch.
-        selected = profile.attribute_routes.get(ident)
-        if selected and selected != "cariad.selectivestatus.batch":
-            continue
-        if ident in ("remainingClimatisationTime", "remainingChargingTime") and type(value) in (int, float) and value < 0:
-            continue  # negative vendor sentinel is not an active duration
         previous = vehicle.readings.get(ident)
         if not _accept_observation(previous, row["captured"]):
             continue

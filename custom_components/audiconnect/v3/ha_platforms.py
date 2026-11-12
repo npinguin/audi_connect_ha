@@ -17,6 +17,7 @@ from .entities import (
     V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor,
 )
 from .custom_attributes import attributes_for
+from .attribute_contracts import semantic_value_issue
 from .product_contract import (CORE_STATUS_KINDS, account_cloud_refresh_vin,
                                projection_descriptor, projection_reading, entity_key)
 
@@ -90,6 +91,10 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     _source, reading = projection_reading(car, descriptor)
                     if not reading or not isinstance(
                         reading.get("value"), (str, int, float, bool)
+                    ):
+                        continue
+                    if platform == "sensor" and semantic_value_issue(
+                        descriptor["entity_key"], reading["value"], descriptor.get("contract")
                     ):
                         continue
                     tag = f'{vin}:{descriptor["entity_key"]}'

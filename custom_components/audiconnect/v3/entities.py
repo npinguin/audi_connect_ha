@@ -25,7 +25,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle
-from .attribute_contracts import contract_for, binary_contract_for
+from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
 from .product_contract import projection_reading
 
 
@@ -473,6 +473,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         self.attribute = attribute
         self._attr_unique_id = f'{vehicle.vin.lower()}_sensor_{attribute["entity_key"]}'
         contract = attribute.get("contract") or contract_for(attribute["entity_key"])
+        self._semantic_contract = contract
         self._allow_last_known = contract.get("display_last_known", False) is True
         self._attr_name = contract.get("name") or attribute["entity_key"].replace("_", " ").capitalize()
         self._attr_native_unit_of_measurement = contract.get("unit")
@@ -493,12 +494,16 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         if self.attribute.get("local") and self.attribute["id"] not in self.coordinator.engine.profiles[self.vehicle.vin.lower()].attribute_routes:
             return False
         reading = projection_reading(self.vehicle, self.attribute)[1]
-        return _reading_available(reading, allow_last_known=self._allow_last_known)
+        return (_reading_available(reading, allow_last_known=self._allow_last_known)
+                and not semantic_value_issue(self.attribute["entity_key"], reading.get("value"),
+                                             self._semantic_contract))
 
     @property
     def native_value(self):
         reading = projection_reading(self.vehicle, self.attribute)[1]
         value = reading.get("value") if reading else None
+        if semantic_value_issue(self.attribute["entity_key"], value, self._semantic_contract):
+            return None
         if self.device_class == SensorDeviceClass.TIMESTAMP:
             from .attribute_runtime import _capture_in_utc
             return _capture_in_utc(value)

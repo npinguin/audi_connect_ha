@@ -57,7 +57,8 @@ def projection_reading(vehicle, attribute):
     canonical = ALIAS_OF.get(ident, ident)
     sources = [canonical, *sorted(a for a, target in ALIAS_OF.items() if target == canonical)]
     valid = [(a, vehicle.readings[a]) for a in sources
-             if a in vehicle.readings and vehicle.readings[a].get("value") is not None]
+             if a in vehicle.readings and (vehicle.readings[a].get("value") is not None
+                                         or vehicle.readings[a].get("status") == "invalid_value")]
     if not valid:
         return ident, vehicle.readings.get(ident)
     def score(item):

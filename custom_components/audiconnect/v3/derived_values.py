@@ -141,6 +141,11 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
     if isinstance(oil, dict) and type(oil.get("value")) is bool:
         record("oil_level_binary", not oil["value"], oil.get("carCapturedTimestamp"),
                "oilLevel", "oilLevel.oilLevelStatus.value")
+    elif isinstance(oil, dict) and type(oil.get("value")) in (int, float) and "oil_level_binary" in car.readings:
+        from .attribute_runtime import record_invalid_observation
+        record_invalid_observation(car, "oil_level_binary", oil.get("carCapturedTimestamp"),
+                                   observed_at, "oilLevel.oilLevelStatus.value",
+                                   "oilLevel", "numeric_oil_level_no_binary_warning")
     # The preference block may lack a timestamp. Borrow ONLY the sibling
     # charging status clock from this response, matching the historical source.
     mode = read_json_path(payload, "charging.chargeMode.value")

@@ -80,3 +80,37 @@ def test_older_cloud_cache_never_replaces_newer_captured_vehicle_value():
     observe_read_only(vehicle, profile, sample(49, now - timedelta(hours=3)), now)
     assert vehicle.readings["stateOfCharge"]["value"] == 70
     assert vehicle.readings["stateOfCharge"]["captured"] == now.isoformat()
+
+def test_boolean_oil_never_becomes_numeric_and_existing_binary_is_used():
+    vehicle, profile, now = car(), Profile(), datetime.now(UTC)
+    def sample(value, stamp):
+        return {"oilLevel": {"oilLevelStatus": {"value": {
+            "value": value, "carCapturedTimestamp": stamp.isoformat(),
+        }}}}
+    observe_read_only(vehicle, profile, sample(48, now), now)
+    assert vehicle.readings["OIL_LEVEL_DIPSTICKS_PERCENTAGE"]["value"] == 48
+    later = now + timedelta(minutes=1)
+    observe_read_only(vehicle, profile, sample(True, later), later)
+    assert vehicle.readings["OIL_LEVEL_DIPSTICKS_PERCENTAGE"]["value"] is None
+    assert vehicle.readings["OIL_LEVEL_DIPSTICKS_PERCENTAGE"]["reason"] == "boolean_oil_level_use_binary"
+    assert vehicle.readings["oil_level_binary"]["value"] is False
+    observe_read_only(vehicle, profile, sample(25, now), later)
+    assert vehicle.readings["OIL_LEVEL_DIPSTICKS_PERCENTAGE"]["value"] is None
+    latest = later + timedelta(minutes=1)
+    observe_read_only(vehicle, profile, sample(False, latest), latest)
+    assert vehicle.readings["oil_level_binary"]["value"] is True
+
+
+def test_negative_duration_invalidates_newer_but_not_older_capture():
+    vehicle, profile, now = car(), Profile(), datetime.now(UTC)
+    def sample(value, stamp):
+        return {"climatisation": {"climatisationStatus": {"value": {
+            "remainingClimatisationTime_min": value, "carCapturedTimestamp": stamp.isoformat(),
+        }}}}
+    observe_read_only(vehicle, profile, sample(12, now), now)
+    observe_read_only(vehicle, profile, sample(-256, now - timedelta(minutes=1)), now)
+    assert vehicle.readings["remainingClimatisationTime"]["value"] == 12
+    later = now + timedelta(minutes=1)
+    observe_read_only(vehicle, profile, sample(-256, later), later)
+    assert vehicle.readings["remainingClimatisationTime"]["value"] is None
+    assert vehicle.readings["remainingClimatisationTime"]["reason"] == "negative_duration"
