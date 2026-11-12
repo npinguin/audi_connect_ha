@@ -492,6 +492,7 @@ class OptionsFlowHandler(OptionsFlow):
     _dealer_vin: str | None = None
     _discovery_vin: str | None = None
     _discovery_action: str | None = None
+    _discovery_candidate: tuple | None = None
     _discovery_sequence: int | None = None
 
     def _dealer_vehicles(self) -> list[tuple[str, str]]:
@@ -678,6 +679,7 @@ class OptionsFlowHandler(OptionsFlow):
                 return await self.async_step_discovery()
             if choice in candidates:
                 self._discovery_action = choice
+                self._discovery_candidate = candidates[choice]
                 return await self.async_step_discovery_consent()
         progress = user_progress(car, profile, engine.auth)
         controls = {key: value[0] for key, value in candidates.items()}
@@ -693,13 +695,16 @@ class OptionsFlowHandler(OptionsFlow):
     async def async_step_discovery_consent(self, user_input=None):
         engine, car, profile = self._discovery_context()
         candidate = self._user_test_candidates(engine, car, profile).get(self._discovery_action)
-        if candidate is None:
+        if candidate is None or candidate != self._discovery_candidate:
+            # Do not reuse a consent when discovery changed the actual route.
+            self._discovery_candidate = None
             return await self.async_step_discovery()
         label, capability, action, operation, group = candidate
         errors = {}
         if user_input is not None:
-            if not user_input.get("accept"):
+            if user_input.get("accept") is not True:
                 return await self.async_step_discovery()
+            self._discovery_candidate = None  # Single-use explicit action approval.
             try:
                 result = await engine.approved_control_discovery(
                     car.vin, action, operation, approval=group, capability=capability)
