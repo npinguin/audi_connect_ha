@@ -1,5 +1,7 @@
 # Audi Connect V3 — release acceptance matrix and migration gates
 
+**Current target:** the Architecture Closure and ADR 002 gates below supersede historical b5–b7 gates where they conflict, especially mandatory manual activation for end users. Historical sections describe previous releases.
+
 ## 3.0.0b5 discovery test gates
 
 | Gate | Automated criterion | Live criterion |
@@ -66,3 +68,22 @@ Extend the capability inventory using historic V2 job and researched API paths. 
   confirmation and no automatic retry.
 - API responses stored in private profiles remain bounded and redacted.
 - Known outstanding gaps are tracked in `V3_FEATURE_GAPS_3.0.0b7.md`.
+
+
+## Architecture Closure — mandatory target gates
+
+| Gate | Automated acceptance | Live/engineering acceptance |
+|---|---|---|
+| Module ownership | AST/import boundaries, no cycles, typed public contracts; composition root has no domain dispatch | Owner review of exceptions |
+| Generic catalog | Add synthetic capability/attribute and approved GET/POST/PUT via definitions without changing generic engine | New route in Workbench |
+| Status | Multi-capability batch dedup, stale/out-of-order/207/429 and unknown-state tests | Parked-car observations and quota evidence |
+| Engineering discovery | One exact explicit action; journal persisted before dispatch; uncertainty and restart tested | Physical review, versioned reusable evidence |
+| End-user fast discovery | Fresh setup and warm restart auto-expose eligible known controls, no Workbench or manual test; no physical mutations in discovery; only reviewed read-only inventory query exception | Clean onboarding on supported real vehicle contexts |
+| Eligibility | Catalog match vs local physical proof distinguished; changed context/revision, negative evidence, disable, credentials and stale state respected | Q8 and applicable MBB/other contexts |
+| Command lifecycle | Typed parameters, persistent pending/cooldown, no duplicate mutation after timeout/cancel/restart, backend vs readback | Authorized actual control and observed result |
+| API | Concurrent auth refresh, quota exhaustion/recovery, bounded probes and transport allowlist | Account request budget stable |
+| HA lifecycle | Dynamic multi-car entities, stable IDs, registry/user-disable/recorder, setup/unload/reload | V2→V3→V2 actual rollback |
+| V2 | All deviations against upstream explicitly governed and regression-tested | Existing V2 behavior preserved |
+| Quality | Lint/format, type contracts, risk-based coverage, generated inventory parity, full CI | Architecture closure review |
+
+Static code-complete parity before beta publication; physical vehicle and rollback acceptance before stable. No release gate is changed by documentation.

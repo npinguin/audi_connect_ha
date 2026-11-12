@@ -1,4 +1,6 @@
-# Audi Connect V3 — Development route profiles and later self-configuration
+# Audi Connect V3 — Development profiles and fast discovery
+
+**Historical implementation notes and target policy.** For current architecture and the closure backlog, see [architecture](V3_ARCHITECTURE.md) and [closure plan](V3_ARCHITECTURE_CLOSURE.md). The sections describing b2/b3 are historical, not the target.
 
 **Architecture decision:** only shared HA integration configuration and Audi
 authentication belong to both V2 and V3. API engines, discovery, polling,
@@ -56,28 +58,9 @@ This is illustrative only; it does not assert Audi supports the example
 mode query or JSON shape. The user must deliberately test the route and
 confirm physical behavior before choosing it as the vehicle's active control.
 
-## User-testing phase (LATER): one-click self-configuration
+## End-user phase (TARGET): automatic fast discovery
 
-The user asks **Configure Climate** and explicitly authorizes a bounded
-guided discovery session. V3 ranks known context-applicable candidates
-from the global catalog plus local profile history, beginning with the
-most likely. One candidate runs at a time.
-
-For status GET, automatic retry can proceed within the cloud rate budget
-when the response is objectively invalid and no vehicle action is involved.
-
-For climate control POST, automated progression is permitted only after
-a trustworthy fresh vehicle observation **proves no action occurred** (or
-the user supplies the missing physical confirmation). HTTP error, a 2xx
-response, timeout or stale cached climate state alone does NOT prove the
-previous attempt did nothing. Such an ambiguous result pauses the
-one-click flow and asks the user to verify before any second POST.
-
-Once physical success is confirmed, the winning operation and its parameters
-are saved to that vehicle's local profile. Maximum attempts, cooling periods,
-account-level cloud budget, cancellation and rollback apply. No silent
-global promotion to every Audi. If nothing works, the capability/control
-is disabled and diagnostics expose the tested options and results.
+Superseded design: automatic sequential physical control tests are not the end-user onboarding mechanism. Reviewed engineering evidence and applicable local bindings are used for automatic, bounded read-only fast discovery. Known eligible controls are automatically exposed without manual per-control testing; unknown controls remain unavailable. No automatic physical action, wake, mutating retry or speculative route fallback. See [ADR 002](V3_ADR_002_FAST_DISCOVERY.md) for the binding and activation policy. Engineering and normal HA commands use the same persistent lifecycle in the target.
 
 ## Outstanding implementation gates
 

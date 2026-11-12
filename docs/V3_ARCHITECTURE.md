@@ -1,153 +1,72 @@
-# Audi Connect V3 — Why / What / How (3.0.0b4)
+# Audi Connect V3 — architecture and ownership
 
-**One Audi Connect integration, one config entry, one active runtime.**
-V2 is the rollback choice. **Only login/token handling and integration
-configuration are shared.** V3 has its own transport, polling, vehicle state,
-capability catalog, profile store, entities, diagnostics and Development UI.
+**Baseline:** 3.0.0b8 source, consolidated commit `284230a5deb3cc0e9366e26c96c87667f2d95a68`, 12 November 2026. **Target:** architecture closure, approved design direction; implementation incomplete. V2 is still the default and rollback choice. The b8 prerelease has not been approved for publication.
 
-## WHY
+## Current implementation (AS-IS)
 
-Earlier versions evolved through model-specific fixes and overlapping V2
-climate controls. Our first V3 beta (3.0.0b1) made a new climate entity but
-still loaded V2 polling and roughly 82 registered entities. This is not the
-desired product architecture. The new V3 must be clean, lean, evidence-based
-and expandable without redeployment of every experimental route.
+One integration, one HA config entry, one shared Audi account/token owner, one active V2 or V3 runtime. V3 independently owns the vehicle inventory, polling, mapping, commands and all nine native HA platforms. The integration registers the existing service IDs in both runtimes and routes by VIN to the selected runtime. Unsupported V3 commands fail explicitly; no hidden V2 business fallback. User-disabled registry entries remain untouched; integration-disabled entries from the earlier experimental migration are restored.
 
-## WHAT — ownership table
+The baseline contains seven capability groups, 59 API operations (33 GET, 22 POST, 4 PUT), 109 historical entity rows plus one additional last-trip row, and 796 passing Python tests. Inventory counts and green CI do not establish parity or physical acceptance. The release gate is still closed.
 
-| Single owner | Responsible for | Source |
-|---|---|---|
-| Integration (shared) | HA entry, region, scan interval, Audi refresh token | `config_flow.py`, `v3/auth.py` |
-| V3 Auth Facade | invoke existing Audi OAuth token exchange only | `v3/auth.py` |
-| V3 API Transport | approved CARIAD/GraphQL hosts, HTTP request, quota guard | `v3/transport.py` |
-| Vehicle inventory | GraphQL discovery and trusted manufacturer model hint | `v3/vehicle.py` |
-| Capability Catalog | Climate → Status? + Control.Start? + Control.Stop? | `v3/climate.json`, `v3/registry.py` |
-| API Discovery & Poll | GET path selection, schema, freshness, observed evidence | `v3/engine.py`, `v3/coordinator_clean.py` |
-| Action Evidence | human-initiated tests, response, physical outcome, disabled path | `v3/action_discovery.py` |
-| Profiles & Store | per vehicle custom routes, verified active choices, rollback | `v3/development_profiles.py`, `v3/profile_store.py` |
-| HA Entity Projection | one climate + cloud/age/capability/poll sensors + refresh button | `v3/entities.py` |
-| Development UX | route editor and assisted test/selection, administrator only | `v3/dashboard.py`, `v3/frontend/panel.js` |
-| HA registry migration | non-destructive reversible disable of old entities | `v3/registry_lifecycle.py` |
+Known debt: climate-specific polling/profile persistence, a 1,290-line engine, redundant pilot runtime and catalog, overlapping read/command schemas, parameterized custom commands not activatable, nonpersistent normal command context, quota recovery and token-refresh concurrency, incomplete multi-car lifecycle, V2 upstream deltas and stale generated inventories.
 
-The legacy modules remain in the package for V2 rollback; **V3 never calls
-`AudiAccount.async_refresh_data()`**, V2 platform logic, V2 vehicle command
-dispatch or the V2 data coordinator. The existing OAuth code is deliberately
-reused as the shared authentication boundary rather than rewriting PKCE and
-token rotation independently. V3 transport uses its own HTTP flow.
-
-## HOW — simple model, optional refinement
+## Target (TO-BE)
 
 ```text
-Audi account (shared auth + config)
-  └─ V3 vehicle (trusted Audi metadata / Auth0 / region)
-      ├─ Cloud / Refresh (own budget and scheduler)
-      └─ Capability: Climate
-          ├─ Status (optional)
-          │   └─ GET operation alternatives, schema, car timestamp
-          └─ Control (optional)
-              ├─ Start → candidate POST paths
-              └─ Stop  → candidate POST paths
+HA entities / services / administrator Workbench
+                 |
+       V3Engine (composition & lifecycle)
+                 |
+       Vehicle / Status / Command
+                 |
+       Catalog / Profiles / API
+                 |
+       CARIAD / MBB / GraphQL
 ```
 
-The brand catalog provides generic operations. An operation can optionally
-be scoped by authentication family, region, vehicle type or verified model.
-One car with an unknown model does not require an invented Q8 profile.
-Custom development operations can be added to the selected car's private
-overlay, referencing the known API family. A user cannot provide an
-arbitrary external host, Authorization token or executable template.
+The engine is a composition root and lifecycle orchestrator, not a business logic container. Status and Command have separate execution rules and share the same typed catalog, vehicle context, bindings and transport. V2 and V3 share account authentication, config entry and HA identity only; V2 business behavior remains near-upstream. OEM legacy API families remain supported; obsolete V3 pilot implementations do not.
 
-A status GET may be tested automatically and the working path selected
-when the HTTP response, expected field and freshness evidence are valid.
-A 404 may justify trying a different GET; 401/403/429/5xx are inconclusive
-cloud/auth/rate errors, not definitive missing capabilities. In normal polls
-V3 never sends proactive wake or sends parallel V2 requests.
+| Owner | Owns | Does not own |
+|---|---|---|
+| Engine | Composition, startup, refresh orchestration, shutdown | OEM endpoints, payloads, business rules |
+| Catalog | Capability, attribute, command, operation definitions and validation | HTTP, mutable vehicle state |
+| Vehicle | Inventory, identity, current observation state, reconciliation | Command dispatch, route definitions |
+| Status | Read-only discovery, polling plan, extraction, normalization, freshness | Mutating requests, HA entities |
+| Command | Eligibility, engineering tests, fast control resolution, execution, journal and confirmation | Direct HA state changes, transport credentials |
+| API | Auth lock/token rotation, transport, quota and family executors | Vehicle business rules, entities |
+| Profiles | Vehicle bindings, evidence persistence, schema migration | Network discovery, dispatch |
+| HA | Entity/service projection, stable IDs, registry, recorder semantics | OEM endpoints and route selection |
+| Workbench | Admin UI for editing, testing, review, activation via public APIs | Direct Audi requests or a second execution engine |
+| Diagnostics | Bounded redacted snapshots and reports | Runtime decisions |
 
-A control POST is **different**: the user explicitly chooses Test and a
-single candidate, reviews the response, then confirms whether the physical
-vehicle actually did something. Only a confirmed working route can be
-activated. HTTP 200/202 is merely `accepted_unconfirmed`. Uncertain
-attempts remain blocked across a restart. Control alternatives cannot be
-blindly retried on timeout. Per-vehicle Start and Stop can be disabled
-independently of Status.
+Dependencies flow from HA/Workbench to public runtime contracts, to Vehicle/Status/Command, then Catalog/Profiles/API. Modules cannot import the composition root or HA projection from the domain layer. Diagnostics consumes public snapshots only. Typed contracts and dependency checks must be enforced in CI.
 
-## Active HA surface in beta b4
+## Canonical domain concepts
 
-In V3 mode the integration forwards only the Climate, Sensor and Button
-platforms with V3-specific setup. A single vehicle presents:
-- one existing-identity `climate.climatisation` (no unverified temperature slider);
-- Cloud last successful poll (existing identity);
-- Vehicle data age (existing identity);
-- V3 cloud polling (new);
-- Climate capability state (new);
-- Refresh Audi cloud button (new, read-only GET, not a vehicle wake command).
+- Capability: functional grouping, independent of API family.
+- Attribute: semantic value, type, unit, freshness policy and optional HA projection.
+- Command: semantic action, typed parameters, eligibility/security and confirmation policy.
+- API operation: approved family, method, route/template, delivery, mapping and optional code-owned handler.
+- Vehicle binding: vehicle-specific selected operation, provenance/evidence and allowed parameters.
 
-Historical V2 registry entries are **disabled by the integration** and tracked
-in private HA storage, not deleted. Only entries disabled by this migration
-are re-enabled when switching back to V2. No guessing based on an incomplete
-vehicle inventory. V3 keeps the historical climate unique ID and car device
-identifier. Registered counts may still include disabled historical entries;
-the actively loaded entity list is minimal.
+A basic capability, attribute or approved operation is configurable without changing the generic engine. Shared batch GETs are API optimization, never owned by climate. Use one validation/resolution model; no duplicated route catalogs or evidence stores. Specialized OEM flows (MBB challenge-response, read-modify-write settings, trip calculation) remain code-owned handlers with explicit contracts.
 
-## Architecture safeguards
+## Discovery — two product modes
 
-1. Exactly one V2 or V3 coordinator per HA entry.
-2. A single canonical selection and evidence store per capability/vehicle.
-3. No control command retries or automatic wake.
-4. A cloud HTTP 2xx is not a fresh car timestamp or physical confirmation.
-5. Read-modify-write operations must have independently proven body
-   preservation before enabling. The old settings climate start is not
-   silently treated as bodyless; user can add a reviewed custom POST.
-6. V2 entity unique IDs and historical user-disabled state are preserved.
-7. No tokens, VINs, raw bodies or locations in exported V3 diagnostics.
-   The local admin Workbench uses its own authenticated vehicle IDs.
-8. Non-Q8 and legacy MBB contexts are not assumed to share Q8 actions.
-9. Full regression CI + hassfest + HACS packaging for every prerelease.
+The authoritative policy is [ADR 002 — engineering discovery and automatic fast discovery](V3_ADR_002_FAST_DISCOVERY.md).
 
-## Historical capabilities — progressive migration in ONE PR
+Engineering: admin-only Workbench manually tests one explicitly chosen operation on one vehicle, persists the attempt before dispatch, records backend outcome and physical review, and promotes suitable evidence into reviewed, versioned catalog rules. Experimental custom definitions are private until reviewed.
 
-1. **b2:** independent Vehicle/Cloud + Climate status/control pilot + API
-   Development Workbench. Validate against Q8 with realistic state/readback.
-2. **Next:** charging telemetry (SOC, charging state/mode/rate/plug) from
-   selected CARIAD jobs with existing HA unique IDs.
-3. **Then:** verified charging controls with clear start/stop/target SOC
-   semantics, no destructive partial settings writes.
-4. **Then:** vehicle access & health (lock, doors, windows, range, mileage,
-   service, oil) with optional status/control capabilities.
-5. **Then:** short/long/last trip and consumption data with OEM schema
-   checks, timestamps, units and unchanged IDs.
-6. **Finally:** region-specific legacy MBB support, wake and miscellaneous
-   historical functions only after independent safety/evidence gates.
+End-user: automatic fast discovery after installation, startup and relevant context change, with no required Workbench or manual test per control. Reuse applicable verified local bindings and reviewed catalog evidence; match current vehicle/auth/region/capabilities, permissions and required state using bounded read-only discovery. Automatically expose eligible known controls with stable HA identities. Unknown or contradictory cases remain unverified/unavailable, not permanently unsupported. No automatic physical action, POST/PUT probing, wake or mutating retry. An actual user or explicitly configured HA automation invokes a normal command through the same command engine.
 
-No duplicate V3 branches or PRs per capability. Subsequent commits go to
-`feature/v3-clean-discovery` / PR #20. Historical functions stay available
-in **V2** until individually migrated; they do not leak into V3.
+## Reliability and compatibility
 
-## Release acceptance
+Normal and experimental commands use one persistent lifecycle. Persist before mutation, send once, distinguish transport acceptance, backend completion and physical verification, retain uncertainty across restart. Confirm via bounded reads or explicit human verification where physical readback is unavailable. Per-vehicle command exclusion and account quota protection are mandatory. Never re-send merely because an earlier result is unknown.
 
-`3.0.0b4` is an **experimental HACS prerelease**, not a production migration
-claim. Exact-SHA Python/hassfest/HACS checks gate publication. Real car
-acceptance remains separate: verify login, Q8 discovery, cloud timestamps,
-climate GET, one guided start/stop, physical readback, HA entity count,
-V2→V3→V2 rollback and cloud budget. Report failures with privacy-safe
-diagnostics; do not publish full raw Audi responses or VINs.
+Quota values have a lifecycle (observation time, trustworthy reset/retry-after if available, bounded recovery); stale reserve must not cause permanent suspension. Serialize token refresh per account. Reconcile new/removed vehicles without deleting registry history based on an incomplete cloud response. Keep last-known telemetry with clear freshness; do not infer current safety state from stale values.
 
+## Engineering and acceptance
 
-## b3 stabilization
+See [Architecture Closure plan](V3_ARCHITECTURE_CLOSURE.md), [configuration](V3_CONFIGURATION.md), [development profiles](V3_DEVELOPMENT_PROFILES.md), [HA identity contract](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md), [test matrix](V3_TEST_MATRIX.md) and [parity baseline](V2_V3_PARITY_BASELINE.json).
 
-- The Development Workbench is administrator-only and **opt-in**. The
-  sidebar item exists only when V3 is selected and explicitly enabled.
-  Disabling it or switching back to V2 hides it without erasing profiles.
-- Candidate route selection and verified activation are two distinct persisted
-  operations. A user can save any context-applicable known route, while
-  physical control exposure still requires confirmed success.
-- Per-vehicle capability/attribute/control status reports expose API family,
-  route template, evidence, freshness and active/candidate selection.
-  Read-only jobs from the V2 implementation are a **reference backlog**,
-  not yet tested V3 capabilities.
-- Vehicle capture timestamps must be no more than 60 minutes old and no
-  more than five minutes in the future to count as fresh. Cloud reachability
-  and vehicle data freshness remain separate.
-
-## b4 reference closure
-
-Missing new sample timestamps invalidate the previous capture timestamp. Stale GET values may lead to distinct bounded GET alternatives. Returning cars recover saved candidate profiles. Workbench Save candidate is covered by a UI-level test. V2 and V3 stay switchable in ONE HACS package. Real Q8 proof remains pending.
+All work stays on `feature/v3-clean-discovery`. No new permanent development branches or extra runtime. Static parity and code-complete acceptance precede beta publication; physical vehicle acceptance and V2/V3 rollback precede stable promotion. Historical release notes remain historical and are not the target architecture.

@@ -1,6 +1,6 @@
 # Audi Connect V3 — ADR 001: Independent Discovery & Assisted Actions
 
-Status: **Implemented in V3 3.0.0b2 source; real-vehicle acceptance pending.**
+Status: **Historical ADR for the b2 independent runtime.** Independent runtime and explicit engineering action safeguards remain binding. The end-user activation/discovery policy is superseded by [ADR 002 — automatic fast discovery](V3_ADR_002_FAST_DISCOVERY.md). Manual engineering tests are not required of every end user; no automatic physical test sequences.
 This ADR supersedes the old shared-V2-polling architecture. See
 [V3_ARCHITECTURE.md](V3_ARCHITECTURE.md) for the current code and support
 scope. The published 3.0.0b1 remains historically unchanged.
