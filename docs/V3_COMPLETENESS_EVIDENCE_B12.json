@@ -1,0 +1,1249 @@
+{
+  "baseline": "3.0.0b12",
+  "source": "sanitized single-vehicle b12 diagnostics, 2026-11-12",
+  "catalog_jobs": 23,
+  "observed_jobs": 14,
+  "not_observed_jobs": 9,
+  "registry": {
+    "projected": 56,
+    "registered_not_projected": 16,
+    "projected_unavailable": 11,
+    "disabled": 12
+  },
+  "capabilities": [
+    {
+      "capability": "access",
+      "attributes": 20,
+      "read_status": {
+        "verified": 18,
+        "mapping_pending": 2
+      },
+      "operations": 5,
+      "tested_operations": 1,
+      "job_status": {
+        "access": "observed"
+      }
+    },
+    {
+      "capability": "charging",
+      "attributes": 21,
+      "read_status": {
+        "readable_but_stale": 11,
+        "not_tested": 9,
+        "mapping_pending": 1
+      },
+      "operations": 16,
+      "tested_operations": 0,
+      "job_status": {
+        "batteryChargingCare": "not_observed",
+        "batterySupport": "not_observed",
+        "charging": "observed",
+        "chargingProfiles": "observed",
+        "chargingTimers": "observed",
+        "departureProfiles": "not_observed",
+        "departureTimers": "not_observed"
+      }
+    },
+    {
+      "capability": "climate",
+      "attributes": 17,
+      "read_status": {
+        "verified": 4,
+        "invalid_value": 1,
+        "not_tested": 6,
+        "readable_but_stale": 2,
+        "mapping_pending": 4
+      },
+      "operations": 19,
+      "tested_operations": 6,
+      "job_status": {
+        "activeVentilation": "not_observed",
+        "auxiliaryHeating": "not_observed",
+        "climatisation": "observed",
+        "climatisationTimers": "observed",
+        "hybridCarAuxiliaryHeating": "not_observed"
+      }
+    },
+    {
+      "capability": "mobility",
+      "attributes": 2,
+      "read_status": {
+        "readable_but_stale": 2
+      },
+      "operations": 5,
+      "tested_operations": 4,
+      "job_status": {}
+    },
+    {
+      "capability": "remote",
+      "attributes": 0,
+      "read_status": {},
+      "operations": 6,
+      "tested_operations": 1,
+      "job_status": {
+        "honkAndFlash": "not_observed"
+      }
+    },
+    {
+      "capability": "service",
+      "attributes": 5,
+      "read_status": {
+        "verified": 5
+      },
+      "operations": 1,
+      "tested_operations": 0,
+      "job_status": {
+        "vehicleHealthInspection": "observed"
+      }
+    },
+    {
+      "capability": "vehicle_status",
+      "attributes": 36,
+      "read_status": {
+        "verified": 15,
+        "invalid_value": 1,
+        "not_tested": 3,
+        "readable_but_stale": 3,
+        "mapping_pending": 14
+      },
+      "operations": 9,
+      "tested_operations": 0,
+      "job_status": {
+        "fuelStatus": "observed",
+        "lvBattery": "not_observed",
+        "measurements": "observed",
+        "oilLevel": "observed",
+        "readiness": "observed",
+        "userCapabilities": "observed",
+        "vehicleHealthWarnings": "observed",
+        "vehicleLights": "observed"
+      }
+    }
+  ],
+  "controls": [
+    {
+      "capability": "climate",
+      "action": "start",
+      "binding_status": "local_verified",
+      "physical_evidence": "worked"
+    },
+    {
+      "capability": "climate",
+      "action": "stop",
+      "binding_status": "local_verified",
+      "physical_evidence": "worked"
+    },
+    {
+      "capability": "climate",
+      "action": "window_heating_start",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "climate",
+      "action": "window_heating_stop",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "climate",
+      "action": "set_settings",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "climate",
+      "action": "start_with_settings",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "climate",
+      "action": "preheater_start",
+      "binding_status": "unknown",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "climate",
+      "action": "preheater_stop",
+      "binding_status": "unknown",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "access",
+      "action": "lock",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "access",
+      "action": "unlock",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "charging",
+      "action": "start",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "charging",
+      "action": "stop",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "charging",
+      "action": "set_target_soc",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "charging",
+      "action": "set_charge_mode",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "charging",
+      "action": "set_location_charge_target",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "remote",
+      "action": "wake",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "remote",
+      "action": "refresh",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "remote",
+      "action": "flash",
+      "binding_status": "catalog_matched",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "remote",
+      "action": "engine_start",
+      "binding_status": "ineligible",
+      "physical_evidence": "not_tested"
+    },
+    {
+      "capability": "remote",
+      "action": "engine_stop",
+      "binding_status": "ineligible",
+      "physical_evidence": "not_tested"
+    }
+  ],
+  "operations": [
+    {
+      "operation": "cariad.access.unlock",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.climate.start.stored",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "worked"
+    },
+    {
+      "operation": "cariad.climate.start.vehicle_settings",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.climate.status.batch",
+      "http_status": 207,
+      "schema": "valid",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.climate.status.probe",
+      "http_status": 207,
+      "schema": "invalid",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.climate.stop",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "worked"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.mobility.status.parkingPosition",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "http_status": 200,
+      "schema": "unknown",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.remote.wake",
+      "http_status": 204,
+      "schema": "unknown",
+      "physical": "not_tested"
+    },
+    {
+      "operation": "cariad.status.activeVentilation",
+      "http_status": 207,
+      "schema": "invalid",
+      "physical": "not_tested"
+    }
+  ],
+  "schema_truncated": true,
+  "fields": [
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.overallStatus",
+      "type": "string",
+      "quality": "observed",
+      "capability": "access",
+      "disposition": "open",
+      "target": "Normalize access overall state on lock or access summary"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "access",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.doorLockStatus",
+      "type": "string",
+      "quality": "observed",
+      "capability": "access",
+      "disposition": "declared",
+      "target": "sensor.door_lock_status"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.batteryStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.batteryStatus.value.currentSOC_pct",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "sensor.state_of_charge"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.batteryStatus.value.cruisingRangeElectric_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.range electric_range_km"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.chargingState",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "sensor.charging_state"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.chargeMode",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "sensor.charging_mode"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.chargeType",
+      "type": "string",
+      "quality": "vendor_sentinel",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "sensor.charge_type"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.plugConnectionState",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "binary_sensor.plug_state"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.plugLockState",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "binary_sensor.plug_lock_state"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.externalPower",
+      "type": "string",
+      "quality": "vendor_sentinel",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "sensor.external_power"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.ledColor",
+      "type": "string",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "sensor.plugled_color"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargeMode.value.preferredChargeMode",
+      "type": "string",
+      "quality": "vendor_sentinel",
+      "capability": "charging",
+      "disposition": "declared",
+      "target": "select.charge_mode, preference only"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "chargingTimers.chargingTimersStatus.value.timeInCar",
+      "type": "string",
+      "quality": "vendor_sentinel",
+      "capability": "charging",
+      "disposition": "open",
+      "target": "Timer local-time context; no timezone inference"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.targetTemperature_C",
+      "type": "number",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "declared",
+      "target": "sensor.climatisation_target_temperature_c"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.targetTemperature_F",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "declared",
+      "target": "sensor.climatisation_target_temperature_f"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.climatisationWithoutExternalPower",
+      "type": "boolean",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "declared",
+      "target": "sensor.climatisation_without_external_power"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationStatus.value.remainingClimatisationTime_min",
+      "type": "integer",
+      "quality": "negative_duration_candidate",
+      "capability": "climate",
+      "disposition": "declared",
+      "target": "sensor.remaining_climatisation_time"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationStatus.value.climatisationState",
+      "type": "string",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "declared",
+      "target": "sensor.climatisation_state"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.windowHeatingStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.carType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.car_type"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.totalRange_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.range, sensor.hybrid_range"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.electricRange",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.range electric_range_km"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.gasolineRange",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.range fuel_range_km"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.totalRange_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.range"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.odometerStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.odometerStatus.value.odometer",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.mileage"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.currentFuelLevel_pct",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.tank_level"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.currentSOC_pct",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "charging",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.state_of_charge conditional on explicit electric/hybrid classification"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.primaryEngineType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.primary_engine_type"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.secondaryEngineType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.secondary_engine_type"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.carType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.car_type"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "oilLevel.oilLevelStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "oilLevel.oilLevelStatus.value.value",
+      "type": "boolean",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "binary_sensor.oil_level_binary for boolean; numeric legacy separate"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleLights.lightsStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "service",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_days",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "service",
+      "disposition": "declared",
+      "target": "sensor.service_inspection_time"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "service",
+      "disposition": "declared",
+      "target": "sensor.service_inspection_distance"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.mileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "implemented_pending_validation",
+      "target": "sensor.mileage"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_days",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "service",
+      "disposition": "declared",
+      "target": "sensor.oil_change_time"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "service",
+      "disposition": "declared",
+      "target": "sensor.oil_change_distance"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "userCapabilities.capabilitiesStatus.value[].id",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "open",
+      "target": "Connected-service entity attribute"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "userCapabilities.capabilitiesStatus.value[].expirationDate",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "open",
+      "target": "Connected-service entity attribute"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "userCapabilities.capabilitiesStatus.value[].userDisablingAllowed",
+      "type": "boolean",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "open",
+      "target": "Connected-service entity attribute"
+    },
+    {
+      "operation": "cariad.climate.status.batch",
+      "path": "climatisation.climatisationStatus.requests[].status",
+      "type": "string",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.climate.status.batch",
+      "path": "climatisation.climatisationStatus.requests[].operation",
+      "type": "string",
+      "quality": "observed",
+      "capability": "climate",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.type",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.engine_type_first_engine"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.currentSOC_pct",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.primary_engine_range_percent"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.remainingRange_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.primary_engine_range"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.currentFuelLevel_pct",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "open",
+      "target": "Review and normalize or document reason for exclusion"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.secondaryEngine.type",
+      "type": "string",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.engine_type_second_engine"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.secondaryEngine.currentSOC_pct",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.secondary_engine_range_percent"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.secondaryEngine.remainingRange_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "vehicle_status",
+      "disposition": "declared",
+      "target": "sensor.secondary_engine_range"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.id",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "engineering_only",
+      "target": "Do not expose raw trip identifier"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.tripEndTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.tripType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.vehicleType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.mileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.startMileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.overallMileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.travelTime",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.averageFuelConsumption",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.averageElectricConsumption",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.averageSpeed_kmph",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.totalElectricConsumption_kwh",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.totalFuelConsumption_L",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].id",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "engineering_only",
+      "target": "Do not expose raw trip identifier"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].tripEndTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].tripType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].vehicleType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].mileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].startMileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].overallMileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].travelTime",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].averageFuelConsumption",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].averageElectricConsumption",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].averageSpeed_kmph",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].totalElectricConsumption_kwh",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].totalFuelConsumption_L",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].id",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "engineering_only",
+      "target": "Do not expose raw trip identifier"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].tripEndTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].tripType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].vehicleType",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].mileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].startMileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].overallMileage_km",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].travelTime",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].averageFuelConsumption",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].averageElectricConsumption",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].averageSpeed_kmph",
+      "type": "integer",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].totalElectricConsumption_kwh",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].totalFuelConsumption_L",
+      "type": "number",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics"
+    },
+    {
+      "operation": "cariad.mobility.status.parkingPosition",
+      "path": "data.carCapturedTimestamp",
+      "type": "string",
+      "quality": "observed",
+      "capability": "mobility",
+      "disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.doors[].name",
+      "type": "string",
+      "quality": "observed",
+      "capability": "access",
+      "disposition": "open",
+      "target": "Normalized per-door structure and component identity"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.windows[].name",
+      "type": "string",
+      "quality": "observed",
+      "capability": "access",
+      "disposition": "open",
+      "target": "Normalized per-window structure and component identity"
+    }
+  ]
+}

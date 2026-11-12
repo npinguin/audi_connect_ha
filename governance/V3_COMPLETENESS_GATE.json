@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "baseline": "3.0.0b12",
+  "release_policy": "No new HACS beta while an implementation or evidence-disposition blocker is open. Live candidate acceptance is separate and required for upstream promotion. No stable gate changes.",
+  "hacs_ready": false,
+  "upstream_ready": false,
+  "items": [
+    {
+      "id": "identity",
+      "capability": "vehicle_status",
+      "acceptance": "Localized GraphQL manufacturer model and independent drive classification",
+      "status": "implemented_pending_validation",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "command_projection",
+      "capability": "climate",
+      "acceptance": "Immediate accepted-command projection, actual response precedence, opposite action, stale/failed/timeout reconciliation",
+      "status": "implemented_pending_validation",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "operational_switches",
+      "capability": "charging",
+      "acceptance": "Native charging and window-heating controls, no duplicate primary controls, status mapping evidence",
+      "status": "implemented_pending_validation",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "trip_coverage",
+      "capability": "mobility",
+      "acceptance": "All observed trip fields accessible, native metrics and bounded history; dedup and units validated",
+      "status": "implemented_pending_validation",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "trip_durable_history",
+      "capability": "mobility",
+      "acceptance": "Verify endpoint completeness, persistence/backfill policy, no overlap/double-counting; do not claim lifetime history",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "range_soc",
+      "capability": "vehicle_status",
+      "acceptance": "Explicit alternative range, SOC and odometer sources; correct fuel/electric roles and capture ordering",
+      "status": "implemented_pending_validation",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "oil_boolean",
+      "capability": "vehicle_status",
+      "acceptance": "Boolean oil warning and numeric legacy level separated; verify polarity and migration",
+      "status": "implemented_pending_validation",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "structured_details",
+      "capability": "charging",
+      "acceptance": "Charging profiles and charging/climate/departure timers as normalized native entity attributes",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "access_details",
+      "capability": "access",
+      "acceptance": "Individual door/window/lock/light states and access aggregate; resolve icons and partial array invalidation",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "health_details",
+      "capability": "service",
+      "acceptance": "Health warnings, inspection and low-voltage battery evidence; normalize only supported values",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "capability_details",
+      "capability": "vehicle_status",
+      "acceptance": "Connected-service availability, expiration and disable eligibility as normalized attributes",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "discovery",
+      "capability": "remote",
+      "acceptance": "Unobserved jobs and read-only routes: complete reviewed catalog scan; document context/quota exclusions, no silent unsupported inference",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "schema_disposition",
+      "capability": "vehicle_status",
+      "acceptance": "All observed response leaves assigned native state, normalized attribute, metadata or explicit unresolved disposition; resolve truncated schema",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "registry_lifecycle",
+      "capability": "vehicle_status",
+      "acceptance": "Clean install and upgrade; preserve IDs and user choices; verify remaining unprojected/disabled identities",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "upstream_matrix",
+      "capability": "vehicle_status",
+      "acceptance": "Per capability/API/model evidence; distinguish code tests, HTTP/schema, readback and physical confirmation",
+      "status": "open",
+      "blocks_hacs": true,
+      "blocks_upstream": true
+    },
+    {
+      "id": "live_acceptance",
+      "capability": "climate",
+      "acceptance": "Live candidate Q8 validation; representative ICE/BEV and MBB evidence or explicit untested declaration",
+      "status": "open",
+      "blocks_hacs": false,
+      "blocks_upstream": true
+    }
+  ]
+}

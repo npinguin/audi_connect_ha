@@ -23,3 +23,5 @@ This documentation is **research**, not an active deployment or a manufacturer-e
 - [b11 release notes](V3_RELEASE_NOTES_3.0.0b11.md) — experimental HACS test, exact-SHA validation required.
 
 - [b12 release notes](V3_RELEASE_NOTES_3.0.0b12.md) — experimental HACS test, exact-SHA validation required.
+
+- [V3 completeness audit](V3_COMPLETENESS_AUDIT.md) — pre-next-HACS gate and sanitized b12 capability evidence.
