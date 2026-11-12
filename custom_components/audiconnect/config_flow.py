@@ -490,6 +490,9 @@ class OptionsFlowHandler(OptionsFlow):
 
     _pending_options: dict[str, Any] | None = None
     _dealer_vin: str | None = None
+    _discovery_vin: str | None = None
+    _discovery_action: str | None = None
+    _discovery_sequence: int | None = None
 
     def _dealer_vehicles(self) -> list[tuple[str, str]]:
         """Vehicles already loaded in this account; no extra Audi API request."""
@@ -594,6 +597,162 @@ class OptionsFlowHandler(OptionsFlow):
             step_id="dealer", data_schema=data_schema, errors=errors
         )
 
+    def _discovery_engine(self):
+        runtime = getattr(self.config_entry, "runtime_data", None)
+        return getattr(runtime, "v3", None)
+
+    def _discovery_context(self):
+        engine = self._discovery_engine()
+        if engine is None or self._discovery_vin is None:
+            raise ValueError("No active V3 vehicle")
+        car = engine.require_vehicle(self._discovery_vin)
+        return engine, car, engine.profiles[car.vin.lower()]
+
+    def _user_test_candidates(self, engine, car, profile):
+        """Only simple, reviewed, currently eligible native operations."""
+        from .v3.control_resolution import control_decision
+        from .v3.action_discovery import approval_group
+        labels = {
+            ("climate", "start"): "Start cabin climate",
+            ("climate", "stop"): "Stop cabin climate",
+            ("climate", "window_heating_start"): "Start window heating",
+            ("climate", "window_heating_stop"): "Stop window heating",
+            ("charging", "start"): "Start charging",
+            ("charging", "stop"): "Stop charging",
+            ("access", "lock"): "Lock vehicle",
+            ("access", "unlock"): "Unlock vehicle",
+            ("remote", "flash"): "Flash vehicle lights",
+            ("remote", "wake"): "Wake vehicle",
+        }
+        result = {}
+        for (capability, action), label in labels.items():
+            if capability not in profile.registry.capabilities:
+                continue
+            definition = profile.registry.capabilities[capability].get("control", {})
+            if action not in definition:
+                continue
+            decision = control_decision(car, profile, engine.auth, capability, action)
+            operation = decision["operation"]
+            if not operation or operation in profile.custom:
+                continue
+            op = profile.registry.operations[operation]
+            group = approval_group(capability, action, op)
+            if group not in ("non_spin", "spin") or op.get("request_variables"):
+                continue
+            result[capability + "." + action] = (label, capability, action, operation, group)
+        return result
+
+    async def async_step_discovery_vehicle(self, user_input=None):
+        engine = self._discovery_engine()
+        if engine is None:
+            return self.async_abort(reason="no_vehicle_available")
+        vehicles = [(car.vin, f"{car.name} (…{car.vin[-4:]})")
+                    for car in engine.vehicles.values() if car.inventory_present]
+        if not vehicles:
+            return self.async_abort(reason="no_vehicle_available")
+        if len(vehicles) == 1:
+            self._discovery_vin = vehicles[0][0]
+            return await self.async_step_discovery()
+        if user_input and user_input.get("vehicle") in dict(vehicles):
+            self._discovery_vin = user_input["vehicle"]
+            return await self.async_step_discovery()
+        return self.async_show_form(step_id="discovery_vehicle", data_schema=vol.Schema({
+            vol.Required("vehicle"): vol.In(dict(vehicles))}))
+
+    async def async_step_discovery(self, user_input=None):
+        from .v3.read_discovery import user_progress
+        engine, car, profile = self._discovery_context()
+        active = profile.discovery._active
+        if active is not None:
+            self._discovery_sequence = active.sequence
+            return await self.async_step_discovery_review()
+        if profile.last_command is not None and profile.last_command.unresolved:
+            return await self.async_step_discovery_recover()
+        candidates = self._user_test_candidates(engine, car, profile)
+        if user_input is not None:
+            choice = user_input.get("action")
+            if choice == "finish":
+                return self.async_create_entry(title="", data=dict(self.config_entry.options))
+            if choice == "refresh":
+                await self.config_entry.runtime_data.coordinator.async_request_refresh()
+                return await self.async_step_discovery()
+            if choice in candidates:
+                self._discovery_action = choice
+                return await self.async_step_discovery_consent()
+        progress = user_progress(car, profile, engine.auth)
+        controls = {key: value[0] for key, value in candidates.items()}
+        return self.async_show_form(step_id="discovery", data_schema=vol.Schema({
+            vol.Required("action", default="finish"): vol.In({
+                "finish": "Finish", "refresh": "Refresh read discovery", **controls})}),
+            description_placeholders={"vehicle": car.name,
+                "read": str(progress["read_assessment_percent"]),
+                "assessed": str(progress["read_assessed"]), "total": str(progress["read_total"]),
+                "verified": str(progress["controls_physically_verified"]),
+                "controls": str(progress["controls_catalog_applicable"])})
+
+    async def async_step_discovery_consent(self, user_input=None):
+        engine, car, profile = self._discovery_context()
+        candidate = self._user_test_candidates(engine, car, profile).get(self._discovery_action)
+        if candidate is None:
+            return await self.async_step_discovery()
+        label, capability, action, operation, group = candidate
+        errors = {}
+        if user_input is not None:
+            if not user_input.get("accept"):
+                return await self.async_step_discovery()
+            try:
+                result = await engine.approved_control_discovery(
+                    car.vin, action, operation, approval=group, capability=capability)
+            except (ValueError, RuntimeError, OSError, TimeoutError):
+                errors["base"] = "discovery_test_failed"
+                if profile.discovery._active is not None:
+                    self._discovery_sequence = profile.discovery._active.sequence
+                    return await self.async_step_discovery_review()
+            else:
+                self._discovery_sequence = result["sequence"]
+                return await self.async_step_discovery_review()
+        return self.async_show_form(step_id="discovery_consent",
+            data_schema=vol.Schema({vol.Required("accept", default=False): bool}),
+            errors=errors, description_placeholders={"vehicle": car.name, "action": label})
+
+    async def async_step_discovery_review(self, user_input=None):
+        engine, car, profile = self._discovery_context()
+        active = profile.discovery._active
+        if active is None:
+            return await self.async_step_discovery()
+        errors = {}
+        if user_input is not None:
+            outcome = user_input.get("outcome")
+            if outcome in ("worked", "failed", "uncertain"):
+                try:
+                    await engine.review_action(car.vin, active.sequence, outcome)
+                except (ValueError, RuntimeError, OSError):
+                    errors["base"] = "discovery_test_failed"
+                else:
+                    if outcome == "uncertain":
+                        return self.async_create_entry(title="", data=dict(self.config_entry.options))
+                    return await self.async_step_discovery()
+        return self.async_show_form(step_id="discovery_review", data_schema=vol.Schema({
+            vol.Required("outcome", default="uncertain"): vol.In({
+                "worked": "Inspected vehicle: worked", "failed": "Inspected vehicle: failed",
+                "uncertain": "Not sure — retain pending review"})}), errors=errors,
+            description_placeholders={"vehicle": car.name, "action": active.action,
+                                      "transport": active.transport})
+
+    async def async_step_discovery_recover(self, user_input=None):
+        engine, car, profile = self._discovery_context()
+        command = profile.last_command
+        if command is None or not command.unresolved:
+            return await self.async_step_discovery()
+        if user_input is not None:
+            if user_input.get("inspected"):
+                await engine.review_normal_command(car.vin, command.command_id)
+                return await self.async_step_discovery()
+            return self.async_create_entry(title="", data=dict(self.config_entry.options))
+        return self.async_show_form(step_id="discovery_recover", data_schema=vol.Schema({
+            vol.Required("inspected", default=False): bool}),
+            description_placeholders={"vehicle": car.name, "action": command.action})
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -610,6 +769,9 @@ class OptionsFlowHandler(OptionsFlow):
             else:
                 user_input.setdefault("v3_development_workbench", False)
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
+            run_discovery = bool(user_input.pop("run_vehicle_discovery", False))
+            if run_discovery and user_input["runtime_version"] == "v3_climate" and self._discovery_engine() is not None:
+                return await self.async_step_discovery_vehicle()
             # On runtime switch, some HA clients submit only the changed
             # fields. Never let an absent interval prevent saving the choice.
             interval = user_input.get(
@@ -682,6 +844,7 @@ class OptionsFlowHandler(OptionsFlow):
 
         if values.get("runtime_version", "v2") == "v3_climate":
             schema[vol.Optional("edit_local_dealer", default=False)] = bool
+            schema[vol.Optional("run_vehicle_discovery", default=False)] = bool
             schema[vol.Required(
                 "v3_development_workbench",
                 default=self.config_entry.options.get(
