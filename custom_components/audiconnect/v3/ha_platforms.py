@@ -55,8 +55,9 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     entities.append(factory(coordinator, car, *args))
 
             if platform == "sensor":
-                if getattr(car, "model", None):
-                    add_once(f"{vin}:model", V3ModelSensor)
+                # Manufacturer identity is universal, even when the OEM label
+                # is temporarily absent. Preserve the existing model entity ID.
+                add_once(f"{vin}:model", V3ModelSensor)
                 for kind in CORE_STATUS_KINDS:
                     add_once(f"{vin}:core:{kind}", V3StatusSensor, kind)
                 for kind in ("local_dealer", "service_overview"):
