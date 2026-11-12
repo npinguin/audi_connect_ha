@@ -125,3 +125,12 @@ def test_builtin_preview_uses_registry_renderer_without_resolving_spin():
     assert batch["json_body"] is None
     combined = profile.preview_request("cariad.charging.start.combined", vehicle_values=values)
     assert combined["json_body"] == {"action": "start"}
+
+
+def test_shared_renderer_accepts_reviewed_attribute_read_route():
+    from custom_components.audiconnect.v3.development_profiles import render_request
+    route = {"family": "cariad", "method": "GET",
+             "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs={JOBS}"}
+    plan = render_request(route, vehicle_values={"VIN": VIN, "JOBS": "access,charging"})
+    assert plan["relative_path"] == f"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=access,charging"
+    assert plan["json_body"] is None

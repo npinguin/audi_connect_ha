@@ -235,6 +235,32 @@ def _fill_request(template: Any, params: Mapping[str, Any]) -> Any:
     })
 
 
+def render_request(data: Mapping[str, Any], *, vehicle_values: Mapping[str, str],
+                   user_values: Mapping[str, Any] | None = None,
+                   experimental: bool = False) -> dict[str, Any]:
+    """Render an already validated operation or attribute route without secrets."""
+    values: dict[str, Any] = {}
+    for key in _SYSTEM - {"SPIN"}:
+        if key in vehicle_values:
+            values[key] = vehicle_values[key]
+    # Deliberately unresolved. The private engine resolves this marker
+    # inside an approved command immediately before dispatch; previews
+    # and persisted custom route definitions never contain the credential.
+    values["SPIN"] = "{SPIN}"
+    for key, kind in data.get("request_variables", {}).items():
+        if key not in (user_values or {}):
+            raise DevelopmentProfileError("Missing custom request parameter")
+        values[key] = _typed_value(user_values[key], kind)
+    required = _placeholders(data["path"])
+    if not required <= set(values):
+        raise DevelopmentProfileError("Missing vehicle context placeholder")
+    encoded = {
+        k: quote(str(v).lower() if type(v) is bool else str(v),
+                 safe="," if k == "JOBS" and not experimental else "")
+        for k, v in values.items()
+    }
+
+
 class DevelopmentProfile:
     """Per-vehicle experimental routes, results and an explicit active choice.
 
@@ -576,26 +602,8 @@ class DevelopmentProfile:
         if data is None:
             raise DevelopmentProfileError("Unknown operation")
         experimental = operation in self.custom
-        values: dict[str, Any] = {}
-        for key in _SYSTEM - {"SPIN"}:
-            if key in vehicle_values:
-                values[key] = vehicle_values[key]
-        # Deliberately unresolved. The private engine resolves this marker
-        # inside an approved command immediately before dispatch; previews
-        # and persisted custom route definitions never contain the credential.
-        values["SPIN"] = "{SPIN}"
-        for key, kind in data.get("request_variables", {}).items():
-            if key not in (user_values or {}):
-                raise DevelopmentProfileError("Missing custom request parameter")
-            values[key] = _typed_value(user_values[key], kind)
-        required = _placeholders(data["path"])
-        if not required <= set(values):
-            raise DevelopmentProfileError("Missing vehicle context placeholder")
-        encoded = {
-            k: quote(str(v).lower() if type(v) is bool else str(v),
-                     safe="," if k == "JOBS" and not experimental else "")
-            for k, v in values.items()
-        }
+        return render_request(data, vehicle_values=vehicle_values, user_values=user_values,
+                              experimental=experimental)
         path = data["path"].format_map(encoded)
         body = data.get("request_body")
         if data.get("request_mode") == "secure_spin" and body is None:

@@ -81,6 +81,31 @@ class CommandEngine:
                                                 explicit_action=True, security_token=token)
         return await self.transport.request(family, method, path, body=body, explicit_action=True)
 
+    async def _execute_prepared(self, car, profile, record, prepared, params):
+        """One physical dispatch and initial evidence path, after durable journaling."""
+        proof_required, (family, method, path, body) = prepared
+
+        def observe(status):
+            if record.origin == "workbench":
+                profile.observe_http(record.engineering_sequence, status)
+            else:
+                record.observe_http(status)
+
+        try:
+            if proof_required:
+                family, method, path, body = await self._command_request(car, record.operation, params)
+            response = await self._dispatch_command(car, family, method, path, body)
+        except (TimeoutError, OSError, RuntimeError, ValueError):
+            observe(None)
+            self._api_record(profile, record.operation, family, method, None, car.vin)
+            raise
+        observe(response.status)
+        if family == "cariad" and 200 <= response.status < 300:
+            from .request_status import request_id_of
+            record.request_id = request_id_of(response.data)
+        self._api_record(profile, record.operation, family, method, response, car.vin)
+        return family, path, response
+
     def control_routes_for(self, vin: str, capability: str, action: str) -> dict[str, Any]:
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vehicle.vin.lower()]
@@ -220,27 +245,19 @@ class CommandEngine:
                 raise ValueError("Vehicle command cooldown still active")
             # Reject invalid templates/parameters BEFORE reserving a pending
             # physical action, otherwise a mere validation error locks the car.
-            proof_required, (family, method, path, body) = await self._prepare_command(
-                vehicle, operation, params)
+            prepared = await self._prepare_command(vehicle, operation, params)
             self._reserve_wake(vehicle.vin, operation)
             attempt = profile.begin_test(
                 capability, aspect, operation, now=time.time()
             )
             await self.storage.async_save(self.profiles)
+            record = profile.engineering_record(attempt.sequence)
+            if record is None:
+                raise RuntimeError("Missing durable engineering command record")
             try:
-                if proof_required:
-                    family, method, path, body = await self._command_request(vehicle, operation, params)
-                response = await self._dispatch_command(vehicle, family, method, path, body)
-                profile.observe_http(attempt.sequence, response.status)
-                record = profile.engineering_record(attempt.sequence)
-                if record is not None and family == "cariad":
-                    from .request_status import request_id_of
-                    record.request_id = request_id_of(response.data)
-                self._api_record(profile, operation, family, method, response, vehicle.vin)
+                _, _, response = await self._execute_prepared(vehicle, profile, record, prepared, params)
             except (TimeoutError, OSError, RuntimeError, ValueError):
-                profile.observe_http(attempt.sequence, None)
                 response = None
-                self._api_record(profile, operation, family, method, None, vehicle.vin)
             await self.storage.async_save(self.profiles)
             return {
                 "sequence": attempt.sequence, "operation": operation,
@@ -312,8 +329,7 @@ class CommandEngine:
             ident = self._command_route(vin, aspect, capability)
             if ident is None:
                 raise RuntimeError("No eligible Audi command route")
-            proof_required, (family, method, path, body) = await self._prepare_command(
-                car, ident, params)
+            prepared = await self._prepare_command(car, ident, params)
             self._reserve_wake(vin, ident)
             record = CommandRecord.begin(capability, aspect, ident, time.time(),
                                          operation_revision=operation_revision(p.registry.operations[ident]),
@@ -323,19 +339,14 @@ class CommandEngine:
             # If storage fails here, no physical action is attempted.
             await self.storage.async_save(self.profiles)
             try:
-                if proof_required:
-                    family, method, path, body = await self._command_request(car, ident, params)
-                response = await self._dispatch_command(car, family, method, path, body)
-                self._api_record(p, ident, family, method, response, car.vin)
-                record.observe_http(response.status)
+                family, path, response = await self._execute_prepared(car, p, record, prepared, params)
                 if not 200 <= response.status < 300:
                     car.last_command_result = f"request_failed_{response.status}"
                 else:
                     car.last_command_result = record.state
                     if family == "cariad":
-                        from .request_status import confirm, request_id_of
-                        request_id = request_id_of(response.data)
-                        record.request_id = request_id
+                        from .request_status import confirm
+                        request_id = record.request_id
                         # Persist backend acceptance/ID before a cancellable follow-up.
                         await self.storage.async_save(self.profiles)
                         if request_id is not None:
@@ -359,7 +370,6 @@ class CommandEngine:
                 record.state = "uncertain"
                 record.backend_result = "transport_uncertain"
                 car.last_command_result = "transport_uncertain"
-                self._api_record(p, ident, family, method, None, car.vin)
                 record.completed_at = max(record.started_at, time.time())
                 await self.storage.async_save(self.profiles)
                 self._notify_discovery_change()

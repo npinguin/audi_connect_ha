@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import time
 from typing import Any
 
-from .development_profiles import DevelopmentProfile
+from .development_profiles import DevelopmentProfile, render_request
 from .transport import V3Response
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh, capture_field_timestamp as _captured
@@ -526,17 +526,16 @@ class StatusEngine:
     def _attribute_request(self, car: V3Vehicle, profile: DevelopmentProfile,
                            attribute: str, operation: str) -> tuple[str, str, list[str]]:
         route = get_read_variant(attribute, operation, profile.attribute_custom, attributes_for(profile))
-        path = (route["path"].replace("{VIN}", car.vin)
-                .replace("{TYPE}", "Audi").replace("{COUNTRY}", car.country))
-        if "{JOBS}" in path:
-            jobs = list(planned_jobs(car, profile))
-            required = attributes_for(profile)[attribute]["job"]
-            # Manual discovery of a missing attribute must include its own job,
-            # even if the regular vehicle poll already pruned unobserved jobs.
-            if required and required not in jobs:
-                jobs.append(required)
-            path = path.replace("{JOBS}", ",".join(jobs))
-        return route["family"], path, route["response_paths"]
+        jobs = list(planned_jobs(car, profile))
+        required = attributes_for(profile)[attribute]["job"]
+        # Manual discovery must include its own job even when pruned from polling.
+        if required and required not in jobs:
+            jobs.append(required)
+        request = render_request(route, vehicle_values={
+            "VIN": car.vin, "TYPE": "Audi", "COUNTRY": car.country,
+            "JOBS": ",".join(jobs),
+        }, experimental=route.get("kind") == "custom")
+        return request["family"], request["relative_path"], route["response_paths"]
 
     def _record_attribute_response(self, car: V3Vehicle, profile: DevelopmentProfile,
                                    attribute: str, operation: str, mappings: list[str],

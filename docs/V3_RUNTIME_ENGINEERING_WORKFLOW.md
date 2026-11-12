@@ -122,3 +122,7 @@ Removed the unused climate-only route wizard, hidden action handlers and redunda
 ## Cleanup slice 11 — remove stale UI contract and make repeated experiments practical
 
 The release contract now checks the actual attribute-save frontend path rather than the retired climate wizard. Removed redundant attribute-status initialization (canonical evidence computes it once). Alternative templates propose an attribute/action-specific unused identifier among the loaded variants, and refresh preserves the selected route instead of reverting to the active route. Backend uniqueness and activation validation remain authoritative; variants are still immutable.
+
+## Cleanup slice 12 — common rendering and physical dispatch
+
+Attribute routes now reuse the existing validated definition renderer, retaining required job selection. HA and Workbench now share one post-journal physical dispatch and initial HTTP/API-evidence path; each still applies its distinct confirmation policy. A confirmation failure does not overwrite the original HTTP observation with a transport failure. No new executor or workflow framework.
