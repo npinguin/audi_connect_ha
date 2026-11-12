@@ -21,6 +21,7 @@ from .profile_store import V3ProfileStorage
 from .response_preview import safe_response_preview
 from .api_observations import record_for, save_record
 from .registry import CapabilityRegistry
+from .product_contract import entity_projection_report
 from .transport import V3Response, V3Transport
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh
@@ -721,4 +722,5 @@ class V3Engine:
             "last_poll_attempt": self.last_cloud_poll_attempt.isoformat() if self.last_cloud_poll_attempt else None,
             "quota_remaining": self.transport.remaining_calls,
             "vehicles": vehicles,
+            "entity_projection": entity_projection_report(self),
         }

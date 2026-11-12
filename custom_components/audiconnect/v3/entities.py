@@ -26,6 +26,7 @@ from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle
 from .attribute_contracts import contract_for, binary_contract_for
+from .product_contract import projection_reading
 
 
 def _binding_status(profile, key):
@@ -401,9 +402,12 @@ class V3ApiQuotaSensor(V3BaseEntity, RestoreSensor):
         stamp = getattr(transport, "remaining_calls_observed_at", None)
         if transport.remaining_calls is not None:
             return {"last_observed": stamp.isoformat() if stamp else None,
-                    "value_restored": False}
+                    "value_restored": False, "value_source": "live_header",
+                    "value_is_current": True}
         return {"last_observed": self._restored_last_observed,
-                "value_restored": self._restored_native_value is not None}
+                "value_restored": self._restored_native_value is not None,
+                "value_source": "last_known" if self._restored_native_value is not None else "unknown",
+                "value_is_current": False, "current_remaining": None}
 
 
 class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):
@@ -488,12 +492,12 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             return False
         if self.attribute.get("local") and self.attribute["id"] not in self.coordinator.engine.profiles[self.vehicle.vin.lower()].attribute_routes:
             return False
-        reading = self.vehicle.readings.get(self.attribute["id"])
+        reading = projection_reading(self.vehicle, self.attribute)[1]
         return _reading_available(reading, allow_last_known=self._allow_last_known)
 
     @property
     def native_value(self):
-        reading = self.vehicle.readings.get(self.attribute["id"])
+        reading = projection_reading(self.vehicle, self.attribute)[1]
         value = reading.get("value") if reading else None
         if self.device_class == SensorDeviceClass.TIMESTAMP:
             from .attribute_runtime import _capture_in_utc
@@ -508,7 +512,8 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        reading = self.vehicle.readings.get(self.attribute["id"]) or {}
+        source, reading = projection_reading(self.vehicle, self.attribute)
+        reading = reading or {}
         captured_age = _reading_age_minutes(reading.get("captured"))
         freshness = (
             "unknown" if captured_age is None
@@ -518,6 +523,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         return {
             "v3_capability": self.attribute["capability"],
             "v2_attribute": self.attribute["id"],
+            "observed_source": source,
             "api_family": reading.get("family", "cariad"),
             "vehicle_freshness": freshness,
             "cloud_age_minutes": _reading_age_minutes(reading.get("observed")),

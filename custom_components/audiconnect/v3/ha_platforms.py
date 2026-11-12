@@ -17,7 +17,8 @@ from .entities import (
     V3PreheaterSwitch, V3LocalServiceSensor, V3ApiQuotaSensor,
 )
 from .custom_attributes import attributes_for
-from .product_contract import CORE_STATUS_KINDS, account_cloud_refresh_vin
+from .product_contract import (CORE_STATUS_KINDS, account_cloud_refresh_vin,
+                               projection_descriptor, projection_reading, entity_key)
 
 
 def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
@@ -83,7 +84,10 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                         continue
                     if not descriptor or descriptor["platform"] != platform:
                         continue
-                    reading = car.readings.get(ident)
+                    descriptor = projection_descriptor(descriptor)
+                    if descriptor is None:
+                        continue
+                    _source, reading = projection_reading(car, descriptor)
                     if not reading or not isinstance(
                         reading.get("value"), (str, int, float, bool)
                     ):
@@ -140,6 +144,9 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     seen.add(vin)
                     entities.append(V3LockEntity(coordinator, car))
         if entities:
+            for entity in entities:
+                if entity_key(entity.unique_id, entry.entry_id) is None:
+                    raise ValueError("V3 entity missing a product identity contract")
             projected.update(entity.unique_id for entity in entities)
             async_add_entities(entities)
 

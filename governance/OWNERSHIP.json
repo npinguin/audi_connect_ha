@@ -85,7 +85,8 @@
         "entities.py",
         "service_commands.py",
         "registry_lifecycle.py",
-        "product_contract.py"
+        "product_contract.py",
+        "product_entities.json"
       ],
       "responsibility": "HA projection and scheduling"
     },

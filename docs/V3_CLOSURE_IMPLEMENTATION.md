@@ -47,3 +47,13 @@ All 23 V2 binary sensor names, device classes, icons and categories are captured
 ### Entity and refresh rationalisation after b8 diagnostics
 
 Retire source-proven V3-only climate capability and V3 cloud polling sensors with an exact ID migration, preserving registry/history and user-disabled entries. One account cloud-refresh button retains the first VIN's historical unique ID; duplicate per-VIN controls are retired, vehicle refresh is explicitly named and wake is opt-in for new registry entries. Cloud health derives from real poll success, not local listener notification. A valid stale timestamp does not itself trigger an alternate GET. Restore 49 explicit V2 sensor icons; retain intentional V3 category changes. Model year is read from trusted GraphQL core metadata; remote engine control fails closed without model or drivetrain. Old Start/Stop climate button identities require exact registry evidence; no name-based deletion.
+
+
+### Product rationalisation — Q8 b8 audit
+
+- Product identity contract: `custom_components/audiconnect/v3/product_entities.json` defines the 109 historical V2 identities plus three deliberate V3 extensions (account cloud refresh, climate quick switch, last trip). Vehicle-local validated custom attributes are explicit exceptions. Raw fields remain in the API catalogue/Workbench and may be used by commands without automatically becoming duplicate HA entities.
+- 15 raw-only historical V3 sensor keys and two pilot diagnostic keys are retired by exact integration-owned identity; registry records, recorder history and user-disabled choices remain. No guessed climate-button identifier is migrated. The next diagnostics export includes redacted registry/projection comparison and unknown-key fingerprints.
+- Cloud and vehicle refresh are separate contracts. Default post-command follow-up is read-only. Opt-in V2 vehicle refresh runs only after a backend-completed/verified command, with its own linked journal record, safety checks and shared wake budget. Unconfirmed/failed refresh never emits a successful completion event.
+- Active charge mode and preferred charge mode are distinct sources; the latter drives the select, not the active-mode sensor. Equivalent historical aliases are resolved from the latest real capture rather than dictionary insertion order. Existing sensor metadata and identity are preserved.
+- Restored quota values are last-known display data, not current headers or transport budget. Source and currentness are explicit attributes.
+- Native climate sends a temperature-bearing start when supported; the quick switch intentionally uses stored car settings. Both use the same command journal and verified route policy. Physical parity and migration acceptance remain open.
