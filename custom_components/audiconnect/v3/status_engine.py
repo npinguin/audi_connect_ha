@@ -9,7 +9,8 @@ from .development_profiles import DevelopmentProfile
 from .transport import V3Response
 from .vehicle import V3Vehicle
 from .freshness import timestamp_is_fresh, capture_field_timestamp as _captured
-from .attribute_runtime import planned_jobs, observe_read_only, _accept_observation, record_invalid_observation
+from .attribute_runtime import (planned_jobs, observe_read_only, _accept_observation,
+                                record_invalid_observation, record_observation)
 from .attribute_contracts import semantic_value_issue
 from .custom_attributes import attributes_for, normalize_local_value
 from .attribute_routes import get_read_variant, read_variants
@@ -589,20 +590,9 @@ class StatusEngine:
             "outcome": outcome, "path": field, "http_status": response.status,
         }
         if 200 <= response.status < 300 and value is not None and len(str(value)) <= 10000:
-            last = car.readings.get(attribute)
-            if _accept_observation(last, captured):
-                car.readings[attribute] = {
-                    "value": value, "captured": captured,
-                    "observed": response.observed_at.isoformat(),
-                    "fresh": fresh, "path": field, "job": definition["job"],
-                    "status": outcome, "family": family,
-                }
-            profile.attribute_evidence[attribute] = {
-                "status": outcome, "path": field,
-                "job": definition["job"],
-                "source": "mbb.legacy" if family == "mbb" else "cariad.selectivestatus",
-                "timestamp_present": bool(captured),
-            }
+            record_observation(car, profile, attribute, value, captured,
+                               response.observed_at, field, definition["job"], family,
+                               fresh=fresh)
         return {
             "attribute": attribute, "route": operation, "result": outcome,
             "http_status": response.status, "mapping": field,

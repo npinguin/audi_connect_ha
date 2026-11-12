@@ -54,6 +54,24 @@ def record_invalid_observation(vehicle: Any, ident: str, captured: Any, observed
         }
 
 
+def record_observation(vehicle, profile, ident, value, captured, observed_at,
+                       path, job, family, *, fresh):
+    """Commit value and evidence together, only if the vehicle sample is accepted."""
+    if not _accept_observation(vehicle.readings.get(ident), captured):
+        return False
+    status = "verified" if fresh else "readable_but_stale"
+    vehicle.readings[ident] = {
+        "value": value, "captured": captured, "observed": observed_at.isoformat(),
+        "fresh": fresh, "path": path, "job": job, "status": status, "family": family,
+    }
+    profile.attribute_evidence[ident] = {
+        "status": status, "path": path, "job": job,
+        "source": "mbb.legacy" if family == "mbb" else "cariad.selectivestatus",
+        "timestamp_present": bool(captured),
+    }
+    return True
+
+
 def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: datetime) -> dict[str, int]:
     if not isinstance(payload, dict):
         return {"mapped": 0, "fresh": 0}
@@ -87,22 +105,9 @@ def observe_read_only(vehicle: Any, profile: Any, payload: Any, observed_at: dat
         if len(str(value)) > 10000:
             continue
         fresh = timestamp_is_fresh(row["captured"], observed_at)
-        previous = vehicle.readings.get(ident)
-        if not _accept_observation(previous, row["captured"]):
+        if not record_observation(vehicle, profile, ident, value, row["captured"],
+                                  observed_at, row["path"], row["job"], "cariad", fresh=fresh):
             continue
-        vehicle.readings[ident] = {
-            "value": value, "captured": row["captured"],
-            "observed": observed_at.isoformat(), "fresh": fresh,
-            "path": row["path"], "job": row["job"],
-            "status": "verified" if fresh else "readable_but_stale",
-            "family": "cariad",
-        }
-        profile.attribute_evidence[ident] = {
-            "status": "verified" if fresh else "readable_but_stale",
-            "path": row["path"], "job": row["job"],
-            "source": "cariad.selectivestatus",
-            "timestamp_present": bool(row["captured"]),
-        }
         # A proven V2 response field is *readable* even if the vehicle's
         # capture time is older than 60 minutes.  Activation exposes a clearly
         # marked last-known sensor, not a fresh control or lock reading.

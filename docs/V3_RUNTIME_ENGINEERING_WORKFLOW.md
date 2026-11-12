@@ -80,3 +80,7 @@ immediate-parent capture timestamp extraction from Engine and StatusEngine;
 ancestor capture extraction retains its separate semantics. Regression evidence:
 existing template/security tests plus built-in preview parity. No release
 intent, catalog activation policy, or frontend redesign in this slice.
+
+## Cleanup slice 2 — shared observation commit
+
+Batch and targeted read processing now share capture ordering and atomic value/evidence updates in `attribute_runtime.record_observation`. An older targeted sample can still be recorded as a route test but cannot overwrite canonical evidence while a newer vehicle reading is retained. Existing semantic filters and specialized structured normalizers remain unchanged; their consolidation is a subsequent slice. No additional runtime modules.

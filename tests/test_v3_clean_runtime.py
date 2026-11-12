@@ -596,3 +596,31 @@ async def test_partial_graphql_and_garage_identity_fields_are_combined_in_discov
     assert car.identity_operation == POST_GARAGE_OPERATION
     assert car.year_operation == GARAGE_OPERATION
     assert transport.test_identity_query.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_older_targeted_read_keeps_current_attribute_and_evidence_aligned():
+    from datetime import timedelta
+    engine, transport, store = engine_for()
+    await engine.discover()
+    car = engine.require_vehicle(VIN)
+    profile = engine.profiles[VIN.lower()]
+    now = datetime.now(UTC)
+    path = "charging.batteryStatus.value.currentSOC_pct"
+    fresh_payload = {"charging": {"batteryStatus": {"value": {
+        "currentSOC_pct": 70, "carCapturedTimestamp": now.isoformat()
+    }}}}
+    stale_payload = {"charging": {"batteryStatus": {"value": {
+        "currentSOC_pct": 49,
+        "carCapturedTimestamp": (now - timedelta(hours=3)).isoformat()
+    }}}}
+    from custom_components.audiconnect.v3.attribute_runtime import observe_read_only
+    observe_read_only(car, profile, fresh_payload, now)
+    original = dict(profile.attribute_evidence["stateOfCharge"])
+    response = V3Response(200, stale_payload, now, 50)
+    result = engine._record_attribute_response(
+        car, profile, "stateOfCharge", "cariad.selectivestatus.targeted", [path], response)
+    assert result["result"] == "readable_but_stale"
+    assert car.readings["stateOfCharge"]["value"] == 70
+    assert profile.attribute_evidence["stateOfCharge"] == original
+    assert profile.attribute_route_evidence["stateOfCharge"]["cariad.selectivestatus.targeted"]["outcome"] == "readable_but_stale"
