@@ -31,8 +31,10 @@ def test_access_explicit_status_and_unknown_values():
     assert car.readings["left_front_door_open"]["value"] is False
     assert car.readings["right_front_door_open"]["value"] is True
     assert car.readings["any_door_open"]["value"] is True
-    assert "left_rear_door_open" not in car.readings
-    assert "right_rear_window_open" not in car.readings
+    assert car.readings["left_rear_door_open"]["value"] is None
+    assert car.readings["left_rear_door_open"]["status"] == "invalid_value"
+    assert car.readings["right_rear_window_open"]["value"] is None
+    assert car.readings["right_rear_window_open"]["status"] == "invalid_value"
     assert car.readings["left_front_window_open"]["value"] is False
 
 def test_older_climate_capture_does_not_override_newer_state():
