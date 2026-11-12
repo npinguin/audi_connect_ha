@@ -62,7 +62,8 @@ _SCHEMA_PATH = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\[\])*(?:\.[A-Za-z_][A-Za-
 _SCHEMA_TYPES = frozenset(("object", "array", "boolean", "integer", "number", "string", "null"))
 
 
-def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: bool = False) -> tuple[list[dict[str, str]], bool]:
+def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: bool = False,
+                          field_limit: int = MAX_SCHEMA_FIELDS, char_limit: int = MAX_SCHEMA_CHARS) -> tuple[list[dict[str, str]], bool]:
     """Bounded structural inventory, with explicit sampling/truncation evidence."""
     from collections import deque
     from itertools import islice
@@ -70,9 +71,9 @@ def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: boo
 
     queue = deque([(payload, "", 0)])
     rows: dict[tuple[str, str], dict[str, str]] = {}
-    budget = 4096 if all_items else 640
+    budget = 20000 if all_items else 640
     truncated = False
-    while queue and budget and len(rows) < MAX_SCHEMA_FIELDS:
+    while queue and budget and len(rows) < field_limit:
         value, path, depth = queue.popleft()
         budget -= 1
         if depth > 12 or len(path) > 220:
@@ -113,7 +114,7 @@ def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: boo
                 queue.append((child, path + "[]", depth + 1))
     truncated |= bool(queue)
     result = list(rows.values())
-    while result and len(json.dumps(result, ensure_ascii=True)) > MAX_SCHEMA_CHARS:
+    while result and len(json.dumps(result, ensure_ascii=True)) > char_limit:
         result.pop()
         truncated = True
     return result, truncated
