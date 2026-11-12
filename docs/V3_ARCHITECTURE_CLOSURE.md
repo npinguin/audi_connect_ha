@@ -152,7 +152,7 @@ Review new operation variants against this pattern first. Existing deviations
 are cleanup candidates, not permission to add more. Preserve semantic validation,
 credential isolation, physical safeguards and current release authorization.
 
-### Workbench UX — four views, template-driven direct editing
+### Workbench UX — four engineering views plus end-user validation
 
 Keep Overview (health and findings), Capabilities (functional coverage and
 entity links), Configure & Test (operation editing and execution), API Log
@@ -169,8 +169,7 @@ Frontend checks are basic syntax, types and required fields; existing backend
 validators remain authoritative for semantics, applicability, security and
 activation. Preserve edits on validation errors. Drafts remain distinct from
 active definitions. Saving must never actuate the vehicle; explicit physical
-command consent and review remain where required. No fifth view, new UI
-framework, or bespoke editor per ordinary operation.
+command consent and review remain where required. No additional engineering editor views, new UI framework, or bespoke editor per ordinary operation. The explicitly requested fifth view, End-user validation, projects the same native HA discovery, eligibility, review, recovery and timing contracts; it must not create a second runtime or discovery workflow.
 
 ### Change review / definition of done
 
