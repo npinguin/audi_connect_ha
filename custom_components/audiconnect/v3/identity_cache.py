@@ -50,8 +50,11 @@ def previous_registry_model(hass, entry, vin):
     """Presentation-only migration aid. No other integration or user label."""
     from homeassistant.helpers import device_registry as dr
     from ..const import DOMAIN
-    registry = dr.async_get(hass)
-    device = registry.async_get_device(identifiers={(DOMAIN, vin.lower())})
+    try:
+        registry = dr.async_get(hass)
+        device = registry.async_get_device(identifiers={(DOMAIN, vin.lower())})
+    except (AttributeError, KeyError, RuntimeError):
+        return None
     if device is None or entry.entry_id not in device.config_entries or device.manufacturer != "Audi":
         return None
     model = device.model

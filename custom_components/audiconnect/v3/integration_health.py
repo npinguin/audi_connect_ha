@@ -61,6 +61,11 @@ class IntegrationHealth:
         data = response.data
         if not isinstance(data, dict):
             return
+        if operation == "graphql.inventory.vehicleList":
+            if data.get("errors"):
+                self._record(vehicle, "graphql_inventory_errors", "graphql_partial_response", http=status)
+            else:
+                self._recover(vehicle, "graphql_inventory_errors")
         for job in V2_JOBS:
             value = data.get(job)
             if not isinstance(value, dict):

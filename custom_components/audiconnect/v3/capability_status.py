@@ -382,7 +382,7 @@ def _cockpit(vehicle, profile, rows, controls):
             schema_key = "inventory" if ident == INVENTORY_OPERATION else ident
             evidence = profile.job_schema.get(schema_key, {})
             # Only this operation's observed non-null fields count as evidence.
-            observed = {f["path"] for f in evidence.get("fields", [])
+            observed = {f["path"] for f in evidence.get("latest_identity_fields", [])
                         if f["quality"] == "observed" and f["type"] not in ("null", "object", "array")}
             required = [spec[0] for key, spec in IDENTITY_FIELDS.items()
                         if (key == "vehicle_image") == ident.endswith(".images")]
@@ -403,7 +403,11 @@ def _cockpit(vehicle, profile, rows, controls):
                      "attention": reasons, "catalog": ident in catalog,
                      "reference_only": ident in references}
         fields = []
-        for field in record.get("fields", []):
+        raw_fields = {(f["path"], f["type"]): f for f in record.get("fields", [])}
+        for schema_evidence in profile.job_schema.values():
+            if schema_evidence.get("source") == ident:
+                raw_fields.update({(f["path"], f["type"]): f for f in schema_evidence.get("fields", [])})
+        for field in raw_fields.values():
             path = field["path"]
             matches = sorted(mapped_paths.get(path, set()))
             status = ("metadata" if path.rsplit(".", 1)[-1] in ("carCapturedTimestamp", "timestamp") else
@@ -420,6 +424,7 @@ def _cockpit(vehicle, profile, rows, controls):
             operation["family"] = "graphql"
             operation["path"] = "/vgql/v1/graphql"
             operation["read_only"] = True
+            operation["graphql_errors"] = evidence.get("graphql_errors", [])
             fields = [{**field,
                        "mapping": "declared_mapping" if any(field["path"] == spec[0] for spec in IDENTITY_FIELDS.values()) else
                                   "container" if field["type"] in ("array", "object") else "review_unmapped",
@@ -442,6 +447,28 @@ def _cockpit(vehicle, profile, rows, controls):
                 links.append({"attribute": row["attribute"], "capability": row["capability"],
                               "field": row["path"], "entity_key": (target["platform"] + "." + target["entity_key"]) if target else None,
                               "status": row["status"], "active": row["selected"]})
+            from .entities import CONTROL_BUTTONS
+            from .product_contract import stateful_controls
+            for row in matching:
+                if row["aspect"] == "status":
+                    continue
+                cap, action = row["capability"], row["aspect"]
+                targets = {f"button.{key}" for key, _, _, capability, command_action in CONTROL_BUTTONS
+                           if (capability, command_action) == (cap, action)}
+                for key, definition in stateful_controls().items():
+                    if definition["capability"] == cap and action in (definition["on"], definition["off"]):
+                        targets.add("switch." + key)
+                if cap == "climate" and action in ("start", "stop", "start_with_settings", "set_temperature"):
+                    targets.add("climate.climatisation")
+                if cap == "access" and action in ("lock", "unlock"):
+                    targets.add("lock.lock")
+                if cap == "charging" and action == "set_target_soc":
+                    targets.add("number.target_state_of_charge")
+                if cap == "charging" and action == "set_charge_mode":
+                    targets.add("select.charge_mode")
+                for target in sorted(targets):
+                    links.append({"attribute": "control." + action, "capability": cap, "field": None,
+                                  "entity_key": target, "status": row["status"], "active": row["selected"]})
             operation["mappings"] = links
             operation["capabilities"] = sorted(set(operation["capabilities"]) | {m["capability"] for m in links})
         operation["fields"] = fields

@@ -87,8 +87,22 @@ async def ws_status(hass, connection, msg):
         report["normal_command"] = profile.last_command.snapshot() if profile.last_command else None
         report["command_journal"] = [row.snapshot() for row in profile.command_journal]
         report["fast_bindings"] = profile.fast_bindings
-        from .product_contract import entity_projection_report
+        from .product_contract import entity_projection_report, entity_key
         report["account_entity_projection"] = entity_projection_report(engine)
+        # Admin-only actual HA entity IDs for the selected VIN, never in exported diagnostics.
+        if hasattr(hass, "states") and hasattr(hass, "data"):
+            from homeassistant.helpers import entity_registry as er
+            registry = er.async_get(hass)
+            actual = {}
+            for entity in er.async_entries_for_config_entry(registry, engine.entry.entry_id):
+                if not entity.unique_id.lower().startswith(vehicle.vin.lower() + "_"):
+                    continue
+                key = entity_key(entity.unique_id, engine.entry.entry_id)
+                if key:
+                    actual.setdefault(key, []).append(entity.entity_id)
+            for operation in report["operations"]:
+                for mapping in operation.get("mappings", []):
+                    mapping["entity_ids"] = actual.get(mapping.get("entity_key"), [])
         if hasattr(engine, "health"):
             report["integration_health"] = engine.health.snapshot(engine, vehicle)
         connection.send_result(msg["id"], report)

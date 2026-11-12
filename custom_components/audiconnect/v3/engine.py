@@ -437,7 +437,10 @@ class V3Engine:
                 profile.job_schema[job] = merge_schema_evidence(
                     profile.job_schema.get(job), fields, truncated,
                     status=record["http_status"], at=record["at"],
-                    source=operation if operation in self.registry.operations or operation in STANDALONE_READS or operation == INVENTORY_OPERATION else "reviewed_read")
+                    source=operation if operation in self.registry.operations or operation in STANDALONE_READS or operation in IDENTITY_QUERIES else "reviewed_read")
+                if operation in IDENTITY_QUERIES:
+                    profile.job_schema[job]["latest_identity_fields"] = fields
+                    profile.job_schema[job]["graphql_errors"] = payload.get("errors", [])
         profile.engineering_responses.pop(operation, None)
         if detail is not None:
             profile.engineering_responses[operation] = {
