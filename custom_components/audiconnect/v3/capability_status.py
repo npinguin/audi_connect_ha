@@ -26,7 +26,15 @@ from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .custom_attributes import attributes_for
 from .legacy_read_mappings import variant_for as legacy_variant_for
 from .read_discovery import summary as discovery_summary
-from .transport import INVENTORY_OPERATION
+from .transport import INVENTORY_OPERATION, IDENTITY_QUERIES
+
+IDENTITY_FIELDS = {
+    "manufacturer_model": ("data.userVehicles[].vehicle.media.longName", "sensor.model", "Manufacturer model"),
+    "model_family": ("data.userVehicles[].vehicle.media.shortName", "sensor.model", "Model family"),
+    "model_year": ("data.userVehicles[].vehicle.core.modelYear", "sensor.model", "Model year"),
+    "drive_train": ("data.userVehicles[].vehicle.classification.driveTrain", "sensor.model", "OEM drivetrain"),
+    "vehicle_image": ("data.userVehicles[].vehicle.renderPictures[].mediaType", "sensor.model", "Vehicle image"),
+}
 
 # Source: V2 capability_jobs.BASE_SELECTIVE_JOBS and api_probe.py.
 # This is a migration backlog, not 24 proven V3 capabilities.
@@ -335,7 +343,7 @@ def _cockpit(vehicle, profile, rows, controls):
     references = {row["operation"]: row for row in rows if row["source"] == "v2_reference_only"}
     journal = {row.operation: row for row in profile.command_journal}
     operations = []
-    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal)):
+    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal) | set(IDENTITY_QUERIES)):
         op = catalog.get(ident, {})
         record = records.get(ident, {})
         ref = references.get(ident, {})
@@ -360,17 +368,28 @@ def _cockpit(vehicle, profile, rows, controls):
             reasons.append("physical_control_" + (command.state if command else physical))
         if http is not None and not 200 <= http < 300:
             reasons.append("http_error")
-        if (ident != INVENTORY_OPERATION and method in ("POST", "PUT") and http is not None and 200 <= http < 300
+        if (ident not in IDENTITY_QUERIES and method in ("POST", "PUT") and http is not None and 200 <= http < 300
                 and physical != "worked" and not (command and command.state == "verified")):
             reasons.append("accepted_not_physically_verified")
         caps = sorted({row["capability"] for row in matching}
                       | ({command.capability} if command else set()))
-        if ident == INVENTORY_OPERATION:
-            caps = ["vehicle_status"]
-            active = True
+        if ident in IDENTITY_QUERIES:
+            caps = ["vehicle_identity"]
+            active = ident == INVENTORY_OPERATION
             applicable = [True]
-            schema = "valid" if http is not None and 200 <= http < 300 else schema
+            method = "POST"
             physical = "not_applicable"
+            schema_key = "inventory" if ident == INVENTORY_OPERATION else ident
+            evidence = profile.job_schema.get(schema_key, {})
+            # Only this operation's observed non-null fields count as evidence.
+            observed = {f["path"] for f in evidence.get("fields", [])
+                        if f["quality"] == "observed" and f["type"] not in ("null", "object", "array")}
+            required = [spec[0] for key, spec in IDENTITY_FIELDS.items()
+                        if (key == "vehicle_image") == ident.endswith(".images")]
+            if http is not None and 200 <= http < 300:
+                schema = "valid" if all(path in observed for path in required) else "partial"
+                if schema == "partial":
+                    reasons.append("identity_metadata_incomplete")
         operation = {"operation": ident, "family": op.get("family") or record.get("family") or ref.get("api_family"),
                      "method": method, "path": op.get("path") or ref.get("path"), "capabilities": caps,
                      "applicability": ("applicable" if any(applicable) else
@@ -397,11 +416,36 @@ def _cockpit(vehicle, profile, rows, controls):
             fields.append({**field, "mapping": status, "attributes": matches})
         job = (op.get("path", "").split("jobs=", 1)[-1] if "jobs=" in op.get("path", "") else None)
         operation["job_evidence"] = profile.job_discovery.get(job) if job else None
-        if ident == INVENTORY_OPERATION:
+        if ident in IDENTITY_QUERIES:
+            operation["family"] = "graphql"
             operation["path"] = "/vgql/v1/graphql"
             operation["read_only"] = True
+            fields = [{**field,
+                       "mapping": "declared_mapping" if any(field["path"] == spec[0] for spec in IDENTITY_FIELDS.values()) else
+                                  "container" if field["type"] in ("array", "object") else "review_unmapped",
+                       "attributes": [key for key, spec in IDENTITY_FIELDS.items() if field["path"] == spec[0]]}
+                      for field in evidence.get("fields", [])]
+            operation["mappings"] = [{"attribute": key, "capability": "vehicle_identity", "field": spec[0],
+                                      "entity_key": spec[1], "name": spec[2],
+                                      "status": "observed" if spec[0] in observed else "not_observed",
+                                      "active": active}
+                                     for key, spec in IDENTITY_FIELDS.items()
+                                     if (key == "vehicle_image") == ident.endswith(".images")]
+        else:
+            from .product_contract import projection_descriptor
+            links = []
+            for row in attributes:
+                if row["operation"] != ident and not any(row["attribute"] in field["attributes"] for field in fields):
+                    continue
+                descriptor = definitions.get(row["attribute"], {})
+                target = projection_descriptor(descriptor) if descriptor else None
+                links.append({"attribute": row["attribute"], "capability": row["capability"],
+                              "field": row["path"], "entity_key": (target["platform"] + "." + target["entity_key"]) if target else None,
+                              "status": row["status"], "active": row["selected"]})
+            operation["mappings"] = links
+            operation["capabilities"] = sorted(set(operation["capabilities"]) | {m["capability"] for m in links})
         operation["fields"] = fields
-        operation["fields_truncated"] = record.get("fields_truncated")
+        operation["fields_truncated"] = evidence.get("truncated") if ident in IDENTITY_QUERIES else record.get("fields_truncated")
         if any(field["mapping"] == "review_unmapped" for field in fields):
             reasons.append("unmapped_response_fields_review")
         operations.append(operation)
@@ -410,7 +454,7 @@ def _cockpit(vehicle, profile, rows, controls):
                              "capability": caps[0] if caps else None,
                              "operation": ident, "reason": reason})
     summaries = []
-    for name in sorted({r["capability"] for r in rows} | {c["capability"] for c in controls}):
+    for name in sorted({r["capability"] for r in rows} | {c["capability"] for c in controls} | {"vehicle_identity"}):
         a = [r for r in attributes if r["capability"] == name]
         c = [r for r in controls if r["capability"] == name]
         o = [r for r in operations if name in r["capabilities"] and not r["reference_only"]]
@@ -426,7 +470,7 @@ def _cockpit(vehicle, profile, rows, controls):
                           "impaired_jobs": sorted(set(jobs) & vehicle.impaired_capabilities),
                           "attention": sum(r.get("capability") == name for r in findings)})
     if not vehicle.model_family:
-        findings.append({"id": "vehicle:model_family", "severity": "review", "reason": "model_family_unknown"})
+        findings.append({"id": "vehicle:model_family", "severity": "review", "reason": "model_family_unknown", "capability": "vehicle_identity", "operation": INVENTORY_OPERATION})
     from .freshness import capture_coverage
     return {"operations": operations, "capability_summary": summaries,
             "job_capture_coverage": capture_coverage(vehicle),
@@ -484,7 +528,7 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
         {key: item.get(key) for key in ("operation", "family", "method", "applicability",
             "tested", "http_status", "schema", "physical", "last_command_state",
             "active", "job_evidence", "fields_truncated")}
-        for item in report["operations"] if item["operation"] in base_registry.operations or item["operation"] == INVENTORY_OPERATION
+        for item in report["operations"] if item["operation"] in base_registry.operations or item["operation"] in IDENTITY_QUERIES
     ]
     return {
         "capabilities": summaries,

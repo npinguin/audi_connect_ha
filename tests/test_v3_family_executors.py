@@ -1,3 +1,4 @@
+from custom_components.audiconnect.v3.transport import _GRAPHQL_QUERY
 """API family isolation: host, token, operation and proof policy differ."""
 import pytest
 from types import SimpleNamespace
@@ -49,7 +50,7 @@ def test_mbb_legacy_executor_uses_separate_token_and_trusted_home_region():
 def test_graphql_executor_can_only_use_fixed_audi_vehicle_list():
     e=GraphQLExecutor(); a=FakeAuth()
     path="/vgql/v1/graphql"
-    response=e.plan(a,"POST",path,{"query":"query vehicleList { userVehicles { vin } }"},explicit_action=True)
+    response=e.plan(a,"POST",path,{"query":_GRAPHQL_QUERY},explicit_action=True)
     assert response.url=="https://app-api.live-my.audi.com/vgql/v1/graphql"
     assert a.requested==["graphql"]
     with pytest.raises(ValueError):
@@ -71,6 +72,12 @@ def test_graphql_inventory_locale_uses_market_language_and_safe_fallback(country
     auth.country = country
     auth.service = SimpleNamespace(_language=language)
     plan = GraphQLExecutor().plan(auth, "POST", "/vgql/v1/graphql",
-                                 {"query": "query vehicleList { userVehicles { vin } }"})
+                                 {"query": _GRAPHQL_QUERY})
     assert plan.headers["Accept-Language"] == expected
     assert plan.headers["X-User-Country"] == country
+
+
+def test_graphql_rejects_unreviewed_mutation():
+    with pytest.raises(ValueError, match="Unreviewed"):
+        GraphQLExecutor().plan(FakeAuth(),"POST","/vgql/v1/graphql",
+                               {"query":"mutation { anything }"}, explicit_action=True)
