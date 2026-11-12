@@ -58,129 +58,141 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
         )
 
 
-class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
+_CLIMATE_OFF = frozenset(("off", "stopped", "inactive"))
+_CLIMATE_ON = frozenset(("heating", "cooling", "ventilation", "on", "active"))
+
+
+def _climate_reported_state(coordinator, vehicle):
+    """A pre-command capture is not a confirmation of the new command."""
+    state = vehicle.climate_state
+    age = vehicle.capture_age_minutes
+    legacy = vehicle.context.auth == "legacy" and _reading_available(
+        vehicle.readings.get("climatisationState"))
+    if state is None or (age is None and not legacy) or (age is not None and age > 60):
+        return None
+    profile = getattr(coordinator.engine, "profiles", {}).get(vehicle.vin.lower())
+    for record in reversed(getattr(profile, "command_journal", ())):
+        if record.capability != "climate" or record.action not in ("start", "start_with_settings", "stop"):
+            continue
+        if record.state in ("pending", "uncertain", "accepted_unconfirmed", "backend_completed"):
+            if vehicle.climate_captured is None or vehicle.climate_captured.timestamp() <= record.started_at:
+                return None
+        break
+    return state if state in _CLIMATE_ON | _CLIMATE_OFF else None
+
+
+async def _send_climate(coordinator, vehicle, action, params=None):
+    engine = coordinator.engine
+    if not getattr(vehicle, "inventory_present", True) or not engine.control_enabled(vehicle.vin, action, "climate"):
+        raise HomeAssistantError("Climate action unavailable; review the route or pending command in Audi Engineering Dashboard")
+    try:
+        if params is None:
+            await engine.send_control(vehicle.vin, action, "climate")
+        else:
+            await engine.send_control(vehicle.vin, action, "climate", params=params)
+    except (RuntimeError, ValueError) as err:
+        raise HomeAssistantError(str(err)) from err
+
+
+class V3ClimateEntity(V3BaseEntity, ClimateEntity):
+    """Native cabin climate: actual state, explicit on/off, optional setpoint."""
     _attr_name = "Climate"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 15
     _attr_max_temp = 30
-    _attr_target_temperature_step = 1.0
+    _attr_target_temperature_step = 0.5
+    _enable_turn_on_off_backwards_compatibility = False
+
+    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_climate_climatisation"
+        self._requested_temperature = None
+
+    def _enabled(self, action):
+        return self.coordinator.engine.control_enabled(self.vehicle.vin, action, "climate")
 
     @property
     def native_target_temperature(self):
-        row = self.vehicle.readings.get("climatisationTargetTemperatureC", {})
-        value = row.get("value")
+        value = self.vehicle.readings.get("climatisationTargetTemperatureC", {}).get("value")
         return self._requested_temperature if self._requested_temperature is not None else (
-            value if type(value) in (int, float) and 15 <= value <= 30 else self._restored_temperature
-        )
+            value if type(value) in (int, float) and 15 <= value <= 30 else None)
 
     @property
     def target_temperature(self):
         return self.native_target_temperature
 
-    async def async_added_to_hass(self):
-        await super().async_added_to_hass()
-        last = await self.async_get_last_state()
-        if last is not None:
-            try:
-                value = float(last.attributes.get("temperature"))
-                if 15 <= value <= 30:
-                    self._restored_temperature = value
-            except (TypeError, ValueError):
-                pass
-
-    async def async_set_temperature(self, **kwargs):
-        value = kwargs.get("temperature")
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 15 <= value <= 30:
-            raise HomeAssistantError("Climate temperature must be 15..30 C")
-        # V2 contract: changing a setpoint while off never starts the car.
-        self._requested_temperature = float(value)
-        self.async_write_ha_state()
-        if self.hvac_mode == HVACMode.HEAT_COOL:
-            try:
-                await self.coordinator.engine.send_control(
-                    self.vehicle.vin, "start_with_settings", "climate",
-                    params={"temp_c": value},
-                )
-            except (RuntimeError, ValueError) as err:
-                raise HomeAssistantError(str(err)) from err
-
-    def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
-        super().__init__(coordinator, vehicle)
-        # Keep original unique ID and HA automations.
-        self._attr_unique_id = f"{vehicle.vin.lower()}_climate_climatisation"
-        self._requested_temperature = None
-        self._restored_temperature = 21.0
-
     @property
     def supported_features(self) -> ClimateEntityFeature:
         value = ClimateEntityFeature(0)
-        if self.coordinator.engine.control_enabled(self.vehicle.vin, "start_with_settings"):
+        if self._enabled("start_with_settings"):
             value |= ClimateEntityFeature.TARGET_TEMPERATURE
-        if self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
+        if self._enabled("start") or (self._enabled("start_with_settings") and self.native_target_temperature is not None):
             value |= ClimateEntityFeature.TURN_ON
-        if self.coordinator.engine.control_enabled(self.vehicle.vin, "stop"):
+        if self._enabled("stop"):
             value |= ClimateEntityFeature.TURN_OFF
         return value
 
     @property
     def available(self) -> bool:
-        if not getattr(self.vehicle, "inventory_present", True):
-            return False
-        age = self.vehicle.capture_age_minutes
-        status_current = (
-            self.vehicle.climate_state is not None
-            and age is not None and age <= 60
-        )
-        return self.coordinator.last_update_success and (
-            status_current or bool(self.supported_features)
-        )
-
-    def _recent_legacy_status(self):
-        return self.vehicle.context.auth == "legacy" and _reading_available(
-            self.vehicle.readings.get("climatisationState"))
+        return (getattr(self.vehicle, "inventory_present", True)
+                and self.coordinator.last_update_success
+                and (_climate_reported_state(self.coordinator, self.vehicle) is not None
+                     or bool(self.supported_features)))
 
     @property
     def hvac_mode(self) -> HVACMode | None:
-        state = self.vehicle.climate_state
-        age = self.vehicle.capture_age_minutes
-        if state is None or (age is None and not self._recent_legacy_status()) or (age is not None and age > 60):
-            return None
-        if state in ("off", "stopped", "inactive"):
+        state = _climate_reported_state(self.coordinator, self.vehicle)
+        if state in _CLIMATE_OFF:
             return HVACMode.OFF
-        if state in ("heating", "cooling", "ventilation", "on", "active"):
+        if state in _CLIMATE_ON:
             return HVACMode.HEAT_COOL
         return None
 
     @property
     def hvac_action(self) -> HVACAction | None:
-        state = self.vehicle.climate_state
-        age = self.vehicle.capture_age_minutes
-        if state is None or (age is None and not self._recent_legacy_status()) or (age is not None and age > 60):
-            return None
-        return {
-            "off": HVACAction.OFF, "stopped": HVACAction.OFF,
-            "inactive": HVACAction.OFF, "heating": HVACAction.HEATING,
-            "cooling": HVACAction.COOLING, "ventilation": HVACAction.FAN,
-        }.get(state)
+        state = _climate_reported_state(self.coordinator, self.vehicle)
+        if state in _CLIMATE_OFF:
+            return HVACAction.OFF
+        return {"heating": HVACAction.HEATING, "cooling": HVACAction.COOLING,
+                "ventilation": HVACAction.FAN}.get(state)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         engine = self.coordinator.engine
-        profile = engine.profiles.get(self.vehicle.vin.lower())
+        profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
         return {
             "v3_capability": "climate",
             "api_route": self.vehicle.climate_source,
             "vehicle_captured": self.vehicle.climate_captured.isoformat()
             if self.vehicle.climate_captured else None,
             "age_minutes": self.vehicle.capture_age_minutes,
-            "start_enabled": engine.control_enabled(self.vehicle.vin, "start"),
-            "stop_enabled": engine.control_enabled(self.vehicle.vin, "stop"),
+            "start_enabled": self._enabled("start"),
+            "stop_enabled": self._enabled("stop"),
             "start_evidence": _binding_status(profile, "climate.start"),
             "stop_evidence": _binding_status(profile, "climate.stop"),
             "last_command": self.vehicle.last_command_result,
+            "target_temperature_source": "local_pending" if self._requested_temperature is not None else "vehicle",
             "active_paths": len(profile.active) if profile else 0,
         }
+
+    async def async_set_temperature(self, **kwargs):
+        value = kwargs.get("temperature")
+        mode = kwargs.get("hvac_mode")
+        if type(value) not in (int, float) or not 15 <= value <= 30:
+            raise HomeAssistantError("Climate temperature must be 15..30 C")
+        if mode not in (None, HVACMode.OFF, HVACMode.HEAT_COOL):
+            raise HomeAssistantError("Unsupported climate mode")
+        if not self._enabled("start_with_settings"):
+            raise HomeAssistantError("Temperature-bearing start is not enabled")
+        self._requested_temperature = float(value)
+        # A setpoint alone must not start a stopped or unknown vehicle.
+        if mode == HVACMode.OFF:
+            await self.async_turn_off()
+        elif mode == HVACMode.HEAT_COOL or self.hvac_mode == HVACMode.HEAT_COOL:
+            await self.async_turn_on()
+        self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, mode: HVACMode) -> None:
         if mode == HVACMode.OFF:
@@ -191,29 +203,21 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
             raise HomeAssistantError("Unsupported climate mode")
 
     async def async_turn_on(self) -> None:
-        if not self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
-            raise HomeAssistantError("Climate Start must be tested and enabled in Audi Engineering Dashboard")
-        try:
-            if self.coordinator.engine.control_enabled(self.vehicle.vin, "start_with_settings"):
-                await self.coordinator.engine.send_control(
-                    self.vehicle.vin, "start_with_settings", "climate",
-                    params={"temp_c": self.native_target_temperature},
-                )
-            elif self._requested_temperature is not None:
-                raise HomeAssistantError("Temperature-bearing start is not enabled")
-            else:
-                await self.coordinator.engine.send_control(self.vehicle.vin, "start")
-        except (RuntimeError, ValueError) as err:
-            raise HomeAssistantError(str(err)) from err
+        # Normal ON uses the exact bodyless start. Only an explicit staged
+        # target (or absence of a bodyless route) selects a settings start.
+        if self._requested_temperature is not None or not self._enabled("start"):
+            value = self.native_target_temperature
+            if value is None:
+                raise HomeAssistantError("No reported or explicitly selected climate target")
+            await _send_climate(self.coordinator, self.vehicle, "start_with_settings", {"temp_c": value})
+            self._requested_temperature = None
+        elif self.hvac_mode != HVACMode.HEAT_COOL:
+            await _send_climate(self.coordinator, self.vehicle, "start")
         self.async_write_ha_state()
 
     async def async_turn_off(self) -> None:
-        if not self.coordinator.engine.control_enabled(self.vehicle.vin, "stop"):
-            raise HomeAssistantError("Climate Stop must be tested and enabled in Audi Engineering Dashboard")
-        try:
-            await self.coordinator.engine.send_control(self.vehicle.vin, "stop")
-        except (RuntimeError, ValueError) as err:
-            raise HomeAssistantError(str(err)) from err
+        if self.hvac_mode != HVACMode.OFF:
+            await _send_climate(self.coordinator, self.vehicle, "stop")
         self.async_write_ha_state()
 
 
@@ -657,8 +661,6 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
 # The workbench always shows unverified candidates without injecting unusable
 # lock/button/switch entities into a customer's HA device.
 CONTROL_BUTTONS = (
-    ("start_climate_car_settings", "Start climate (car settings)", "mdi:car-air-conditioner", "climate", "start"),
-    ("stop_climate", "Stop climate", "mdi:car-air-conditioner", "climate", "stop"),
     ("refresh_vehicle_data", "Request fresh vehicle data", "mdi:cloud-refresh", "remote", "refresh"),
     ("flash_lights", "Flash lights", "mdi:car-light-high", "remote", "flash"),
     ("start_engine", "Start engine", "mdi:car-key", "remote", "engine_start"),
@@ -706,7 +708,7 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         if not self.available:
-            raise HomeAssistantError("Control must be tested and activated in Audi V3 first")
+            raise HomeAssistantError("Control unavailable; review Audi Engineering Dashboard")
         try:
             await self.coordinator.engine.send_control(
                 self.vehicle.vin, self.action, self.capability
@@ -717,8 +719,9 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
 
 
 class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
-    _attr_name = "Climate ON/OFF (compatibility)"
+    _attr_name = "Climate (compatibility)"
     _attr_entity_registry_visible_default = False
+    _attr_entity_registry_enabled_default = False
     _attr_icon = "mdi:car-air-conditioner"
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
@@ -727,15 +730,8 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool | None:
-        state = self.vehicle.climate_state
-        age = self.vehicle.capture_age_minutes
-        if state is None or age is None or age > 60:
-            return None
-        if state in ("off", "inactive", "stopped"):
-            return False
-        if state in ("heating", "cooling", "ventilation", "on", "active"):
-            return True
-        return None
+        state = _climate_reported_state(self.coordinator, self.vehicle)
+        return True if state in _CLIMATE_ON else False if state in _CLIMATE_OFF else None
 
     @property
     def available(self) -> bool:
@@ -751,19 +747,19 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
         if not self.available:
             raise HomeAssistantError("Climate ON/OFF requires available verified controls")
         if self.is_on is not True:
-            await self.coordinator.engine.send_control(self.vehicle.vin, "start")
+            await _send_climate(self.coordinator, self.vehicle, "start")
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
         if not self.available:
             raise HomeAssistantError("Climate ON/OFF requires available verified controls")
         if self.is_on is not False:
-            await self.coordinator.engine.send_control(self.vehicle.vin, "stop")
+            await _send_climate(self.coordinator, self.vehicle, "stop")
         self.async_write_ha_state()
 
 
 class V3LockEntity(V3BaseEntity, LockEntity):
-    _attr_name = "Door lock"
+    _attr_name = "Central locking"
     _attr_icon = "mdi:car-door-lock"
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
@@ -1021,7 +1017,7 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
         super().__init__(coordinator, vehicle)
         key, self.reading, self.field = descriptor
         self._attr_unique_id = f"{vehicle.vin.lower()}_switch_{key}"
-        self._attr_name = key.replace("_", " ").capitalize()
+        self._attr_name = contract_for(self.reading and key.replace("climatisation_window_heating", "climatisation_window_heating_enabled")).get("name") or key.replace("_", " ").capitalize()
 
     @property
     def is_on(self):

@@ -80,6 +80,7 @@ async def async_apply_v3_entity_visibility(
     hidden = set(data.get("b10_hidden", []))
     reviewed = set(data.get("b10_reviewed", []))
     categories = dict(data.get("b10_categories", {}))
+    disabled_compat = set(data.get("disabled_compatibility", []))
     for entity_id in owned:
         current = registry.async_get(entity_id)
         uid = getattr(current, "unique_id", "")
@@ -87,6 +88,8 @@ async def async_apply_v3_entity_visibility(
         if not key or not hasattr(current, "hidden_by"):
             continue
         if not enabled:
+            if uid in disabled_compat and current.disabled_by == er.RegistryEntryDisabler.INTEGRATION:
+                registry.async_update_entity(entity_id, disabled_by=None)
             if uid in hidden and current.hidden_by == er.RegistryEntryHider.INTEGRATION:
                 registry.async_update_entity(entity_id, hidden_by=None)
             if uid in categories:
@@ -106,6 +109,11 @@ async def async_apply_v3_entity_visibility(
             category = EntityCategory(desired) if desired else None
             if current.entity_category != category:
                 updates["entity_category"] = category
+        if (key == "switch.climate_quick_control" and current.disabled_by is None
+                and (current.hidden_by == er.RegistryEntryHider.INTEGRATION or uid not in reviewed)
+                and current.hidden_by != er.RegistryEntryHider.USER and uid not in disabled_compat):
+            updates["disabled_by"] = er.RegistryEntryDisabler.INTEGRATION
+            disabled_compat.add(uid)
         if car is not None and uid not in reviewed and compatibility_hidden(car, key):
             reviewed.add(uid)
             if current.hidden_by is None and current.disabled_by is None:
@@ -120,6 +128,7 @@ async def async_apply_v3_entity_visibility(
         hidden.clear()
         reviewed.clear()
         categories.clear()
+        disabled_compat.clear()
 
     # Historical V2 disable records are cleared; the cloud anchor is local
     # account metadata. Never save pilot retirement as a V2 restore candidate.
@@ -134,4 +143,6 @@ async def async_apply_v3_entity_visibility(
         result["b10_reviewed"] = sorted(reviewed)
     if categories:
         result["b10_categories"] = categories
+    if disabled_compat:
+        result["disabled_compatibility"] = sorted(disabled_compat)
     await store.async_save(result)

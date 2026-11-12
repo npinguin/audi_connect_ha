@@ -19,9 +19,21 @@ const friendly = value => ({
 const domainName = value => ({access:"Access & security",charging:"Charging",climate:"Climate",
   mobility:"Trips & location",remote:"Remote actions",service:"Service & maintenance",
   vehicle_status:"Vehicle status"}[value] || friendly(value));
-const actionName = (cap, action) => ({start:"Start",stop:"Stop",wake:"Wake vehicle",
-  refresh:"Refresh vehicle",flash:"Flash lights",set_target_soc:"Set charge target",
-  set_charge_mode:"Set charge mode"}[action] || friendly(action));
+const actionName = (cap, action) => ({
+  "climate.start":"Climate · Turn on (vehicle settings)",
+  "climate.stop":"Climate · Turn off",
+  "climate.start_with_settings":"Climate · Turn on with selected settings",
+  "climate.set_settings":"Climate · Update settings",
+  "climate.window_heating_start":"Window heating · Turn on",
+  "climate.window_heating_stop":"Window heating · Turn off",
+  "climate.preheater_start":"Preheater · Turn on",
+  "climate.preheater_stop":"Preheater · Turn off",
+  "access.lock":"Central locking · Lock",
+  "access.unlock":"Central locking · Unlock",
+  "charging.start":"Charging · Start",
+  "charging.stop":"Charging · Stop",
+}[cap+"."+action] || ({wake:"Wake vehicle",refresh:"Request fresh vehicle data",
+  flash:"Flash lights",set_target_soc:"Set charge target",set_charge_mode:"Set charge mode"}[action] || friendly(action)));
 const stateTone = value => ["verified","worked","local_verified"].includes(value)?"good":
   ["invalid_value","failed","physical_failed"].includes(value)?"bad":
   ["readable_but_stale","mapping_pending","pending_review"].includes(value)?"warn":"neutral";

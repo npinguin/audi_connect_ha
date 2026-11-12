@@ -152,9 +152,9 @@ def test_exact_pilot_retirement_and_single_account_refresh_anchor(monkeypatch):
     entry = NS(entry_id="abc", runtime_data=NS(v3=engine))
     asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, True))
     assert engine.cloud_refresh_vin == vin
-    assert set(updates) == {"sensor.pilot", "sensor.health_pilot", "button.duplicate"}
-    assert entries["button.old_start"].disabled_by is None
-    assert entries["button.old_stop"].disabled_by is None
+    assert set(updates) == {"sensor.pilot", "sensor.health_pilot", "button.duplicate", "button.old_start", "button.old_stop"}
+    assert entries["button.old_start"].disabled_by == er.RegistryEntryDisabler.INTEGRATION
+    assert entries["button.old_stop"].disabled_by == er.RegistryEntryDisabler.INTEGRATION
     assert entries["button.user_old"].disabled_by == er.RegistryEntryDisabler.USER
     assert entries["sensor.v2"].disabled_by is None
     assert entries["button.vehicle"].disabled_by is None
@@ -225,6 +225,7 @@ def test_b10_registry_migration_preserves_user_choices_and_restores_owned_change
     assert refresh.entity_category is None
     assert cloud.entity_category == EntityCategory.DIAGNOSTIC
     assert quick.hidden_by == er.RegistryEntryHider.INTEGRATION
+    assert quick.disabled_by == er.RegistryEntryDisabler.INTEGRATION
     assert user.hidden_by == er.RegistryEntryHider.USER
     assert disabled.disabled_by == er.RegistryEntryDisabler.USER
     asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,False))
@@ -232,5 +233,6 @@ def test_b10_registry_migration_preserves_user_choices_and_restores_owned_change
     assert position.entity_category == EntityCategory.DIAGNOSTIC
     assert refresh.entity_category == EntityCategory.DIAGNOSTIC
     assert quick.hidden_by is None
+    assert quick.disabled_by is None
     assert user.hidden_by == er.RegistryEntryHider.USER
     assert disabled.disabled_by == er.RegistryEntryDisabler.USER

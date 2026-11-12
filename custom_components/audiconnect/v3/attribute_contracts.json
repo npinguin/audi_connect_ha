@@ -304,7 +304,7 @@
       "icon": "mdi:air-conditioner"
     },
     "remaining_climatisation_time": {
-      "name": "Remaining Climatisation Time",
+      "name": "Climate remaining time",
       "unit": "min",
       "device_class": "duration",
       "state_class": "measurement",
@@ -324,7 +324,7 @@
       "icon": "mdi:thermometer"
     },
     "climatisation_target_temperature_f": {
-      "name": "Climate target temperature (F)",
+      "name": "Climate target temperature (Fahrenheit)",
       "unit": "°F",
       "device_class": "temperature",
       "state_class": null,
@@ -334,7 +334,7 @@
       "icon": "mdi:thermometer"
     },
     "climatisation_window_heating_enabled": {
-      "name": "climatisation window heating enabled",
+      "name": "Climate window heating enabled",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -344,7 +344,7 @@
       "icon": "mdi:car-defrost-rear"
     },
     "climatisation_at_unlock": {
-      "name": "climatisation at unlock",
+      "name": "Climate at unlock",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -354,7 +354,7 @@
       "icon": "mdi:car-door-lock"
     },
     "climatisation_without_external_power": {
-      "name": "climatisation without external power",
+      "name": "Climate without external power",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -364,7 +364,7 @@
       "icon": "mdi:battery"
     },
     "climatisation_zone_front_left": {
-      "name": "climatisation zone front left",
+      "name": "Climate zone front left",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -374,7 +374,7 @@
       "icon": "mdi:car-seat"
     },
     "climatisation_zone_front_right": {
-      "name": "climatisation zone front right",
+      "name": "Climate zone front right",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -384,7 +384,7 @@
       "icon": "mdi:car-seat"
     },
     "climatisation_zone_rear_left": {
-      "name": "climatisation zone rear left",
+      "name": "Climate zone rear left",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -394,7 +394,7 @@
       "icon": "mdi:car-seat"
     },
     "climatisation_zone_rear_right": {
-      "name": "climatisation zone rear right",
+      "name": "Climate zone rear right",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -690,7 +690,7 @@
       "icon": "mdi:clock-end"
     },
     "climatisation_timer_enabled_count": {
-      "name": "Climate Timers Enabled",
+      "name": "Climate timers enabled",
       "unit": null,
       "device_class": null,
       "state_class": null,
@@ -700,7 +700,7 @@
       "icon": "mdi:calendar-clock"
     },
     "next_climatisation_timer_local": {
-      "name": "Next Climate Timer (Car Local Time)",
+      "name": "Climate next timer (vehicle local time)",
       "unit": null,
       "device_class": null,
       "state_class": null,

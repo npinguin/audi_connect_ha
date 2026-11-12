@@ -43,17 +43,18 @@ def test_trusted_manufacturer_context_not_nickname():
                                  "vehicle": {"media": {"longName": "Audi Q8"}}}, "DE")
     assert car.model_family == "q8"
 
-def test_climate_buttons_are_independent_of_stale_state_and_use_existing_ids():
+def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_buttons():
     import asyncio
     from custom_components.audiconnect.v3.ha_platforms import setup
+    from homeassistant.components.climate import ClimateEntityFeature, HVACMode
     car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
     now = datetime.now(UTC)
     car.set_climate("off", (now-timedelta(hours=2)).isoformat(),
                     route="test", observed_at=now, http_status=200)
-    enabled = {"start", "stop"}
+    enabled = {"start", "stop", "start_with_settings"}
     calls, offered, listeners = [], [], []
-    async def send(vin, action, capability):
-        calls.append((vin, action, capability))
+    async def send(vin, action, capability, **kwargs):
+        calls.append((vin, action, capability, kwargs))
     engine = NS(vehicles={VIN.lower():car}, profiles={},
                 control_enabled=lambda vin, action, capability="climate": capability=="climate" and action in enabled,
                 send_control=send)
@@ -61,15 +62,42 @@ def test_climate_buttons_are_independent_of_stale_state_and_use_existing_ids():
                      async_add_listener=lambda cb: listeners.append(cb))
     entry = NS(entry_id="entry",runtime_data=NS(v3=engine,coordinator=coordinator),
                async_on_unload=lambda cb:None)
+    setup("climate",entry,offered.extend)
     setup("button",entry,offered.extend)
-    buttons = {e.unique_id:e for e in offered}
-    for suffix, action in (("start_climate_car_settings","start"),("stop_climate","stop")):
-        entity=buttons[VIN.lower()+"_button_"+suffix]
-        assert entity.available and entity.entity_category is None
-        entity.async_write_ha_state=lambda:None
-        asyncio.run(entity.async_press())
-        assert calls[-1]==(VIN,action,"climate")
-    assert V3ClimateEntity(coordinator,car).hvac_mode is None
+    assert len(offered) == 1
+    entity = offered[0]
+    entity.async_write_ha_state=lambda:None
+    assert entity.unique_id == VIN.lower()+"_climate_climatisation"
+    assert entity.available and entity.hvac_mode is None
+    assert entity.supported_features & ClimateEntityFeature.TURN_ON
+    assert entity.supported_features & ClimateEntityFeature.TURN_OFF
+    asyncio.run(entity.async_set_hvac_mode(HVACMode.HEAT_COOL))
+    assert calls[-1] == (VIN,"start","climate",{})
+    asyncio.run(entity.async_set_hvac_mode(HVACMode.OFF))
+    assert calls[-1] == (VIN,"stop","climate",{})
+    asyncio.run(entity.async_set_temperature(temperature=19.5))
+    assert len(calls) == 2 and entity.target_temperature == 19.5
+    asyncio.run(entity.async_turn_on())
+    assert calls[-1] == (VIN,"start_with_settings","climate",{"params":{"temp_c":19.5}})
+    assert entity.hvac_mode is None
+    assert entity.target_temperature is None
     enabled.remove("start")
-    assert not buttons[VIN.lower()+"_button_start_climate_car_settings"].available
-    assert buttons[VIN.lower()+"_button_stop_climate"].available
+    assert not entity.supported_features & ClimateEntityFeature.TURN_ON
+    assert entity.supported_features & ClimateEntityFeature.TURN_OFF
+
+
+def test_old_capture_does_not_claim_command_confirmation():
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    from homeassistant.components.climate import HVACMode
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    now = datetime.now(UTC)
+    car.set_climate("off", (now-timedelta(minutes=2)).isoformat(),
+                    route="test", observed_at=now, http_status=200)
+    command = CommandRecord.begin("climate","start","route",(now-timedelta(minutes=1)).timestamp())
+    command.state = "accepted_unconfirmed"
+    coordinator = NS(engine=NS(control_enabled=lambda *args: True,
+                                 profiles={VIN.lower():NS(command_journal=[command])}))
+    entity = V3ClimateEntity(coordinator, car)
+    assert entity.hvac_mode is None
+    car.set_climate("heating", now.isoformat(), route="test", observed_at=now, http_status=200)
+    assert entity.hvac_mode == HVACMode.HEAT_COOL

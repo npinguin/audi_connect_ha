@@ -971,22 +971,6 @@
       "metadata_contract": null,
       "freshness": "native_entity_contract",
       "category": "diagnostic"
-    },
-    "button.start_climate_car_settings": {
-      "origin": "v3_product_extension",
-      "scope": "vehicle",
-      "source_attributes": [],
-      "metadata_contract": null,
-      "freshness": "native_entity_contract",
-      "category": null
-    },
-    "button.stop_climate": {
-      "origin": "v3_product_extension",
-      "scope": "vehicle",
-      "source_attributes": [],
-      "metadata_contract": null,
-      "freshness": "native_entity_contract",
-      "category": null
     }
   },
   "retired_v3_sensors": [
@@ -1016,5 +1000,9 @@
     "switch.climate_quick_control",
     "sensor.climatisation_state",
     "sensor.hybrid_range"
+  ],
+  "retired_legacy_buttons": [
+    "start_climate_car_settings",
+    "stop_climate"
   ]
 }
