@@ -110,6 +110,16 @@ def _service(row):
                      "status": _tokens(status) if isinstance(status, list) else _token(status)})
 
 
+def _request_status(row):
+    """Observed OEM command metadata; never imply physical success or replay."""
+    if not isinstance(row, dict):
+        return None
+    operation, status = _token(row.get("operation")), _token(row.get("status"))
+    if operation is None or status is None:
+        return None
+    return {"operation": operation, "status": status}
+
+
 def _array(rows, normalizer, limit):
     if not isinstance(rows, list):
         return None
@@ -146,6 +156,13 @@ def observe_structured(vehicle, payload, observed_at, accepts):
     if isinstance(block, dict):
         put("access_overall_detail", _token(block.get("overallStatus")),
             block.get("carCapturedTimestamp"), "access.accessStatus.value.overallStatus")
+    # b12 exposed these two fields in the climate status envelope. Its
+    # vehicle capture belongs to the climate reading, not to the requests.
+    requests_path = "climatisation.climatisationStatus.requests"
+    requests = read_json_path(payload, requests_path)
+    if isinstance(requests, list):
+        put("climate_requests_detail", _array(requests, _request_status, 30),
+            None, requests_path)
     services = read_json_path(payload, "userCapabilities.capabilitiesStatus.value")
     if isinstance(services, list):
         put("connected_services_detail", _array(services, _service, 200), None,
@@ -161,5 +178,6 @@ def details_for(vehicle, *keys):
             result[key.removesuffix("_detail")] = {
                 "data": row.get("value"), "vehicle_captured": row.get("captured"),
                 "cloud_observed": row.get("observed"), "source": row.get("path"),
+                "verification": row.get("status", "unknown"),
             }
     return result
