@@ -76,3 +76,11 @@ def test_oem_render_selection_only_accepts_public_audi_cdn():
         {"mediaType": "MS_MYP3", "url": good}]}, VIN) == good
     assert select_vehicle_image({"renderPictures": [{"mediaType": "MS_MYP3",
         "url": "http://mediaservice.audi.com/render.png"}]}, VIN) is None
+
+
+def test_render_selection_prefers_large_side_over_icon():
+    from custom_components.audiconnect.v3.vehicle import select_vehicle_image
+    side = "https://mediaservice.audi.com/render/side.png"
+    assert select_vehicle_image({"renderPictures": [
+        {"mediaType": "MS_MYP3", "url": "https://mediaservice.audi.com/render/icon.png"},
+        {"mediaType": "MYAPN8NB", "url": side}]}, VIN) == side

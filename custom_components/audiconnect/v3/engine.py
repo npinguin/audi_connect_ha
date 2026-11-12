@@ -203,13 +203,14 @@ class V3Engine:
         # One bounded best-effort read per runtime. The image response is
         # intentionally excluded from API observations and engineering exports.
         image_reader = getattr(self.transport, "discover_vehicle_images", None)
-        remaining = self.transport.remaining_calls
+        remaining = getattr(self.transport, "remaining_calls", None)
         if (image_reader is not None and not self._image_probe_attempted
                 and (remaining is None or remaining > 20)):
             self._image_probe_attempted = True
             try:
-                images = await image_reader()
-            except (RuntimeError, ValueError, OSError, TimeoutError):
+                async with asyncio.timeout(8):
+                    images = await image_reader()
+            except Exception:  # Optional media must not interrupt valid identity.
                 for car in known.values():
                     car.image_status = "inconclusive"
             else:

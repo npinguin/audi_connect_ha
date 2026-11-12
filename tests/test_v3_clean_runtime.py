@@ -514,3 +514,26 @@ async def test_optional_vehicle_render_url_is_not_exported_in_diagnostics():
     assert car.image_url == url
     assert car.image_status == "observed"
     assert url not in json.dumps(engine.diagnostics())
+
+
+@pytest.mark.asyncio
+async def test_model_context_refinement_preserves_vin_trip_snapshots():
+    from custom_components.audiconnect.v3.trips import observe_cariad_trip
+    from unittest.mock import AsyncMock
+    engine, transport, _ = engine_for()
+    transport.discover_vehicles = AsyncMock(side_effect=[
+        [{"vin": VIN}],
+        [{"vin": VIN, "vehicle": {"media": {"longName": "Audi Q8 TFSI e"},
+                                  "classification": {"driveTrain": "PHEV"}}}],
+    ])
+    await engine.discover()
+    car = engine.vehicles[VIN.lower()]
+    assert car.model_family == ""
+    observe_cariad_trip(car, "cariad.mobility.status.lastTrip", {"data": {
+        "tripEndTimestamp": "2026-01-01T00:00:00Z", "mileage_km": 42}})
+    engine.status._trip_poll_at[VIN.lower()] = 123
+    await engine.discover()
+    assert car is engine.vehicles[VIN.lower()]
+    assert car.model_family == "q8"
+    assert car.trips["last_trip"]["mileage"] == 42
+    assert VIN.lower() not in engine.status._trip_poll_at

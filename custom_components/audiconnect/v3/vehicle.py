@@ -97,7 +97,7 @@ def powertrain_identity(vehicle):
 
 def select_vehicle_image(vehicle, vin):
     """Pick one trusted, public Audi render; never use arbitrary CDN URLs."""
-    from urllib.parse import urlsplit, parse_qsl
+    from urllib.parse import urlsplit, parse_qsl, unquote
     if not isinstance(vehicle, dict) or not isinstance(vehicle.get("renderPictures"), list):
         return None
     candidates = []
@@ -111,14 +111,16 @@ def select_vehicle_image(vehicle, vin):
             parsed = urlsplit(url)
             if (parsed.scheme != "https" or parsed.hostname != "mediaservice.audi.com"
                     or parsed.username or parsed.password or parsed.port or parsed.fragment
-                    or not parsed.path or vin.lower() in url.lower()
+                    or not parsed.path or vin.lower() in unquote(url).lower()
                     or any(re.search(r"token|secret|auth|password|credential|session|vin", k, re.I)
                            for k, _ in parse_qsl(parsed.query, keep_blank_values=True))):
                 continue
         except ValueError:
             continue
         # Prefer a large side profile where available; accept other OEM views.
-        candidates.append((0 if kind == "MS_MYP3" else 1, url))
+        priority = ("MYAPN8NB", "MYAAN8NB", "MS_MYP5", "MYAPN3NB",
+                    "MS_MYP4", "MS_MYP3", "MYAAN3NB")
+        candidates.append((priority.index(kind) if kind in priority else len(priority), url))
     return min(candidates)[1] if candidates else None
 
 
