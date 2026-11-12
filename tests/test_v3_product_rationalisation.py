@@ -17,7 +17,7 @@ VIN = "wauzzz4m0md123456"
 
 
 def test_retired_ids_are_exact_and_v2_ids_are_preserved():
-    assert CORE_STATUS_KINDS == ("cloud", "age", "freshness")
+    assert CORE_STATUS_KINDS == ("cloud", "age", "freshness", "discovery")
     assert retired_pilot_entity(VIN + "_sensor_v3_climate_capability")
     assert retired_pilot_entity(VIN + "_sensor_v3_poll_status")
     assert not retired_pilot_entity(VIN + "_sensor_climatisation_state")
