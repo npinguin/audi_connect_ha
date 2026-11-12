@@ -175,7 +175,9 @@ class V3Vehicle:
         media = vehicle.get("media") if isinstance(vehicle.get("media"), dict) else {}
         def label(key):
             value = media.get(key)
-            return value.strip() if isinstance(value, str) and value.strip().lower() not in _INVALID else ""
+            return value.strip() if (isinstance(value, str) and 0 < len(value.strip()) <= 120
+                and value.strip().lower() not in _INVALID | {"audi", "audi vehicle"}
+                and vin.lower() not in value.lower()) else ""
         long_name, short_name = label("longName"), label("shortName")
         model = long_name or short_name
         source = "audi_long_name" if long_name else "audi_short_name" if short_name else ""
