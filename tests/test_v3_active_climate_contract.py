@@ -82,9 +82,13 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
     asyncio.run(entity.async_turn_on())
     assert calls[-1] == (VIN,"start_with_settings","climate",{"params":{"temp_c":19.5}})
     assert entity.hvac_mode is None
-    assert entity.target_temperature is None
+    assert entity.target_temperature == 19.5
+    assert entity.extra_state_attributes["pending_dispatched_temperature"] == 19.5
+    car.readings["climatisationTargetTemperatureC"] = {
+        "value": 20, "captured": (datetime.now(UTC)+timedelta(seconds=1)).isoformat()}
+    assert entity.target_temperature == 20
     enabled.remove("start")
-    assert not entity.supported_features & ClimateEntityFeature.TURN_ON
+    assert entity.supported_features & ClimateEntityFeature.TURN_ON
     assert entity.supported_features & ClimateEntityFeature.TURN_OFF
 
 
@@ -103,3 +107,36 @@ def test_old_capture_does_not_claim_command_confirmation():
     assert entity.hvac_mode is None
     car.set_climate("heating", now.isoformat(), route="test", observed_at=now, http_status=200)
     assert entity.hvac_mode == HVACMode.HEAT_COOL
+
+
+def test_rejected_setpoint_preserves_reported_target():
+    import asyncio
+    import pytest
+    from unittest.mock import AsyncMock
+    from homeassistant.exceptions import HomeAssistantError
+    car = V3Vehicle(VIN,"Audi","Q8","q8","DE")
+    now = datetime.now(UTC)
+    car.set_climate("heating",now.isoformat(),route="test",observed_at=now,http_status=200)
+    car.readings["climatisationTargetTemperatureC"]={"value":17,"captured":now.isoformat()}
+    engine=NS(control_enabled=lambda *args:True,profiles={},send_control=AsyncMock(side_effect=RuntimeError("rejected")))
+    entity=V3ClimateEntity(NS(engine=engine,last_update_success=True),car)
+    entity.async_write_ha_state=lambda:None
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(entity.async_set_temperature(temperature=24))
+    assert entity.target_temperature == 17
+    assert entity.hvac_action.value == "heating"
+
+
+def test_staged_target_does_not_block_stored_start_when_settings_disabled():
+    import asyncio
+    from unittest.mock import AsyncMock
+    car=V3Vehicle(VIN,"Audi","Q8","q8","DE")
+    enabled={"start","stop","start_with_settings"}
+    engine=NS(control_enabled=lambda vin,action,capability:action in enabled,
+              profiles={},send_control=AsyncMock())
+    entity=V3ClimateEntity(NS(engine=engine,last_update_success=True),car)
+    entity.async_write_ha_state=lambda:None
+    asyncio.run(entity.async_set_temperature(temperature=24))
+    enabled.remove("start_with_settings")
+    asyncio.run(entity.async_turn_on())
+    engine.send_control.assert_awaited_once_with(VIN,"start","climate")

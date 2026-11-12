@@ -108,15 +108,33 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         super().__init__(coordinator, vehicle)
         self._attr_unique_id = f"{vehicle.vin.lower()}_climate_climatisation"
         self._requested_temperature = None
+        self._dispatched_temperature = None
+        self._dispatched_at = None
 
     def _enabled(self, action):
         return self.coordinator.engine.control_enabled(self.vehicle.vin, action, "climate")
 
     @property
-    def native_target_temperature(self):
+    def reported_target_temperature(self):
         value = self.vehicle.readings.get("climatisationTargetTemperatureC", {}).get("value")
-        return self._requested_temperature if self._requested_temperature is not None else (
-            value if type(value) in (int, float) and 15 <= value <= 30 else None)
+        return value if type(value) in (int, float) and 15 <= value <= 30 else None
+
+    @property
+    def pending_dispatched_temperature(self):
+        from .attribute_runtime import _capture_in_utc
+        row = self.vehicle.readings.get("climatisationTargetTemperatureC", {})
+        stamp = _capture_in_utc(row.get("captured"))
+        if (self._dispatched_at is not None and self.reported_target_temperature is not None
+                and stamp is not None and stamp >= self._dispatched_at):
+            return None
+        return self._dispatched_temperature
+
+    @property
+    def native_target_temperature(self):
+        if self._requested_temperature is not None and self._enabled("start_with_settings"):
+            return self._requested_temperature
+        pending = self.pending_dispatched_temperature
+        return pending if pending is not None else self.reported_target_temperature
 
     @property
     def target_temperature(self):
@@ -167,13 +185,18 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
             "vehicle_captured": self.vehicle.climate_captured.isoformat()
             if self.vehicle.climate_captured else None,
             "age_minutes": self.vehicle.capture_age_minutes,
-            "start_enabled": self._enabled("start"),
+            "start_enabled": bool(self.supported_features & ClimateEntityFeature.TURN_ON),
             "stop_enabled": self._enabled("stop"),
             "start_evidence": _binding_status(profile, "climate.start"),
             "stop_evidence": _binding_status(profile, "climate.stop"),
             "last_command": self.vehicle.last_command_result,
+            "reported_target_temperature": self.reported_target_temperature,
+            "staged_target_temperature": self._requested_temperature,
+            "pending_dispatched_temperature": self.pending_dispatched_temperature,
             "target_temperature_source": ("local_pending" if self._requested_temperature is not None
-                                          else "vehicle" if self.native_target_temperature is not None else "unknown"),
+                and self._enabled("start_with_settings") else "command_pending_readback"
+                if self.pending_dispatched_temperature is not None else
+                "vehicle" if self.reported_target_temperature is not None else "unknown"),
             "last_reported_climate_state": self.vehicle.climate_state,
             "active_paths": len(profile.active) if profile else 0,
         }
@@ -187,13 +210,23 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
             raise HomeAssistantError("Unsupported climate mode")
         if not self._enabled("start_with_settings"):
             raise HomeAssistantError("Temperature-bearing start is not enabled")
-        self._requested_temperature = float(value)
-        # A setpoint alone must not start a stopped or unknown vehicle.
+        # Off/unknown: stage locally; do not implicitly start. Commit a
+        # dispatched setpoint only after the command owner accepts the request.
         if mode == HVACMode.OFF:
             await self.async_turn_off()
+            self._requested_temperature = float(value)
         elif mode == HVACMode.HEAT_COOL or self.hvac_mode == HVACMode.HEAT_COOL:
-            await self.async_turn_on()
+            await self._send_target(float(value))
+        else:
+            self._requested_temperature = float(value)
         self.async_write_ha_state()
+
+    async def _send_target(self, value):
+        started = datetime.now(UTC)
+        await _send_climate(self.coordinator, self.vehicle, "start_with_settings", {"temp_c": value})
+        self._requested_temperature = None
+        self._dispatched_temperature = value
+        self._dispatched_at = started
 
     async def async_set_hvac_mode(self, mode: HVACMode) -> None:
         if mode == HVACMode.OFF:
@@ -206,14 +239,17 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     async def async_turn_on(self) -> None:
         # Normal ON uses the exact bodyless start. Only an explicit staged
         # target (or absence of a bodyless route) selects a settings start.
-        if self._requested_temperature is not None or not self._enabled("start"):
+        if self._enabled("start_with_settings") and (
+                self._requested_temperature is not None or not self._enabled("start")):
             value = self.native_target_temperature
             if value is None:
                 raise HomeAssistantError("No reported or explicitly selected climate target")
-            await _send_climate(self.coordinator, self.vehicle, "start_with_settings", {"temp_c": value})
+            await self._send_target(value)
+        elif self._enabled("start"):
+            await _send_climate(self.coordinator, self.vehicle, "start")
             self._requested_temperature = None
         else:
-            await _send_climate(self.coordinator, self.vehicle, "start")
+            raise HomeAssistantError("No enabled climate start route")
         self.async_write_ha_state()
 
     async def async_turn_off(self) -> None:
