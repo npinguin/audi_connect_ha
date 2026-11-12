@@ -76,3 +76,17 @@ Readback of the preceding actual action is not hidden by a linked refresh.
 Regression tests cover both wake endpoints, HTTP 204, repeated wake limits,
 uncertainty and linked-refresh masking. Candidate CI and live acceptance
 remain pending.
+
+
+## Normal HA command cadence
+
+Following user feedback, the ordinary per-vehicle mutation cooldown is now
+10 seconds from command initiation (previously 90). This is a local
+anti-flood policy, not a measured Audi service limit. Accepted wake/refresh
+does not add a normal mutation cooldown; the prior real command retains
+its guard. Immediate supported stop actions remain available. Requests
+are still serialized; unresolved outcomes block, no auto-retry is added,
+and OEM quota/rate limiting remains in force. Engineering experiments retain
+the separate stricter 90-second normal-command guard and their own review
+and cooldown rules. The wake-specific budget remains unchanged.
+Regression tests cover the exact ten-second boundary and restart.
