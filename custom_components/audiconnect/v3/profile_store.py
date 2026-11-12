@@ -132,6 +132,10 @@ def restore_profile(
             raise DevelopmentProfileError("Local attribute ID mismatch")
         profile.attribute_definitions[ident] = row
     attributes = attributes_for(profile)
+    disabled_attributes = saved.get("attribute_disabled", [])
+    if not isinstance(disabled_attributes, list) or any(not isinstance(x, str) or x not in attributes for x in disabled_attributes):
+        raise DevelopmentProfileError("Invalid disabled attributes")
+    profile.attribute_disabled = set(disabled_attributes)
     ar = saved.get("attribute_routes", {})
     ae = saved.get("attribute_evidence", {})
     ac = saved.get("attribute_custom", {})
@@ -178,14 +182,17 @@ def restore_profile(
             raise DevelopmentProfileError("Untrusted attribute evidence")
         profile.attribute_evidence[ident] = dict(detail)
     for ident, route in ar.items():
-        if ident not in attributes or ident not in ae:
-            raise DevelopmentProfileError("Unverified active attribute")
+        if ident not in attributes:
+            raise DevelopmentProfileError("Unknown active attribute")
         get_read_variant(ident, route, profile.attribute_custom, attributes)
-        if route != "cariad.selectivestatus.batch" and profile.attribute_route_evidence.get(ident, {}).get(route, {}).get("outcome") not in ("verified", "readable_but_stale"):
-            # A previously valid route can fail during a later poll. Retain its
-            # draft but never crash integration setup or restore it as active.
-            profile.attribute_drafts[ident] = route
+        if ident in profile.attribute_disabled:
             continue
+        # Activation was already validated. Latest execution failure does not
+        # revoke a selected binding. Context changes still invalidate bindings.
+        if route == "cariad.selectivestatus.batch" and ident not in ae and route not in profile.attribute_route_evidence.get(ident, {}):
+            raise DevelopmentProfileError("Unverified batch attribute")
+        if route != "cariad.selectivestatus.batch" and route not in profile.attribute_route_evidence.get(ident, {}):
+            raise DevelopmentProfileError("Missing selected route evidence")
         profile.attribute_routes[ident] = route
     # Added after b5: older saved per-vehicle profiles load without any upgrade.
     observed_jobs = saved.get("job_discovery", {})

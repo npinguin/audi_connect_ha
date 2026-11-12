@@ -539,7 +539,7 @@ class StatusEngine:
 
     def _record_attribute_response(self, car: V3Vehicle, profile: DevelopmentProfile,
                                    attribute: str, operation: str, mappings: list[str],
-                                   response: V3Response) -> dict[str, Any]:
+                                   response: V3Response, *, publish: bool = True) -> dict[str, Any]:
         raw, matched_path = extract_first(response.data, mappings)
         field = matched_path or mappings[0]
         variant = get_read_variant(attribute, operation, profile.attribute_custom, attributes_for(profile))
@@ -550,7 +550,7 @@ class StatusEngine:
                     else capture_time(response.data, field)) if matched_path is not None else None
         if not isinstance(captured, str):
             captured = None
-        if issue and 200 <= response.status < 300:
+        if publish and issue and 200 <= response.status < 300:
             active = profile.attribute_routes.get(attribute)
             if active == operation or active is None:
                 record_invalid_observation(car, attribute, captured, response.observed_at,
@@ -566,7 +566,7 @@ class StatusEngine:
         profile.attribute_route_evidence.setdefault(attribute, {})[operation] = {
             "outcome": outcome, "path": field, "http_status": response.status,
         }
-        if 200 <= response.status < 300 and value is not None:
+        if publish and 200 <= response.status < 300 and value is not None:
             record_observation(car, profile, attribute, value, captured,
                                response.observed_at, field, definition["job"], family,
                                fresh=fresh)

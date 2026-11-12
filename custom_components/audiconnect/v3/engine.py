@@ -743,8 +743,8 @@ class V3Engine:
     def control_routes_for(self, vin: str, capability: str, action: str) -> dict[str, Any]:
         return self.commands.control_routes_for(vin, capability, action)
 
-    async def disable_control(self, vin: str, capability: str, action: str) -> None:
-        await self.commands.disable_control(vin, capability, action)
+    async def disable_control(self, vin: str, capability: str, action: str, *, disabled=True) -> None:
+        await self.commands.disable_control(vin, capability, action, disabled=disabled)
 
     def _command_route(self, vin: str, aspect: str, capability: str) -> str | None:
         return self.commands._command_route(vin, aspect, capability)
@@ -950,6 +950,7 @@ class V3Engine:
             "attribute": attribute, "capability": attributes_for(profile)[attribute]["capability"],
             "routes": alternatives, "active": profile.attribute_routes.get(attribute),
             "draft": profile.attribute_drafts.get(attribute),
+            "disabled": attribute in profile.attribute_disabled,
         }
 
     async def add_attribute_route(self, vin: str, definition: dict[str, Any]) -> str:
@@ -980,8 +981,8 @@ class V3Engine:
     def _attribute_request(self, car, profile, attribute, route):
         return self.status._attribute_request(car, profile, attribute, route)
 
-    def _record_attribute_response(self, car, profile, attribute, route, mappings, response):
-        return self.status._record_attribute_response(car, profile, attribute, route, mappings, response)
+    def _record_attribute_response(self, car, profile, attribute, route, mappings, response, *, publish=True):
+        return self.status._record_attribute_response(car, profile, attribute, route, mappings, response, publish=publish)
 
     async def test_attribute_route(self, vin: str, attribute: str, route: str) -> dict[str, Any]:
         car = self.require_vehicle(vin)
@@ -993,7 +994,7 @@ class V3Engine:
             raise ValueError("Read route is not applicable to this vehicle API family")
         response = await self.transport.request(family, "GET", path)
         self._api_record(profile, route, family, "GET", response, car.vin)
-        result = self._record_attribute_response(car, profile, attribute, route, mappings, response)
+        result = self._record_attribute_response(car, profile, attribute, route, mappings, response, publish=False)
         await self.storage.async_save(self.profiles)
         return result
 
@@ -1031,17 +1032,25 @@ class V3Engine:
             if choice["family"] == "mbb":
                 raise ValueError("Test an MBB GET response before enabling legacy polling")
             raise ValueError("Test the route and verify fresh vehicle data before activation")
+        profile.attribute_disabled.discard(attribute)
         profile.attribute_routes[attribute] = route
         profile.attribute_drafts[attribute] = route
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
 
-    async def disable_attribute_route(self, vin: str, attribute: str) -> None:
+    async def disable_attribute_route(self, vin: str, attribute: str, *, disabled=True) -> None:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
         if attribute not in attributes_for(profile):
             raise ValueError("Unknown attribute")
-        profile.attribute_routes.pop(attribute, None)
+        if disabled:
+            profile.attribute_disabled.add(attribute)
+            previous = profile.attribute_routes.pop(attribute, None)
+            if previous:
+                profile.attribute_drafts[attribute] = previous
+        else:
+            # Resume standard discovery, not an untested custom mapping.
+            profile.attribute_disabled.discard(attribute)
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
 

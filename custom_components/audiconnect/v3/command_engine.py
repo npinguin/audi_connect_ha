@@ -143,10 +143,15 @@ class CommandEngine:
             "spin_configured": bool(getattr(getattr(self.auth, "service", None), "_spin", None)),
         }
 
-    async def disable_control(self, vin: str, capability: str, action: str) -> None:
+    async def disable_control(self, vin: str, capability: str, action: str, *, disabled=True) -> None:
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vehicle.vin.lower()]
-        profile.disable(capability, action)
+        if disabled:
+            profile.disable(capability, action)
+        else:
+            if not profile.registry.operations_for(capability, action):
+                raise ValueError("Unknown control")
+            profile.discovery.enable(capability, action)
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
 

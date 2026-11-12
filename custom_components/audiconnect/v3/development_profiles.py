@@ -309,6 +309,7 @@ class DevelopmentProfile:
         self.command_journal: list[CommandRecord] = []
         self.invalidated_attempt_sequence: int | None = None
         self.attribute_routes: dict[str, str] = {}
+        self.attribute_disabled: set[str] = set()
         self.attribute_evidence: dict[str, dict[str, Any]] = {}
         self.attribute_drafts: dict[str, str] = {}
         self.attribute_definitions: dict[str, dict[str, Any]] = {}
@@ -587,6 +588,7 @@ class DevelopmentProfile:
             "last_command": legacy_snapshot(self.last_command) if self.last_command else None,
             "command_journal": [row.snapshot() for row in self.command_journal],
             "attribute_routes": dict(self.attribute_routes),
+            "attribute_disabled": sorted(self.attribute_disabled),
             "attribute_evidence": deepcopy(self.attribute_evidence),
             "attribute_drafts": dict(self.attribute_drafts),
             "attribute_definitions": deepcopy(self.attribute_definitions),

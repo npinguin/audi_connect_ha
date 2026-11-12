@@ -404,14 +404,15 @@ async def ws_attribute_activate(hass, connection, msg):
     vol.Required("type"): "audiconnect/v3/attribute_disable",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("attribute"): str,
+    vol.Optional("disabled", default=True): bool,
 })
 @websocket_api.async_response
 async def ws_attribute_disable(hass, connection, msg):
     try:
         await _engine(hass, msg["entry_id"]).disable_attribute_route(
-            msg["vin"], msg["attribute"]
+            msg["vin"], msg["attribute"], disabled=msg.get("disabled", True)
         )
-        connection.send_result(msg["id"], {"disabled": msg["attribute"]})
+        connection.send_result(msg["id"], {"disabled": msg.get("disabled", True)})
     except (ValueError, RuntimeError, KeyError) as exc:
         connection.send_error(msg["id"], "v3_attribute_disable_failed", str(exc))
 
@@ -461,14 +462,15 @@ async def ws_control_test(hass, connection, msg):
     vol.Required("type"): "audiconnect/v3/control_disable",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("capability"): str, vol.Required("action"): str,
+    vol.Optional("disabled", default=True): bool,
 })
 @websocket_api.async_response
 async def ws_control_disable(hass, connection, msg):
     try:
         await _engine(hass, msg["entry_id"]).disable_control(
-            msg["vin"], msg["capability"], msg["action"]
+            msg["vin"], msg["capability"], msg["action"], disabled=msg.get("disabled", True)
         )
-        connection.send_result(msg["id"], {"disabled": True})
+        connection.send_result(msg["id"], {"disabled": msg.get("disabled", True)})
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_control_disable_failed", str(exc))
 

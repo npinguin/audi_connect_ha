@@ -107,6 +107,8 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     candidates.update(("stateOfCharge", "TOTAL_RANGE", "TANK_LEVEL_IN_PERCENTAGE", "carType"))
                 for ident in sorted(candidates):
                     descriptor = attributes.get(ident)
+                    if profile and ident in getattr(profile, "attribute_disabled", ()):
+                        continue
                     if descriptor and descriptor.get("local") and ident not in profile.attribute_routes:
                         continue
                     if not descriptor or descriptor["platform"] != platform:

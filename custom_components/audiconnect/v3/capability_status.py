@@ -78,6 +78,8 @@ def attribute_status(vehicle, profile, definition, now):
         elif value is not None:
             status = ("verified" if timestamp_is_fresh(reading.get("captured"), now)
                       else "readable_but_stale")
+    if ident in getattr(profile, "attribute_disabled", ()):
+        status = "disabled_by_user"
     return status, issue, contract
 
 

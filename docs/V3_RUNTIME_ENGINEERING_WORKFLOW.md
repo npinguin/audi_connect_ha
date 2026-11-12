@@ -126,3 +126,7 @@ The release contract now checks the actual attribute-save frontend path rather t
 ## Cleanup slice 12 — common rendering and physical dispatch
 
 Attribute routes now reuse the existing validated definition renderer, retaining required job selection. HA and Workbench now share one post-journal physical dispatch and initial HTTP/API-evidence path; each still applies its distinct confirmation policy. A confirmation failure does not overwrite the original HTTP observation with a transport failure. No new executor or workflow framework.
+
+## Audit 02 — isolate read experiments and preserve user decisions
+
+Manual attribute tests record candidate evidence only. Activation persists the selected mapping; normal polling publishes observations. A transient failure does not discard a selected route on restart. Explicit disabled data mappings remain disabled across discovery/restart; shared telemetry may still be read for other functions. Resume automatic discovery or activate a verified candidate explicitly. Control re-enable clears user disablement without creating proof or sending commands. No release authorization change.

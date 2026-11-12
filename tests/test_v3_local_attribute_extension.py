@@ -46,10 +46,13 @@ async def test_new_local_sensor_needs_evidence_and_survives_restart():
         await engine.activate_attribute_route(car.vin, IDENT, ROUTE)
     result = await engine.test_attribute_route(car.vin, IDENT, ROUTE)
     assert result["result"] == "verified" and result["value"] == 0
+    assert IDENT not in car.readings and IDENT not in profile.attribute_evidence
     await engine.activate_attribute_route(car.vin, IDENT, ROUTE)
     request.assert_awaited_once_with("cariad", "GET", CANDIDATE["path"].format(VIN=car.vin))
     restored = restore_profile(catalog, car.context, profile.snapshot())
     assert restored.attribute_routes[IDENT] == ROUTE
+    # The next scheduled read publishes the selected mapping, not the test.
+    engine._record_attribute_response(car, profile, IDENT, ROUTE, [CANDIDATE["response_path"]], request.return_value)
     field = attributes_for(restored)[IDENT]
     coordinator = SimpleNamespace(engine=engine, last_update_success=True)
     sensor = V3ReadOnlySensor(coordinator, car, field)
@@ -58,6 +61,11 @@ async def test_new_local_sensor_needs_evidence_and_survives_restart():
     assert sensor.native_unit_of_measurement == "bar"
     await engine.disable_attribute_route(car.vin, IDENT)
     assert not sensor.available
+    assert IDENT in restore_profile(catalog, car.context, profile.snapshot()).attribute_disabled
+    await engine.activate_attribute_route(car.vin, IDENT, ROUTE)
+    assert sensor.available
+    profile.attribute_route_evidence[IDENT][ROUTE]["outcome"] = "api_error"
+    assert restore_profile(catalog, car.context, profile.snapshot()).attribute_routes[IDENT] == ROUTE
 
 
 @pytest.mark.parametrize("override", [
