@@ -42,7 +42,6 @@
     "switch"
   ],
   "v2_services": [
-    "probe_api_paths",
     "set_local_dealer",
     "refresh_vehicle_data",
     "execute_vehicle_action",
@@ -81,10 +80,10 @@
     "historical_without_paths": 57,
     "metadata_contracts": 72,
     "api_jobs": 23,
-    "v2_services": 12,
+    "v2_services": 11,
     "v2_action_options": 11,
     "entity_rows": 109,
-    "control_workstreams": 20,
+    "control_workstreams": 19,
     "v3_only_controls": 1,
     "v3_platforms_forwarded": 9,
     "v3_native_controls_readiness": "partial_unverified"
@@ -3988,14 +3987,6 @@
       "status": "open_not_q8_proven"
     },
     {
-      "name": "Read-only API probe",
-      "covered_by": "service.probe_api_paths",
-      "current_gap": "V3 guided read family exists but HA service contract absent",
-      "priority": "P1",
-      "acceptance": "Explicit bounded GET, parity of schema/diagnostics",
-      "status": "open_not_q8_proven"
-    },
-    {
       "name": "Local dealer management",
       "covered_by": "service.set_local_dealer, sensor.local_dealer",
       "current_gap": "V3 no service handler or local sensor",
@@ -4095,16 +4086,17 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. V2-only upstream probe service remains untouched. Legacy controls, complete derived-data parity and real integration coverage still open.",
+  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. All four fork-only engineering probe actions are removed from both runtime service surfaces. Legacy controls, complete derived-data parity and real integration coverage still open.",
   "product_scope_exclusions": {
     "temporary_runtime_probes": [
+      "probe_api_paths",
       "probe_vehicle_health",
       "probe_trip_data",
       "refresh_trip_data"
     ],
-    "upstream_v2_only_service": "probe_api_paths",
     "v3_product_probes": false,
     "trip_data": "bounded_normal_poll",
-    "reason": "User explicitly excluded runtime engineering test actions from V3 product."
+    "reason": "User explicitly excluded runtime engineering test actions from V3 product.",
+    "v2_product_probes": false
   }
 }

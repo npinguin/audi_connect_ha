@@ -65,14 +65,7 @@ from .v3.runtime import (
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVICE_PROBE_API_PATHS = "probe_api_paths"
 SERVICE_SET_LOCAL_DEALER = "set_local_dealer"
-PROBE_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_DEVICE_ID): cv.string,
-        vol.Optional("extended", default=False): bool,
-    }
-)
 LOCAL_DEALER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_DEVICE_ID): cv.string,
@@ -265,18 +258,6 @@ def _async_register_services(hass: HomeAssistant) -> None:
         else:
             await account.refresh_vehicle_data(vin)
 
-    async def _handle_probe_api_paths(service: ServiceCall) -> None:
-        """Historical upstream V2 diagnostic action; never routes to V3."""
-        result = _resolve_service_call(hass, service)
-        if result is None:
-            return
-        vin, account = result
-        if isinstance(account, V3Engine):
-            raise HomeAssistantError("API probes are not a V3 product service")
-        await account.connection.probe_read_only_api(
-            vin, extended=service.data.get("extended", False)
-        )
-
     async def _handle_set_local_dealer(service: ServiceCall) -> None:
         """Opt-in local metadata only; no Audi network calls."""
         result = _resolve_service_call(hass, service)
@@ -391,23 +372,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
             _handle_refresh_vehicle_data,
             schema=SERVICE_REFRESH_VEHICLE_DATA_SCHEMA,
         )
-    # Keep the upstream diagnostic service only for active V2 entries.
-    # HA services are global, so a mixed-mode installation can still see it
-    # but its handler explicitly rejects every V3 vehicle.
-    has_v2 = any(
-        getattr(entry, "runtime_data", None) is not None
-        and not isinstance(getattr(entry.runtime_data, "v3", None), V3Engine)
-        for entry in hass.config_entries.async_entries(DOMAIN)
-    )
-    if has_v2 and not hass.services.has_service(DOMAIN, SERVICE_PROBE_API_PATHS):
-        hass.services.async_register(
-            DOMAIN, SERVICE_PROBE_API_PATHS,
-            _handle_probe_api_paths, schema=PROBE_SCHEMA,
-        )
-    elif not has_v2 and hass.services.has_service(DOMAIN, SERVICE_PROBE_API_PATHS):
-        hass.services.async_remove(DOMAIN, SERVICE_PROBE_API_PATHS)
-    # Clean up obsolete V3 candidate services from earlier development builds.
-    for obsolete in ("probe_vehicle_health", "probe_trip_data", "refresh_trip_data"):
+    # Remove obsolete engineering actions left by older development builds.
+    for obsolete in ("probe_api_paths", "probe_vehicle_health", "probe_trip_data", "refresh_trip_data"):
         if hass.services.has_service(DOMAIN, obsolete):
             hass.services.async_remove(DOMAIN, obsolete)
     if not hass.services.has_service(DOMAIN, SERVICE_SET_LOCAL_DEALER):
@@ -635,17 +601,8 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> 
         if not others:
             async_remove_dashboard(hass)
 
-    if not any(
-        entry.entry_id != config_entry.entry_id
-        and getattr(entry, "runtime_data", None) is not None
-        and not isinstance(getattr(entry.runtime_data, "v3", None), V3Engine)
-        for entry in hass.config_entries.async_entries(DOMAIN)
-    ) and hass.services.has_service(DOMAIN, SERVICE_PROBE_API_PATHS):
-        hass.services.async_remove(DOMAIN, SERVICE_PROBE_API_PATHS)
-
     if len(hass.config_entries.async_entries(DOMAIN)) <= 1:
         for service in (
-            SERVICE_PROBE_API_PATHS,
             SERVICE_SET_LOCAL_DEALER,
             SERVICE_REFRESH_CLOUD_DATA,
             SERVICE_REFRESH_VEHICLE_DATA,

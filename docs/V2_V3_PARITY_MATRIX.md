@@ -64,7 +64,6 @@ V2 metadata evidence: downloaded diagnostic `mode: v2`, `disabled_per_platform: 
 | P1 | Auxiliary heating with duration | service.start_auxiliary_heating | V3 no native equivalent | Duration 10–60m step10, compatibility and auth checks |
 | P0 | Lock/Unlock | lock.lock, service.execute_vehicle_action | S-PIN templating exists; completion unverified | Actual lock state, requestID, S-PIN and no retries |
 | P2 | Start/Stop engine | button.start_engine/button.stop_engine, service.start_engine/service.stop_engine | V3 absent; V2 feature gated and model-specific | Never auto-enable on Q8 without OEM capability and risk review |
-| Excluded | Temporary runtime API probe | service.probe_api_paths | Upstream V2-only; V3 product does not expose probes | User decision: test-only tools are not a V3 product feature |
 | P1 | Local dealer management | service.set_local_dealer, sensor.local_dealer | V3 no service handler or local sensor | Local-only data, no Audi cloud request |
 
 ### Service API parity
@@ -73,7 +72,6 @@ These are existing V2 Home Assistant service IDs. In b7, V3 used `account=None` 
 
 | V2 service | Required in V3 |
 |---|---|
-| `audiconnect.probe_api_paths` | Upstream V2-only diagnostic action; intentionally excluded from V3 product |
 | `audiconnect.set_local_dealer` | Local-only config, no cloud action |
 | `audiconnect.refresh_vehicle_data` | V3-independent implementation with original schema and authorization |
 | `audiconnect.execute_vehicle_action` | Preserve action selector, per-vehicle gating and response semantics |
@@ -380,7 +378,7 @@ Source: `v3/historical_catalog.py`, 110 source references across 23 selective-st
 
 ## Product versus engineering test actions
 
-User decision: temporary probe actions were runtime engineering tests and must not be migrated as V3 product functionality. Remove probe_vehicle_health, probe_trip_data and refresh_trip_data from public HA actions. Preserve upstream V2 unchanged, including its existing probe_api_paths registration only when V2 is active; mixed-mode installations must reject V3 targets for that action. Keep the optional Workbench separate from the normal service surface. Trip data is consumed through normal V3 polling, not a manual probe: existing enabled trip entities or reported trip capability, three reviewed GET routes, three-hour per-vehicle cooldown, quota reserve, no guessed units, no raw trip response export.
+User decision: temporary probe actions were runtime engineering tests and must not be migrated as V3 product functionality. Remove probe_api_paths, probe_vehicle_health, probe_trip_data and refresh_trip_data from public HA actions for both runtimes. These were fork engineering additions, not upstream V2 features; upstream V2 business logic remains unchanged. Keep the optional Workbench separate from the normal service surface. Trip data is consumed through normal V3 polling, not a manual probe: existing enabled trip entities or reported trip capability, three reviewed GET routes, three-hour per-vehicle cooldown, quota reserve, no guessed units, no raw trip response export.
 
 ## Recorder migration — 13 HA repair warnings
 

@@ -78,4 +78,4 @@ The [full parity matrix](V2_V3_PARITY_MATRIX.md) and [JSON baseline](V2_V3_PARIT
 
 ## Product surface exclusion
 
-Temporary API probe actions belong to engineering validation, not the V3 product. V3 must not register probe actions or manual trip probes. Normal V3 polling supplies trip entities. Upstream V2 stays unchanged. The optional developer Workbench is separate from the public HA action contract.
+Temporary API probe actions belong to engineering validation, not the V3 product. Neither runtime registers the four fork-only probe actions. Normal V3 polling supplies trip entities. The original upstream V2 business implementation stays unchanged. The optional developer Workbench is separate from the public HA action contract.

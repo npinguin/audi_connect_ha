@@ -79,7 +79,7 @@ def test_v2_service_ids_and_all_execute_action_options_are_captured():
     source = (SRC / "services.yaml").read_text()
     declared = set(re.findall(r"^([a-z][a-z_]+):\s*$", source, re.M))
     # Runtime probes from the experimental fixbranch are not product services.
-    assert {"probe_vehicle_health", "probe_trip_data", "refresh_trip_data"}.isdisjoint(declared)
+    assert {"probe_api_paths", "probe_vehicle_health", "probe_trip_data", "refresh_trip_data"}.isdisjoint(declared)
     assert declared | {"refresh_cloud_data"} == set(BASE["v2_services"])
     section = source.split("execute_vehicle_action:", 1)[1].split(
         "start_climate_control:", 1
@@ -87,7 +87,7 @@ def test_v2_service_ids_and_all_execute_action_options_are_captured():
     options = set(re.findall(r"^\s{12}- ([a-z_]+)\s*$", section, re.M))
     assert len(options) == 11
     assert options == set(BASE["v2_execute_vehicle_actions"])
-    assert len(BASE["control_workstreams"]) >= 20
+    assert len(BASE["control_workstreams"]) == BASE["counts"]["control_workstreams"] == 19
     assert all(x["status"] == "open_not_q8_proven"
                for x in BASE["control_workstreams"])
 

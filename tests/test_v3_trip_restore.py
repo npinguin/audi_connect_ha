@@ -34,11 +34,14 @@ def test_no_v3_probe_services_in_public_contract():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1] / "custom_components" / "audiconnect"
     yaml = (root / "services.yaml").read_text()
-    for name in ("probe_vehicle_health", "probe_trip_data", "refresh_trip_data"):
+    for name in ("probe_api_paths", "probe_vehicle_health", "probe_trip_data", "refresh_trip_data"):
         assert f"\n{name}:" not in yaml
     init = (root / "__init__.py").read_text()
-    assert "if has_v2 and not hass.services.has_service(DOMAIN, SERVICE_PROBE_API_PATHS)" in init
-    assert "API probes are not a V3 product service" in init
+    assert "SERVICE_PROBE_API_PATHS" not in init
+    assert "_handle_probe_api_paths" not in init
+    assert "PROBE_SCHEMA" not in init
+    assert "probe_read_only_api(" not in init
+    assert 'for obsolete in ("probe_api_paths", "probe_vehicle_health", "probe_trip_data", "refresh_trip_data"):' in init
     engine = (root / "v3" / "engine.py").read_text()
     assert "async def restore_reads(" not in engine
     assert "await self._poll_trips(car)" in engine
