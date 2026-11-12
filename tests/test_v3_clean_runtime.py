@@ -834,6 +834,8 @@ async def test_reviewed_identity_activation_uses_matching_fresh_oem_metadata():
     assert car.identity_operation == GARAGE_OPERATION and not car.identity_restored
     assert car.trips["last_trip"]["mileage"] == 42
     assert profile.manufacturer_identity["operation"] == GARAGE_OPERATION
+    assert GARAGE_OPERATION in profile.api_observations
+    assert GARAGE_OPERATION in profile.engineering_responses
     assert store.records[VIN.lower()]["manufacturer_identity"]["model"] == "Audi Q8"
     assert profile.discovery.context == car.context
     transport.test_identity_query.return_value = V3Response(
@@ -841,3 +843,25 @@ async def test_reviewed_identity_activation_uses_matching_fresh_oem_metadata():
     with pytest.raises(ValueError, match="No current matching"):
         await engine.test_identity_operation(VIN, GARAGE_OPERATION, activate=True)
     assert car.model == "Audi Q8"
+
+
+@pytest.mark.asyncio
+async def test_adopted_identity_source_is_refreshed_on_inventory_without_research_chain():
+    from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3.transport import GARAGE_OPERATION
+    engine, transport, store = engine_for()
+    async def incomplete():
+        return [{"vin": VIN, "vehicle": {"media": None, "core": None}}]
+    transport.discover_vehicles = incomplete
+    transport.test_identity_query = AsyncMock(return_value=V3Response(
+        200, {"data": [{"vin": VIN, "model": "Audi Q8", "modelYear": 2022}]}, datetime.now(UTC)))
+    await engine.discover()
+    transport.test_identity_query.assert_not_awaited()
+    await engine.test_identity_operation(VIN, GARAGE_OPERATION, activate=True)
+    transport.test_identity_query.reset_mock()
+    await engine.discover()
+    car = engine.require_vehicle(VIN)
+    assert car.model == "Audi Q8" and not car.identity_restored
+    assert car.identity_operation == GARAGE_OPERATION
+    transport.test_identity_query.assert_awaited_once_with(GARAGE_OPERATION)
+    assert GARAGE_OPERATION in engine.profiles[VIN.lower()].api_observations
