@@ -91,6 +91,28 @@ def restore_profile(
         ):
             raise DevelopmentProfileError("Malformed action evidence")
         profile.control_results[operation] = result
+    history = saved.get("historical_control_evidence", [])
+    if not isinstance(history, list) or len(history) > 50:
+        raise DevelopmentProfileError("Invalid historical control evidence")
+    for row in history:
+        if (not isinstance(row, dict) or set(row) != {"operation", "outcome", "context", "operation_revision"}
+                or row["operation"] not in catalog.operations or row["outcome"] not in ("worked", "failed")
+                or catalog.operations[row["operation"]]["method"] not in ("POST", "PUT")):
+            raise DevelopmentProfileError("Invalid historical control outcome")
+        revision = row["operation_revision"]
+        if revision is not None and (not isinstance(revision, str) or len(revision) != 64
+                                     or any(c not in "0123456789abcdef" for c in revision)):
+            raise DevelopmentProfileError("Invalid historical operation revision")
+        try:
+            previous = VehicleContext(**row["context"])
+        except (ValueError, TypeError) as exc:
+            raise DevelopmentProfileError("Invalid historical vehicle context") from exc
+        if (previous.auth not in ("auth0", "legacy") or type(previous.legacy_cariad) is not bool
+                or type(previous.legacy_api_level) is not int
+                or any(not isinstance(value, str) or len(value) > 100 for value in
+                       (previous.region, previous.vehicle_type, previous.model_family))):
+            raise DevelopmentProfileError("Invalid historical vehicle context")
+        profile.historical_control_evidence.append(dict(row))
     # Historical attribute evidence is optional for profiles saved by b4.
     definitions = saved.get("attribute_definitions", {})
     if not isinstance(definitions, dict) or len(definitions) > MAX_CUSTOM_ATTRIBUTES:

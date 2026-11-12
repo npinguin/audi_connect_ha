@@ -144,3 +144,23 @@ def test_invalid_candidate_cannot_be_injected_through_saved_profile():
     saved["draft_selected"] = {"climate.start": "mbb.climate.start"}
     with pytest.raises(DevelopmentProfileError):
         restore_profile(catalog, context, saved)
+
+
+def test_historical_physical_review_survives_context_change_without_authorizing_control():
+    catalog, context, profile = fresh()
+    route = "cariad.climate.start.stored"
+    run = profile.begin_test("climate", "start", route, now=10)
+    profile.observe_http(run.sequence, 200)
+    profile.confirm(run.sequence, worked=True, inspected_vehicle=True, now=15)
+    profile.choose_working("climate", "start", route)
+    revision = profile.active_revisions["climate.start"]
+    refined = VehicleContext(auth="auth0", region="DE", model_family="q8", vehicle_type="phev")
+    restored = restore_profile(catalog, refined, profile.snapshot(), cooldown_seconds=0)
+    assert not restored.control_results
+    assert not restored.active and not restored.active_revisions
+    history = restored.historical_control_evidence
+    assert len(history) == 1 and history[0]["outcome"] == "worked"
+    assert history[0]["operation"] == route and history[0]["operation_revision"] == revision
+    again = restore_profile(catalog, refined, restored.snapshot(), cooldown_seconds=0)
+    assert again.historical_control_evidence == history
+    assert not again.control_results and not again.active

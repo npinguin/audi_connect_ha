@@ -264,6 +264,8 @@ class DevelopmentProfile:
         # evidence, never physical action evidence.
         self.read_results: dict[str, dict[str, Any]] = {}
         self.control_results: dict[str, str] = {}
+        # Historical physical reviews are evidence only, never authorization.
+        self.historical_control_evidence: list[dict[str, Any]] = []
         self.last_command: CommandRecord | None = None
         self.command_journal: list[CommandRecord] = []
         self.invalidated_attempt_sequence: int | None = None
@@ -384,6 +386,18 @@ class DevelopmentProfile:
             return
         if self.discovery._active is not None:
             self.invalidated_attempt_sequence = self.discovery._active.sequence
+        # Preserve reviewed built-in outcomes before invalidating the current
+        # context. A revision is proven only for a revision-bound selection.
+        for operation, outcome in sorted(self.control_results.items()):
+            if operation not in self._base["operations"] or outcome not in ("worked", "failed"):
+                continue
+            revision = next((self.active_revisions.get(key) for key, selected in self.active.items()
+                             if selected == operation and self.active_revisions.get(key)), None)
+            row = {"operation": operation, "outcome": outcome,
+                   "context": asdict(self.discovery.context), "operation_revision": revision}
+            if row not in self.historical_control_evidence:
+                self.historical_control_evidence.append(row)
+        self.historical_control_evidence = self.historical_control_evidence[-50:]
         self.discovery.context = context
         self.discovery.preferred.clear()
         for data in (self.active, self.active_revisions, self.fast_bindings,
@@ -505,6 +519,7 @@ class DevelopmentProfile:
             "draft_selected": dict(self.draft_selected),
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),
+            "historical_control_evidence": deepcopy(self.historical_control_evidence),
             "last_command": legacy_snapshot(self.last_command) if self.last_command else None,
             "command_journal": [row.snapshot() for row in self.command_journal],
             "attribute_routes": dict(self.attribute_routes),

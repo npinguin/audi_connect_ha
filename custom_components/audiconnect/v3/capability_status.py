@@ -9,6 +9,9 @@ Rows use placeholders instead of real VINs and never expose raw responses.
 
 from __future__ import annotations
 
+from dataclasses import asdict
+from .operation_revision import operation_revision
+
 from typing import Any
 from datetime import UTC, datetime
 from collections import Counter
@@ -496,4 +499,14 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
                              "active": sum(bool(row["active"]) for row in operations),
                              "scope": "built_in_operations_and_inventory"},
         "engineering_operation_counts": report["operation_counts"],
+        # No previous context fields or custom identifiers in shared diagnostics.
+        "historical_physical_evidence": [
+            {"operation": row["operation"], "outcome": row["outcome"],
+             "current_context": row["context"] == asdict(profile.discovery.context),
+             "revision_matches": (row["operation_revision"] == operation_revision(base_registry.operations[row["operation"]])
+                                  if row["operation_revision"] is not None else None),
+             "authorizes_control": False}
+            for row in getattr(profile, "historical_control_evidence", [])
+            if row["operation"] in base_registry.operations
+        ],
     }
