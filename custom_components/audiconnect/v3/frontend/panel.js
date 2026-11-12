@@ -91,10 +91,18 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   set hass(value) {
+    const previous=this._hass;
     this._hass = value;
     if (!this._loaded) {
       this._loaded = true;
       void this._load();
+    } else if (this.step===5 && !this.loading && this.selected && this.vin) {
+      // Native discovery/cloud status changes trigger local refresh only.
+      const ids=(this.capabilityStatus.entity_links||[]).filter(row=>
+        ["sensor.discovery_coverage","sensor.cloud_last_successful_poll","sensor.integration_status"].includes(row.contract_key)).flatMap(row=>row.entity_ids||[]);
+      if (ids.some(id=>previous?.states?.[id]!==value?.states?.[id])) {
+        void this._refreshValidation();
+      }
     }
   }
 
@@ -131,6 +139,13 @@ class AudiConnectV3Panel extends HTMLElement {
     } finally {
       this.loading = false; this.render();
     }
+  }
+
+  async _refreshValidation() {
+    this.loading=true;
+    try { await this._loadCapabilityStatus(); }
+    catch(err) { this.error=String(err.message||err); }
+    finally { this.loading=false; this.render(); }
   }
 
   async _loadCapabilityStatus() {
@@ -761,6 +776,8 @@ class AudiConnectV3Panel extends HTMLElement {
     const rows=p.controls||[];
     const expertCandidates=this.capabilityStatus.expert_candidates||[];
     const history=this.capabilityStatus.command_journal||[];
+    const registered=(this.capabilityStatus.entity_links||[]).flatMap(link=>link.entity_ids||[]);
+    const activeEntities=[...new Set(registered)].filter(id=>this._hass?.states?.[id] && !["unavailable","unknown"].includes(this._hass.states[id].state));
     return `<section class="card" data-view="end-user-validation">
       <div class="section-head"><h2>End-user validation</h2><button data-action="refresh" ${this.loading?"disabled":""}>Refresh status</button></div>
       <p>Same configuration and evidence as native Home Assistant discovery. Refresh reads local status; background discovery follows the normal poll cadence.</p>
@@ -787,7 +804,11 @@ class AudiConnectV3Panel extends HTMLElement {
         return `<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability,c.action))}</b> · ${escapeHTML(friendly(c.status))} · ${escapeHTML(!this.expertDiscovery&&this.skippedControls.has(c.capability+"."+c.action)?"Skipped":friendly(c.physical))}<div class="subline">${escapeHTML(friendly(c.reason||""))}</div></div>
         ${this.expertDiscovery?`<div class="actions">${candidate?`<button data-action="end-user-yes" ${attrs} data-operation="${escapeHTML(candidate.operation)}" ${this.pending||this.loading?"disabled":""}>Test</button>`:""}
         <button data-action="select-control" ${attrs} data-operation="${escapeHTML(failed?latest.operation:candidate?.operation||"")}">${failed?"Edit failed API":"Edit API"}</button></div>`:""}</div>`;}).join("")}
-      <h3>4 · Recovery &amp; timing</h3>
+      <h3>4 · Use native HA functionality</h3>
+      <p>${activeEntities.length} entities with an available HA state / ${new Set(registered).size} registered. Inspect actual state and source, not just successful API responses.</p>
+      <details><summary>Registered entities &amp; actual states</summary>${[...new Set(registered)].map(id=>`<div class="attribute-row"><div>${this.entityLinks([id])}</div><span>${escapeHTML(this._hass?.states?.[id]?.state??"No HA state")}</span></div>`).join("")||"<p>No registered entities in current report.</p>"}</details>
+      ${this.entityFilter?this.entityInspector(this.selectedEntityLink()):""}
+      <h3>5 · Recovery &amp; timing</h3>
       <p>Last poll: ${escapeHTML(this.localTime(timing.last_poll_attempt))} · Last success: ${escapeHTML(this.localTime(timing.last_poll_success))} · Poll interval: ${timing.poll_interval_seconds==null?"unknown":escapeHTML(timing.poll_interval_seconds/60)+" min"} · Quota: ${escapeHTML(health.quota_remaining??"unknown")}</p>
       ${(health.active_findings||[]).map(f=>`<div class="subline">${escapeHTML(friendly(f.code))} · ${escapeHTML(f.source)} ${f.http_status?"· HTTP "+escapeHTML(f.http_status):""}</div>`).join("")}
       <p>Uncertain commands are never replayed automatically. Use the existing review above when needed. <button data-action="step-4">Inspect API evidence</button></p>
