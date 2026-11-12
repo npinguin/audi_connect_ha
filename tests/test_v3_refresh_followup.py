@@ -88,3 +88,68 @@ async def test_unrelated_parent_cannot_bypass_cooldown_or_trigger_refresh():
     with pytest.raises(RuntimeError, match="parent command"):
         await engine.commands.send_control(VIN, "refresh", "remote", _follow_up_to="wrong")
     transport.request.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wake_action", ["wake", "refresh"])
+async def test_accepted_wake_does_not_block_immediate_climate_action(wake_action):
+    engine, transport, coordinator, events = fixture(False)
+    original_request = transport.request.side_effect
+
+    async def request(family, method, path, **kwargs):
+        if method == "POST" and path.endswith("vehiclewakeup"):
+            # Q8 b12 observed 204, no request ID or physical readback.
+            return V3Response(204, {}, datetime.now(UTC), 50)
+        return await original_request(family, method, path, **kwargs)
+
+    transport.request.side_effect = request
+    await engine.send_control(VIN, wake_action, "remote")
+    await engine.send_control(VIN, "start", "climate")
+    posts = [c.args[2] for c in transport.request.await_args_list if c.args[1] == "POST"]
+    assert len(posts) == 2
+    assert posts[0].endswith("vehiclewakeup")
+    assert posts[1].endswith("climatisation/start")
+
+
+@pytest.mark.asyncio
+async def test_linked_refresh_does_not_hide_real_command_cooldown_or_stop():
+    engine, transport, coordinator, events = fixture(True)
+    await engine.send_control(VIN, "start", "climate")
+    with pytest.raises(RuntimeError, match="cooldown"):
+        await engine.commands.send_control(VIN, "start", "climate")
+    await engine.commands.send_control(VIN, "stop", "climate")
+    posts = [c.args[2] for c in transport.request.await_args_list if c.args[1] == "POST"]
+    assert len(posts) == 3
+    assert posts[-1].endswith("climatisation/stop")
+
+
+@pytest.mark.asyncio
+async def test_wake_budget_and_uncertain_command_guard_remain_independent():
+    engine, transport, coordinator, events = fixture(False)
+    await engine.send_control(VIN, "wake", "remote")
+    with pytest.raises(RuntimeError, match="wake budget"):
+        await engine.commands.send_control(VIN, "wake", "remote")
+    assert len([c for c in transport.request.await_args_list if c.args[1] == "POST"]) == 1
+    engine.profiles[VIN.lower()].last_command.state = "uncertain"
+    with pytest.raises(RuntimeError, match="uncertain"):
+        await engine.commands.send_control(VIN, "start", "climate")
+    assert len([c for c in transport.request.await_args_list if c.args[1] == "POST"]) == 1
+
+
+def test_wake_does_not_hide_previous_command_readback():
+    engine, _, _, _ = fixture(False)
+    car = engine.vehicles[VIN.lower()]
+    profile = engine.profiles[VIN.lower()]
+    from custom_components.audiconnect.v3.command_readback import configure_readback
+    start = CommandRecord.begin("climate", "start", "cariad.climate.start.stored", time.time() - 10)
+    start.state = "backend_completed"
+    configure_readback(start, {})
+    profile.track_command(start)
+    wake = CommandRecord.begin("remote", "refresh", "cariad.remote.refresh", time.time() - 5)
+    wake.state = "accepted_unconfirmed"
+    profile.track_command(wake)
+    car.climate_state = "heating"
+    car.climate_captured = datetime.now(UTC)
+    engine.commands.reconcile_commands()
+    assert start.state == "verified"
+    assert wake.state == "accepted_unconfirmed"
