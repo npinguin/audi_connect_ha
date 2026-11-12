@@ -790,3 +790,24 @@ async def test_execution_review_is_private_persistent_and_non_authorizing():
     assert "private-password-value" not in json.dumps(profile.snapshot())
     with pytest.raises(ValueError, match="no longer retained"):
         await engine.review_execution(VIN, "unknown", at, "worked", "not evidence")
+
+
+@pytest.mark.asyncio
+async def test_discard_unused_read_draft_preserves_tested_definitions():
+    engine, transport, _ = engine_for(status())
+    await engine.poll()
+    profile = engine.profiles[VIN.lower()]
+    route = {"id":"user.read.soc", "attribute":"stateOfCharge", "family":"cariad", "method":"GET",
+             "path":"/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=charging",
+             "response_path":"charging.batteryStatus.value.currentSOC_pct"}
+    await engine.add_attribute_route(VIN, route)
+    await engine.save_attribute_candidate(VIN, "stateOfCharge", route["id"])
+    await engine.discard_unused_route(VIN, route["id"])
+    assert route["id"] not in profile.attribute_custom
+    assert "stateOfCharge" not in profile.attribute_drafts
+    await engine.add_attribute_route(VIN, route)
+    profile.attribute_route_evidence["stateOfCharge"] = {route["id"]: {"outcome":"failed"}}
+    with pytest.raises(ValueError, match="Tested or active"):
+        await engine.discard_unused_route(VIN, route["id"])
+    assert route["id"] in profile.attribute_custom
+    assert transport.request_count == 1
