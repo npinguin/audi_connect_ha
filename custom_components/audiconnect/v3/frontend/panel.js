@@ -80,6 +80,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.loading = false;
     this._loaded = false;
     this.definitionEdits = new Map();
+    this.skippedControls = new Set();
     this.shadowRoot.addEventListener("input", (e) => {
       const {definition, field} = e.target.dataset || {};
       if (definition && field) this.definitionEdits.set(definition + ":" + field, e.target.value);
@@ -239,7 +240,7 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   _resetVehicleSelection() {
-    this.definitionEdits.clear();
+    this.definitionEdits.clear(); this.skippedControls.clear();
     this.entityFilter = "";
     this.identityOperation = ""; this.identityExecution = null;
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
@@ -337,15 +338,24 @@ class AudiConnectV3Panel extends HTMLElement {
     const button = e.target.closest("button[data-action]");
     if (!button || this.loading) return;
     const action = button.dataset.action;
-    if (action === "end-user-select") {
-      const candidate=(this.capabilityStatus.end_user_candidates||[]).find(c=>c.operation===button.dataset.operation);
-      if (!candidate) return;
-      this.controlCapability=candidate.capability; this.controlAction=candidate.action;
-      this.attribute=""; this.controlRoutes=[]; this.controlChoice=candidate.operation;
+    if (action === "end-user-no" || action === "end-user-yes") {
+      if (this.step!==5 || this.pending) return;
+      const candidate=this.nextEndUserCandidate();
+      if (!candidate || candidate.operation!==button.dataset.operation ||
+          candidate.capability!==button.dataset.capability || candidate.action!==button.dataset.control) return;
+      if (action==="end-user-no") {
+        this.skippedControls.add(candidate.capability+"."+candidate.action); this.render(); return;
+      }
       this.loading=true; this.error=""; this.render();
-      try { await this._controlRoutes(); if(this.controlChoice!==candidate.operation) throw Error("Control changed; refresh status before verifying"); }
-      catch(err) {this.error=String(err.message||err);this.controlAction="";this.controlChoice="";}
-      finally {this.loading=false;this.render();} return;
+      try {
+        this.lastResult=await this.api("control_test",{...this.selection,capability:candidate.capability,
+          action:candidate.action,operation:candidate.operation,approval:candidate.approval_group,end_user:true,parameters:{}});
+        await this._loadCapabilityStatus(); await this._apiResults();
+      } catch(err) {
+        this.error=String(err.message||err);
+        try { await this._loadCapabilityStatus(); } catch {}
+      } finally { this.loading=false; this.render(); }
+      return;
     }
     if (action.startsWith("step-")) {
       this.step = Number(action.slice(5)); this.render(); return;
@@ -437,12 +447,11 @@ class AudiConnectV3Panel extends HTMLElement {
       finally { this.loading = false; this.render(); } return;
     }
     const readRoute = this.shadowRoot.getElementById("read-route")?.value || this.readChoice;
-    const endUser = this.step===5;
-    const controlRoute = endUser ? this.controlChoice : this.shadowRoot.getElementById("control-route")?.value || this.controlChoice;
+    const controlRoute = this.shadowRoot.getElementById("control-route")?.value || this.controlChoice;
     const readTemplate = this.initialReadRoute;
     const newAttributeTemplate = this.initialNewAttribute;
     const controlParameters = this.shadowRoot.getElementById("control-parameters")?.value || "{}";
-    const approved = this.shadowRoot.getElementById(endUser?"end-user-approval":"control-approval")?.checked === true;
+    const approved = this.step===3 && this.shadowRoot.getElementById("control-approval")?.checked === true;
     const approvalGroup = this.controlRoutes.find(r=>r.id===controlRoute)?.approval_group;
     const controlTemplate = this.initialControlRoute;
     const executionReview = action === "execution-review" ? {
@@ -494,7 +503,7 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("control_test", {
           ...this.selection, capability: this.controlCapability,
           action: this.controlAction, operation: controlRoute,
-          approval: approvalGroup, ...(endUser?{end_user:true,parameters:{}}:{parameters: this.parameterValues(this.controlRoutes.find(r=>r.id===controlRoute),controlParameters)})
+          approval: approvalGroup, parameters: this.parameterValues(this.controlRoutes.find(r=>r.id===controlRoute),controlParameters)
         });
       } else if (action === "discard-route") {
         this.lastResult = await this.api("discard_route", {...this.selection, operation:button.dataset.operation});
@@ -728,14 +737,17 @@ class AudiConnectV3Panel extends HTMLElement {
       ...(source?.conversion ? {conversion:source.conversion} : {})}, null, 2);
   }
 
+  nextEndUserCandidate() {
+    return (this.capabilityStatus.end_user_candidates||[]).find(c=>!this.skippedControls.has(c.capability+"."+c.action));
+  }
+
   endUserValidation() {
     const p=this.capabilityStatus.end_user_progress;
     if (!p) return '<section class="card"><h2>End-user validation</h2><p>No discovery status loaded.</p></section>';
     const health=this.capabilityStatus.integration_health||{};
     const timing=this.capabilityStatus.end_user_timing||{};
     const candidates=this.capabilityStatus.end_user_candidates||[];
-    const candidate=candidates.find(c=>c.operation===this.controlChoice && c.capability===this.controlCapability && c.action===this.controlAction);
-    const route=this.controlRoutes.find(r=>r.id===candidate?.operation);
+    const candidate=this.nextEndUserCandidate();
     const rows=p.controls||[];
     return `<section class="card" data-view="end-user-validation">
       <div class="section-head"><h2>End-user validation</h2><button data-action="refresh" ${this.loading?"disabled":""}>Refresh status</button></div>
@@ -748,11 +760,11 @@ class AudiConnectV3Panel extends HTMLElement {
       <div class="coverage-table"><table><thead><tr><th>Capability</th><th>Read jobs assessed</th><th>Normalized attributes</th></tr></thead><tbody>
       ${Object.entries(p.capabilities||{}).map(([cap,c])=>`<tr><td><button data-action="open-capability" data-capability="${escapeHTML(cap)}">${escapeHTML(domainName(cap))}</button></td><td>${c.jobs_assessed}/${c.jobs_total}</td><td>${c.attributes_normalized}/${c.attributes_total}</td></tr>`).join("")}</tbody></table></div>
       <h3>3 · Control discovery &amp; physical verification</h3>
-      <p>${rows.filter(c=>c.eligible).length} eligible · ${escapeHTML(p.controls_physically_verified??0)} physically verified / ${escapeHTML(p.controls_catalog_applicable??0)} applicable. Select one action, inspect the parked vehicle and approve it explicitly.</p>
-      ${rows.map(c=>{const test=candidates.find(x=>x.capability===c.capability&&x.action===c.action);return `<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability,c.action))}</b> · ${escapeHTML(friendly(c.status))} · ${escapeHTML(friendly(c.physical))}<div class="subline">${escapeHTML(friendly(c.reason||""))}</div></div>${test&&c.physical!=="worked"?`<button data-action="end-user-select" data-operation="${escapeHTML(test.operation)}" ${this.loading||this.pending?"disabled":""}>Verify</button>`:""}</div>`;}).join("")}
-      ${candidate&&route&&!this.pending?`<div class="callout"><b>${escapeHTML(candidate.label)}</b><p>Exact route: <code>${escapeHTML(candidate.operation)}</code>. One real physical command. Be present at the safely parked vehicle and able to restore its state.</p>
-      <label><input type="checkbox" id="end-user-approval" style="width:auto"> I accept this specific action and its risks</label>
-      <button data-action="control-test" ${this.loading||this.controlDisabled||this.capabilityBlocked(candidate.capability)||(candidate.approval_group==="spin"&&!this.spinConfigured)?"disabled":""}>Execute once</button></div>`:""}
+      <p>${rows.filter(c=>c.eligible).length} eligible · ${escapeHTML(p.controls_physically_verified??0)} physically verified / ${escapeHTML(p.controls_catalog_applicable??0)} applicable · ${this.skippedControls.size} skipped · ${candidates.filter(c=>!this.skippedControls.has(c.capability+"."+c.action)).length} ready to test</p>
+      ${candidate&&!this.pending?`<div class="callout"><b>Discover ${escapeHTML(candidate.label)}?</b><p>Yes sends the selected physical action once. Be present at the safely parked vehicle and able to restore its state.</p>
+      <div class="actions">${["yes","no"].map(answer=>`<button data-action="end-user-${answer}" data-operation="${escapeHTML(candidate.operation)}" data-capability="${escapeHTML(candidate.capability)}" data-control="${escapeHTML(candidate.action)}" ${this.loading?"disabled":""}>${answer==="yes"?"Yes":"No"}</button>`).join("")}</div>
+      <details><summary>Engineering route</summary><code>${escapeHTML(candidate.operation)}</code></details></div>`:this.pending?"<p>Waiting for your physical result above.</p>":"<p>No remaining eligible actions in this session. Review unavailable or skipped functions below.</p>"}
+      ${rows.map(c=>`<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability,c.action))}</b> · ${escapeHTML(friendly(c.status))} · ${escapeHTML(this.skippedControls.has(c.capability+"."+c.action)?"Skipped":friendly(c.physical))}<div class="subline">${escapeHTML(friendly(c.reason||""))}</div></div></div>`).join("")}
       <h3>4 · Recovery &amp; timing</h3>
       <p>Last poll: ${escapeHTML(this.localTime(timing.last_poll_attempt))} · Last success: ${escapeHTML(this.localTime(timing.last_poll_success))} · Poll interval: ${timing.poll_interval_seconds==null?"unknown":escapeHTML(timing.poll_interval_seconds/60)+" min"} · Quota: ${escapeHTML(health.quota_remaining??"unknown")}</p>
       ${(health.active_findings||[]).map(f=>`<div class="subline">${escapeHTML(friendly(f.code))} · ${escapeHTML(f.source)} ${f.http_status?"· HTTP "+escapeHTML(f.http_status):""}</div>`).join("")}
@@ -989,8 +1001,8 @@ class AudiConnectV3Panel extends HTMLElement {
           <div class="warn"><b>Pending vehicle control: ${escapeHTML(this.pending.capability)} · ${escapeHTML(this.pending.action)}</b>
             <p>Review the physical result before starting another discovery action.</p>
             <div class="actions">
-              <button data-action="confirm-worked">Verified working</button>
-              <button data-action="confirm-failed">Did not work</button>
+              <button data-action="confirm-worked">${this.step===5?"OK":"Verified working"}</button>
+              <button data-action="confirm-failed">${this.step===5?"Not OK":"Did not work"}</button>
               <button data-action="confirm-uncertain">Not sure</button>
             </div>
           </div>
