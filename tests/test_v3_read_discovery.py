@@ -165,3 +165,49 @@ def test_explicit_read_exclusions_survive_restart_and_context_change_invalidates
     restored.rebind_context(VehicleContext(auth="auth0", region="BE"))
     assert not restored.unsupported_reads
     assert not restored.job_discovery
+
+
+def test_retryable_vendor_error_gets_bounded_recovery_after_initial_scan():
+    from custom_components.audiconnect.v3.read_discovery import MAX_TARGETED_PROBE_ATTEMPTS
+    profile = blank_profile()
+    job = "chargingProfiles"
+    profile.job_discovery = {key: "observed" for key in V2_JOBS}
+    profile.job_discovery.update({job: "not_observed", "departureTimers": "not_observed"})
+    reserve_group(profile, (job,))
+    record_jobs(profile, (job,), status=207, payload={
+        job: {"chargingProfilesStatus": {"error": {"code": 4112, "retry": True}}}})
+    assert profile.job_discovery[job] == "inconclusive"
+    assert pending_groups(profile, max_groups=1) == [("departureTimers",)]
+    reserve_group(profile, ("departureTimers",))
+    for _ in range(MAX_TARGETED_PROBE_ATTEMPTS - 1):
+        assert pending_groups(profile, max_groups=1) == [(job,)]
+        reserve_group(profile, (job,))
+    assert pending_groups(profile, max_groups=2) == []
+    record_jobs(profile, (job,), status=207, payload={
+        job: {"chargingProfilesStatus": {"value": {"profiles": [{"id": 1}]}}}})
+    assert profile.job_discovery[job] == "observed"
+
+
+def test_retryable_negative_is_not_a_permanent_exclusion():
+    profile = blank_profile()
+    record_jobs(profile, ("chargingProfiles",), status=207, payload={
+        "chargingProfiles": {"error": {"code": "jobNotSupported", "retry": True}}})
+    assert profile.job_discovery["chargingProfiles"] == "inconclusive"
+
+
+def test_retry_budget_survives_profile_restore():
+    from pathlib import Path
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry, VehicleContext
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.profile_store import restore_profile
+    from custom_components.audiconnect.v3.read_discovery import MAX_TARGETED_PROBE_ATTEMPTS
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    registry = CapabilityRegistry.from_json_file(root / "full_catalog.json")
+    context = VehicleContext(auth="auth0", region="DE")
+    profile = DevelopmentProfile(registry, context)
+    profile.job_discovery["chargingProfiles"] = "inconclusive"
+    for _ in range(MAX_TARGETED_PROBE_ATTEMPTS):
+        reserve_group(profile, ("chargingProfiles",))
+    restored = restore_profile(registry, context, profile.snapshot())
+    assert restored.job_probe_attempts["chargingProfiles"] == MAX_TARGETED_PROBE_ATTEMPTS
+    assert restored.job_discovery["chargingProfiles"] == "inconclusive"

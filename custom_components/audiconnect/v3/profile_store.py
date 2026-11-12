@@ -165,8 +165,9 @@ def restore_profile(
     for job, result in observed_jobs.items():
         if job not in V2_JOBS or result not in ("observed", "not_observed", "inconclusive", "unsupported"):
             raise DevelopmentProfileError("Untrusted discovery job status")
+    from .read_discovery import MAX_TARGETED_PROBE_ATTEMPTS
     for job, count in probed_jobs.items():
-        if job not in V2_JOBS or type(count) is not int or not 0 <= count <= 1:
+        if job not in V2_JOBS or type(count) is not int or not 0 <= count <= MAX_TARGETED_PROBE_ATTEMPTS:
             raise DevelopmentProfileError("Untrusted read-only probe count")
     profile.job_discovery.update(observed_jobs)
     profile.job_probe_attempts.update(probed_jobs)

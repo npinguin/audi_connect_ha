@@ -17,6 +17,7 @@ from .historical_catalog import V2_JOBS
 
 MAX_EXTRA_INITIAL_REQUESTS = 4
 MAX_EXTRA_PERIODIC_REQUESTS = 2
+MAX_TARGETED_PROBE_ATTEMPTS = 3
 
 # Prioritize mapped jobs first, then exhaust all known fixed read-only jobs.
 PROBE_GROUPS: tuple[tuple[str, ...], ...] = (
@@ -38,13 +39,21 @@ PROBE_GROUPS: tuple[tuple[str, ...], ...] = (
 _JOBS = frozenset(V2_JOBS)
 
 
+def _retry_requested(payload):
+    if not isinstance(payload, Mapping):
+        return False
+    error = payload.get("error")
+    return payload.get("retry") is True or (
+        isinstance(error, Mapping) and error.get("retry") is True)
+
+
 def explicitly_unsupported(payload):
     """Only a job/route-level explicit negative; never a missing field or stale value.
 
     Numeric vendor codes and vague "unavailable" are deliberately not guessed.
     A child status error does not establish that the entire job is unsupported.
     """
-    if not isinstance(payload, Mapping):
+    if not isinstance(payload, Mapping) or _retry_requested(payload):
         return False
     error = payload.get("error")
     candidates = [error] if isinstance(error, str) else [
@@ -74,6 +83,7 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
             profile.job_discovery[job] = "unsupported"
             continue
         found = False
+        retry_requested = False
         stack = [top]
         # Some reviewed jobs return data inside a shared namespace. A timer
         # schema is read evidence only, never permission to activate ventilation.
@@ -86,6 +96,7 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
             budget -= 1
             item = stack.pop()
             if isinstance(item, Mapping):
+                retry_requested |= _retry_requested(item)
                 if item.get("error") is not None:
                     continue
                 if "value" in item and item["value"] not in (None, {}, []):
@@ -94,25 +105,38 @@ def record_jobs(profile: Any, requested: tuple[str, ...], *,
                 stack.extend(item.values())
             elif isinstance(item, list):
                 stack.extend(item[:16])
-        if found or (profile.job_discovery.get(job) != "unsupported" and any(
-                item.get("job") == job for item in profile.attribute_evidence.values())):
+        if found:
+            profile.job_discovery[job] = "observed"
+        elif retry_requested:
+            # Audi explicitly requests another read (e.g. error 4112).
+            # Historical mapping evidence cannot turn this response into success.
+            if profile.job_discovery.get(job) not in ("observed", "unsupported"):
+                profile.job_discovery[job] = "inconclusive"
+        elif profile.job_discovery.get(job) != "unsupported" and any(
+                item.get("job") == job for item in profile.attribute_evidence.values()):
             profile.job_discovery[job] = "observed"
         elif profile.job_discovery.get(job) not in ("observed", "unsupported"):
             profile.job_discovery[job] = "not_observed"
 
 
 def pending_groups(profile: Any, *, max_groups: int) -> list[tuple[str, ...]]:
-    """One supplementary targeted probe per job; unknown jobs remain in the regular batch."""
+    """Cover unprobed jobs first; retry inconclusive jobs within a fixed budget."""
+    if max_groups <= 0:
+        return []
     groups = []
-    for group in PROBE_GROUPS:
-        pending = tuple(job for job in group
-                        if job in _JOBS
-                        and profile.job_discovery.get(job) not in ("observed", "unsupported")
-                        and profile.job_probe_attempts.get(job, 0) < 1)
-        if pending:
-            groups.append(pending)
-        if len(groups) == max_groups:
-            break
+    # Complete the initial catalog scan before spending calls on recovery.
+    for retry in (False, True):
+        for group in PROBE_GROUPS:
+            pending = tuple(job for job in group
+                            if job in _JOBS
+                            and profile.job_discovery.get(job) not in ("observed", "unsupported")
+                            and (0 < profile.job_probe_attempts.get(job, 0) < MAX_TARGETED_PROBE_ATTEMPTS
+                                 and profile.job_discovery.get(job) == "inconclusive"
+                                 if retry else profile.job_probe_attempts.get(job, 0) == 0))
+            if pending:
+                groups.append(pending)
+            if len(groups) == max_groups:
+                return groups
     return groups
 
 
@@ -120,7 +144,8 @@ def reserve_group(profile: Any, jobs: tuple[str, ...]) -> None:
     for job in jobs:
         if job not in _JOBS:
             raise ValueError("Unknown job cannot be auto-probed")
-        profile.job_probe_attempts[job] = profile.job_probe_attempts.get(job, 0) + 1
+        profile.job_probe_attempts[job] = min(MAX_TARGETED_PROBE_ATTEMPTS,
+                                              profile.job_probe_attempts.get(job, 0) + 1)
 
 
 def summary(profile: Any) -> dict[str, int]:
