@@ -440,7 +440,7 @@ class V3LocalServiceSensor(V3BaseEntity, SensorEntity):
             }
         from .structured_details import details_for
         return {
-            **details_for(self.vehicle, "health_warning_evidence_detail"),
+            **details_for(self.vehicle, "health_warning_evidence_detail", "low_voltage_battery_detail", "battery_support_detail"),
             "inspection_due_days": self._value("MAINTENANCE_INTERVAL_TIME_TO_INSPECTION"),
             "inspection_due_km": self._value("MAINTENANCE_INTERVAL_DISTANCE_TO_INSPECTION"),
             "oil_service_due_days": self._value("MAINTENANCE_INTERVAL_TIME_TO_OIL_CHANGE"),
