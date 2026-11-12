@@ -137,25 +137,32 @@ class MBBLegacyExecutor:
         self._trusted_hosts[vin.upper()] = "https://" + parts.hostname
 
     def plan(self, auth: Any, method: str, path: str, body: Any = None,
-             *, explicit_action: bool = False, security_token: str | None = None) -> RequestPlan:
+             *, explicit_action: bool = False, security_token: str | None = None,
+             region_vin: str | None = None) -> RequestPlan:
         import re
         if auth.uses_auth0:
             raise ValueError("Legacy MBB must not be probed on an Auth0 vehicle")
         resource = _checked_path(path)
-        if "?" in path or method not in ("GET", "POST"):
+        trip = re.fullmatch(r"/api/bs/tripstatistics/v1/vehicles/[A-Za-z0-9]{17}/tripdata/(shortTerm|longTerm)", resource)
+        if ("?" in path and not trip) or method not in ("GET", "POST"):
             raise ValueError("Unreviewed MBB route")
         match = re.search(r"/vehicles/([A-Za-z0-9]{17})(?:/|$)", resource)
         if not match and resource != "/api/rolesrights/authorization/v2/security-pin-auth-completed":
             raise ValueError("Invalid MBB vehicle route")
-        vin = match[1].upper() if match else None
+        vin = match[1].upper() if match else region_vin
+        if region_vin is not None and (not re.fullmatch(r"[A-Za-z0-9]{17}",region_vin)
+                or (match and region_vin.upper()!=match[1].upper())):
+            raise ValueError("Invalid MBB region VIN")
         # Reads and setter requests are deliberately isolated. The default
         # region is the historical upstream default, never an arbitrary URL.
         host = self._trusted_hosts.get(vin, LEGACY_BASE)
         setter = self._trusted_hosts.get(vin, "https://mal-1a.prd.ece.vwg-connect.com")
+        if setter == LEGACY_BASE:
+            setter = "https://mal-1a.prd.ece.vwg-connect.com"
         if setter.startswith("https://fal-"):
             setter = setter.replace("https://fal-", "https://mal-", 1)
-        if host.startswith("https://mal-") and host != "https://mal-3a.prd.eu.dp.vwg-connect.com":
-            host = host.replace("https://mal-", "https://fal-", 1)
+        if host == "https://mal-1a.prd.ece.vwg-connect.com":
+            host = LEGACY_BASE
         headers = _headers(auth.access_token(self.family))
         climate = re.fullmatch(
             r"/(?:fs-car/bs/climatisation/v1/Audi/[A-Z]{2}/vehicles|api/bs/climatisation/v1/vehicles)/[A-Za-z0-9]{17}/climater/actions(?:/[A-Za-z0-9_-]{1,100})?", resource)
@@ -167,6 +174,13 @@ class MBBLegacyExecutor:
             if method != "GET" or body is not None:
                 raise ValueError("Unreviewed MBB home-region request")
             host = "https://mal-1a.prd.ece.vwg-connect.com"
+        elif trip:
+            from urllib.parse import parse_qs
+            query = parse_qs(urlsplit(path).query)
+            if (method != "GET" or body is not None or set(query)!={"type","from","to"}
+                    or query["type"]!=["list"] or any(len(v)!=1 for v in query.values())):
+                raise ValueError("Unreviewed MBB trip query")
+            host = setter
         elif challenge or complete or rlu:
             host = setter
             if not explicit_action:
@@ -174,6 +188,8 @@ class MBBLegacyExecutor:
             if challenge and (method != "GET" or body is not None):
                 raise ValueError("Invalid MBB challenge")
             if complete:
+                if not region_vin:
+                    raise ValueError("MBB challenge completion requires its originating VIN")
                 if method != "POST" or not isinstance(body, dict) or set(body) != {"securityPinAuthentication"}:
                     raise ValueError("Invalid MBB security completion")
                 headers["Content-Type"] = "application/json"

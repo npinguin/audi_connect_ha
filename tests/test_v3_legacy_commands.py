@@ -31,3 +31,13 @@ def test_security_challenge_and_status_never_retry_mutation():
     assert asyncio.run(security_token(obj,VIN,"lock","1234"))=="final"
     assert asyncio.run(confirm(obj,f"/api/bs/rlu/v1/vehicles/{VIN}/lock",{"rluActionResponse":{"requestId":"abc"}},delay=0))=="backend_completed"
     assert [x.args[1] for x in obj.request.await_args_list]==["GET","POST","GET"]
+
+
+def test_challenge_completion_uses_same_vehicle_region():
+    e=MBBLegacyExecutor(); auth=NS(uses_auth0=False,access_token=lambda family:"fake")
+    e.set_vehicle_home_region(VIN,"https://mal-3a.prd.eu.dp.vwg-connect.com")
+    path="/api/rolesrights/authorization/v2/security-pin-auth-completed"
+    body={"securityPinAuthentication":{}}
+    with pytest.raises(ValueError):
+        e.plan(auth,"POST",path,body,explicit_action=True)
+    assert e.plan(auth,"POST",path,body,explicit_action=True,region_vin=VIN).url.startswith("https://mal-3a.prd.eu.dp.vwg-connect.com")

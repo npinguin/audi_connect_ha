@@ -194,6 +194,9 @@ class V3Engine:
         return family, method, path, body
 
     async def _dispatch_command(self, car, family, method, path, body):
+        if family == "mbb" and hasattr(self.transport, "executors"):
+            from .legacy_commands import configure_home_region
+            await configure_home_region(self.transport,self.auth,car)
         if family == "mbb" and path.endswith(("/lock", "/unlock")):
             from .legacy_commands import security_token
             token = await security_token(self.transport, car.vin, path.rsplit("/", 1)[-1],
@@ -216,6 +219,9 @@ class V3Engine:
         """Normal MBB polling, one GET per resource, with no mutations."""
         from .legacy_read_mappings import ROUTES
         from .legacy_values import observe_legacy
+        from .legacy_commands import configure_home_region
+        if hasattr(self.transport, "executors"):
+            await configure_home_region(self.transport,self.auth,car)
         reachable = False
         for kind, template in ROUTES.items():
             key = (car.vin.lower(), kind)
@@ -255,8 +261,6 @@ class V3Engine:
         from .trips import normalize_cariad_trip
         from .attribute_runtime import _capture_in_utc
 
-        if car.context.auth != "auth0":
-            return
         remaining = self.transport.remaining_calls
         if remaining is not None and remaining < 20:
             return
@@ -266,6 +270,29 @@ class V3Engine:
         if last is not None and now - last < 10800:
             return
         self._trip_poll_at[key] = now
+        if car.context.auth == "legacy":
+            from .trips import normalize_mbb_trips
+            from datetime import timedelta
+            from urllib.parse import urlencode
+            query = urlencode({"type":"list", "from":"1970-01-01T00:00:00Z",
+                "to":(datetime.now(UTC)+timedelta(minutes=90)).strftime("%Y-%m-%dT%H:%M:%SZ")})
+            for kind in ("shortTerm", "longTerm"):
+                try:
+                    reply = await self.transport.request("mbb","GET",
+                        f"/api/bs/tripstatistics/v1/vehicles/{car.vin}/tripdata/{kind}?{query}")
+                except (RuntimeError,ValueError,OSError,TimeoutError):
+                    break
+                if reply.status in (401,403,429) or reply.status>=500:
+                    break
+                if not 200<=reply.status<300:
+                    continue
+                for suffix, trip in normalize_mbb_trips(reply.data).items():
+                    state_key=kind.lower()+"_"+suffix
+                    previous=_capture_in_utc(car.trips.get(state_key,{}).get("timestamp"))
+                    incoming=_capture_in_utc(trip.get("timestamp"))
+                    if incoming and (not previous or incoming>=previous):
+                        car.trips[state_key]=trip
+            return
         for suffix, state_key in (
             ("shortterm", "shortterm_current"),
             ("longterm", "longterm_current"),
@@ -571,7 +598,7 @@ class V3Engine:
                         {"tripStatistics", "tripData"} &
                         (car.advertised_capabilities - car.impaired_capabilities)
                     )
-                    if len(profile.registry.capabilities) > 1 and (known_trip or capability):
+                    if len(profile.registry.capabilities) > 1 and (known_trip or capability or car.context.auth == "legacy"):
                         await self._poll_trips(car)
         for car in self.vehicles.values():
             captures = [

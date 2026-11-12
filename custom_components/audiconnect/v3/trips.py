@@ -176,3 +176,33 @@ def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
             "zeroEmissionDistance": "km",
         },
     }, "normalized"
+
+
+def normalize_mbb_trips(payload: Any) -> dict[str, dict]:
+    """Historical trip API uses tenths for consumption and integer km/min."""
+    if not isinstance(payload,dict): return {}
+    wrapper=payload.get("tripDataList")
+    rows=wrapper.get("tripData") if isinstance(wrapper,dict) else None
+    if not isinstance(rows,list): return {}
+    def integer(row,key):
+        try:
+            value=row.get(key)
+            return int(value) if type(value) in (int,float,str) else None
+        except (ValueError,TypeError,OverflowError): return None
+    valid=[r for r in rows[:100] if isinstance(r,dict) and _timestamp(r.get("timestamp"))
+           and integer(r,"overallMileage") is not None and integer(r,"startMileage") is not None]
+    if not valid: return {}
+    valid.sort(key=lambda r:integer(r,"overallMileage"),reverse=True)
+    current=valid[0]
+    reset=next((r for r in valid if integer(current,"startMileage")-integer(r,"startMileage")>2),current)
+    def normalized(row):
+        result={"timestamp":_timestamp(row["timestamp"]).isoformat(),"source":"mbb_legacy","tripID":None}
+        for key in ("averageSpeed","mileage","startMileage","traveltime","overallMileage","zeroEmissionDistance"):
+            result[key]=integer(row,key)
+        for key in ("averageElectricEngineConsumption","averageFuelConsumption"):
+            try:
+                value=float(row[key])/10
+                result[key]=value if math.isfinite(value) and value>=0 else None
+            except (KeyError,TypeError,ValueError): result[key]=None
+        return result
+    return {"current":normalized(current),"reset":normalized(reset)}

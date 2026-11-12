@@ -54,6 +54,7 @@ class V3Transport:
         self, family: str, method: str, path: str, *,
         body: Any = None, explicit_action: bool = False,
         security_token: str | None = None,
+        region_vin: str | None = None,
     ) -> V3Response:
         if family not in self.executors:
             raise ValueError("Unknown or unsupported V3 executor")
@@ -61,6 +62,10 @@ class V3Transport:
         if security_token is not None and family != "mbb":
             raise ValueError("Security token is only valid for MBB RLU")
         kwargs = {"security_token": security_token} if security_token is not None else {}
+        if region_vin is not None:
+            if family != "mbb":
+                raise ValueError("Region VIN is only valid for MBB")
+            kwargs["region_vin"] = region_vin
         plan = self.executors[family].plan(
             self.auth, method, path, body, explicit_action=explicit_action, **kwargs
         )

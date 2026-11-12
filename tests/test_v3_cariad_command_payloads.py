@@ -13,7 +13,7 @@ from custom_components.audiconnect.v3.vehicle import V3Vehicle
 
 def engine(payload=None):
     return NS(transport=NS(request=AsyncMock(return_value=NS(status=207, data=payload))),
-              auth=NS(service=NS(_spin="test-pin")), send_control=AsyncMock())
+              auth=NS(uses_auth0=True, service=NS(_spin="test-pin")), send_control=AsyncMock())
 
 
 def car():

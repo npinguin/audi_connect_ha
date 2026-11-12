@@ -13,3 +13,13 @@ def test_legacy_numeric_and_access_data_use_historical_ids():
     assert car.readings["left_front_door_open"]["value"] is True
     assert car.readings["any_door_open"]["value"] is True
     assert "any_door_unlocked" not in car.readings
+
+
+def test_legacy_trip_units_and_reset_are_not_cariad_units():
+    from custom_components.audiconnect.v3.trips import normalize_mbb_trips
+    now=datetime.now(UTC).isoformat()
+    out=normalize_mbb_trips({"tripDataList":{"tripData":[
+        {"timestamp":now,"overallMileage":12345,"startMileage":12300,"averageFuelConsumption":"81"},
+        {"timestamp":now,"overallMileage":12200,"startMileage":12000,"averageFuelConsumption":"73"}]}})
+    assert out["current"]["averageFuelConsumption"]==8.1
+    assert out["reset"]["averageFuelConsumption"]==7.3

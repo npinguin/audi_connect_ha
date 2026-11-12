@@ -56,7 +56,7 @@ async def security_token(transport, vin, action, spin):
     digest=hashlib.sha512(bytes.fromhex(spin)+bytes.fromhex(challenge)).hexdigest().upper()
     reply=await transport.request("mbb","POST","/api/rolesrights/authorization/v2/security-pin-auth-completed",
         body={"securityPinAuthentication":{"securityPin":{"challenge":challenge,"securityPinHash":digest},"securityToken":token}},
-        explicit_action=True)
+        explicit_action=True,region_vin=vin)
     final=reply.data.get("securityToken") if isinstance(reply.data,dict) else None
     if not 200<=reply.status<300 or not isinstance(final,str) or not final or len(final)>4096 or any(ord(c)<32 for c in final):
         raise ValueError("Audi legacy S-PIN authentication failed")
@@ -89,3 +89,26 @@ async def confirm(transport,path,payload,*,delay=4,max_reads=3):
         if state in ("succeeded","request_successful"): return "backend_completed"
         if state in ("failed","request_failed"): return "rejected"
     return "accepted_unconfirmed"
+
+
+async def configure_home_region(transport,auth,car):
+    """Resolve a legacy region once, never follow arbitrary OEM URLs."""
+    executor=transport.executors["mbb"]
+    if car.vin.upper() in executor._trusted_hosts:
+        return
+    level=getattr(getattr(auth,"service",None),"_api_level",None)
+    if car.country!="US" and level==1:
+        executor.set_vehicle_home_region(car.vin,"https://mal-3a.prd.eu.dp.vwg-connect.com")
+        return
+    try:
+        response=await transport.request("mbb","GET",f"/api/cs/vds/v1/vehicles/{car.vin}/homeRegion")
+        base=read_json_path(response.data,"homeRegion.baseUri.content")
+        if isinstance(base,str) and base.endswith("/api"):
+            base=base[:-4]
+        if (200<=response.status<300 and isinstance(base,str)
+                and base!="https://mal-1a.prd.ece.vwg-connect.com"):
+            executor.set_vehicle_home_region(car.vin,base)
+            return
+    except (RuntimeError,ValueError,OSError,TimeoutError):
+        pass
+    executor.set_vehicle_home_region(car.vin,"https://msg.volkswagen.de")
