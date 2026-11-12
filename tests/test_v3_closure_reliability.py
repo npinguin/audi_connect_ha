@@ -219,3 +219,69 @@ def test_command_readback_requires_fresh_post_command_observation():
     car.readings["targetstateOfCharge"]["captured"] = now.isoformat()
     assert reconcile_readback(record, car, now)
     assert record.state == "verified"
+
+
+@pytest.mark.asyncio
+async def test_inventory_reconciliation_retains_entity_identity_and_blocks_missing_vehicle():
+    from pathlib import Path
+    from types import SimpleNamespace as NS
+    from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+
+    vin = "WAUZZZ4M0MD123456"
+    other = "WAUZZZ4M0MD654321"
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    model = CapabilityRegistry.from_json_file(root / "full_catalog.json")
+    first = {"vin": vin, "nickname": "Original"}
+    second = {"vin": other}
+    transport = NS(discover_vehicles=AsyncMock(side_effect=[
+        [first, second], [], [second], [second], [first, second],
+    ]))
+    class Storage:
+        async def async_load(self, registry, contexts):
+            return {key: DevelopmentProfile(registry, context)
+                    for key, context in contexts.items()}
+    engine = V3Engine(None, NS(entry_id="test"), model,
+                      auth=NS(uses_auth0=True, country="DE"),
+                      transport=transport, storage=Storage())
+    await engine.discover()
+    original = engine.require_vehicle(vin)
+    await engine.discover()
+    assert engine.require_vehicle(vin) is original
+    await engine.discover()
+    assert engine.require_vehicle(vin) is original
+    await engine.discover()
+    assert not original.inventory_present
+    with pytest.raises(ValueError):
+        engine.require_vehicle(vin)
+    assert not engine.control_enabled(vin, "start", "charging")
+    await engine.discover()
+    assert engine.require_vehicle(vin) is original
+    assert original.inventory_present
+
+
+def test_v2_delta_register_covers_all_production_blob_changes():
+    from pathlib import Path
+    from hashlib import sha1
+    import json
+
+    root = Path(__file__).resolve().parents[1]
+    register = json.loads((root / "governance/V2_UPSTREAM_DELTA.json").read_text())
+    folder = root / "custom_components/audiconnect"
+    actual = {}
+    for file in folder.rglob("*"):
+        if not file.is_file() or "__pycache__" in file.parts or file.suffix == ".pyc":
+            continue
+        if file.relative_to(folder).parts[0] == "v3":
+            continue
+        data = file.read_bytes()
+        actual[file.relative_to(root).as_posix()] = sha1(
+            f"blob {len(data)}\0".encode() + data, usedforsecurity=False
+        ).hexdigest()
+    upstream = register["upstream_blobs"]
+    expected = {item["path"]: item["development_blob"] for item in register["files"]}
+    observed = {key: actual.get(key) for key in set(actual) | set(upstream)
+                if actual.get(key) != upstream.get(key)}
+    assert observed == expected
