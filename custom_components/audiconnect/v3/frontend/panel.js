@@ -67,6 +67,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.focusOperation = "";
     this.identityOperation = ""; this.identityQuery = ""; this.identityVariables = "{}"; this.identityExecution = null;
     this.operationMethod = "all";
+    this.logCapability = ""; this.logOutcome = "all"; this.logFrom = ""; this.logTo = "";
     this.readRoutes = [];
     this.readChoice = "";
     this.readDraft = "";
@@ -210,6 +211,9 @@ class AudiConnectV3Panel extends HTMLElement {
     } else if (e.target.id === "operation-filter") {
       this.operationFilter = e.target.value; this.focusOperation = "";
       this.render();
+    } else if (["log-capability","log-outcome","log-from","log-to"].includes(e.target.id)) {
+      const field = {"log-capability":"logCapability","log-outcome":"logOutcome","log-from":"logFrom","log-to":"logTo"}[e.target.id];
+      this[field] = e.target.value; this.render();
     } else if (e.target.id === "operation-method") {
       this.operationMethod = e.target.value;
       this.render();
@@ -235,6 +239,8 @@ class AudiConnectV3Panel extends HTMLElement {
     this.apiHistory = []; this.engineeringHistory = []; this.capabilityStatus = {counts:{},rows:[]};
     this.step = 1; this.apiFamily = "vehicle"; this.functionMode = "all"; this.discoveryGroup = "read_only";
     this.focusOperation = ""; this.operationFilter = "all"; this.operationMethod = "all";
+    this.searchText = ""; this.inventoryFilter = "all";
+    this.logCapability = ""; this.logOutcome = "all"; this.logFrom = ""; this.logTo = "";
   }
 
   identityTemplate(operation) {
@@ -270,6 +276,32 @@ class AudiConnectV3Panel extends HTMLElement {
   reviewRequired(row) {
     return row.review_required ?? (row.state==="pending" || row.capability==="access" ||
       (row.capability==="remote" && ["engine_start","engine_stop"].includes(row.action)));
+  }
+  executionRows(operations, records, family, selectedEntity) {
+    const key = row => row.template || row.operation;
+    const matches = row => {
+      const op = operations.find(o => o.operation === key(row));
+      const date = String(row.at || "").slice(0,10);
+      const status = row.http_status;
+      return (family === "all" || row.family === family)
+        && (!selectedEntity || selectedEntity.operations.includes(key(row)))
+        && (!this.focusOperation || key(row) === this.focusOperation)
+        && (!this.logCapability || (op?.capabilities || []).includes(this.logCapability))
+        && (this.operationMethod === "all" || row.method === this.operationMethod)
+        && (this.logOutcome === "all"
+          || this.logOutcome === "success" && status >= 200 && status < 300
+          || this.logOutcome === "error" && status >= 400
+          || this.logOutcome === "unknown" && (status == null || status < 200 || status >= 300 && status < 400))
+        && (!this.logFrom || date >= this.logFrom)
+        && (!this.logTo || date && date <= this.logTo)
+        && (!this.searchText || JSON.stringify(row).toLowerCase().includes(this.searchText.toLowerCase()));
+    };
+    const detailed = this.engineeringHistory;
+    return [
+      ...detailed.filter(matches).map(record => ({record, detail:record})),
+      ...records.filter(row => matches(row) && !detailed.some(e => e.operation === row.operation && e.at === row.at))
+        .map(record => ({record, detail:null}))
+    ].sort((a,b) => String(b.record.at || "").localeCompare(String(a.record.at || "")));
   }
   localTime(value) {
     if (!value) return "";
@@ -1024,10 +1056,14 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="eyebrow">Engineering / API evidence</div>
             <h2>Last result and response by API route</h2>
             <p>Inspect the latest masked JSON from existing requests, including command responses. Detailed responses are session-only; restricted diagnostics previews survive a restart.</p>
-            ${this.step===4?[
-              ...this.engineeringHistory.filter(r=>(family==="all"||r.family===family)&&(!selectedEntity||selectedEntity.operations.includes(r.template||r.operation))&&(!this.focusOperation||(r.template||r.operation)===this.focusOperation)).map(r=>({record:r,detail:r})),
-              ...records.filter(r=>(!this.focusOperation||r.operation===this.focusOperation)&&!this.engineeringHistory.some(e=>e.operation===r.operation&&e.at===r.at)).map(r=>({record:r,detail:null}))
-            ].map(({record:r,detail})=>`<details class="record" open>
+            <div class="line">
+              <label>Capability <select id="log-capability"><option value="">All capabilities</option>${[...new Set(operations.flatMap(o=>o.capabilities||[]))].sort().map(c=>`<option value="${escapeHTML(c)}" ${this.logCapability===c?"selected":""}>${escapeHTML(domainName(c))}</option>`).join("")}</select></label>
+              <label>HTTP outcome <select id="log-outcome">${["all","success","error","unknown"].map(v=>`<option value="${v}" ${this.logOutcome===v?"selected":""}>${v}</option>`).join("")}</select></label>
+              <label>From (UTC) <input type="date" id="log-from" value="${escapeHTML(this.logFrom)}"></label>
+              <label>To (UTC) <input type="date" id="log-to" value="${escapeHTML(this.logTo)}"></label>
+            </div>
+            <p>Search includes retained masked requests and replies. HTTP outcome is not physical verification.</p>
+            ${this.step===4?this.executionRows(operations, records, family, selectedEntity).map(({record:r,detail})=>`<details class="record" open>
               <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · <time datetime="${escapeHTML(r.at||"")}">${escapeHTML(this.localTime(r.at))}</time></summary>
               <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b></div>
               ${(operations.find(o=>o.operation===(r.template||r.operation))?.mappings||[]).map(m=>`<div class="subline"><button data-action="${m.capability==="vehicle_identity"?"open-identity":"open-capability"}" data-capability="${escapeHTML(m.capability)}">${escapeHTML(m.capability)}</button> · ${this.entityLinks(m.entity_ids)||escapeHTML(m.entity_key||"No published entity")} · <code>${escapeHTML(m.field||"")}</code></div>`).join("")}
