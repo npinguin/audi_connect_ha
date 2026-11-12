@@ -97,7 +97,8 @@
     "workbench": {
       "paths": [
         "dashboard.py",
-        "frontend/panel.js"
+        "frontend/panel.js",
+        "entity_traceability.py"
       ],
       "responsibility": "admin engineering UX"
     },
