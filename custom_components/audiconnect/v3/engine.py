@@ -173,20 +173,34 @@ class V3Engine:
                     except (ValueError, TypeError, AttributeError):
                         continue
                     if (candidate.model or candidate.model_year or candidate.car_type) and candidate.vin.lower() not in excluded:
-                        prior = alternatives.get(candidate.vin.lower())
-                        if prior is None or (not prior[0].model and candidate.model):
-                            alternatives[candidate.vin.lower()] = (candidate, operation)
+                        key = candidate.vin.lower()
+                        # Keep field-level provenance even if the first response
+                        # only contained a model year or drivetrain.
+                        if candidate.model:
+                            candidate.identity_operation = operation
+                        if candidate.model_year:
+                            candidate.year_operation = operation
+                        prior = alternatives.get(key)
+                        if prior is None:
+                            alternatives[key] = candidate
+                        else:
+                            prior.merge_identity_evidence(candidate)
                 missing = []
                 for row in found:
                     try:
                         candidate = V3Vehicle.from_graphql(row, self.auth.country)
                     except (ValueError, TypeError, AttributeError):
                         continue
-                    if candidate.vin.lower() not in excluded and not (candidate.model and candidate.model_year):
-                        missing.append(candidate.vin.lower())
-                if all((key in alternatives and alternatives[key][0].model and alternatives[key][0].model_year)
-                       or (key in garage_candidates and garage_candidates[key].model and garage_candidates[key].model_year)
-                       for key in missing):
+                    key = candidate.vin.lower()
+                    if key in excluded:
+                        continue
+                    if key in alternatives:
+                        candidate.merge_identity_evidence(alternatives[key])
+                    if key in garage_candidates:
+                        candidate.merge_identity_evidence(garage_candidates[key])
+                    if not (candidate.model and candidate.model_year):
+                        missing.append(key)
+                if not missing:
                     break
         known: dict[str, V3Vehicle] = {}
         inventory_items = {}
@@ -201,23 +215,10 @@ class V3Engine:
                 continue
             alternative = alternatives.get(parsed.vin.lower())
             if alternative is not None:
-                candidate, operation = alternative
-                if not parsed.model and candidate.model:
-                    parsed.identity_operation = operation
-                    parsed.model, parsed.model_family, parsed.model_source = candidate.model, candidate.model_family, candidate.model_source
-                    parsed.name = parsed.model if parsed.name == "Audi vehicle" else parsed.name
-                if not parsed.model_year and candidate.model_year:
-                    parsed.model_year, parsed.year_operation = candidate.model_year, operation
-                parsed.car_type = parsed.car_type or candidate.car_type
+                parsed.merge_identity_evidence(alternative)
             candidate = garage_candidates.get(parsed.vin.lower())
             if candidate is not None:
-                if not parsed.model and candidate.model:
-                    parsed.model, parsed.model_family, parsed.model_source = candidate.model, candidate.model_family, candidate.model_source
-                    parsed.identity_operation = GARAGE_OPERATION
-                    if parsed.name == "Audi vehicle":
-                        parsed.name = candidate.model
-                if not parsed.model_year and candidate.model_year:
-                    parsed.model_year, parsed.year_operation = candidate.model_year, GARAGE_OPERATION
+                parsed.merge_identity_evidence(candidate)
             from .identity_cache import apply_cached_identity
             if parsed.vin.lower() not in self.vehicles and not parsed.model:
                 loader = getattr(self.storage, "async_identity", None)
@@ -231,8 +232,7 @@ class V3Engine:
                 vehicle.identity_operation = parsed.identity_operation or INVENTORY_OPERATION
                 vehicle.model = parsed.model
                 vehicle.model_source = parsed.model_source
-                if parsed.model_family:
-                    vehicle.model_family = parsed.model_family
+                vehicle.model_family = parsed.model_family
             elif vehicle.model:
                 vehicle.identity_restored = True
             if parsed.car_type:

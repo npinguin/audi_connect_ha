@@ -226,6 +226,30 @@ class V3Vehicle:
                    identity_operation=GARAGE_OPERATION if model else None,
                    year_operation=GARAGE_OPERATION if year else None)
 
+    def merge_identity_evidence(
+        self, candidate: "V3Vehicle", *, operation: str | None = None,
+    ) -> None:
+        """Fill independent OEM identity fields from the same VIN and market.
+
+        First accepted evidence wins for each field. Never use display labels,
+        cached identity or another vehicle as fresh manufacturer evidence.
+        """
+        if (self.vin.lower() != candidate.vin.lower()
+                or self.country != candidate.country or candidate.identity_restored):
+            return
+        if not self.model and candidate.model:
+            self.model = candidate.model
+            self.model_family = candidate.model_family
+            self.model_source = candidate.model_source
+            self.identity_operation = operation or candidate.identity_operation
+            if self.name == "Audi vehicle":
+                self.name = candidate.model
+        if not self.model_year and candidate.model_year:
+            self.model_year = candidate.model_year
+            self.year_operation = operation or candidate.year_operation
+        if not self.car_type and candidate.car_type:
+            self.car_type = candidate.car_type
+
     @property
     def context(self) -> VehicleContext:
         return VehicleContext(

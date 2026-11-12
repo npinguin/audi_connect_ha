@@ -48,3 +48,44 @@ def test_explicit_readiness_not_active_charging_or_unknown():
     assert charging_ready("notReadyForCharging") is False
     assert charging_ready("charging") is None and charging_active("charging") is True
     assert charging_ready("invalid") is None
+
+
+def test_identity_recovery_accumulates_independent_fields_and_operations():
+    first = V3Vehicle.from_graphql({"vin": VIN, "vehicle": {
+        "core": {"modelYear": 2022}, "classification": {"driveTrain": "PHEV"}}}, "DE")
+    first.year_operation = "graphql.inventory.afterGarage"
+    second = V3Vehicle.from_graphql({"vin": VIN, "vehicle": {
+        "media": {"longName": "Audi Q8 TFSI e"}, "core": {"modelYear": 2023}}}, "DE")
+    first.merge_identity_evidence(second, operation="graphql.inventory.extended")
+    assert first.model == "Audi Q8 TFSI e" and first.model_family == "q8"
+    assert first.model_year == "2022" and first.car_type == "phev"
+    assert first.identity_operation == "graphql.inventory.extended"
+    assert first.year_operation == "graphql.inventory.afterGarage"
+    baseline = V3Vehicle.from_graphql({"vin": VIN, "nickname": "My vehicle"}, "DE")
+    baseline.merge_identity_evidence(first)
+    assert baseline.name == "My vehicle"
+    assert baseline.model == first.model and baseline.model_year == first.model_year
+    assert baseline.identity_operation == first.identity_operation
+    assert baseline.year_operation == first.year_operation
+    assert baseline.car_type == first.car_type
+
+
+def test_identity_recovery_combines_graphql_and_garage_only_for_same_vin_market():
+    car = V3Vehicle.from_graphql({"vin": VIN, "vehicle": {
+        "media": {"longName": "Audi Q8"}}}, "DE")
+    for vin, region in ((OTHER, "DE"), (VIN, "BE")):
+        car.merge_identity_evidence(V3Vehicle.from_garage({
+            "vin": vin, "model": "Other", "modelYear": 2025}, region))
+    assert not car.model_year and car.model == "Audi Q8"
+    garage = V3Vehicle.from_garage({"vin": VIN, "modelYear": 2022}, "DE")
+    car.merge_identity_evidence(garage)
+    assert car.model == "Audi Q8" and car.model_year == "2022"
+    assert car.year_operation == GARAGE_OPERATION and not car.car_type
+
+
+def test_identity_recovery_rejects_cached_as_fresh_evidence():
+    car = V3Vehicle.from_graphql({"vin": VIN}, "DE")
+    cached = V3Vehicle(VIN, "Audi Q8", "Audi Q8", "q8", "DE",
+                       model_year="2022", identity_restored=True)
+    car.merge_identity_evidence(cached)
+    assert not car.model and not car.model_year and not car.car_type
