@@ -24,7 +24,7 @@ from .action_discovery import approval_group
 from .vehicle import V3Vehicle
 from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .custom_attributes import attributes_for
-from .attribute_routes import get_read_variant
+from .attribute_routes import get_read_variant, read_variants
 from .legacy_read_mappings import variant_for as legacy_variant_for
 from .read_discovery import summary as discovery_summary
 from .transport import INVENTORY_OPERATION, IDENTITY_QUERIES, IDENTITY_OPERATIONS, GARAGE_OPERATION, GARAGE_PATH, POST_GARAGE_OPERATION
@@ -364,9 +364,16 @@ def _cockpit(vehicle, profile, rows, controls):
     # Historical references are not real V3 tests. Keep them visible but separate.
     references = {row["operation"]: row for row in rows if row["source"] == "v2_reference_only"}
     journal = {row.operation: row for row in profile.command_journal}
+    # Derive declared relationships from the same variants used by the editor
+    # and runtime, including untested custom definitions. Evidence is separate.
+    variants = {}
+    for row in attributes:
+        for variant in read_variants(row["attribute"], profile.attribute_custom, definitions):
+            variants.setdefault(variant["evidence_operation"], []).append((row, variant))
     operations = []
-    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal) | set(IDENTITY_QUERIES) | {GARAGE_OPERATION} | ({POST_GARAGE_OPERATION} if POST_GARAGE_OPERATION in (vehicle.identity_operation, vehicle.year_operation) else set())):
-        op = catalog.get(ident, {})
+    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal) | set(variants) | set(IDENTITY_QUERIES) | {GARAGE_OPERATION} | ({POST_GARAGE_OPERATION} if POST_GARAGE_OPERATION in (vehicle.identity_operation, vehicle.year_operation) else set())):
+        declared = variants.get(ident, [])
+        op = catalog.get(ident) or (declared[0][1] if declared else {})
         record = records.get(ident, {})
         ref = references.get(ident, {})
         matching = [row for row in rows if row["operation"] == ident and not row.get("entity_key")]
@@ -394,6 +401,7 @@ def _cockpit(vehicle, profile, rows, controls):
                 and physical != "worked" and not (command and command.state == "verified")):
             reasons.append("accepted_not_physically_verified")
         caps = sorted({row["capability"] for row in matching}
+                      | {row["capability"] for row, _ in declared}
                       | ({command.capability} if command else set()))
         if ident in IDENTITY_OPERATIONS:
             caps = ["vehicle_identity"]
@@ -466,14 +474,20 @@ def _cockpit(vehicle, profile, rows, controls):
         else:
             from .product_contract import projection_descriptor
             links = []
+            declared_by_attribute = {row["attribute"]: variant for row, variant in declared}
             for row in attributes:
-                if row["operation"] != ident and not any(row["attribute"] in field["attributes"] for field in fields):
+                variant = declared_by_attribute.get(row["attribute"])
+                if not variant and row["operation"] != ident and not any(row["attribute"] in field["attributes"] for field in fields):
                     continue
                 descriptor = definitions.get(row["attribute"], {})
                 target = projection_descriptor(descriptor) if descriptor else None
+                selected = row["selected"] and row["operation"] == ident
+                evidence = profile.attribute_route_evidence.get(row["attribute"], {}).get(variant["id"], {}) if variant else {}
+                field = row["path"] if selected or not variant else variant["response_paths"][0]
                 links.append({"attribute": row["attribute"], "capability": row["capability"],
-                              "field": row["path"], "entity_key": (target["platform"] + "." + target["entity_key"]) if target else None,
-                              "status": row["status"], "active": row["selected"]})
+                              "field": field, "entity_key": (target["platform"] + "." + target["entity_key"]) if target else None,
+                              "status": row["status"] if selected or not variant else evidence.get("outcome", "not_tested"),
+                              "active": selected})
             from .entities import CONTROL_BUTTONS
             from .product_contract import stateful_controls
             for row in matching:
