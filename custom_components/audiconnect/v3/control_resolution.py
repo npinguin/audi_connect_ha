@@ -11,7 +11,14 @@ from .operation_revision import operation_revision
 from .command_parameters import runtime_ready
 
 
-def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
+def reviewed_alternative(capability, action, operation):
+    """The only equivalent built-in fixed-parameter route pairs reviewed so far."""
+    if capability == "charging" and action in ("start", "stop") and operation == f"cariad.charging.{action}":
+        return operation + ".combined"
+    return None
+
+
+def control_decision(car, profile, auth, capability: str, aspect: str, *, for_discovery=False) -> dict:
     key = f"{capability}.{aspect}"
 
     def decision(status, operation=None, reason=None):
@@ -87,8 +94,16 @@ def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
     if len(profile.registry.capabilities) <= 1:
         return decision("unknown")
     ident = eligible_operation(car, auth, capability, aspect)
-    if ident and currently_safe(ident) and profile.control_results.get(ident) != "failed":
-        return decision("catalog_matched", ident)
+    if ident and currently_safe(ident):
+        if profile.control_results.get(ident) != "failed":
+            return decision("catalog_matched", ident)
+        alternative = reviewed_alternative(capability, aspect, ident)
+        if (alternative and currently_safe(alternative) and alternative not in profile.custom
+                and profile.control_results.get(alternative) != "failed"):
+            # A candidate is not a normal HA binding until locally verified.
+            return decision("candidate_unverified", alternative if for_discovery else None,
+                            "alternative_requires_verification")
+        return decision("no_working_route", reason="reviewed_candidates_failed")
     return decision("unknown")
 
 
