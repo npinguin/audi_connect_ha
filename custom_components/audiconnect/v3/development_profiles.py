@@ -346,8 +346,16 @@ class DevelopmentProfile:
                 raise DevelopmentProfileError("PUT alias must retain the approved handler, endpoint and body ownership")
         if ident in self.registry.operations:
             raise DevelopmentProfileError("Operation ID already exists")
+        if len(self.custom) >= 50:
+            raise DevelopmentProfileError("Too many custom command routes")
+        routes = {**self.custom, ident: data}
+        self._replace_custom_routes(routes)
+        return ident
+
+    def _replace_custom_routes(self, routes):
+        """One registry overlay builder for add and unused-draft removal."""
         overlay = deepcopy(self._base)
-        for row in [*self.custom.values(), data]:
+        for row in routes.values():
             row_id = row["id"]
             op: dict[str, Any] = {
                 "family": row["family"],
@@ -388,9 +396,30 @@ class DevelopmentProfile:
             self.registry = CapabilityRegistry(overlay)
         except RegistryError as exc:
             raise DevelopmentProfileError("Registry rejected user API path") from exc
-        self.custom[ident] = data
+        self.custom = routes
         self.discovery.registry = self.registry
-        return ident
+
+    def discard_unused_route(self, ident: str) -> None:
+        """Discard only a local unused draft; never delete a tested revision."""
+        if ident not in self.custom and ident not in self.attribute_custom:
+            raise DevelopmentProfileError("Only local custom drafts may be deleted")
+        if (ident in self.active.values() or ident in self.attribute_routes.values()
+                or ident in self.discovery.preferred.values()
+                or ident in self.control_results or ident in self.read_results
+                or ident in self.api_observations or ident in self.engineering_responses
+                or any(ident in evidence for evidence in self.attribute_route_evidence.values())
+                or any(row.operation == ident for row in self.command_journal)
+                or any(row.operation == ident for row in self.discovery.history)
+                or any(row.get("operation") == ident for row in
+                       [*self.engineering_history, *self.execution_reviews, *self.historical_control_evidence])):
+            raise DevelopmentProfileError("Tested or active definitions cannot be deleted; disable or replace the binding")
+        if ident in self.custom:
+            self._replace_custom_routes({key: row for key, row in self.custom.items() if key != ident})
+        else:
+            self.attribute_custom.pop(ident)
+        for selections in (self.draft_selected, self.attribute_drafts):
+            for key in [key for key, value in selections.items() if value == ident]:
+                selections.pop(key)
 
     def candidates(self, capability: str, action: str) -> list[dict[str, str]]:
         return self.discovery.candidates(capability, action)
