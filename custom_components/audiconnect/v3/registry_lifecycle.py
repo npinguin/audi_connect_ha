@@ -43,8 +43,7 @@ async def async_apply_v3_entity_visibility(
                 and current.disabled_by == er.RegistryEntryDisabler.INTEGRATION):
             registry.async_update_entity(entity_id, disabled_by=None)
 
-    # Retire exact source-proven pilot IDs and the two climate buttons
-    # removed from both current V2 and V3. Keep registry records and user choices.
+    # Retire exact source-proven pilot IDs; keep registry records and user choices.
     runtime = getattr(entry, "runtime_data", None)
     engine = getattr(runtime, "v3", None)
     primary = None

@@ -21,7 +21,7 @@ def retired_sensor_keys():
 
 
 def retired_pilot_entity(unique_id: str) -> bool:
-    """Match exact retired pilot sensor or superseded climate-button identities."""
+    """Match exact retired pilot sensor identities."""
     if not isinstance(unique_id, str):
         return False
     vin, separator, suffix = unique_id.partition("_")
@@ -29,8 +29,6 @@ def retired_pilot_entity(unique_id: str) -> bool:
         return False
     if suffix.startswith("sensor_"):
         return suffix.removeprefix("sensor_") in retired_sensor_keys()
-    if suffix.startswith("button_"):
-        return suffix.removeprefix("button_") in product_inventory().get("retired_legacy_buttons", ())
     return False
 
 
@@ -104,8 +102,6 @@ def entity_key(unique_id, entry_id):
         if candidate in product_inventory()["entities"]:
             return candidate
         if platform == "sensor" and key in retired_sensor_keys():
-            return candidate
-        if platform == "button" and key in product_inventory().get("retired_legacy_buttons", ()):
             return candidate
         return None
     return None

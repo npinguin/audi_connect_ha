@@ -50,7 +50,6 @@ class AudiConnectV3Panel extends HTMLElement {
     this.functionMode = "all";
     this.apiHistory = [];
     this.engineeringHistory = [];
-    this.responseDetail = null;
     this.apiFamily = "vehicle";
     this.operationFilter = "all";
     this.focusOperation = "";
@@ -125,11 +124,10 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   async _apiResults() {
-    if (!this.selected || !this.vin) { this.apiHistory = []; return; }
+    if (!this.selected || !this.vin) { this.apiHistory = []; this.engineeringHistory = []; return; }
     const response = await this.api("api_results", {...this.selection, include_engineering:true});
     this.apiHistory = response.records || [];
     this.engineeringHistory = response.engineering_history || [];
-    this.responseDetail = null;
   }
 
   async _readRoutes() {
@@ -241,7 +239,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
-    this.apiHistory = []; this.engineeringHistory = []; this.responseDetail = null; this.capabilityStatus = {counts:{},rows:[]}; this.routeChoice = "";
+    this.apiHistory = []; this.engineeringHistory = []; this.capabilityStatus = {counts:{},rows:[]}; this.routeChoice = "";
     this.step = 1; this.apiFamily = "vehicle"; this.functionMode = "all"; this.discoveryGroup = "read_only";
     this.focusOperation = ""; this.operationFilter = "all"; this.operationMethod = "all";
   }
@@ -263,14 +261,6 @@ class AudiConnectV3Panel extends HTMLElement {
     const button = e.target.closest("button[data-action]");
     if (!button || this.loading) return;
     const action = button.dataset.action;
-    if (action === "inspect-response") {
-      this.loading = true; this.error = ""; this.responseDetail = null; this.render();
-      try { this.responseDetail = await this.api("engineering_response", {...this.selection, operation: button.dataset.operation}); }
-      catch (err) { this.error = String(err.message || err); }
-      finally { this.loading = false; this.render(); }
-      return;
-    }
-    if (action === "close-response") { this.responseDetail = null; this.render(); return; }
     if (action.startsWith("step-")) {
       this.step = Number(action.slice(5)); this.focusOperation = ""; this.render(); return;
     }
@@ -517,9 +507,8 @@ class AudiConnectV3Panel extends HTMLElement {
 
   responseInspector(operation, execution=null) {
     if (!operation) return "";
-    const detail = execution || (this.responseDetail?.operation === operation && this.responseDetail.available ? this.responseDetail : null)
-      || this.engineeringHistory.find(r=>r.operation===operation);
     const saved = this.apiHistory.find(r=>r.operation===operation);
+    const detail = execution || this.engineeringHistory.find(r=>r.operation===operation && (!saved || r.at===saved.at));
     const json = value=>escapeHTML(JSON.stringify(value,null,2));
     if(!detail) return saved?`<h3>Response · restricted historical evidence</h3><pre>${json(saved.preview)}</pre>
       <p>Full request/response was not retained. Never repeat a vehicle command just to obtain evidence.</p>`:

@@ -152,8 +152,9 @@ def test_exact_pilot_retirement_and_single_account_refresh_anchor(monkeypatch):
     entry = NS(entry_id="abc", runtime_data=NS(v3=engine))
     asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, True))
     assert engine.cloud_refresh_vin == vin
-    assert set(updates) == {"sensor.pilot", "sensor.health_pilot", "button.duplicate",
-                            "button.old_start", "button.old_stop"}
+    assert set(updates) == {"sensor.pilot", "sensor.health_pilot", "button.duplicate"}
+    assert entries["button.old_start"].disabled_by is None
+    assert entries["button.old_stop"].disabled_by is None
     assert entries["button.user_old"].disabled_by == er.RegistryEntryDisabler.USER
     assert entries["sensor.v2"].disabled_by is None
     assert entries["button.vehicle"].disabled_by is None

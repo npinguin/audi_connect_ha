@@ -141,13 +141,14 @@ test("Wake, lock and climate are independently selectable for guarded physical t
   assert.match(p.shadowRoot.innerHTML,/Physical verification/);
 });
 
-test("Step 3 shows one unified test workflow and saved responses, no Climate-only editor", () => {
-  const p=new Panel();p.step=3;p.selected="entry";p.vin="VIN1";
+test("API evidence shows scan options and restricted historical executions", () => {
+  const p=new Panel();p.step=4;p.selected="entry";p.vin="VIN1";
   p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
   p.apiHistory=[{operation:"cariad.discovery.full",family:"cariad",method:"GET",
     at:"2026-11-11T20:00:00+00:00",http_status:200,result:"http_ok",preview:{soc:97}}];
   p.render();
-  assert.match(p.shadowRoot.innerHTML,/Test read-only API family/);
+  assert.match(p.shadowRoot.innerHTML,/Quick scan/);
+  assert.match(p.shadowRoot.innerHTML,/Full read-only scan/);
   assert.match(p.shadowRoot.innerHTML,/Last result and response by API route/);
   assert.match(p.shadowRoot.innerHTML,/2026-11-11T20:00:00/);
   assert.doesNotMatch(p.shadowRoot.innerHTML,/Climate \(guided controls\)/);
@@ -296,18 +297,19 @@ test("review finding opens only the affected evidence without sending vehicle co
   assert.equal(p.step,4);assert.equal(p.focusOperation,"cariad.test");
 });
 
-test("engineering response is explicitly inspected without sending an Audi request", async()=>{
+test("loading historical evidence is local, escapes payload HTML and resets on vehicle change", async()=>{
   const p=new Panel();p.selected="entry";p.vin="VIN1";
   p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
-  p.step=4;p.apiHistory=[{operation:"test.read",family:"cariad",method:"GET",preview:{notice:"truncated"}}];
-  let calls=[];
-  p.api=async(name,data)=>{calls.push([name,data]);return {operation:data.operation,available:true,
-    payload:{vin:"{VIN}",target:15.5,detail:"<script>"},http_status:207};};
-  await p._click({target:{closest:()=>({dataset:{action:"inspect-response",operation:"test.read"}})}});
-  assert.equal(calls.length,1);assert.equal(calls[0][0],"engineering_response");
+  p.step=4;
+  const calls=[];
+  p.api=async(name,data)=>{calls.push([name,data]);return {records:[],engineering_history:[
+    {operation:"test.read",family:"cariad",method:"GET",at:"now",http_status:207,
+      payload:{vin:"{VIN}",target:15.5,detail:"<script>"}}]};};
+  await p._apiResults();p.render();
+  assert.equal(calls.length,1);assert.equal(calls[0][0],"api_results");
   assert.match(p.shadowRoot.innerHTML,/15\.5/);assert.match(p.shadowRoot.innerHTML,/\{VIN\}/);
   assert.match(p.shadowRoot.innerHTML,/&lt;script&gt;/);
-  p._resetVehicleSelection();assert.equal(p.responseDetail,null);
+  p._resetVehicleSelection();assert.equal(p.engineeringHistory.length,0);
 });
 
 test("selected test and historical execution show request and response without another click", async()=>{

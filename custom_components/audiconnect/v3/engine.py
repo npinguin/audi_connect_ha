@@ -418,8 +418,12 @@ class V3Engine:
     def engineering_history_for(self, vin: str, family: str = "all") -> list[dict[str, Any]]:
         car = self.require_vehicle(vin)
         profile = self.profiles[car.vin.lower()]
-        return [item for item in reversed(profile.engineering_history)
-                if family == "all" or item["family"] == family]
+        history = list(profile.engineering_history)
+        recorded = {(item["operation"], item["at"]) for item in history}
+        history.extend(item for item in profile.engineering_responses.values()
+                       if (item["operation"], item["at"]) not in recorded)
+        return sorted((item for item in history if family == "all" or item["family"] == family),
+                      key=lambda item: item["at"], reverse=True)
 
     def api_results_for(self, vin: str, family: str = "all") -> list[dict[str, Any]]:
         car = self.require_vehicle(vin)

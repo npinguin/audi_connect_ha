@@ -192,7 +192,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
 
     async def async_turn_on(self) -> None:
         if not self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
-            raise HomeAssistantError("Climate Start must be tested and enabled in V3 Development")
+            raise HomeAssistantError("Climate Start must be tested and enabled in Audi Engineering Dashboard")
         try:
             if self.coordinator.engine.control_enabled(self.vehicle.vin, "start_with_settings"):
                 await self.coordinator.engine.send_control(
@@ -209,7 +209,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
 
     async def async_turn_off(self) -> None:
         if not self.coordinator.engine.control_enabled(self.vehicle.vin, "stop"):
-            raise HomeAssistantError("Climate Stop must be tested and enabled in V3 Development")
+            raise HomeAssistantError("Climate Stop must be tested and enabled in Audi Engineering Dashboard")
         try:
             await self.coordinator.engine.send_control(self.vehicle.vin, "stop")
         except (RuntimeError, ValueError) as err:
@@ -657,6 +657,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
 # The workbench always shows unverified candidates without injecting unusable
 # lock/button/switch entities into a customer's HA device.
 CONTROL_BUTTONS = (
+    ("start_climate_car_settings", "Start climate (car settings)", "mdi:car-air-conditioner", "climate", "start"),
+    ("stop_climate", "Stop climate", "mdi:car-air-conditioner", "climate", "stop"),
     ("refresh_vehicle_data", "Request fresh vehicle data", "mdi:cloud-refresh", "remote", "refresh"),
     ("flash_lights", "Flash lights", "mdi:car-light-high", "remote", "flash"),
     ("start_engine", "Start engine", "mdi:car-key", "remote", "engine_start"),
