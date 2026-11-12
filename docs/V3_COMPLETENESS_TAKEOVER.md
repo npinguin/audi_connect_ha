@@ -132,3 +132,38 @@ GraphQL inventory is read-only despite POST transport. Physical mutations,
 including wake/refresh commands, still require explicit user initiation.
 Coverage reports distinguish excluded from unknown and observed reads.
 This is implementation evidence, not CI or live acceptance.
+
+
+## Candidate verification — 12 November 2026
+
+Code through `be6a34f480de14a504737d67ff4e1d170ef8c916` passed the complete Python regression suite and HACS/hassfest validation:
+- [Regression CI](https://github.com/npinguin/audi_connect_ha/actions/runs/43227013194)
+- [HACS/hassfest CI](https://github.com/npinguin/audi_connect_ha/actions/runs/43227013250)
+
+New public-schema fixtures cover Audi charging/departure timers, charging profiles,
+battery care, warning/campaign data, readiness, and explicit left/right lights.
+Sources: [Audi upstream issue 760](https://github.com/audiconnect/audi_connect_ha/issues/760)
+and [Audi JSON Data Structures](https://github.com/audiconnect/audi_connect_ha/wiki/JSON-Data-Structures).
+Shared CARIAD battery support enum references (not proof of Audi vehicle support):
+[low voltage](https://github.com/tillsteinbach/WeConnect-python/blob/46ce868362772c553d4bef5a7eb84b9765b1dd38/weconnect/elements/lv_battery_status.py)
+and [battery support](https://github.com/tillsteinbach/WeConnect-python/blob/46ce868362772c553d4bef5a7eb84b9765b1dd38/weconnect/elements/battery_support_status.py).
+Only explicit supported enum values are projected; voltage is not inferred.
+
+Previously open observed field dispositions:
+- access overallStatus, door names and window names: structured access attributes.
+- charging timer timeInCar: zoned vehicle timestamp only; sentinel remains unknown.
+- connected-service id, expirationDate and userDisablingAllowed: typed service attributes.
+- primaryEngine currentFuelLevel_pct: explicit fuel-level source, separate from SOC.
+
+The improved per-job collector walks original decoded response types, up to 512
+fields/64000 characters per job, with truncation flags. The previous b12 snapshot
+cannot be retroactively reconstructed. Canonical scalar mapping coverage is
+reported separately from schema capture and read assessment.
+
+Eight regression-proven implementation gates are closed. Seven HACS
+evidence gates remain pending: real vehicle identity, endpoint completeness,
+remaining departure profile evidence, target health/12V evidence, actual
+discovery coverage, untruncated target schema and the candidate evidence matrix.
+Live acceptance is separately open. The manifest stays b12 until the machine
+gate permits a new version. No published b13, stable promotion or physical
+confirmation is asserted. A CI artifact is not a HACS release.
