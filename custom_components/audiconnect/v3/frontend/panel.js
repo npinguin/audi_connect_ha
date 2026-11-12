@@ -471,6 +471,8 @@ class AudiConnectV3Panel extends HTMLElement {
           action: this.controlAction, operation: controlRoute,
           approval: approvalGroup, parameters: this.parameterValues(this.controlRoutes.find(r=>r.id===controlRoute),controlParameters)
         });
+      } else if (action === "discard-route") {
+        this.lastResult = await this.api("discard_route", {...this.selection, operation:button.dataset.operation});
       } else if (action === "control-select") {
         this.lastResult = await this.api("select", {...this.selection,
           capability: this.controlCapability, aspect: this.controlAction, operation: controlRoute});
@@ -1038,6 +1040,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="actions">
               <button data-action="read-test" class="primary" ${!this.readChoice||this.loading?"disabled":""}>Test read-only GET</button>
               <button data-action="read-save" ${!this.readChoice||this.loading?"disabled":""}>Save candidate</button>
+              ${chosen?.kind==="custom"&&(!chosen.result||chosen.result==="not_tested")&&this.readActive!==this.readChoice?`<button data-action="discard-route" data-operation="${escapeHTML(this.readChoice)}" ${this.loading?"disabled":""}>Delete unused draft</button>`:""}
               <button data-action="read-activate" ${!canActivateRead||this.loading?"disabled":""}>Activate for polling</button>
               ${this.readDisabled?`<button data-action="read-enable" ${this.loading?"disabled":""}>Resume automatic discovery</button>`:`<button data-action="read-disable" ${this.loading?"disabled":""}>Disable data mapping</button>`}
             </div>
@@ -1074,6 +1077,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="actions">
               <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.controlDisabled||this.pending||this.capabilityBlocked(this.controlCapability)||group==="unsupported"||(group==="spin"&&!this.spinConfigured)?"disabled":""}>Send one test command</button>
               <button data-action="control-select" ${this.loading||this.pending||selectedControl?.status!=="worked"||!selectedControl?.runtime_ready?"disabled":""}>Activate verified route</button>
+              ${this.controlChoice.startsWith("user.")&&selectedControl?.status==="not_tested"&&!selectedControl.active?`<button data-action="discard-route" data-operation="${escapeHTML(this.controlChoice)}" ${this.loading||this.pending?"disabled":""}>Delete unused draft</button>`:""}
               ${this.controlDisabled?`<button data-action="control-enable" ${this.loading||this.pending?"disabled":""}>Re-enable control</button>`:`<button data-action="control-disable" ${this.loading||this.pending?"disabled":""}>Disable this control</button>`}
             </div>
             <details open style="margin-top:18px">
