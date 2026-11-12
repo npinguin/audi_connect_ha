@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: audi-v3-beta-release
+  group: audi-v3-beta-release-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
@@ -152,7 +152,7 @@ jobs:
           gate = json.loads(Path("docs/V2_V3_PARITY_BASELINE.json").read_text())["release_gate"]
           assert authorization["version"] == manifest["version"] == "3.0.0b13"
           assert authorization["classification"] == "experimental_hacs_test_only"
-          assert authorization["base_commit"] == "bf2aa72e1e80367261477fca0fe4dffb877f81b5"
+          assert authorization["base_commit"] == "6aaf25e9b78000204e006d036639de085b2eb4d6"
           assert authorization["stable_promotion_allowed"] is False
           assert authorization["static_parity_claimed"] is False
           assert gate["v3_static_parity_proven"] is False
@@ -169,7 +169,7 @@ jobs:
           assert {item["id"] for item in pending} == set(exception["pending_hacs_gate_ids"])
           assert all(item["status"] == "implemented_pending_validation" and item.get("implementation_evidence") for item in pending)
           PY
-          test "$(git rev-parse HEAD^)" = "bf2aa72e1e80367261477fca0fe4dffb877f81b5"
+          test "$(git rev-parse HEAD^)" = "6aaf25e9b78000204e006d036639de085b2eb4d6"
 
       - name: Prevent prerelease replacement
         env:
