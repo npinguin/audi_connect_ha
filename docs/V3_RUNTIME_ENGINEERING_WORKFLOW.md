@@ -138,3 +138,11 @@ Normal inventory uses the canonical original GraphQL request and validated last-
 ## Audit 02 — retire pilot administration endpoints
 
 Removed obsolete `routes`, `test`, `save_candidate` and `disable` WebSocket handlers and the separate auto-activating status test facade. Read variants use attribute add/test/save/activate/disable; controls use the existing generic control workflow. New capability-level GET variants cannot be created through the old control route API. Stored legacy profile selections remain readable for compatibility until their explicit migration; no user data silently removed. Current architecture baseline and engineering lifecycle updated; software release gates remain closed.
+
+## Audit 02 — complete experiment isolation and disabled inventory
+
+Manual quick/full API-family scans record evidence without publishing live attributes, activating bindings or updating trip history. Disabled inventory is accessible across capability and API-family filters, including controls without candidates. The afterGarage two-request comparison is retired as an executable template; its historical identifier remains valid provenance and cannot be selected for a new test. A stored afterGarage draft migrates to the identical canonical inventory template unless an explicit canonical draft already exists, in which case the latter wins.
+
+## Audit 02 — remaining acceptance work
+
+This remediation does not establish zero technical debt. Remaining work includes removing the runtime distinctions based on the single-capability pilot fixture, consolidating climate reported state with canonical attribute observations, resolving duplicate operation/evidence identifiers, completing template-driven authoring and portable draft/release lifecycle, and validating actual target-vehicle identity, HA lifecycle and rollback. Retain security checks, stable entity identifiers, reviewed legacy support and historical evidence. Do not publish or merge on the basis of passing unit tests alone.

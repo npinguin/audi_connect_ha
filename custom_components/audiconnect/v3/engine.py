@@ -25,7 +25,7 @@ from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
 from .transport import V3Response, V3Transport, INVENTORY_OPERATION
 from .vehicle import V3Vehicle
-from .attribute_runtime import planned_jobs, _accept_observation
+from .attribute_runtime import planned_jobs
 from .custom_attributes import MAX_CUSTOM_ATTRIBUTES, attributes_for, descriptor, validate_definition
 from .attribute_routes import get_read_variant, read_variants, validate_custom_read_route
 from .historical_catalog import ATTRIBUTES, capture_time, read_path
