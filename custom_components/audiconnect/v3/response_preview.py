@@ -58,6 +58,9 @@ def safe_response_preview(
 MAX_SCHEMA_FIELDS = 128
 MAX_SCHEMA_CHARS = 16000
 _SCHEMA_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
+# The generic value-redaction VIN regex also matches 17-letter OEM field
+# names (e.g. primaryEngineType). Schema keys need the numeric VIN suffix.
+_SCHEMA_VIN = re.compile(r"^[A-HJ-NPR-Z0-9]{13}[0-9]{4}$", re.IGNORECASE)
 _SCHEMA_PATH = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\[\])*(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\])*)*$")
 _SCHEMA_TYPES = frozenset(("object", "array", "boolean", "integer", "number", "string", "null"))
 
@@ -104,7 +107,7 @@ def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "", all_items: boo
             truncated |= len(value) > 40
             for key, child in islice(value.items(), 40):
                 if (not isinstance(key, str) or not _SCHEMA_KEY.fullmatch(key)
-                        or (_SENSITIVE.search(key) and key != "windowLocation") or _VIN.search(key)
+                        or (_SENSITIVE.search(key) and key != "windowLocation") or _SCHEMA_VIN.fullmatch(key)
                         or (vehicle_vin and vehicle_vin.lower() in key.lower())
                         or any(isinstance(secret, str) and len(secret) >= 4
                                and secret.casefold() in key.casefold() for secret in secrets)):
@@ -165,7 +168,8 @@ def validate_schema_fields(rows: Any) -> None:
                 or not _SCHEMA_PATH.fullmatch(row["path"])
                 or any(_SENSITIVE.search(part) for part in row["path"].split(".")
                        if part.removesuffix("[]") != "windowLocation")
-                or _VIN.search(row["path"]) or not isinstance(row["type"], str)
+                or any(_SCHEMA_VIN.fullmatch(part.removesuffix("[]")) for part in row["path"].split("."))
+                or not isinstance(row["type"], str)
                 or row["type"] not in _SCHEMA_TYPES
                 or row["quality"] not in ("observed", "null", "vendor_sentinel",
                                           "negative_duration_candidate")):

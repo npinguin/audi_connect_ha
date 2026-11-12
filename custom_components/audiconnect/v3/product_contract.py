@@ -68,7 +68,8 @@ def projection_reading(vehicle, attribute):
     if key == "state_of_charge":
         sources.extend(electric_soc_sources(vehicle))
     if key == "tank_level":
-        sources.extend(("fuelLevelFromEngine",))
+        sources.extend(role + "EngineFuelLevel" for role in ("primary", "secondary")
+                       if engine_role(vehicle, role) == "fuel")
     if key == "mileage":
         sources.append("maintenanceMileage")
     valid = [(a, vehicle.readings[a]) for a in sources

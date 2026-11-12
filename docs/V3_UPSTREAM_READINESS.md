@@ -64,3 +64,5 @@ Record candidate SHA, tag/version, CI URLs/results, HA version, model/year/power
 ## Post-b13 work
 
 [b13](https://github.com/npinguin/audi_connect_ha/releases/tag/3.0.0b13) was published as a one-time evidence-acquisition prerelease after [exact-SHA CI](https://github.com/npinguin/audi_connect_ha/actions/runs/43228317523). No pending evidence gate was closed. See [upstream reconciliation](V3_UPSTREAM_RECONCILIATION.md) for the exact dev/master comparison including already merged PRs #915/#916. New changes after b13 are development only. Expanded diagnostics capture standalone schemas, preserve multiple observed schema variants within a session, report discovery progress and bounded trip archive completeness indicators; partial trip duplicates merge only on a unique compatible odometer interval. Physical and cross-model evidence remain outstanding.
+
+The [upstream feature/evidence matrix](V3_UPSTREAM_FEATURE_MATRIX.md) now inventories all product identities, catalog operations, control aspects and b12 field dispositions. This is a static review artifact, not a live compatibility matrix; all candidate physical results remain open.

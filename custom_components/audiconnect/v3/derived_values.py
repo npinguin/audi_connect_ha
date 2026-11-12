@@ -93,7 +93,9 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 stamp = engines.get("carCapturedTimestamp")
                 path = "fuelStatus.rangeStatus.value." + role + "Engine.currentFuelLevel_pct"
                 record(role + "EngineFuelLevel", fuel, stamp, "fuelStatus", path)
-                record("fuelLevelFromEngine", fuel, stamp, "fuelStatus", path)
+                # Keep engine-specific values; the product contract decides
+                # whether this is the actual combustion tank. Never last-wins
+                # across primary and secondary engines.
     # Operational window heating is not the preference windowHeatingEnabled,
     # and is not the legacy mirror-heating signal.
     from .vehicle import window_heating_active

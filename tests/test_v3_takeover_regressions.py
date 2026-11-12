@@ -226,3 +226,15 @@ def test_schema_union_keeps_observed_variants_and_never_leaks_configured_key():
     assert {row["path"] for row in result["fields"]} >= {"job.first", "job.second"}
     assert result["capture_truncated_seen"] and not result["latest_capture_truncated"]
     assert result["scope"] == "session_union_structural_only"
+
+
+def test_structural_vin_redaction_does_not_drop_real_engine_type_fields():
+    fields, truncated = safe_schema_inventory({"measurements": {
+        "primaryEngineType": "gasoline", "secondaryEngineType": "electric",
+        VIN: {"value": 1}}}, vehicle_vin=VIN, all_items=True)
+    assert not truncated
+    validate_schema_fields(fields)
+    paths = {row["path"] for row in fields}
+    assert "measurements.primaryEngineType" in paths
+    assert "measurements.secondaryEngineType" in paths
+    assert not any(VIN in path for path in paths)

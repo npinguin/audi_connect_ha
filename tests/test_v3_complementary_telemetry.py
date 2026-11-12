@@ -29,3 +29,20 @@ def test_generic_soc_not_treated_as_electric_on_combustion():
     car=V3Vehicle("WAUZZZ4M0MD123456","Audi","A6","a6","DE",car_type="gasoline")
     car.readings["measuredElectricSOC"]={"value":72,"status":"verified"}
     assert projection_reading(car,ATTRIBUTES["stateOfCharge"])[1] is None
+
+
+def test_engine_fuel_level_never_selects_electric_or_unknown_engine_by_order():
+    car=V3Vehicle("WAUZZZ4M0MD123456","Audi","Q8","q8","DE",car_type="phev")
+    now=datetime.now(UTC)
+    stamp=now.isoformat()
+    payload={"fuelStatus":{"rangeStatus":{"value":{"carCapturedTimestamp":stamp,
+        "primaryEngine":{"currentFuelLevel_pct":61},
+        "secondaryEngine":{"currentFuelLevel_pct":89}}}}}
+    observe_derived(car,NS(),payload,now,_accept_observation)
+    assert projection_reading(car,ATTRIBUTES["TANK_LEVEL_IN_PERCENTAGE"])[1] is None
+    car.readings["primary_engine_type"]={"value":"gasoline","status":"verified"}
+    car.readings["secondary_engine_type"]={"value":"electric","status":"verified"}
+    assert projection_reading(car,ATTRIBUTES["TANK_LEVEL_IN_PERCENTAGE"])[1]["value"]==61
+    car.readings["primary_engine_type"]["value"]="electric"
+    car.readings["secondary_engine_type"]["value"]="gasoline"
+    assert projection_reading(car,ATTRIBUTES["TANK_LEVEL_IN_PERCENTAGE"])[1]["value"]==89

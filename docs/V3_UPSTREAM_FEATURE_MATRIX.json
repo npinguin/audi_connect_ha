@@ -1,0 +1,3803 @@
+{
+  "schema_version": 1,
+  "scope": "Static catalog and b12 evidence reconciliation; no live b13 evidence or per-route CI guarantee",
+  "published_b13": {
+    "sha": "9bd8d77b066a3c8ece1a6f4ebdcb8f31242f7300",
+    "ci": "https://github.com/npinguin/audi_connect_ha/actions/runs/43228317523",
+    "python_passed": 943
+  },
+  "baseline_b12": {
+    "schema_truncated": true,
+    "observed_jobs": 14,
+    "catalog_jobs": 23
+  },
+  "capabilities": [
+    {
+      "id": "climate",
+      "fixture_review_files": [
+        "tests/test_v3_active_climate_contract.py",
+        "tests/test_v3_command_projection.py",
+        "tests/test_v3_refresh_followup.py"
+      ],
+      "b12": {
+        "capability": "climate",
+        "attributes": 17,
+        "read_status": {
+          "verified": 4,
+          "invalid_value": 1,
+          "not_tested": 6,
+          "readable_but_stale": 2,
+          "mapping_pending": 4
+        },
+        "operations": 19,
+        "tested_operations": 6,
+        "job_status": {
+          "activeVentilation": "not_observed",
+          "auxiliaryHeating": "not_observed",
+          "climatisation": "observed",
+          "climatisationTimers": "observed",
+          "hybridCarAuxiliaryHeating": "not_observed"
+        }
+      },
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "vehicle_status",
+      "fixture_review_files": [
+        "tests/test_v3_vehicle_identity.py",
+        "tests/test_v3_complementary_telemetry.py"
+      ],
+      "b12": {
+        "capability": "vehicle_status",
+        "attributes": 36,
+        "read_status": {
+          "verified": 15,
+          "invalid_value": 1,
+          "not_tested": 3,
+          "readable_but_stale": 3,
+          "mapping_pending": 14
+        },
+        "operations": 9,
+        "tested_operations": 0,
+        "job_status": {
+          "fuelStatus": "observed",
+          "lvBattery": "not_observed",
+          "measurements": "observed",
+          "oilLevel": "observed",
+          "readiness": "observed",
+          "userCapabilities": "observed",
+          "vehicleHealthWarnings": "observed",
+          "vehicleLights": "observed"
+        }
+      },
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "service",
+      "fixture_review_files": [
+        "tests/test_v3_takeover_regressions.py"
+      ],
+      "b12": {
+        "capability": "service",
+        "attributes": 5,
+        "read_status": {
+          "verified": 5
+        },
+        "operations": 1,
+        "tested_operations": 0,
+        "job_status": {
+          "vehicleHealthInspection": "observed"
+        }
+      },
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "access",
+      "fixture_review_files": [
+        "tests/test_v3_restored_derived_and_recorder.py",
+        "tests/test_v3_takeover_regressions.py"
+      ],
+      "b12": {
+        "capability": "access",
+        "attributes": 20,
+        "read_status": {
+          "verified": 18,
+          "mapping_pending": 2
+        },
+        "operations": 5,
+        "tested_operations": 1,
+        "job_status": {
+          "access": "observed"
+        }
+      },
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "charging",
+      "fixture_review_files": [
+        "tests/test_v3_operational_switches.py",
+        "tests/test_v3_takeover_regressions.py"
+      ],
+      "b12": {
+        "capability": "charging",
+        "attributes": 21,
+        "read_status": {
+          "readable_but_stale": 11,
+          "not_tested": 9,
+          "mapping_pending": 1
+        },
+        "operations": 16,
+        "tested_operations": 0,
+        "job_status": {
+          "batteryChargingCare": "not_observed",
+          "batterySupport": "not_observed",
+          "charging": "observed",
+          "chargingProfiles": "observed",
+          "chargingTimers": "observed",
+          "departureProfiles": "not_observed",
+          "departureTimers": "not_observed"
+        }
+      },
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "mobility",
+      "fixture_review_files": [
+        "tests/test_v3_trip_restore.py",
+        "tests/test_v3_trip_archive.py"
+      ],
+      "b12": {
+        "capability": "mobility",
+        "attributes": 2,
+        "read_status": {
+          "readable_but_stale": 2
+        },
+        "operations": 5,
+        "tested_operations": 4,
+        "job_status": {}
+      },
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "remote",
+      "fixture_review_files": [
+        "tests/test_v3_refresh_followup.py",
+        "tests/test_v3_read_discovery.py"
+      ],
+      "b12": {
+        "capability": "remote",
+        "attributes": 0,
+        "read_status": {},
+        "operations": 6,
+        "tested_operations": 1,
+        "job_status": {
+          "honkAndFlash": "not_observed"
+        }
+      },
+      "b13_live": "not_validated"
+    }
+  ],
+  "operations": [
+    {
+      "id": "cariad.climate.status.batch",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "existing_poll",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.climate.status.batch",
+        "http_status": 207,
+        "schema": "valid",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.status.probe",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.climate.status.probe",
+        "http_status": 207,
+        "schema": "invalid",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.climate.status",
+      "family": "mbb",
+      "method": "GET",
+      "delivery": "existing_poll",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.start.stored",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.climate.start.stored",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "worked"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.start.vehicle_settings",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.climate.start.vehicle_settings",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.stop",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.climate.stop",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "worked"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.climate.start",
+      "family": "mbb",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.climate.stop",
+      "family": "mbb",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.access",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "access"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.activeVentilation",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.status.activeVentilation",
+        "http_status": 207,
+        "schema": "invalid",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.auxiliaryHeating",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.batteryChargingCare",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.batterySupport",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.charging",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.chargingProfiles",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.chargingTimers",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.climatisation",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.climatisationTimers",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.departureProfiles",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.departureTimers",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.fuelStatus",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.honkAndFlash",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "remote"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.hybridCarAuxiliaryHeating",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.lvBattery",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.measurements",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.oilLevel",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.readiness",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.userCapabilities",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.vehicleHealthInspection",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "service"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.vehicleHealthWarnings",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.status.vehicleLights",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.charging.status.charger",
+      "family": "mbb",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.climate.status.climater",
+      "family": "mbb",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.climate.status.preheater",
+      "family": "mbb",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.charging.status.departure_timer",
+      "family": "mbb",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.vehicle_status.status.vehicle_data",
+      "family": "mbb",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "vehicle_status"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.mobility.status.parkingPosition",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "mobility"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.mobility.status.parkingPosition",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.mobility.status.tripStatistics",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "mobility"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.remote.wake",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "remote"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.remote.wake",
+        "http_status": 204,
+        "schema": "unknown",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.charging.start",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.charging.stop",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.charging.start.combined",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.charging.stop.combined",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.access.lock",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "access"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.access.unlock",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "access"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.access.unlock",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.window_heating_start",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.window_heating_stop",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.charging.settings",
+      "family": "cariad",
+      "method": "PUT",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.charging.mode",
+      "family": "cariad",
+      "method": "PUT",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.charging.profiles",
+      "family": "cariad",
+      "method": "PUT",
+      "delivery": "manual",
+      "capabilities": [
+        "charging"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.settings",
+      "family": "cariad",
+      "method": "PUT",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.remote.refresh",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "remote"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.remote.flash",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "remote"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.preheater_start",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.climate.preheater_stop",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "climate"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.remote.engine_start",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "remote"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.remote.engine_stop",
+      "family": "cariad",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "remote"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.access.lock",
+      "family": "mbb",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "access"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "mbb.access.unlock",
+      "family": "mbb",
+      "method": "POST",
+      "delivery": "manual",
+      "capabilities": [
+        "access"
+      ],
+      "baseline_b12": null,
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.mobility.status.shortTerm",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "mobility"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.mobility.status.shortTerm",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.mobility.status.longTerm",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "mobility"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.mobility.status.longTerm",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    },
+    {
+      "id": "cariad.mobility.status.lastTrip",
+      "family": "cariad",
+      "method": "GET",
+      "delivery": "manual",
+      "capabilities": [
+        "mobility"
+      ],
+      "baseline_b12": {
+        "operation": "cariad.mobility.status.lastTrip",
+        "http_status": 200,
+        "schema": "unknown",
+        "physical": "not_tested"
+      },
+      "b13_live": "not_validated",
+      "post_b13_live": "not_validated"
+    }
+  ],
+  "controls": [
+    {
+      "capability": "climate",
+      "action": "start",
+      "operations": [
+        "cariad.climate.start.stored",
+        "mbb.climate.start"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "start",
+        "binding_status": "local_verified",
+        "physical_evidence": "worked"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "climate",
+      "action": "stop",
+      "operations": [
+        "cariad.climate.stop",
+        "mbb.climate.stop"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "stop",
+        "binding_status": "local_verified",
+        "physical_evidence": "worked"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "climate",
+      "action": "window_heating_start",
+      "operations": [
+        "cariad.climate.window_heating_start"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "window_heating_start",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "climate",
+      "action": "window_heating_stop",
+      "operations": [
+        "cariad.climate.window_heating_stop"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "window_heating_stop",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "climate",
+      "action": "set_settings",
+      "operations": [
+        "cariad.climate.settings"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "set_settings",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "climate",
+      "action": "start_with_settings",
+      "operations": [
+        "cariad.climate.start.vehicle_settings",
+        "mbb.climate.start"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "start_with_settings",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "climate",
+      "action": "preheater_start",
+      "operations": [
+        "cariad.climate.preheater_start"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "preheater_start",
+        "binding_status": "unknown",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "climate",
+      "action": "preheater_stop",
+      "operations": [
+        "cariad.climate.preheater_stop"
+      ],
+      "baseline_b12": {
+        "capability": "climate",
+        "action": "preheater_stop",
+        "binding_status": "unknown",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "access",
+      "action": "lock",
+      "operations": [
+        "cariad.access.lock",
+        "mbb.access.lock"
+      ],
+      "baseline_b12": {
+        "capability": "access",
+        "action": "lock",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "access",
+      "action": "unlock",
+      "operations": [
+        "cariad.access.unlock",
+        "mbb.access.unlock"
+      ],
+      "baseline_b12": {
+        "capability": "access",
+        "action": "unlock",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "charging",
+      "action": "start",
+      "operations": [
+        "cariad.charging.start",
+        "cariad.charging.start.combined"
+      ],
+      "baseline_b12": {
+        "capability": "charging",
+        "action": "start",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "charging",
+      "action": "stop",
+      "operations": [
+        "cariad.charging.stop",
+        "cariad.charging.stop.combined"
+      ],
+      "baseline_b12": {
+        "capability": "charging",
+        "action": "stop",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "charging",
+      "action": "set_target_soc",
+      "operations": [
+        "cariad.charging.settings"
+      ],
+      "baseline_b12": {
+        "capability": "charging",
+        "action": "set_target_soc",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "charging",
+      "action": "set_charge_mode",
+      "operations": [
+        "cariad.charging.mode"
+      ],
+      "baseline_b12": {
+        "capability": "charging",
+        "action": "set_charge_mode",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "charging",
+      "action": "set_location_charge_target",
+      "operations": [
+        "cariad.charging.profiles"
+      ],
+      "baseline_b12": {
+        "capability": "charging",
+        "action": "set_location_charge_target",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "remote",
+      "action": "wake",
+      "operations": [
+        "cariad.remote.wake"
+      ],
+      "baseline_b12": {
+        "capability": "remote",
+        "action": "wake",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "remote",
+      "action": "refresh",
+      "operations": [
+        "cariad.remote.refresh"
+      ],
+      "baseline_b12": {
+        "capability": "remote",
+        "action": "refresh",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "remote",
+      "action": "flash",
+      "operations": [
+        "cariad.remote.flash"
+      ],
+      "baseline_b12": {
+        "capability": "remote",
+        "action": "flash",
+        "binding_status": "catalog_matched",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "remote",
+      "action": "engine_start",
+      "operations": [
+        "cariad.remote.engine_start"
+      ],
+      "baseline_b12": {
+        "capability": "remote",
+        "action": "engine_start",
+        "binding_status": "ineligible",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    },
+    {
+      "capability": "remote",
+      "action": "engine_stop",
+      "operations": [
+        "cariad.remote.engine_stop"
+      ],
+      "baseline_b12": {
+        "capability": "remote",
+        "action": "engine_stop",
+        "binding_status": "ineligible",
+        "physical_evidence": "not_tested"
+      },
+      "b13_physical": "not_tested_on_b13"
+    }
+  ],
+  "entities": [
+    {
+      "id": "sensor.last_update_time",
+      "origin": "v2",
+      "source_attributes": [
+        "last_update_time"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_current",
+      "origin": "v2",
+      "source_attributes": [
+        "shortterm_current"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_reset",
+      "origin": "v2",
+      "source_attributes": [
+        "shortterm_reset"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_current",
+      "origin": "v2",
+      "source_attributes": [
+        "longterm_current"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_reset",
+      "origin": "v2",
+      "source_attributes": [
+        "longterm_reset"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.model",
+      "origin": "v2",
+      "source_attributes": [
+        "model"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.mileage",
+      "origin": "v2",
+      "source_attributes": [
+        "UTC_TIME_AND_KILOMETER_STATUS",
+        "mileage"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.service_adblue_distance",
+      "origin": "v2",
+      "source_attributes": [
+        "ADBLUE_RANGE",
+        "service_adblue_distance"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.range",
+      "origin": "v2",
+      "source_attributes": [
+        "TOTAL_RANGE",
+        "range"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.hybrid_range",
+      "origin": "v2",
+      "source_attributes": [
+        "hybridRange"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.service_inspection_time",
+      "origin": "v2",
+      "source_attributes": [
+        "MAINTENANCE_INTERVAL_TIME_TO_INSPECTION",
+        "service_inspection_time"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.service_inspection_distance",
+      "origin": "v2",
+      "source_attributes": [
+        "MAINTENANCE_INTERVAL_DISTANCE_TO_INSPECTION",
+        "service_inspection_distance"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.oil_change_time",
+      "origin": "v2",
+      "source_attributes": [
+        "MAINTENANCE_INTERVAL_TIME_TO_OIL_CHANGE",
+        "oil_change_time"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.oil_change_distance",
+      "origin": "v2",
+      "source_attributes": [
+        "MAINTENANCE_INTERVAL_DISTANCE_TO_OIL_CHANGE",
+        "oil_change_distance"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.oil_level",
+      "origin": "v2",
+      "source_attributes": [
+        "OIL_LEVEL_DIPSTICKS_PERCENTAGE",
+        "oil_level"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_state",
+      "origin": "v2",
+      "source_attributes": [
+        "chargingState"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_mode",
+      "origin": "v2",
+      "source_attributes": [
+        "chargeMode"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_type",
+      "origin": "v2",
+      "source_attributes": [
+        "charging_type"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.energy_flow",
+      "origin": "v2",
+      "source_attributes": [
+        "energy_flow"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.max_charge_current",
+      "origin": "v2",
+      "source_attributes": [
+        "max_charge_current"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_current_limit_a",
+      "origin": "v2",
+      "source_attributes": [
+        "chargingCurrentLimitA"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_current_limit_mode",
+      "origin": "v2",
+      "source_attributes": [
+        "chargingCurrentLimitMode"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_plug_auto_unlock",
+      "origin": "v2",
+      "source_attributes": [
+        "chargingPlugAutoUnlock"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.vehicle_reported_online",
+      "origin": "v2",
+      "source_attributes": [
+        "vehicleReportedOnline"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.vehicle_reported_active",
+      "origin": "v2",
+      "source_attributes": [
+        "vehicleReportedActive"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.primary_engine_type",
+      "origin": "v2",
+      "source_attributes": [
+        "primary_engine_type"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.secondary_engine_type",
+      "origin": "v2",
+      "source_attributes": [
+        "secondary_engine_type"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.primary_engine_range",
+      "origin": "v2",
+      "source_attributes": [
+        "primaryEngineRange"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.secondary_engine_range",
+      "origin": "v2",
+      "source_attributes": [
+        "secondaryEngineRange"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.primary_engine_range_percent",
+      "origin": "v2",
+      "source_attributes": [
+        "primaryEngineRangePercent"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.car_type",
+      "origin": "v2",
+      "source_attributes": [
+        "carType"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.secondary_engine_range_percent",
+      "origin": "v2",
+      "source_attributes": [
+        "secondaryEngineRangePercent"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_power",
+      "origin": "v2",
+      "source_attributes": [
+        "chargingPower"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.actual_charge_rate",
+      "origin": "v2",
+      "source_attributes": [
+        "actualChargeRate"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.tank_level",
+      "origin": "v2",
+      "source_attributes": [
+        "TANK_LEVEL_IN_PERCENTAGE",
+        "tank_level"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.state_of_charge",
+      "origin": "v2",
+      "source_attributes": [
+        "stateOfCharge"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.remaining_charging_time",
+      "origin": "v2",
+      "source_attributes": [
+        "remainingChargingTime"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_complete_time",
+      "origin": "v2",
+      "source_attributes": [
+        "charging_complete_time"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.target_state_of_charge",
+      "origin": "v2",
+      "source_attributes": [
+        "targetstateOfCharge"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.external_power",
+      "origin": "v2",
+      "source_attributes": [
+        "externalPower"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.plug_led_color",
+      "origin": "v2",
+      "source_attributes": [
+        "plug_led_color"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.doors_trunk_status",
+      "origin": "v2",
+      "source_attributes": [
+        "doors_trunk_status"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.climatisation_state",
+      "origin": "v2",
+      "source_attributes": [
+        "climatisationState"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.outdoor_temperature",
+      "origin": "v2",
+      "source_attributes": [
+        "outdoor_temperature"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.park_time",
+      "origin": "v2",
+      "source_attributes": [
+        "park_time"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.position_last_updated",
+      "origin": "v2",
+      "source_attributes": [
+        "position_last_updated"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.remaining_climatisation_time",
+      "origin": "v2",
+      "source_attributes": [
+        "remainingClimatisationTime"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.preheater_duration",
+      "origin": "v2",
+      "source_attributes": [
+        "preheater_duration"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.preheater_remaining",
+      "origin": "v2",
+      "source_attributes": [
+        "preheater_remaining"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.active_charging_profile_target_soc",
+      "origin": "v2",
+      "source_attributes": [
+        "active_charging_profile_target_soc"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.active_charging_profile_name",
+      "origin": "v2",
+      "source_attributes": [
+        "active_charging_profile_name"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.active_charging_profile_min_soc",
+      "origin": "v2",
+      "source_attributes": [
+        "active_charging_profile_min_soc"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.preferred_charging_time_start",
+      "origin": "v2",
+      "source_attributes": [
+        "preferred_charging_time_start"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.preferred_charging_time_end",
+      "origin": "v2",
+      "source_attributes": [
+        "preferred_charging_time_end"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.climatisation_timer_enabled_count",
+      "origin": "v2",
+      "source_attributes": [
+        "climatisation_timer_enabled_count"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.next_climatisation_timer_local",
+      "origin": "v2",
+      "source_attributes": [
+        "next_climatisation_timer_local"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.charging_timer_enabled_count",
+      "origin": "v2",
+      "source_attributes": [
+        "charging_timer_enabled_count"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.vehicle_data_freshness",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.vehicle_data_age",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.cloud_last_successful_poll",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.local_dealer",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.service_overview",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.api_requests_remaining",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "account",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.plug_state",
+      "origin": "v2",
+      "source_attributes": [
+        "plugState"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.plug_lock_state",
+      "origin": "v2",
+      "source_attributes": [
+        "plugLockState"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.glass_surface_heating",
+      "origin": "v2",
+      "source_attributes": [
+        "glass_surface_heating"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.sun_roof",
+      "origin": "v2",
+      "source_attributes": [
+        "sun_roof"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.roof_cover",
+      "origin": "v2",
+      "source_attributes": [
+        "roof_cover"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.parking_light",
+      "origin": "v2",
+      "source_attributes": [
+        "parking_light"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.any_window_open",
+      "origin": "v2",
+      "source_attributes": [
+        "any_window_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.any_door_unlocked",
+      "origin": "v2",
+      "source_attributes": [
+        "any_door_unlocked"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.any_door_open",
+      "origin": "v2",
+      "source_attributes": [
+        "any_door_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.trunk_unlocked",
+      "origin": "v2",
+      "source_attributes": [
+        "trunk_unlocked"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.trunk_open",
+      "origin": "v2",
+      "source_attributes": [
+        "trunk_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.hood_open",
+      "origin": "v2",
+      "source_attributes": [
+        "hood_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.left_front_door_open",
+      "origin": "v2",
+      "source_attributes": [
+        "left_front_door_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.right_front_door_open",
+      "origin": "v2",
+      "source_attributes": [
+        "right_front_door_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.left_rear_door_open",
+      "origin": "v2",
+      "source_attributes": [
+        "left_rear_door_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.right_rear_door_open",
+      "origin": "v2",
+      "source_attributes": [
+        "right_rear_door_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.left_front_window_open",
+      "origin": "v2",
+      "source_attributes": [
+        "left_front_window_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.right_front_window_open",
+      "origin": "v2",
+      "source_attributes": [
+        "right_front_window_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.left_rear_window_open",
+      "origin": "v2",
+      "source_attributes": [
+        "left_rear_window_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.right_rear_window_open",
+      "origin": "v2",
+      "source_attributes": [
+        "right_rear_window_open"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.braking_status",
+      "origin": "v2",
+      "source_attributes": [
+        "braking_status"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.oil_level_binary",
+      "origin": "v2",
+      "source_attributes": [
+        "oil_level_binary"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "binary_sensor.is_moving",
+      "origin": "v2",
+      "source_attributes": [
+        "is_moving"
+      ],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.refresh_vehicle_data",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.flash_lights",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.start_charging_modern",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.stop_charging_modern",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.start_window_heating_modern",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.stop_window_heating_modern",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.wake_vehicle_modern",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.start_engine",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.stop_engine",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.preheater_active",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.climatisation_window_heating",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.climatisation_at_unlock",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.climatisation_zone_front_left",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.climatisation_zone_front_right",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.climatisation_zone_rear_left",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.climatisation_zone_rear_right",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "number.target_state_of_charge",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "number.active_charging_profile_target_soc",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "number.charge_profile_{profile_id}_target_soc",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "select.charge_mode",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": "config",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "climate.climatisation",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "lock.lock",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "device_tracker.position",
+      "origin": "v2",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.climate_quick_control",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "button.v3_refresh_cloud",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "account",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.charging",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "switch.window_heating",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_distance",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_duration",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_average_speed",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_average_fuel_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_average_electric_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_fuel_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_electric_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_distance",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_duration",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_average_speed",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_average_fuel_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_average_electric_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_fuel_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_electric_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_distance",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_duration",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_average_speed",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_average_fuel_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_average_electric_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_fuel_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_electric_consumption",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.last_trip_zero_emission_distance",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.shortterm_trip_zero_emission_distance",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.longterm_trip_zero_emission_distance",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.trip_history",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": null,
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    },
+    {
+      "id": "sensor.discovery_coverage",
+      "origin": "v3_product_extension",
+      "source_attributes": [],
+      "category": "diagnostic",
+      "scope": "vehicle",
+      "b13_live": "not_validated"
+    }
+  ],
+  "observed_b12_fields": [
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.overallStatus",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "access",
+      "baseline_disposition": "open",
+      "review_disposition": "normalized_attribute",
+      "target": "sensor.doors_trunk_status.access_overall",
+      "regression_reference": "tests/test_v3_takeover_regressions.py",
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "access",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.doorLockStatus",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "access",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.door_lock_status",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.batteryStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.batteryStatus.value.currentSOC_pct",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.state_of_charge",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.batteryStatus.value.cruisingRangeElectric_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.range electric_range_km",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.chargingState",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.charging_state",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.chargeMode",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.charging_mode",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargingStatus.value.chargeType",
+      "type": "string",
+      "baseline_quality": "vendor_sentinel",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.charge_type",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.plugConnectionState",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "binary_sensor.plug_state",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.plugLockState",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "binary_sensor.plug_lock_state",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.externalPower",
+      "type": "string",
+      "baseline_quality": "vendor_sentinel",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.external_power",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.plugStatus.value.ledColor",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.plugled_color",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "charging.chargeMode.value.preferredChargeMode",
+      "type": "string",
+      "baseline_quality": "vendor_sentinel",
+      "capability": "charging",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "select.charge_mode, preference only",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "chargingTimers.chargingTimersStatus.value.timeInCar",
+      "type": "string",
+      "baseline_quality": "vendor_sentinel",
+      "capability": "charging",
+      "baseline_disposition": "open",
+      "review_disposition": "sentinel_excluded_valid_value_normalized",
+      "target": "charging_timers.vehicle_time; valid zoned timestamp only",
+      "regression_reference": "tests/test_v3_takeover_regressions.py",
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.targetTemperature_C",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.climatisation_target_temperature_c",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.targetTemperature_F",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.climatisation_target_temperature_f",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationSettings.value.climatisationWithoutExternalPower",
+      "type": "boolean",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.climatisation_without_external_power",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationStatus.value.remainingClimatisationTime_min",
+      "type": "integer",
+      "baseline_quality": "negative_duration_candidate",
+      "capability": "climate",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.remaining_climatisation_time",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.climatisationStatus.value.climatisationState",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.climatisation_state",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "climatisation.windowHeatingStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.carType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.car_type",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.totalRange_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.range, sensor.hybrid_range",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.electricRange",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.range electric_range_km",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.gasolineRange",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.range fuel_range_km",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.rangeStatus.value.totalRange_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.range",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.odometerStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.odometerStatus.value.odometer",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.mileage",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.currentFuelLevel_pct",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.tank_level",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.currentSOC_pct",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "charging",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.state_of_charge conditional on explicit electric/hybrid classification",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.primaryEngineType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.primary_engine_type",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.secondaryEngineType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.secondary_engine_type",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "measurements.fuelLevelStatus.value.carType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.car_type",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "oilLevel.oilLevelStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "oilLevel.oilLevelStatus.value.value",
+      "type": "boolean",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "binary_sensor.oil_level_binary for boolean; numeric legacy separate",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleLights.lightsStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "service",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_days",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "service",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.service_inspection_time",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.inspectionDue_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "service",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.service_inspection_distance",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.mileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "sensor.mileage",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_days",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "service",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.oil_change_time",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "vehicleHealthInspection.maintenanceStatus.value.oilServiceDue_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "service",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.oil_change_distance",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "userCapabilities.capabilitiesStatus.value[].id",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "open",
+      "review_disposition": "normalized_attribute",
+      "target": "sensor.model.connected_services.items[].id",
+      "regression_reference": "tests/test_v3_takeover_regressions.py",
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "userCapabilities.capabilitiesStatus.value[].expirationDate",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "open",
+      "review_disposition": "normalized_attribute",
+      "target": "sensor.model.connected_services.items[].expiration_date",
+      "regression_reference": "tests/test_v3_takeover_regressions.py",
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "userCapabilities.capabilitiesStatus.value[].userDisablingAllowed",
+      "type": "boolean",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "open",
+      "review_disposition": "normalized_attribute",
+      "target": "sensor.model.connected_services.items[].user_disabling_allowed",
+      "regression_reference": "tests/test_v3_takeover_regressions.py",
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.climate.status.batch",
+      "path": "climatisation.climatisationStatus.requests[].status",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.climate.status.batch",
+      "path": "climatisation.climatisationStatus.requests[].operation",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "climate",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.type",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.engine_type_first_engine",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.currentSOC_pct",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.primary_engine_range_percent",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.remainingRange_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.primary_engine_range",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.primaryEngine.currentFuelLevel_pct",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "open",
+      "review_disposition": "normalized_conditional_fuel_source",
+      "target": "primaryEngineFuelLevel; sensor.tank_level only when combustion role is established",
+      "regression_reference": "tests/test_v3_complementary_telemetry.py",
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.secondaryEngine.type",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.engine_type_second_engine",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.secondaryEngine.currentSOC_pct",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.secondary_engine_range_percent",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "fuelStatus.rangeStatus.value.secondaryEngine.remainingRange_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "vehicle_status",
+      "baseline_disposition": "declared",
+      "review_disposition": "declared",
+      "target": "sensor.secondary_engine_range",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.id",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "engineering_only",
+      "review_disposition": "engineering_only",
+      "target": "Do not expose raw trip identifier",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.tripEndTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.tripType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.vehicleType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.mileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.startMileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.overallMileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.travelTime",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.averageFuelConsumption",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.averageElectricConsumption",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.averageSpeed_kmph",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.totalElectricConsumption_kwh",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.lastTrip",
+      "path": "data.totalFuelConsumption_L",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].id",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "engineering_only",
+      "review_disposition": "engineering_only",
+      "target": "Do not expose raw trip identifier",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].tripEndTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].tripType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].vehicleType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].mileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].startMileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].overallMileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].travelTime",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].averageFuelConsumption",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].averageElectricConsumption",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].averageSpeed_kmph",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].totalElectricConsumption_kwh",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.longTerm",
+      "path": "data[].totalFuelConsumption_L",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].id",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "engineering_only",
+      "review_disposition": "engineering_only",
+      "target": "Do not expose raw trip identifier",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].tripEndTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].tripType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].vehicleType",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].mileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].startMileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].overallMileage_km",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].travelTime",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].averageFuelConsumption",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].averageElectricConsumption",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].averageSpeed_kmph",
+      "type": "integer",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].totalElectricConsumption_kwh",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.shortTerm",
+      "path": "data[].totalFuelConsumption_L",
+      "type": "number",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "implemented_pending_validation",
+      "review_disposition": "implemented_pending_validation",
+      "target": "Normalized trip timestamp/attributes and native metrics",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.mobility.status.parkingPosition",
+      "path": "data.carCapturedTimestamp",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "mobility",
+      "baseline_disposition": "metadata",
+      "review_disposition": "metadata",
+      "target": "Capture freshness or command lifecycle evidence",
+      "regression_reference": null,
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.doors[].name",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "access",
+      "baseline_disposition": "open",
+      "review_disposition": "normalized_attribute",
+      "target": "sensor.doors_trunk_status.door.items[].name",
+      "regression_reference": "tests/test_v3_takeover_regressions.py",
+      "b13_live": "not_validated"
+    },
+    {
+      "operation": "cariad.selectivestatus.batch",
+      "path": "access.accessStatus.value.windows[].name",
+      "type": "string",
+      "baseline_quality": "observed",
+      "capability": "access",
+      "baseline_disposition": "open",
+      "review_disposition": "normalized_attribute",
+      "target": "sensor.doors_trunk_status.window.items[].name",
+      "regression_reference": "tests/test_v3_takeover_regressions.py",
+      "b13_live": "not_validated"
+    }
+  ],
+  "remaining": "Fresh b13 diagnostics, target model identity, endpoint coverage, schema variants, live control and rollback. Unobserved fields are not declared unsupported."
+}

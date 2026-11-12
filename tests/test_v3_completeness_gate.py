@@ -42,3 +42,20 @@ def test_b12_evidence_does_not_conflate_http_and_physical_verification():
               if row["physical_evidence"]=="worked"}
     assert physical=={("climate","start"),("climate","stop")}
     assert all("value" not in row for row in evidence["fields"])
+
+
+def test_upstream_feature_matrix_matches_canonical_catalog_without_claiming_live_acceptance():
+    matrix=json.loads((ROOT/"docs/V3_UPSTREAM_FEATURE_MATRIX.json").read_text())
+    catalog=json.loads((ROOT/"custom_components/audiconnect/v3/full_catalog.json").read_text())
+    product=json.loads((ROOT/"custom_components/audiconnect/v3/product_entities.json").read_text())
+    baseline=json.loads((ROOT/"docs/V3_COMPLETENESS_EVIDENCE_B12.json").read_text())
+    assert {row["id"] for row in matrix["entities"]} == set(product["entities"])
+    assert {row["id"] for row in matrix["operations"]} == set(catalog["operations"])
+    assert {(row["capability"],row["action"]) for row in matrix["controls"]} == {
+        (capability,action) for capability,definition in catalog["capabilities"].items()
+        for action in definition.get("control", {})}
+    assert len(matrix["observed_b12_fields"]) == len(baseline["fields"])
+    assert all(row["review_disposition"] != "open" for row in matrix["observed_b12_fields"])
+    assert all(row["b13_physical"] == "not_tested_on_b13" for row in matrix["controls"])
+    assert all(row["b13_live"] == "not_validated" for row in matrix["operations"])
+    assert all((ROOT/path).is_file() for row in matrix["capabilities"] for path in row["fixture_review_files"])
