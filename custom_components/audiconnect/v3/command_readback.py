@@ -91,7 +91,8 @@ _OPTIMISTIC = {
 
 def latest_readback_command(profile, attribute):
     return next((record for record in reversed(getattr(profile, "command_journal", ()))
-                 if getattr(record, "readback_attribute", None) == attribute
+                 if record.origin == "home_assistant"
+                 and record.readback_attribute == attribute
                  and record.state != "rejected"), None)
 
 
