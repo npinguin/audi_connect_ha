@@ -97,14 +97,15 @@ async def ws_status(hass, connection, msg):
             registry = er.async_get(hass)
             actual = {}
             for entity in er.async_entries_for_config_entry(registry, engine.entry.entry_id):
-                if not entity.unique_id.lower().startswith(vehicle.vin.lower() + "_"):
-                    continue
                 key = entity_key(entity.unique_id, engine.entry.entry_id)
+                from .product_contract import product_inventory
+                if (not entity.unique_id.lower().startswith(vehicle.vin.lower() + "_")
+                        and product_inventory()["entities"].get(key, {}).get("scope") != "account"):
+                    continue
                 if key:
                     actual.setdefault(key, []).append(entity.entity_id)
-            for operation in report["operations"]:
-                for mapping in operation.get("mappings", []):
-                    mapping["entity_ids"] = actual.get(mapping.get("entity_key"), [])
+            from .entity_traceability import link_entities
+            link_entities(report, actual)
         if hasattr(engine, "health"):
             report["integration_health"] = engine.health.snapshot(engine, vehicle)
         connection.send_result(msg["id"], report)
