@@ -16,6 +16,7 @@ from urllib.parse import quote
 
 from .action_discovery import DiscoveryError, GuidedActionDiscovery
 from .registry import CapabilityRegistry, RegistryError, VehicleContext
+from .command_journal import CommandRecord
 
 _ID = re.compile(r"^user\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}$")
 _VAR = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
@@ -238,6 +239,7 @@ class DevelopmentProfile:
         # evidence, never physical action evidence.
         self.read_results: dict[str, dict[str, Any]] = {}
         self.control_results: dict[str, str] = {}
+        self.last_command: CommandRecord | None = None
         self.attribute_routes: dict[str, str] = {}
         self.attribute_evidence: dict[str, dict[str, Any]] = {}
         self.attribute_drafts: dict[str, str] = {}
@@ -329,8 +331,8 @@ class DevelopmentProfile:
         Route selection requires HTTP acceptance, recognized response mapping
         AND fresh field evidence. Cloud success alone is insufficient.
         """
-        if capability != "climate" or not 100 <= http_status <= 599:
-            raise DevelopmentProfileError("Invalid climate status observation")
+        if capability not in self.registry.capabilities or not 100 <= http_status <= 599:
+            raise DevelopmentProfileError("Invalid status observation")
         if type(schema_valid) is not bool or type(fresh) is not bool:
             raise DevelopmentProfileError("Status evidence must be explicit booleans")
         if operation not in self.registry.resolve(
@@ -349,8 +351,9 @@ class DevelopmentProfile:
             "fresh": fresh,
             "outcome": result,
         }
-        if result != "worked" and self.active.get("climate.status") == operation:
-            self.active.pop("climate.status")
+        key = f"{capability}.status"
+        if result != "worked" and self.active.get(key) == operation:
+            self.active.pop(key)
         return result
 
     def save_candidate(self, capability: str, action: str, operation: str) -> None:
@@ -398,6 +401,7 @@ class DevelopmentProfile:
             "draft_selected": dict(self.draft_selected),
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),
+            "last_command": self.last_command.snapshot() if self.last_command else None,
             "attribute_routes": dict(self.attribute_routes),
             "attribute_evidence": deepcopy(self.attribute_evidence),
             "attribute_drafts": dict(self.attribute_drafts),

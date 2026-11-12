@@ -82,7 +82,9 @@ async def ws_status(hass, connection, msg):
         engine = _engine(hass, msg["entry_id"])
         vehicle = engine.require_vehicle(msg["vin"])
         profile = engine.profiles[vehicle.vin.lower()]
-        connection.send_result(msg["id"], build_status_report(vehicle, profile))
+        report = build_status_report(vehicle, profile)
+        report["normal_command"] = profile.last_command.snapshot() if profile.last_command else None
+        connection.send_result(msg["id"], report)
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_status_failed", str(exc))
 
@@ -191,6 +193,23 @@ async def ws_review(hass, connection, msg):
         )
         connection.send_result(msg["id"], result)
     except (ValueError, RuntimeError, TypeError) as exc:
+        connection.send_error(msg["id"], "v3_review_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/review_normal_command",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("command_id"): str,
+})
+@websocket_api.async_response
+async def ws_review_normal_command(hass, connection, msg):
+    try:
+        await _engine(hass, msg["entry_id"]).review_normal_command(
+            msg["vin"], msg["command_id"]
+        )
+        connection.send_result(msg["id"], {"reviewed": True})
+    except (ValueError, RuntimeError, KeyError) as exc:
         connection.send_error(msg["id"], "v3_review_failed", str(exc))
 
 
@@ -455,7 +474,7 @@ async def async_setup_dashboard(hass) -> None:
         ])
         for handler in (
             ws_list, ws_status, ws_routes, ws_add_route, ws_test,
-            ws_review, ws_select, ws_save_candidate, ws_disable,
+            ws_review, ws_review_normal_command, ws_select, ws_save_candidate, ws_disable,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
             ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_test_family_reads,

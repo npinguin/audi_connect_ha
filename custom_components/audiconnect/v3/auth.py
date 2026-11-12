@@ -5,6 +5,7 @@ The V3 API transport, discovery, request budget and parsing are independent.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 from homeassistant.exceptions import ConfigEntryAuthFailed
@@ -41,8 +42,14 @@ class V3Auth:
             )
         )
         self._last_login: float | None = None
+        self._refresh_lock = asyncio.Lock()
 
     async def ensure_ready(self) -> None:
+        """Serialize the shared account's login and token rotation."""
+        async with self._refresh_lock:
+            await self._ensure_ready_locked()
+
+    async def _ensure_ready_locked(self) -> None:
         if self._shared_connection is not None:
             # Never invoke AudiAccount.async_refresh_data or connection.update:
             # those own the V2 vehicle poll. Only authentication is shared.

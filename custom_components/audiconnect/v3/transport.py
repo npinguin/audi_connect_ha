@@ -14,6 +14,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .auth import V3Auth
 from .family_executors import build_family_executors
+from .quota import QuotaBudget
 
 _GRAPHQL_QUERY = """query vehicleList {
   userVehicles {
@@ -39,12 +40,19 @@ class V3Transport:
     def __init__(self, hass: Any, auth: V3Auth):
         self.auth = auth
         self.session = async_get_clientsession(hass)
-        self.remaining_calls: int | None = None
-        self.remaining_calls_observed_at: datetime | None = None
+        self.quota = QuotaBudget()
         self.last_cloud_poll: datetime | None = None
         self._request_lock = asyncio.Lock()
         self._request_count = 0
         self.executors = build_family_executors()
+
+    @property
+    def remaining_calls(self) -> int | None:
+        return self.quota.remaining
+
+    @property
+    def remaining_calls_observed_at(self) -> datetime | None:
+        return self.quota.observed_at
 
     @property
     def request_count(self) -> int:
@@ -58,7 +66,6 @@ class V3Transport:
     ) -> V3Response:
         if family not in self.executors:
             raise ValueError("Unknown or unsupported V3 executor")
-        await self.auth.ensure_ready()
         if security_token is not None and family != "mbb":
             raise ValueError("Security token is only valid for MBB RLU")
         kwargs = {"security_token": security_token} if security_token is not None else {}
@@ -66,12 +73,17 @@ class V3Transport:
             if family != "mbb":
                 raise ValueError("Region VIN is only valid for MBB")
             kwargs["region_vin"] = region_vin
-        plan = self.executors[family].plan(
-            self.auth, method, path, body, explicit_action=explicit_action, **kwargs
-        )
         async with self._request_lock:
-            if self.remaining_calls is not None and self.remaining_calls <= 8:
-                raise RuntimeError("Audi request budget too low; V3 poll suspended")
+            # GraphQL inventory uses POST transport but is a fixed read-only query.
+            read_only = method == "GET" or (
+                family == "graphql" and method == "POST"
+                and path == "/vgql/v1/graphql" and body == {"query": _GRAPHQL_QUERY}
+            )
+            self.quota.authorize(datetime.now(UTC), read_only=read_only)
+            await self.auth.ensure_ready()
+            plan = self.executors[family].plan(
+                self.auth, method, path, body, explicit_action=explicit_action, **kwargs
+            )
             async with asyncio.timeout(25):
                 async with self.session.request(
                     plan.method, plan.url,
@@ -80,13 +92,7 @@ class V3Transport:
                     allow_redirects=False,
                 ) as response:
                     self._request_count += 1
-                    quota = response.headers.get("Vcf-Remaining-Calls")
-                    if quota is not None:
-                        try:
-                            self.remaining_calls = int(quota)
-                            self.remaining_calls_observed_at = datetime.now(UTC)
-                        except ValueError:
-                            pass
+                    self.quota.observe(response.status, response.headers, datetime.now(UTC))
                     raw = await response.text()
                     try:
                         payload = await response.json(content_type=None) if raw.strip() else None

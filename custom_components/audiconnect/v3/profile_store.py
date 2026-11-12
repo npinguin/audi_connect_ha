@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .action_discovery import ActionAttempt
+from .command_journal import CommandRecord
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
 from .historical_catalog import ATTRIBUTES, V2_JOBS
@@ -41,13 +42,26 @@ def restore_profile(
         raise DevelopmentProfileError("Malformed local development profile")
     for operation in custom:
         profile.add(operation)
+    if saved.get("last_command") is not None:
+        try:
+            profile.last_command = CommandRecord.restore(saved["last_command"])
+        except ValueError as exc:
+            raise DevelopmentProfileError("Invalid stored normal command") from exc
+        if profile.last_command.operation not in profile.registry.operations:
+            # Preserve uncertainty even when an operation was removed in a catalog update.
+            if not profile.last_command.unresolved:
+                profile.last_command = None
     for operation, result in read.items():
         if not isinstance(result, dict) or set(result) != {
             "http_status", "schema_valid", "fresh", "outcome"
         } or type(result["http_status"]) is not int:
             raise DevelopmentProfileError("Malformed GET evidence")
+        owners = [capability for capability, definition in profile.registry.capabilities.items()
+                  if operation in (definition.get("status") or {}).get("operations", [])]
+        if len(owners) != 1:
+            raise DevelopmentProfileError("Ambiguous stored status operation")
         verified = profile.record_status(
-            "climate", operation, http_status=result["http_status"],
+            owners[0], operation, http_status=result["http_status"],
             schema_valid=result["schema_valid"], fresh=result["fresh"]
         )
         if verified != result["outcome"]:

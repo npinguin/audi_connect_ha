@@ -12,6 +12,8 @@ from typing import Any
 
 from .auth import V3Auth
 from .action_discovery import approval_group, validate_approval
+from .command_journal import CommandRecord
+from .control_resolution import resolve_control
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
 from .response_preview import safe_response_preview
@@ -66,7 +68,6 @@ class V3Engine:
         self.last_cloud_poll_success: datetime | None = None
         self.last_cloud_poll_attempt: datetime | None = None
         self._actions = asyncio.Lock()
-        self._normal_action_at: dict[str, float] = {}
         self._wake_attempts: dict[str, list[float]] = {}
         self._trip_poll_at: dict[str, float] = {}
         self._legacy_route_backoff: dict[tuple[str, str], int] = {}
@@ -741,39 +742,7 @@ class V3Engine:
 
     def _command_route(self, vin: str, aspect: str, capability: str) -> str | None:
         car = self.require_vehicle(vin)
-        p = self.profiles[vin.lower()]
-        key = f"{capability}.{aspect}"
-        if key in p.discovery.disabled or p.discovery._active is not None:
-            return None
-        # A saved Workbench result must never bypass current remote-engine
-        # permission, including the historical Q8/PHEV exclusion.
-        restricted = capability == "remote" and aspect in ("engine_start", "engine_stop")
-        if restricted:
-            from .command_policy import eligible_operation
-            allowed = eligible_operation(car, self.auth, capability, aspect)
-            if not allowed:
-                return None
-        ident = p.active.get(key)
-        if (ident and p.control_results.get(ident) == "worked"
-                and not p.custom.get(ident, {}).get("variables")
-                and (not restricted or ident == allowed)
-                and ident in p.registry.resolve(capability,aspect,car.context)["available_operations"]):
-            return ident
-        if len(p.registry.capabilities) <= 1:
-            return None
-        # Historical V2 routes, not exploratory alternatives, are selectable
-        # on the vehicle's own declared capability or reviewed status shape.
-        # A previous failed physical experiment overrides defaults.
-        from .command_policy import eligible_operation
-        ident = eligible_operation(car, self.auth, capability, aspect)
-        if not ident or p.control_results.get(ident) == "failed":
-            return None
-        try:
-            if ident in p.registry.resolve(capability, aspect, car.context)["available_operations"]:
-                return ident
-        except ValueError:
-            pass
-        return None
+        return resolve_control(car, self.profiles[vin.lower()], self.auth, capability, aspect)
 
     def control_enabled(self, vin: str, aspect: str, capability: str = "climate") -> bool:
         return self._command_route(vin, aspect, capability) is not None
@@ -835,6 +804,8 @@ class V3Engine:
         async with self._actions:
             if profile.discovery._active is not None:
                 raise ValueError("Review the previous action before trying another")
+            if profile.last_command is not None:
+                profile.last_command.check_next(time.time())
             if f"{capability}.{aspect}" in profile.discovery.disabled:
                 raise ValueError("This action has been disabled by the user")
             if (profile.discovery.history and
@@ -982,67 +953,69 @@ class V3Engine:
         self, vin: str, aspect: str, capability: str = "climate",
         *, params: dict[str, Any] | None = None,
     ) -> None:
-        """Normal climate UI sends ONE verified request, never retries.
-
-        A per-vehicle cooldown limits duplicate climate requests while the car
-        synchronizes with Audi. HTTP acceptance is not physical confirmation.
-        """
+        """One normal mutation, persisted before dispatch; never replay."""
         car = self.require_vehicle(vin)
         p = self.profiles[vin.lower()]
         async with self._actions:
             if p.discovery._active is not None:
-                raise RuntimeError(
-                    "A vehicle control experiment is awaiting physical confirmation"
-                )
-            if not self.control_enabled(vin, aspect, capability):
-                raise RuntimeError(
-                    "Vehicle command has not been tested and activated"
-                )
-            now = time.monotonic()
-            if now - self._normal_action_at.get(vin.lower(), -1e12) < 90:
-                raise RuntimeError(
-                    "Vehicle command cooldown active; verify vehicle state"
-                )
+                raise RuntimeError("A vehicle control experiment is awaiting physical confirmation")
+            if p.last_command is not None:
+                p.last_command.check_next(time.time())
             ident = self._command_route(vin, aspect, capability)
             if ident is None:
                 raise RuntimeError("No eligible Audi command route")
             family, method, path, body = await self._command_request(car, ident, params)
             self._reserve_wake(vin, ident)
-            self._normal_action_at[vin.lower()] = now
+            record = CommandRecord.begin(capability, aspect, ident, time.time())
+            p.last_command = record
+            # If storage fails here, no physical action is attempted.
+            await self.storage.async_save(self.profiles)
             try:
                 response = await self._dispatch_command(car, family, method, path, body)
+                self._api_record(p, ident, family, method, response, car.vin)
+                if not 200 <= response.status < 300:
+                    # A server error can occur after execution; do not assume failure.
+                    record.state = "uncertain" if response.status >= 500 else "rejected"
+                    car.last_command_result = f"request_failed_{response.status}"
+                else:
+                    record.state = "accepted_unconfirmed"
+                    car.last_command_result = record.state
+                    if family == "cariad":
+                        from .request_status import confirm, request_id_of
+                        request_id = request_id_of(response.data)
+                        if request_id is not None:
+                            car.last_command_result = await confirm(self.transport, car.vin, request_id)
+                    elif family == "mbb":
+                        from .legacy_commands import confirm
+                        car.last_command_result = await confirm(self.transport, path, response.data)
+                    if car.last_command_result in ("backend_completed", "rejected"):
+                        record.state = car.last_command_result
+            except asyncio.CancelledError:
+                # The pre-dispatch journal is already durable; restart restores uncertainty.
+                record.state = "uncertain"
+                car.last_command_result = "transport_uncertain"
+                raise
             except (TimeoutError, OSError, RuntimeError, ValueError) as err:
+                record.state = "uncertain"
+                car.last_command_result = "transport_uncertain"
                 self._api_record(p, ident, family, method, None, car.vin)
                 await self.storage.async_save(self.profiles)
-                car.last_command_result = "transport_uncertain"
-                raise RuntimeError(
-                    "Audi command outcome uncertain; check the car"
-                ) from err
-            self._api_record(p, ident, family, method, response, car.vin)
+                raise RuntimeError("Audi command outcome uncertain; check the car") from err
             await self.storage.async_save(self.profiles)
-            if not 200 <= response.status < 300:
-                car.last_command_result = f"request_failed_{response.status}"
-                raise RuntimeError("Audi rejected the selected vehicle command")
-            car.last_command_result = "accepted_unconfirmed"
-            if family == "cariad":
-                from .request_status import confirm, request_id_of
-                request_id = request_id_of(response.data)
-                if request_id is not None:
-                    outcome = await confirm(self.transport, car.vin, request_id)
-                    car.last_command_result = outcome
-                    if outcome == "rejected":
-                        raise RuntimeError(
-                            "Audi vehicle rejected the command; no automatic retry"
-                        )
-            elif family == "mbb":
-                from .legacy_commands import confirm
-                car.last_command_result = await confirm(self.transport, path, response.data)
-                if car.last_command_result == "rejected":
-                    raise RuntimeError("Audi legacy command rejected; no automatic retry")
-            # Even 'backend_completed' means command execution confirmed by
-            # Audi's backend, not proof of actual vehicle state. Scheduled
-            # V3 read-only polling remains the physical state source.
+            if record.state in ("rejected", "uncertain"):
+                raise RuntimeError("Audi command rejected or uncertain; no automatic retry")
 
+    async def review_normal_command(self, vin: str, command_id: str) -> None:
+        """Explicit acknowledgement after inspecting the car; never dispatch."""
+        car = self.require_vehicle(vin)
+        p = self.profiles[car.vin.lower()]
+        async with self._actions:
+            record = p.last_command
+            if record is None or record.command_id != command_id or not record.unresolved:
+                raise ValueError("No matching unresolved normal command")
+            record.state = "reviewed"
+            await self.storage.async_save(self.profiles)
+            self._notify_discovery_change()
 
     async def send_setting(self, vin: str, kind: str, value: Any) -> None:
         """Typed V3-owned write through an explicitly verified route.
