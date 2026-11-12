@@ -6,14 +6,15 @@ Implemented:
 - Account auth refresh lock, serialized transport and bounded quota recovery.
 - Persistent normal command context before dispatch, restart uncertainty and cooldown, explicit review.
 - Separate StatusEngine and CommandEngine composed by V3Engine; existing public HA service contracts retained.
-- Generic non-climate status evidence and restore; dynamic HA projection on all nine platforms.
+- Generic non-climate status evidence, scheduling, mapping of scalar capability observations and restore; dynamic HA projection on all nine platforms.
+- Serialized profile writes, durable CARIAD request IDs, post-command readback for known stateful actions, and journal persistence before special engine proof preparation.
 - Pure automatic fast control resolution with catalog-matched versus versioned local evidence, user-disable/impairment/security checks, no actuator calls during discovery; one persisted evidence snapshot per poll.
 - Machine-readable current module ownership; synthetic regression tests.
 - Removed obsolete V3Runtime, inherited coordinator and first climate implementation/catalog from production. Minimal catalog remains test-only; persisted runtime selector stays unchanged.
 
 Still open:
-- Fully generic catalog/attribute schema, status planning and custom parameterized operation activation/PUT; current historical job mapping remains.
-- Complete command journal (all attempts, durable request ID, physical readback) and shared lifecycle for engineering and normal commands, including specialized security preflight; current normal context is last-command only.
+- Fully generic catalog/attribute schema and HA projection, custom parameterized operation activation/PUT; current historical attribute/job mapping remains.
+- Complete bounded command journal history and single lifecycle representation for engineering and normal commands; current normal context is last-command only, readback covers known stateful actions and does not prove transient actions.
 - Reconcile removed vehicles/context changes and full HA integration acceptance.
 - V2 upstream delta register, CI dependency/type/coverage gates, generated parity and actual vehicle/recorder/rollback proof.
 - Review actual catalog eligibility across supported vehicle families. Catalog match is not physical proof.

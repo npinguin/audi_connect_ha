@@ -5,6 +5,7 @@ key. Never export this raw store as public diagnostic or community telemetry.
 """
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from typing import Any
 
@@ -235,6 +236,7 @@ class V3ProfileStorage:
         if not isinstance(entry_id, str) or not entry_id:
             raise DevelopmentProfileError("Missing HA entry identifier")
         self._store = Store(hass, 1, f"audiconnect_v3_{entry_id}_profiles")
+        self._write_lock = asyncio.Lock()
 
     async def async_load(
         self, catalog: CapabilityRegistry,
@@ -255,6 +257,12 @@ class V3ProfileStorage:
         }
 
     async def async_save(self, profiles: Mapping[str, DevelopmentProfile]) -> None:
+        if not hasattr(self, "_write_lock"):
+            self._write_lock = asyncio.Lock()
+        async with self._write_lock:
+            await self._save_locked(profiles)
+
+    async def _save_locked(self, profiles: Mapping[str, DevelopmentProfile]) -> None:
         if len(profiles) > 50:
             raise DevelopmentProfileError("Too many vehicles")
         # A partial or failed vehicle inventory is NOT permission to delete

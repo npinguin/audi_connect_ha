@@ -163,3 +163,59 @@ async def test_normal_command_persisted_before_dispatch_and_timeout_blocks_resta
     with pytest.raises(RuntimeError, match="uncertain"):
         await engine.send_control(vin, "start", "charging")
     assert calls == ["POST"]
+
+
+@pytest.mark.asyncio
+async def test_non_climate_scheduled_capability_polls_without_engine_changes():
+    from types import SimpleNamespace as NS
+    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    from custom_components.audiconnect.v3.transport import V3Response
+
+    vin = "WAUZZZ4M0MD123456"
+    model = CapabilityRegistry({
+        "schema_version": 1, "brand": "audi",
+        "api_families": {"cariad": {"auth": "auth0"}},
+        "capabilities": {"example": {"status": {"operations": ["example.read"]}}},
+        "operations": {"example.read": {
+            "family": "cariad", "method": "GET",
+            "path": "/vehicle/v1/vehicles/{VIN}/example", "delivery": "existing_poll",
+            "response_paths": ["example.value"]}},
+    })
+    now = datetime.now(UTC)
+    calls = []
+    class Transport:
+        remaining_calls = 100
+        async def request(self, family, method, path, **kwargs):
+            calls.append((method, path))
+            return V3Response(200, {"example": {"value": 0, "timestamp": now.isoformat()}}, now)
+    class Storage:
+        async def async_save(self, profiles): pass
+    engine = V3Engine(None, NS(entry_id="test"), model, auth=NS(uses_auth0=True),
+                      transport=Transport(), storage=Storage())
+    car = V3Vehicle(vin, "Audi", "Q8", "q8", "DE")
+    engine.vehicles[vin.lower()] = car
+    engine.profiles[vin.lower()] = DevelopmentProfile(model, car.context)
+    engine._known_vehicle_inventory = True
+    await engine.poll()
+    assert calls == [("GET", f"/vehicle/v1/vehicles/{vin}/example")]
+    assert car.capability_readings["example"]["value"] == 0
+    assert engine.profiles[vin.lower()].active["example.status"] == "example.read"
+
+
+def test_command_readback_requires_fresh_post_command_observation():
+    from custom_components.audiconnect.v3.command_readback import configure_readback, reconcile_readback
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    car = V3Vehicle("WAUZZZ4M0MD123456", "Audi", "Q8", "q8", "DE")
+    now = datetime.now(UTC)
+    record = CommandRecord.begin("charging", "set_target_soc", "cariad.charging.settings",
+                                 (now - timedelta(seconds=10)).timestamp())
+    configure_readback(record, {"value": 80})
+    record.state = "uncertain"
+    car.readings["targetstateOfCharge"] = {"value": 80, "captured": (now-timedelta(minutes=1)).isoformat()}
+    assert not reconcile_readback(record, car, now)
+    car.readings["targetstateOfCharge"]["captured"] = now.isoformat()
+    assert reconcile_readback(record, car, now)
+    assert record.state == "verified"

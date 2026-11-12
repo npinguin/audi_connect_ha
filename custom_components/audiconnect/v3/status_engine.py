@@ -15,6 +15,7 @@ from .historical_catalog import ATTRIBUTES, capture_time, read_path, V2_JOBS
 from .legacy_read_mappings import FIELDS as MBB_FIELDS, ROUTES as MBB_ROUTES
 from .api_value_mappings import normalize_api_value
 from .read_discovery import record_jobs, pending_groups, reserve_group
+from .status_planner import status_groups
 
 
 def _captured(data: Any, path: str | None) -> str | None:
@@ -194,100 +195,99 @@ class StatusEngine:
                 if await self._poll_legacy(vehicle, profile, polled_responses):
                     cloud_reachable = True
                 continue
-            routes = profile.registry.resolve(
-                "climate", "status", vehicle.context
-            )["available_operations"]
-            chosen = profile.active.get("climate.status")
-            if chosen in routes:
-                routes.remove(chosen)
-                routes.insert(0, chosen)
-            # A selected targeted climate route must never starve the common
-            # vehicle batch. The shared GET is always first in the full V3 runtime.
-            batch = "cariad.climate.status.batch"
-            if len(profile.registry.capabilities) > 1 and batch in routes:
-                routes.remove(batch)
-                routes.insert(0, batch)
-            attempted_paths: set[str] = set()
-            attempted_operations: set[str] = set()
-            # Bounded GET discovery, no auto wake and no repeated duplicate URL.
-            for ident in routes[:3]:
-                # A custom route with user parameters has no safe background
-                # default until its input is explicitly persisted.
-                if profile.custom.get(ident, {}).get("variables"):
-                    continue
-                op = profile.registry.operations[ident]
-                if op["method"] != "GET" or op["family"] not in ("cariad", "mbb"):
-                    continue
-                # MBB legacy variants have distinct semantics and may cost a
-                # request each. Never try manual-only endpoints on every poll.
-                if (op["family"] == "mbb" and op.get("delivery") == "manual"
-                    and profile.active.get("climate.status") != ident):
-                    continue
-                family, method, path, _body = self._operation_request(vehicle, ident)
-                # The default targeted climate probe repeats a job already
-                # included in the shared batch. Do not double-poll it merely
-                # because the URL spells the same job list differently.
-                if (ident == "cariad.climate.status.probe"
-                    and op["path"].endswith("?jobs=climatisation")
-                    and "cariad.climate.status.batch" in attempted_operations
-                    and vehicle.climate_state is not None):
-                    continue
-                if path in attempted_paths:
-                    continue
-                attempted_paths.add(path)
-                attempted_operations.add(ident)
-                try:
-                    response = await self.transport.request(family, method, path)
-                except (TimeoutError, OSError, RuntimeError, ValueError):
-                    break  # Auth/transport failure is not proof of unsupported vehicle
-                polled_responses[(key, family, path)] = response
-                self._api_record(profile, ident, family, method, response, vehicle.vin)
-                if 200 <= response.status < 300:
-                    cloud_reachable = True
-                    if ident == 'cariad.climate.status.batch':
-                        requested = tuple(path.rsplit("jobs=", 1)[-1].split(","))
-                        observe_read_only(vehicle, profile, response.data, response.observed_at)
-                        record_jobs(profile, requested, status=response.status, payload=response.data)
-                    elif ident == 'mbb.climate.status':
-                        # Parse only proven V2 paths; per-attribute activation
-                        # remains explicit because MBB timestamps may be absent.
-                        for attr, (kind, _field) in MBB_FIELDS.items():
-                            if kind == "climater":
-                                self._record_attribute_response(
-                                    vehicle, profile, attr, "mbb.climater.readonly",
-                                    [_field], response,
-                                )
-                value, field = profile.registry.extract(ident, response.data)
-                captured = _captured(response.data, field)
-                valid = (
-                    200 <= response.status < 300
-                    and vehicle.set_climate(
-                        value, captured, route=ident,
-                        observed_at=response.observed_at, http_status=response.status,
-                    )
-                )
-                if valid:
-                    vehicle.climate_field = field
-                    fresh = timestamp_is_fresh(captured, response.observed_at)
-                    profile.record_status(
-                        "climate", ident, http_status=response.status,
-                        schema_valid=True, fresh=fresh,
-                    )
-                    if fresh:
-                        if chosen is None or chosen == ident or chosen not in routes:
-                            profile.choose_working("climate", "status", ident)
-                        if ident != "cariad.climate.status.batch" or chosen in (None, ident) or len(profile.registry.capabilities) <= 1:
-                            break
-                        # The selected alternate still gets its own bounded read.
+            for capability, routes, chosen, batch in status_groups(profile, vehicle.context):
+                attempted_paths: set[str] = set()
+                attempted_operations: set[str] = set()
+                # Bounded GET discovery, no auto wake and no repeated duplicate URL.
+                for ident in routes:
+                    # A custom route with user parameters has no safe background
+                    # default until its input is explicitly persisted.
+                    if profile.custom.get(ident, {}).get("variables"):
                         continue
-                    # A stale value can lead to another distinct bounded GET.
-                    continue
-                profile.record_status(
-                    "climate", ident, http_status=response.status,
-                    schema_valid=False, fresh=False,
-                )
-                if response.status in (401, 403, 429) or response.status >= 500:
-                    break
+                    op = profile.registry.operations[ident]
+                    if op["method"] != "GET" or op["family"] not in ("cariad", "mbb"):
+                        continue
+                    # MBB legacy variants have distinct semantics and may cost a
+                    # request each. Never try manual-only endpoints on every poll.
+                    if (op["family"] == "mbb" and op.get("delivery") == "manual"
+                        and profile.active.get(f"{capability}.status") != ident):
+                        continue
+                    family, method, path, _body = self._operation_request(vehicle, ident)
+                    # The default targeted climate probe repeats a job already
+                    # included in the shared batch. Do not double-poll it merely
+                    # because the URL spells the same job list differently.
+                    if (capability == "climate" and ident == "cariad.climate.status.probe"
+                        and op["path"].endswith("?jobs=climatisation")
+                        and batch in attempted_operations and vehicle.climate_state is not None):
+                        continue
+                    if path in attempted_paths:
+                        continue
+                    attempted_paths.add(path)
+                    attempted_operations.add(ident)
+                    response = polled_responses.get((key, family, path))
+                    if response is None:
+                        try:
+                            response = await self.transport.request(family, method, path)
+                        except (TimeoutError, OSError, RuntimeError, ValueError):
+                            break  # Auth/transport failure is not proof of unsupported vehicle
+                        polled_responses[(key, family, path)] = response
+                    self._api_record(profile, ident, family, method, response, vehicle.vin)
+                    if 200 <= response.status < 300:
+                        cloud_reachable = True
+                        if ident == batch and family == 'cariad':
+                            requested = tuple(path.rsplit("jobs=", 1)[-1].split(","))
+                            observe_read_only(vehicle, profile, response.data, response.observed_at)
+                            record_jobs(profile, requested, status=response.status, payload=response.data)
+                        elif ident == 'mbb.climate.status':
+                            # Parse only proven V2 paths; per-attribute activation
+                            # remains explicit because MBB timestamps may be absent.
+                            for attr, (kind, _field) in MBB_FIELDS.items():
+                                if kind == "climater":
+                                    self._record_attribute_response(
+                                        vehicle, profile, attr, "mbb.climater.readonly",
+                                        [_field], response,
+                                    )
+                    value, field = profile.registry.extract(ident, response.data)
+                    captured = _captured(response.data, field)
+                    valid = 200 <= response.status < 300 and value is not None
+                    if capability == "climate" and valid:
+                        valid = vehicle.set_climate(
+                            value, captured, route=ident,
+                            observed_at=response.observed_at, http_status=response.status,
+                        )
+                        if valid:
+                            vehicle.climate_field = field
+                    elif valid:
+                        if isinstance(value, str) and value.strip().lower() in (
+                            "", "unknown", "invalid", "unsupported", "unavailable", "error"
+                        ):
+                            valid = False
+                        elif isinstance(value, (dict, list)) and (not value or
+                             isinstance(value, dict) and "error" in value):
+                            valid = False
+                        elif isinstance(value, (str, int, float, bool)):
+                            previous = vehicle.capability_readings.get(capability)
+                            if _accept_observation(previous, captured):
+                                vehicle.capability_readings[capability] = {
+                                    "value": value, "captured": captured,
+                                    "observed": response.observed_at.isoformat(),
+                                    "operation": ident,
+                                }
+                    fresh = bool(valid and timestamp_is_fresh(captured, response.observed_at))
+                    profile.record_status(
+                        capability, ident, http_status=response.status,
+                        schema_valid=valid, fresh=fresh,
+                    )
+                    if valid:
+                        if fresh:
+                            if chosen is None or chosen == ident or chosen not in routes:
+                                profile.choose_working(capability, "status", ident)
+                            if ident != batch or chosen in (None, ident) or len(profile.registry.capabilities) <= 1:
+                                break
+                        # A stale value can lead to another distinct bounded GET.
+                        continue
+                    if response.status in (401, 403, 429) or response.status >= 500:
+                        break
         # Automatic initial CARIAD discovery: the existing 23-job GET handles
         # most fields. If that response missed known mappings, probe at most
         # two small job groups immediately and one group on later polls.

@@ -287,6 +287,7 @@ class V3Engine:
 
     async def poll(self) -> list[V3Vehicle]:
         cars = await self.status.poll()
+        self.commands.reconcile_commands()
         self.commands.refresh_bindings()
         await self.storage.async_save(self.profiles)
         return cars

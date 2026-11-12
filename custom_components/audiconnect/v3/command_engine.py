@@ -11,6 +11,7 @@ from typing import Any
 
 from .action_discovery import approval_group
 from .command_journal import CommandRecord
+from .command_readback import configure_readback, reconcile_readback
 from .control_resolution import control_decision, resolve_control
 from .response_preview import safe_response_preview
 from .vehicle import V3Vehicle
@@ -99,6 +100,18 @@ class CommandEngine:
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
 
+    def reconcile_commands(self) -> None:
+        """Correlate fresh scheduled observations without another request."""
+        for vin, profile in self.profiles.items():
+            if profile.last_command is None:
+                continue
+            try:
+                car = self.require_vehicle(vin)
+            except ValueError:
+                continue
+            if reconcile_readback(profile.last_command, car):
+                car.last_command_result = "verified"
+
     def refresh_bindings(self) -> None:
         """Pure local matching; no request per control and no physical tests."""
         for key, profile in self.profiles.items():
@@ -165,15 +178,21 @@ class CommandEngine:
                 raise ValueError("Vehicle command cooldown still active")
             # Reject invalid templates/parameters BEFORE reserving a pending
             # physical action, otherwise a mere validation error locks the car.
-            family, method, path, body = await self._command_request(
-                vehicle, operation, params
-            )
+            proof_required = profile.registry.operations[operation].get("request_mode") == "engine_start"
+            if proof_required:
+                if params:
+                    raise ValueError("Unexpected engine start parameters")
+                family, method, path, body = self._operation_request(vehicle, operation, params)
+            else:
+                family, method, path, body = await self._command_request(vehicle, operation, params)
             self._reserve_wake(vehicle.vin, operation)
             attempt = profile.begin_test(
                 capability, aspect, operation, now=time.time()
             )
             await self.storage.async_save(self.profiles)
             try:
+                if proof_required:
+                    family, method, path, body = await self._command_request(vehicle, operation, params)
                 response = await self._dispatch_command(vehicle, family, method, path, body)
                 profile.observe_http(attempt.sequence, response.status)
                 self._api_record(profile, operation, family, method, response, vehicle.vin)
@@ -236,13 +255,22 @@ class CommandEngine:
             ident = self._command_route(vin, aspect, capability)
             if ident is None:
                 raise RuntimeError("No eligible Audi command route")
-            family, method, path, body = await self._command_request(car, ident, params)
+            proof_required = p.registry.operations[ident].get("request_mode") == "engine_start"
+            if proof_required:
+                if params:
+                    raise ValueError("Unexpected engine start parameters")
+                family, method, path, body = self._operation_request(car, ident, params)
+            else:
+                family, method, path, body = await self._command_request(car, ident, params)
             self._reserve_wake(vin, ident)
             record = CommandRecord.begin(capability, aspect, ident, time.time())
+            configure_readback(record, params)
             p.last_command = record
             # If storage fails here, no physical action is attempted.
             await self.storage.async_save(self.profiles)
             try:
+                if proof_required:
+                    family, method, path, body = await self._command_request(car, ident, params)
                 response = await self._dispatch_command(car, family, method, path, body)
                 self._api_record(p, ident, family, method, response, car.vin)
                 if not 200 <= response.status < 300:
@@ -255,6 +283,9 @@ class CommandEngine:
                     if family == "cariad":
                         from .request_status import confirm, request_id_of
                         request_id = request_id_of(response.data)
+                        record.request_id = request_id
+                        # Persist backend acceptance/ID before a cancellable follow-up.
+                        await self.storage.async_save(self.profiles)
                         if request_id is not None:
                             car.last_command_result = await confirm(self.transport, car.vin, request_id)
                     elif family == "mbb":

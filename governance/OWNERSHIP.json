@@ -19,7 +19,8 @@
         "legacy_read_mappings.py",
         "legacy_values.py",
         "trips.py",
-        "parking.py"
+        "parking.py",
+        "status_planner.py"
       ],
       "responsibility": "read-only polling and observations"
     },
@@ -32,7 +33,8 @@
         "command_payloads.py",
         "action_discovery.py",
         "request_status.py",
-        "legacy_commands.py"
+        "legacy_commands.py",
+        "command_readback.py"
       ],
       "responsibility": "fast control resolution, explicit tests, execution and confirmation"
     },
