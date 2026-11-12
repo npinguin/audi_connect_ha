@@ -299,7 +299,7 @@ class V3Engine:
             payload=detail["payload"] if detail else None, vin=vin,
             at=response.observed_at if response else None,
         )
-        if operation.startswith("cariad.mobility.status.") and operation != "cariad.mobility.status.parkingPosition":
+        if (operation.startswith("cariad.mobility.status.") and operation != "cariad.mobility.status.parkingPosition") or operation.startswith("mbb.trip."):
             if method == "GET":
                 record["preview"] = "[trip values withheld: private history]"
         save_record(profile, operation, record)
@@ -879,7 +879,7 @@ class V3Engine:
                     "last_api_results": [
                         {"operation": diagnostic_route_label(ident, self.registry), **entry,
                          **({"preview": "[trip values withheld: private history]"}
-                            if ident.startswith("cariad.mobility.status.") and ident != "cariad.mobility.status.parkingPosition"
+                            if (ident.startswith("cariad.mobility.status.") and ident != "cariad.mobility.status.parkingPosition") or ident.startswith("mbb.trip.")
                             else {})}
                         for ident, entry in reversed(list(p.api_observations.items()))
                     ][:24] if p else [],
