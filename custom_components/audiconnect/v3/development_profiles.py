@@ -277,6 +277,7 @@ class DevelopmentProfile:
         self.job_discovery: dict[str, str] = {}
         self.job_probe_attempts: dict[str, int] = {}
         self.api_observations: dict[str, dict[str, Any]] = {}
+        self.job_schema: dict[str, dict[str, Any]] = {}  # session-only structural evidence
         self.engineering_responses: dict[str, dict[str, Any]] = {}
         self.engineering_history: list[dict[str, Any]] = []
         self.registry = CapabilityRegistry(deepcopy(self._base))
