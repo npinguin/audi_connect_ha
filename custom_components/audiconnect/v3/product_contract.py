@@ -9,7 +9,7 @@ import re
 
 from .historical_catalog import ATTRIBUTES, ALIAS_OF
 
-CORE_STATUS_KINDS = ("cloud", "age", "freshness")
+CORE_STATUS_KINDS = ("cloud", "age", "freshness", "discovery")
 @lru_cache(maxsize=1)
 def product_inventory():
     return json.loads(Path(__file__).with_name("product_entities.json").read_text())
