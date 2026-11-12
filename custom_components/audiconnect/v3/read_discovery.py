@@ -15,8 +15,8 @@ from typing import Any
 
 from .historical_catalog import V2_JOBS
 
-MAX_EXTRA_INITIAL_REQUESTS = 2
-MAX_EXTRA_PERIODIC_REQUESTS = 1
+MAX_EXTRA_INITIAL_REQUESTS = 4
+MAX_EXTRA_PERIODIC_REQUESTS = 2
 
 # Prioritize mapped jobs first, then exhaust all known fixed read-only jobs.
 PROBE_GROUPS: tuple[tuple[str, ...], ...] = (
@@ -105,8 +105,13 @@ def summary(profile: Any) -> dict[str, int]:
     observed = sum(profile.job_discovery.get(job) == "observed" for job in V2_JOBS)
     missing = sum(profile.job_discovery.get(job) == "not_observed" for job in V2_JOBS)
     inconclusive = sum(profile.job_discovery.get(job) == "inconclusive" for job in V2_JOBS)
+    assessed = sum(profile.job_discovery.get(job) == "observed" or
+                   (profile.job_discovery.get(job) == "not_observed" and
+                    profile.job_probe_attempts.get(job, 0) > 0) for job in V2_JOBS)
     return {
-        "catalog_jobs": len(V2_JOBS), "observed_jobs": observed,
+        "catalog_jobs": len(V2_JOBS), "assessed_jobs": assessed,
+        "assessment_percent": round(100 * assessed / len(V2_JOBS), 1),
+        "observed_percent": round(100 * observed / len(V2_JOBS), 1), "observed_jobs": observed,
         "not_observed_jobs": missing, "inconclusive_jobs": inconclusive,
         "not_scanned_jobs": len(V2_JOBS) - observed - missing - inconclusive,
         "targeted_probe_jobs": len(profile.job_probe_attempts),
