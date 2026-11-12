@@ -2,6 +2,12 @@
 
 The upstream [Audi Connect README](../readme.md) remains the authoritative user guide for installation, configuration and vehicle controls.
 
+## Start here — vision, route and community
+
+- [Product vision, technical architecture, core use cases and roadmap](V3_ARCHITECTURE.md) — the canonical community overview, with clear target/current-state distinction.
+- [Fast discovery ADR](V3_ADR_002_FAST_DISCOVERY.md) — detailed automation and safety decision.
+- [Release gates](../governance/V3_COMPLETENESS_GATE.json) — authoritative release readiness, not a marketing roadmap.
+
 ## Community and onboarding
 
 - [V3 community quick start and engineering how-to](V3_COMMUNITY_HOWTO.md) — user, explorer and engineer workflows, with contribution template.
