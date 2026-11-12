@@ -90,6 +90,49 @@ class V3Engine:
     def last_cloud_poll_succeeded(self):
         return self.status.last_cloud_poll_succeeded
 
+    def _rebind_identity_context(self, vehicle, profile, old_context):
+        if profile is not None and vehicle.context != old_context:
+            profile.rebind_context(vehicle.context)
+            vehicle.advertised_capabilities.clear()
+            vehicle.impaired_capabilities.clear()
+            vehicle.readings.clear()
+            vehicle.capability_readings.clear()
+            vehicle.position = None
+            vehicle.charging_profiles.clear()
+            vehicle.active_charging_profile_id = None
+            vehicle.charging_profiles_captured = None
+            # Completed trip snapshots are VIN-scoped historical facts.
+            # A refined model/auth context invalidates control evidence, not trips.
+            self.status._trip_poll_at.pop(vehicle.vin.lower(), None)
+
+    def _apply_identity_candidate(self, car, profile, candidate, operation, observed_at):
+        """Apply only fresh, same-vehicle reviewed manufacturer metadata."""
+        from .identity_cache import capture_identity
+        if (candidate is None or candidate.vin.lower() != car.vin.lower()
+                or candidate.country != car.country or not candidate.model):
+            return False
+        if car.model and not car.identity_restored and car.model != candidate.model:
+            return False  # Do not replace a current canonical label with conflicting metadata.
+        old_context = car.context
+        car.model = candidate.model
+        car.model_family = candidate.model_family
+        car.model_source = candidate.model_source
+        car.identity_restored = False
+        car.identity_observed_at = observed_at.isoformat()
+        car.identity_operation = operation
+        if candidate.model_year:
+            car.model_year = candidate.model_year
+            car.year_operation = operation
+        if candidate.car_type:
+            car.car_type = candidate.car_type
+        if car.name == "Audi vehicle":
+            car.name = car.model
+        self._rebind_identity_context(car, profile, old_context)
+        identity = capture_identity(car)
+        if identity:
+            profile.manufacturer_identity = identity
+        return bool(identity)
+
     async def discover(self) -> None:
         """Own vehicle discovery. No V2 vehicle updates or extra poll task."""
         found = await self.transport.discover_vehicles()
@@ -141,19 +184,7 @@ class V3Engine:
             vehicle.legacy_cariad = not self.auth.uses_auth0 and bool(getattr(self.auth,"has_cariad_bearer",False))
             vehicle.legacy_api_level = getattr(self.auth,"legacy_api_level",0)
             profile = self.profiles.get(parsed.vin.lower())
-            if profile is not None and vehicle.context != old_context:
-                profile.rebind_context(vehicle.context)
-                vehicle.advertised_capabilities.clear()
-                vehicle.impaired_capabilities.clear()
-                vehicle.readings.clear()
-                vehicle.capability_readings.clear()
-                vehicle.position = None
-                vehicle.charging_profiles.clear()
-                vehicle.active_charging_profile_id = None
-                vehicle.charging_profiles_captured = None
-                # Completed trip snapshots are VIN-scoped historical facts.
-                # A refined model/auth context invalidates control evidence, not trips.
-                self.status._trip_poll_at.pop(parsed.vin.lower(), None)
+            self._rebind_identity_context(vehicle, profile, old_context)
             known[parsed.vin.lower()] = vehicle
             inventory_items[parsed.vin.lower()] = item
         # An empty or malformed inventory cannot revoke a vehicle. Require two
@@ -412,8 +443,8 @@ class V3Engine:
         del profile.engineering_history[:-MAX_ENGINEERING_HISTORY]
         return execution
 
-    async def test_identity_operation(self, vin: str, operation: str) -> dict[str, Any]:
-        """One reviewed read, selected vehicle evidence, no activation."""
+    async def test_identity_operation(self, vin: str, operation: str, *, activate=False) -> dict[str, Any]:
+        """One reviewed read; explicit adoption requires fresh matching OEM metadata."""
         from .transport import (IDENTITY_QUERIES, GARAGE_OPERATION, selected_garage_response,
                                 garage_rows, selected_identity_response, identity_rows)
         if operation != GARAGE_OPERATION and operation not in IDENTITY_QUERIES:
@@ -426,10 +457,22 @@ class V3Engine:
         selected = selected_garage_response(response, car.vin) if is_garage else selected_identity_response(response, car.vin)
         profile = self.profiles[car.vin.lower()]
         self._api_record(profile, operation, "cariad" if is_garage else "graphql", "GET" if is_garage else "POST", selected, car.vin)
+        rows = garage_rows(selected.data) if is_garage else identity_rows(selected.data)
+        candidate = (V3Vehicle.from_garage if is_garage else V3Vehicle.from_graphql)(rows[0], car.country) if len(rows) == 1 else None
+        can_activate = bool(200 <= response.status < 300 and candidate and candidate.model
+                            and (not car.model or car.identity_restored or car.model == candidate.model))
+        activated = False
+        if activate:
+            async with self.commands._actions:
+                if (not can_activate or self.require_vehicle(vin) is not car
+                        or self.profiles.get(car.vin.lower()) is not profile
+                        or profile.discovery._active is not None):
+                    raise ValueError("No current matching manufacturer identity or pending control review")
+                activated = self._apply_identity_candidate(car, profile, candidate, operation, response.observed_at)
+                if not activated:
+                    raise ValueError("Identity evidence conflicts with current vehicle context")
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
-        rows = garage_rows(selected.data) if is_garage else identity_rows(selected.data)
-        candidate = (V3Vehicle.from_garage if is_garage else V3Vehicle.from_graphql)(rows[0], car.country) if rows else None
         from .vehicle import select_vehicle_image
         image_present = any(select_vehicle_image(row.get("vehicle"), car.vin) is not None
                             for row in identity_rows(response.data) if isinstance(row, dict)
@@ -440,7 +483,8 @@ class V3Engine:
                 "model_present": bool(candidate and candidate.model),
                 "year_present": bool(candidate and candidate.model_year),
                 "drive_type_present": bool(candidate and candidate.car_type),
-                "note": "Read-only candidate evidence; no automatic activation."}
+                "can_activate": can_activate, "activated": activated,
+                "note": "Reviewed OEM identity applied." if activated else "Read-only candidate evidence; no automatic activation."}
 
     async def test_family_reads(self, vin: str, family: str, *, full: bool = False) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.
