@@ -81,3 +81,23 @@ def save_record(profile: Any, operation: str, record: dict[str, Any]) -> None:
     profile.api_observations[operation] = record
     while len(profile.api_observations) > MAX_ROUTES:
         profile.api_observations.pop(next(iter(profile.api_observations)))
+
+
+def save_execution_review(profile: Any, review: dict[str, Any]) -> None:
+    """Bounded private annotation of an execution, never runtime evidence."""
+    if not isinstance(review, dict) or set(review) != {"operation", "at", "outcome", "comment"}:
+        raise ValueError("Invalid execution review")
+    operation, at, outcome, comment = (review[k] for k in ("operation", "at", "outcome", "comment"))
+    if (not isinstance(operation, str) or not 1 <= len(operation) <= 120
+            or not isinstance(at, str) or len(at) > 64
+            or outcome not in ("unreviewed", "worked", "failed", "inconclusive")
+            or not isinstance(comment, str) or len(comment) > 500
+            or any(ord(c) < 32 and c not in "\n\t" for c in comment)):
+        raise ValueError("Invalid execution review fields")
+    if datetime.fromisoformat(at).tzinfo is None:
+        raise ValueError("Execution review requires timezone")
+    rows = profile.execution_reviews
+    rows[:] = [row for row in rows if (row["operation"], row["at"]) != (operation, at)]
+    if outcome != "unreviewed" or comment:
+        rows.append(dict(review))
+    del rows[:-MAX_ROUTES]
