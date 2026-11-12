@@ -144,9 +144,9 @@ class CommandEngine:
         }
 
     async def disable_control(self, vin: str, capability: str, action: str, *, disabled=True) -> None:
-        vehicle = self.require_vehicle(vin)
-        profile = self.profiles[vehicle.vin.lower()]
         async with self._actions:
+            vehicle = self.require_vehicle(vin)
+            profile = self.profiles[vehicle.vin.lower()]
             if disabled:
                 profile.disable(capability, action)
             else:
@@ -216,22 +216,22 @@ class CommandEngine:
         *, params: dict[str, Any] | None = None, capability: str = "climate",
     ) -> dict[str, Any]:
         """One user-triggered control request, never automatic POST discovery."""
-        vehicle = self.require_vehicle(vin)
-        profile = self.profiles[vin.lower()]
-        family = profile.registry.operations.get(operation, {}).get("family")
-        if family not in ("cariad","mbb") or (family=="mbb" and self.auth.uses_auth0):
-            raise ValueError("Control is not applicable to this authentication family")
-        if operation not in profile.registry.resolve(
-            capability, aspect, vehicle.context
-        )["available_operations"]:
-            raise ValueError("Control not applicable to this car")
-        if capability == "remote" and aspect in ("engine_start", "engine_stop"):
-            from .command_policy import eligible_operation
-            if eligible_operation(vehicle, self.auth, capability, aspect) != operation:
-                raise ValueError("Remote engine operation is not permitted for this vehicle")
-        if profile.registry.operations[operation]["method"] not in ("POST", "PUT"):
-            raise ValueError("Read-only operation cannot be a control")
         async with self._actions:
+            vehicle = self.require_vehicle(vin)
+            profile = self.profiles[vin.lower()]
+            family = profile.registry.operations.get(operation, {}).get("family")
+            if family not in ("cariad","mbb") or (family=="mbb" and self.auth.uses_auth0):
+                raise ValueError("Control is not applicable to this authentication family")
+            if operation not in profile.registry.resolve(
+                capability, aspect, vehicle.context
+            )["available_operations"]:
+                raise ValueError("Control not applicable to this car")
+            if capability == "remote" and aspect in ("engine_start", "engine_stop"):
+                from .command_policy import eligible_operation
+                if eligible_operation(vehicle, self.auth, capability, aspect) != operation:
+                    raise ValueError("Remote engine operation is not permitted for this vehicle")
+            if profile.registry.operations[operation]["method"] not in ("POST", "PUT"):
+                raise ValueError("Read-only operation cannot be a control")
             if profile.discovery._active is not None:
                 raise ValueError("Review the previous action before trying another")
             if profile.last_command is not None:
@@ -275,8 +275,8 @@ class CommandEngine:
     async def review_action(
         self, vin: str, sequence: int, outcome: str,
     ) -> dict[str, Any]:
-        profile = self.profiles[self.require_vehicle(vin).vin.lower()]
         async with self._actions:
+            profile = self.profiles[self.require_vehicle(vin).vin.lower()]
             if outcome not in ("worked", "failed", "uncertain"):
                 raise ValueError("Unsupported outcome")
             profile.confirm(
@@ -306,9 +306,9 @@ class CommandEngine:
         bypass the general command cooldown. It still needs its own route,
         security policy, wake budget and durable journal entry.
         """
-        car = self.require_vehicle(vin)
-        p = self.profiles[vin.lower()]
         async with self._actions:
+            car = self.require_vehicle(vin)
+            p = self.profiles[vin.lower()]
             if p.discovery._active is not None and p.discovery._active.capability == capability:
                 raise RuntimeError("A control experiment for this capability is awaiting physical confirmation")
             if blocking_normal_command(p, capability) is not None:
@@ -394,9 +394,9 @@ class CommandEngine:
 
     async def review_normal_command(self, vin: str, command_id: str) -> None:
         """Explicit acknowledgement after inspecting the car; never dispatch."""
-        car = self.require_vehicle(vin)
-        p = self.profiles[car.vin.lower()]
         async with self._actions:
+            car = self.require_vehicle(vin)
+            p = self.profiles[car.vin.lower()]
             record = next((row for row in unresolved_normal_commands(p)
                            if row.command_id == command_id), None)
             if record is None:
