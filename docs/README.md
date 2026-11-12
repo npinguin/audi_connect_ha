@@ -38,3 +38,5 @@ This documentation is **research**, not an active deployment or a manufacturer-e
 
 - [b16 release notes](V3_RELEASE_NOTES_3.0.0b16.md) — Q8 completeness and capability discovery candidate.
 - [Q8 b15 diagnostics audit](V3_Q8_B15_AUDIT.md) — target-vehicle evidence and outstanding acceptance.
+
+- [b17 release notes](V3_RELEASE_NOTES_3.0.0b17.md) — identity source and ordering investigation.

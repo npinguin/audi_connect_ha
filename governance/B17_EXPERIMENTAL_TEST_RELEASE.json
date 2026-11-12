@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "version": "3.0.0b17",
+  "classification": "experimental_hacs_test_only",
+  "authorized_by": "Explicit maintainer request: new release with identity investigation and CARIAD recovery (2026-11-12)",
+  "date": "2026-11-12",
+  "base_commit": "628d00ba445aa08dd8b3ca366a96dea0f8332797",
+  "branch": "feature/v3-clean-discovery",
+  "release_intent": "release(test): publish 3.0.0b17 HACS prerelease",
+  "static_parity_claimed": false,
+  "stable_promotion_allowed": false,
+  "normal_release_gates_unchanged": true,
+  "scope": "One immutable b17 experimental HACS candidate. Full CI required; no normal completeness or upstream authorization.",
+  "completeness_exception": {
+    "version": "3.0.0b17",
+    "reason": "Validate CARIAD garage identity recovery and GraphQL ordering/authentication evidence; separate charging readiness. Normal gate remains false.",
+    "pending_hacs_gate_ids": [
+      "identity",
+      "trip_durable_history",
+      "structured_details",
+      "health_details",
+      "discovery",
+      "schema_disposition",
+      "upstream_matrix"
+    ],
+    "requires_status": "implemented_pending_validation",
+    "allows_open_implementation_blockers": false,
+    "upstream_gate_override": false
+  }
+}

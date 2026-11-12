@@ -77,3 +77,7 @@ Optional OEM identity render: one separate fixed GraphQL read (`vehicle.renderPi
 ## b16 evidence acquisition
 
 See [Q8 b15 audit](V3_Q8_B15_AUDIT.md) and [b16 release notes](V3_RELEASE_NOTES_3.0.0b16.md). Ordinary completeness and upstream gates remain false; no stable promotion.
+
+## b17 evidence acquisition
+
+See [b17 release notes](V3_RELEASE_NOTES_3.0.0b17.md). Ordinary completeness and upstream gates remain false; no stable promotion.
