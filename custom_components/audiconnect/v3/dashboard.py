@@ -82,11 +82,13 @@ async def ws_status(hass, connection, msg):
         engine = _engine(hass, msg["entry_id"])
         vehicle = engine.require_vehicle(msg["vin"])
         profile = engine.profiles[vehicle.vin.lower()]
+        engine.commands.refresh_bindings()
         report = build_status_report(vehicle, profile)
         report["normal_command"] = profile.last_command.snapshot() if profile.last_command else None
         report["command_journal"] = [row.snapshot() for row in profile.command_journal]
-        engine.commands.refresh_bindings()
         report["fast_bindings"] = profile.fast_bindings
+        from .product_contract import entity_projection_report
+        report["account_entity_projection"] = entity_projection_report(engine)
         connection.send_result(msg["id"], report)
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_status_failed", str(exc))

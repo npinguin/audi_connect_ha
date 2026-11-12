@@ -277,7 +277,7 @@ class StatusEngine:
                                 vehicle.capability_readings[capability] = {
                                     "value": value, "captured": captured,
                                     "observed": response.observed_at.isoformat(),
-                                    "operation": ident,
+                                    "operation": ident, "path": field,
                                 }
                     fresh = bool(valid and timestamp_is_fresh(captured, response.observed_at))
                     profile.record_status(

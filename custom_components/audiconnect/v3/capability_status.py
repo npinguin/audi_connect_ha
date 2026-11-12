@@ -10,6 +10,11 @@ Rows use placeholders instead of real VINs and never expose raw responses.
 from __future__ import annotations
 
 from typing import Any
+from datetime import UTC, datetime
+from collections import Counter
+
+from .attribute_contracts import semantic_value_issue, contract_for, binary_contract_for
+from .freshness import timestamp_is_fresh
 
 from .development_profiles import DevelopmentProfile
 from .action_discovery import approval_group
@@ -89,7 +94,8 @@ def build_status_report(
                     attr_result = result
                     if (
                         aspect == "status" and result == "worked"
-                        and path != vehicle.climate_field
+                        and path != (vehicle.climate_field if capability == "climate"
+                                     else vehicle.capability_readings.get(capability, {}).get("path"))
                     ):
                         attr_result = "mapped_not_confirmed"
                     rows.append({
@@ -236,6 +242,7 @@ def build_status_report(
                           else "not_tested" if available else "not_applicable_to_vehicle",
                 "requires_manual_test": True,
             })
+    cockpit = _cockpit(vehicle, profile, rows, controls_for_vehicle)
     counts = {
         **scan,
         "observed_attributes": sum(
@@ -263,6 +270,7 @@ def build_status_report(
     }
     return {
         "schema_version": 1,
+        **cockpit,
         "vehicle": {
             "label": vehicle.name,
             "model": vehicle.model,
@@ -280,3 +288,154 @@ def build_status_report(
             "confirmation. No VIN, tokens or response data are included."
         ),
     }
+
+def _cockpit(vehicle, profile, rows, controls):
+    """Read-only projection of existing evidence; no network or state writes."""
+    now = datetime.now(UTC)
+    findings = []
+    attributes = []
+    catalog = profile.registry.operations
+    records = profile.api_observations
+    fast = profile.fast_bindings
+    definitions = attributes_for(profile)
+    mapped_paths = {}
+    for descriptor in definitions.values():
+        for path in descriptor["paths"]:
+            mapped_paths.setdefault(path, set()).add(descriptor["id"])
+    for route in profile.attribute_custom.values():
+        path = route.get("response_path")
+        if path:
+            mapped_paths.setdefault(path, set()).add(route["attribute"])
+    for row in rows:
+        if not row.get("entity_key"):
+            continue
+        ident = row["attribute"]
+        reading = vehicle.readings.get(ident, {})
+        definition = definitions.get(ident, {})
+        contract = (binary_contract_for(row["entity_key"])
+                    if definition.get("platform") == "binary_sensor"
+                    else contract_for(row["entity_key"]))
+        contract = definition.get("contract") or contract
+        issue = reading.get("reason")
+        value = reading.get("value")
+        if not issue and reading:
+            issue = semantic_value_issue(row["entity_key"], value, contract)
+        if reading:
+            # Derived values can exist without a separately persisted GET route.
+            if reading.get("status") == "invalid_value" or issue:
+                row["status"] = "invalid_value"
+            elif value is not None:
+                row["status"] = ("verified" if timestamp_is_fresh(reading.get("captured"), now)
+                                 else "readable_but_stale")
+            row["path"] = reading.get("path") or row["path"]
+            row["source"] = "v3_live_evidence"
+            row["api_family"] = reading.get("family") or row["api_family"]
+        row.update(platform=definition.get("platform"), metadata=contract,
+                   observed=bool(reading), captured=reading.get("captured"),
+                   observed_at=reading.get("observed"),
+                   value_type=type(value).__name__ if value is not None else None,
+                   semantic_issue=issue)
+        if issue:
+            findings.append({"id": "attribute:" + ident, "severity": "review",
+                             "capability": row["capability"], "attribute": ident,
+                             "reason": issue, "operation": row["operation"]})
+        attributes.append(row)
+    for item in controls:
+        key = item["capability"] + "." + item["action"]
+        binding = fast.get(key, {})
+        item.update(binding_status=binding.get("status", "unknown"),
+                    active_operation=binding.get("operation"),
+                    enabled=bool(binding.get("operation")),
+                    physical_evidence="local_verified" if binding.get("status") == "local_verified"
+                    else "historical_worked" if item["verified"] else "not_verified")
+        if binding.get("operation"):
+            item["requires_manual_test"] = False
+
+    # Historical references are not real V3 tests. Keep them visible but separate.
+    references = {row["operation"]: row for row in rows if row["source"] == "v2_reference_only"}
+    journal = {row.operation: row for row in profile.command_journal}
+    operations = []
+    for ident in sorted(set(catalog) | set(records) | set(references) | set(journal)):
+        op = catalog.get(ident, {})
+        record = records.get(ident, {})
+        ref = references.get(ident, {})
+        matching = [row for row in rows if row["operation"] == ident and not row.get("entity_key")]
+        read = profile.read_results.get(ident, {})
+        physical = profile.control_results.get(ident, "not_tested")
+        command = journal.get(ident)
+        method = op.get("method") or record.get("method") or ref.get("method")
+        active = (any(row["selected"] for row in matching)
+                  or any(item.get("operation") == ident for item in fast.values())
+                  or ident in profile.attribute_routes.values())
+        applicable = [row["context_applicable"] for row in matching
+                      if row["context_applicable"] is not None]
+        http = record.get("http_status")
+        schema = ("valid" if read.get("schema_valid") is True
+                  else "invalid" if read.get("schema_valid") is False else "unknown")
+        tested = bool(read or record or command or physical != "not_tested")
+        reasons = []
+        if schema == "invalid":
+            reasons.append("response_schema_mismatch")
+        if physical in ("failed", "uncertain") or (command and command.state in ("uncertain", "physical_failed")):
+            reasons.append("physical_control_" + (command.state if command else physical))
+        if http is not None and not 200 <= http < 300:
+            reasons.append("http_error")
+        if (method in ("POST", "PUT") and http is not None and 200 <= http < 300
+                and physical != "worked" and not (command and command.state == "verified")):
+            reasons.append("accepted_not_physically_verified")
+        caps = sorted({row["capability"] for row in matching}
+                      | ({command.capability} if command else set()))
+        operation = {"operation": ident, "family": op.get("family") or record.get("family") or ref.get("api_family"),
+                     "method": method, "path": op.get("path") or ref.get("path"), "capabilities": caps,
+                     "applicability": ("applicable" if any(applicable) else
+                                       "not_applicable" if applicable else "unknown"),
+                     "tested": tested, "http_status": http, "transport": record.get("result"),
+                     "http_class": read.get("http_class"), "schema": schema,
+                     "partial_http": http == 207, "physical": physical,
+                     "last_command_state": command.state if command else None,
+                     "backend_result": command.backend_result if command else None,
+                     "active": active, "last_test": record.get("at"),
+                     "attention": reasons, "catalog": ident in catalog,
+                     "reference_only": ident in references}
+        fields = []
+        for field in record.get("fields", []):
+            path = field["path"]
+            matches = sorted(mapped_paths.get(path, set()))
+            status = ("declared_mapping" if matches else
+                      "container" if field["type"] in ("array", "object") else
+                      "review_unmapped")
+            if path == "oilLevel.oilLevelStatus.value.value" and field["type"] == "boolean":
+                status = "derived_binary"
+                matches = ["oil_level_binary"]
+            fields.append({**field, "mapping": status, "attributes": matches})
+        operation["fields"] = fields
+        operations.append(operation)
+        for reason in reasons:
+            findings.append({"id": "operation:" + ident + ":" + reason, "severity": "review",
+                             "capability": caps[0] if caps else None,
+                             "operation": ident, "reason": reason})
+    summaries = []
+    for name in sorted({r["capability"] for r in rows} | {c["capability"] for c in controls}):
+        a = [r for r in attributes if r["capability"] == name]
+        c = [r for r in controls if r["capability"] == name]
+        o = [r for r in operations if name in r["capabilities"] and not r["reference_only"]]
+        jobs = {job: profile.job_discovery.get(job, "not_scanned")
+                for job, group in _V2_SELECTIVE_JOBS.items() if group == name}
+        summaries.append({"capability": name, "attributes": len(a),
+                          "read_status": dict(Counter(r["status"] for r in a)),
+                          "controls": len(c), "enabled_controls": sum(r["enabled"] for r in c),
+                          "locally_verified_controls": sum(r["physical_evidence"] == "local_verified" for r in c),
+                          "operations": len(o), "tested_operations": sum(r["tested"] for r in o),
+                          "job_status": jobs,
+                          "advertised_jobs": sorted(set(jobs) & vehicle.advertised_capabilities),
+                          "impaired_jobs": sorted(set(jobs) & vehicle.impaired_capabilities),
+                          "attention": sum(r.get("capability") == name for r in findings)})
+    if not vehicle.model_family:
+        findings.append({"id": "vehicle:model_family", "severity": "review", "reason": "model_family_unknown"})
+    return {"operations": operations, "capability_summary": summaries,
+            "findings": findings,
+            "api_job_status": {job: profile.job_discovery.get(job, "not_scanned") for job in _V2_SELECTIVE_JOBS},
+            "operation_counts": {"total": len(operations), "tested": sum(r["tested"] for r in operations),
+                                 "active": sum(r["active"] for r in operations),
+                                 "attention": sum(bool(r["attention"]) for r in operations),
+                                 "historical_references": len(references)}}

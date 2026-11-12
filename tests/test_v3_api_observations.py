@@ -51,3 +51,22 @@ def test_unimplemented_climate_adapter_is_excluded_but_bodyless_is_manual_candid
     assert "cariad.climate.start.vehicle_settings" not in values["available_operations"]
     assert "cariad.climate.start.stored" in values["available_operations"]
     assert values["operation"]=="cariad.climate.start.stored"
+
+def test_schema_inventory_is_bounded_redacted_and_supports_old_records():
+    from custom_components.audiconnect.v3.response_preview import safe_schema_fields
+    vin = "WAUZZZ4M0MD123456"
+    payload = {"oilLevel": {"oilLevelStatus": {"value": {"value": True}}},
+               "climatisation": {"windowHeatingStatus": {"value": {
+                   "windowHeatingStatus": [{"name": "front", "status": "on"}]}}},
+               "coordinates": [50.1, 4.2], vin: {"state": "private"},
+               "token": "SECRET"}
+    fields = safe_schema_fields(payload, vehicle_vin=vin)
+    assert any(x["path"] == "oilLevel.oilLevelStatus.value.value" and x["type"] == "boolean" for x in fields)
+    assert any("windowHeatingStatus[].status" in x["path"] for x in fields)
+    assert vin not in json.dumps(fields) and "SECRET" not in json.dumps(fields)
+    assert "coordinates" not in json.dumps(fields)
+    rec = record_for(family="cariad", method="GET", http_status=207, vin=vin, payload=payload)
+    assert rec["fields"] == fields
+    validate_record({k:v for k,v in rec.items() if k != "fields"})
+    with pytest.raises(ValueError):
+        validate_record({**rec, "fields": [{"path": "coordinates.lat", "type": "number", "quality": "observed"}]})

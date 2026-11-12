@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import json
 from typing import Any
-from .response_preview import safe_response_preview
+from .response_preview import safe_response_preview, safe_schema_fields, validate_schema_fields
 
 MAX_ROUTES = 48
 MAX_PREVIEW_CHARS = 3800
@@ -36,20 +36,21 @@ def record_for(
             encoded = json.dumps(preview, ensure_ascii=True)
             if len(encoded) > MAX_PREVIEW_CHARS:
                 preview = {"notice": "Preview truncated; inspect specific route mapping",
-                           "top_level_keys": list(payload)[:12] if isinstance(payload, dict) else []}
+                           "top_level_keys": list(preview)[:12] if isinstance(preview, dict) else []}
         except (ValueError, TypeError, RecursionError):
             preview = "[unreadable JSON response]"
     else:
         preview = "[control response withheld: security]"
     record = {"at": stamp, "family": family, "method": method,
               "http_status": http_status, "result": outcome, "preview": preview}
+    if method == "GET":
+        record["fields"] = safe_schema_fields(payload, vehicle_vin=vin)
     validate_record(record)
     return record
 
 def validate_record(item: Any) -> None:
-    if not isinstance(item, dict) or set(item) != {
-        "at", "family", "method", "http_status", "result", "preview"
-    }:
+    required = {"at", "family", "method", "http_status", "result", "preview"}
+    if not isinstance(item, dict) or not required <= set(item) or set(item) - required - {"fields"}:
         raise ValueError("Invalid API observation")
     if item["family"] not in FAMILIES or item["method"] not in METHODS or item["result"] not in OUTCOMES:
         raise ValueError("Invalid API observation enums")
@@ -65,8 +66,10 @@ def validate_record(item: Any) -> None:
         raise ValueError("Invalid API record payload") from exc
     if len(text) > MAX_PREVIEW_CHARS:
         raise ValueError("Excessive response preview")
-    if item["method"] != "GET" and item["preview"] != "[control response withheld: security]":
+    if item["method"] != "GET" and (item["preview"] != "[control response withheld: security]" or "fields" in item):
         raise ValueError("Control responses must never be saved")
+    if "fields" in item:
+        validate_schema_fields(item["fields"])
 
 def save_record(profile: Any, operation: str, record: dict[str, Any]) -> None:
     validate_record(record)

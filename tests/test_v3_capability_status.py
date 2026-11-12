@@ -73,3 +73,37 @@ def test_draft_selection_does_not_mark_control_as_working():
     assert candidate["saved_candidate"] is True
     assert candidate["selected"] is False
     assert candidate["status"] == "not_tested"
+
+def test_cockpit_does_not_confuse_http_success_with_physical_or_schema_proof():
+    from custom_components.audiconnect.v3.api_observations import record_for, save_record
+    car, profile = _fixture()
+    route = "cariad.climate.start.stored"
+    save_record(profile, route, record_for(family="cariad", method="POST", http_status=204,
+                                          vin=car.vin, payload=None))
+    profile.fast_bindings["climate.start"] = {"status": "catalog_matched", "operation": route}
+    report = build_status_report(car, profile)
+    item = next(o for o in report["operations"] if o["operation"] == route)
+    assert item["tested"] and item["active"] and item["physical"] == "not_tested"
+    assert "accepted_not_physically_verified" in item["attention"]
+    action = next(c for c in report["control_actions"] if c["action"] == "start")
+    assert action["enabled"] and action["physical_evidence"] == "not_verified"
+    assert len(report["operations"]) == len({o["operation"] for o in report["operations"]})
+
+
+def test_cockpit_exposes_oil_type_issue_and_schema_fields():
+    from datetime import UTC, datetime
+    from custom_components.audiconnect.v3.attribute_runtime import observe_read_only
+    from custom_components.audiconnect.v3.api_observations import record_for, save_record
+    car, profile = _fixture()
+    now = datetime.now(UTC)
+    payload = {"oilLevel": {"oilLevelStatus": {"value": {
+        "value": True, "carCapturedTimestamp": now.isoformat()}}}}
+    observe_read_only(car, profile, payload, now)
+    route = "cariad.climate.status.batch"
+    save_record(profile, route, record_for(family="cariad", method="GET", http_status=207,
+                                          vin=car.vin, payload=payload))
+    report = build_status_report(car, profile)
+    assert any(f["reason"] == "boolean_oil_level_use_binary" for f in report["findings"])
+    operation = next(o for o in report["operations"] if o["operation"] == route)
+    assert operation["partial_http"]
+    assert any(f["mapping"] == "derived_binary" for f in operation["fields"])
