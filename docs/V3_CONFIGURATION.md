@@ -1,6 +1,6 @@
 # Audi Connect V3 — configuration and discovery
 
-**Release boundary:** 3.0.0b17 is the latest explicitly authorized experimental HACS test prerelease. Development branch features below are not yet released or fully accepted. Back up HA, select the authorized beta explicitly and keep V2 as fallback. See [b17 release notes](V3_RELEASE_NOTES_3.0.0b17.md) and [product vision](V3_ARCHITECTURE.md).
+**Release boundary:** 3.0.0b18 is the explicitly authorized integrated experimental HACS test candidate, subject to full CI. The features below require live acceptance. Back up HA, select the authorized beta explicitly and keep V2 as fallback. See [b18 release notes](V3_RELEASE_NOTES_3.0.0b18.md) and [product vision](V3_ARCHITECTURE.md).
 
 ## Shared setup and rollback
 
@@ -10,7 +10,7 @@ Keep the existing Audi Connect config entry and vehicle device; never create a s
 
 The optional administrator-only V3 Development Workbench is off by default. Enable it only in V3 for engineering experiments. Select the current vehicle, capability, attribute or control. GET tests are read-only; choose a single exact control route, provide required parameters and approve that action. Review the physical result before activating an experimental route. Saving a draft is not activation. Never store a real S-PIN in custom configuration or UI history. Unknown or uncertain results do not authorize alternative automatic actions.
 
-Current limitations: custom read definitions are bounded to reviewed supported typed attributes and routes; custom command templates and handlers remain restricted. Full definition lifecycle, automatic safe alternative selection and end-to-end validation remain open. Some reviewed historical default routes are already made available by capability evidence; they are not proof of local physical success. Full static/live parity and rollback remain open.
+Current limitations: custom read definitions are bounded to reviewed supported typed attributes and routes; custom command templates and handlers remain restricted. Full definition lifecycle and live acceptance remain open. Guided charging discovery can try one reviewed equivalent only after definitive non-execution evidence; no retry after uncertainty. Some reviewed historical default routes are already made available by capability evidence; they are not proof of local physical success. Full static/live parity and rollback remain open.
 
 ## Target: Configure → automatic discovery → Use
 
@@ -20,7 +20,7 @@ The Workbench remains optional for engineers and exceptional unsupported cases. 
 
 ## Audi Engineering Dashboard
 
-The optional admin-only V3 Development Workbench is presented as **Audi Engineering Dashboard** (same sidebar URL and configuration option). Overview summarizes vehicle data, controls and next actions. Capabilities scopes functions to one domain, with separate data/control views and S-PIN filters. Configure & test focuses on one function, with explicit approval, physical review and activation preserved. API evidence contains the detailed operation matrix, historical inventory, response previews and read-only scan. The development branch adds a fifth view, **End-user validation**, sharing native discovery progress and candidate resolution. Guided mode uses Yes/No; Expert mode enables selective tests and Edit API on failure. Neither mode dispatches a command merely by opening the view. Changing vehicle clears selected actions and evidence before loading the new vehicle. See [ADR 002](V3_ADR_002_FAST_DISCOVERY.md) for the distinction between implemented behavior and target.
+The optional admin-only V3 Development Workbench is presented as **Audi Engineering Dashboard** (same sidebar URL and configuration option). Overview summarizes vehicle data, controls and next actions. Capabilities scopes functions to one domain, with separate data/control views and S-PIN filters. Configure & test focuses on one function, with explicit approval, physical review and activation preserved. API evidence contains the detailed operation matrix, historical inventory, response previews and read-only scan. The integrated b18 candidate adds a fifth view, **End-user validation**, sharing native discovery progress and candidate resolution. Guided mode uses Yes/No; Expert mode enables selective tests and Edit API on failure. Neither mode dispatches a command merely by opening the view. Changing vehicle clears selected actions and evidence before loading the new vehicle. See [ADR 002](V3_ADR_002_FAST_DISCOVERY.md) for the distinction between implemented behavior and target.
 
 ### Local engineering response inspection
 
@@ -32,7 +32,7 @@ The dashboard shows the actual masked request and response immediately after a t
 
 ### Native vehicle control pattern
 
-Cabin climate is one native climate entity, preserving its original identity. Mode Heat/Cool sends the activated bodyless start by default; Off sends stop. A separately selected target is staged without starting the vehicle, and an explicit start uses the settings-bearing route. A combined temperature/mode action is explicit. Unknown/stale or pre-command captures remain unknown. No invented default target or assumed physical state. The compatibility switch is disabled by default (re-enable manually if an existing automation needs it); old pilot Start/Stop buttons are retired without deleting registry records. V2 is unchanged. Central locking remains a single native lock. Charging and window heating retain explicit buttons pending reliable state mapping; never manufacture a switch state from command acceptance.
+Cabin climate is one native climate entity, preserving its original identity. Mode Heat/Cool sends the activated bodyless start by default; Off sends stop. A separately selected target is staged without starting the vehicle, and an explicit start uses the settings-bearing route. A combined temperature/mode action is explicit. Unknown/stale or pre-command captures remain unknown. No invented default target or assumed physical state. The compatibility switch is disabled by default (re-enable manually if an existing automation needs it); old pilot Start/Stop buttons are retired without deleting registry records. V2 is unchanged. Central locking remains a single native lock. Charging and window heating expose stateful native switches when read and control eligibility are established; compatible buttons remain available. Accepted commands and actual readback remain distinct.
 
 A dispatched climate setpoint is distinguished from the last reported vehicle target. A newer vehicle capture supersedes the requested setpoint; a rejected command does not change the displayed target. Disabling the temperature-bearing route must not block ordinary climate on via the stored-settings route.
 

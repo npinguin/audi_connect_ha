@@ -1,18 +1,18 @@
 # Audi Connect Integration for Home Assistant
 
 > [!WARNING]
-> **Audi V3 3.0.0b17 is explicitly authorized as an experimental HACS test prerelease.**
+> **Audi V3 3.0.0b18 is explicitly authorized as an experimental HACS test prerelease.**
 > V2 remains the default and rollback choice. V3 has its own vehicle API,
 > polling, commands and nine HA platforms with shared account authentication.
-> Architecture closure and static parity are not complete. Back up HA, select b17
+> Architecture closure and static parity are not complete. Back up HA, select b18
 > explicitly as a beta in HACS, and keep V2 as fallback. Not stable.
-> b17 is an evidence-acquisition exception: seven completeness gates remain open for validation.
+> b18 is an integrated live-acceptance exception: seven completeness gates remain open for validation.
 > Engineering uses an opt-in administrator Workbench for explicit control tests;
 > the end-user target is automatic fast discovery of known eligible controls,
 > with no automatic physical vehicle actions. See [architecture](docs/V3_ARCHITECTURE.md),
 > [closure plan](docs/V3_ARCHITECTURE_CLOSURE.md), [fast discovery ADR](docs/V3_ADR_002_FAST_DISCOVERY.md),
 > [configuration](docs/V3_CONFIGURATION.md), [test matrix](docs/V3_TEST_MATRIX.md)
-> and [3.0.0b17 release notes](docs/V3_RELEASE_NOTES_3.0.0b17.md).
+> and [3.0.0b18 release notes](docs/V3_RELEASE_NOTES_3.0.0b18.md).
 
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)
@@ -27,10 +27,10 @@ V3 builds on the original Audi Connect integration and introduces capability-dri
 
 - [Product vision, architecture, core use cases and delivery roadmap](docs/V3_ARCHITECTURE.md) — start here.
 - [Community quick start: users, explorers and engineers](docs/V3_COMMUNITY_HOWTO.md)
-- [Experimental b17 release notes](docs/V3_RELEASE_NOTES_3.0.0b17.md)
+- [Experimental b18 release notes](docs/V3_RELEASE_NOTES_3.0.0b18.md)
 - [Proposed upstream README section](docs/V3_UPSTREAM_README.md)
 
-The goal is to configure your Audi once and use native HA entities immediately as capabilities become available. Discovery runs automatically in the background; the optional Workbench helps engineers resolve exceptions and share reviewed mappings. Guided physical verification is optional and requires explicit consent per action. V3 remains experimental; V2 is the default and rollback choice. Current development is not yet an authorized release.
+The goal is to configure your Audi once and use native HA entities immediately as capabilities become available. Discovery runs automatically in the background; the optional Workbench helps engineers resolve exceptions and share reviewed mappings. Guided physical verification is optional and requires explicit consent per action. V3 remains experimental; V2 is the default and rollback choice. b18 is the explicitly authorized integrated test candidate; ordinary release gates remain closed.
 
 ## Notices
 

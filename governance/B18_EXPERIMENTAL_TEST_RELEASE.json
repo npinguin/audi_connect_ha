@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "version": "3.0.0b18",
+  "classification": "experimental_hacs_test_only",
+  "authorized_by": "Explicit maintainer request: installable integrated HACS test release for live Home Assistant testing (2026-11-12)",
+  "date": "2026-11-12",
+  "base_commit": "6cbdc54cbba19e295bf71178ac9965140d37f358",
+  "branch": "feature/v3-clean-discovery",
+  "release_intent": "release(test): publish 3.0.0b18 HACS prerelease",
+  "static_parity_claimed": false,
+  "stable_promotion_allowed": false,
+  "normal_release_gates_unchanged": true,
+  "scope": "One immutable integrated b18 experimental HACS candidate. Full exact-SHA CI required. No normal completeness, static parity, stable or upstream sign-off.",
+  "completeness_exception": {
+    "version": "3.0.0b18",
+    "reason": "Validate the complete Configure → Discover → Use → Recover → Restart journey on actual Home Assistant and Audi Q8, including adopted OEM identity sources, native controls, guided/expert discovery, API editing, entity traceability and V2 rollback. Pending functional and evidence gates remain unchanged.",
+    "pending_hacs_gate_ids": [
+      "identity",
+      "trip_durable_history",
+      "structured_details",
+      "health_details",
+      "discovery",
+      "schema_disposition",
+      "upstream_matrix"
+    ],
+    "requires_status": "implemented_pending_validation",
+    "allows_open_implementation_blockers": false,
+    "upstream_gate_override": false
+  }
+}

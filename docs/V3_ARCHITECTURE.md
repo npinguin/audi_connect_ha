@@ -1,6 +1,6 @@
 # Audi Connect V3 — architecture and ownership
 
-**Status:** canonical community vision and technical design; development remains incomplete. Latest published experimental HACS candidate: 3.0.0b17. V2 remains the default and rollback choice. The subsequent development branch is not an authorized release. The historical b8 baseline below is retained for provenance, not current acceptance.
+**Status:** canonical community vision and technical design; development remains incomplete. Integrated experimental HACS candidate: 3.0.0b18, authorized for supervised live testing subject to full CI. V2 remains the default and rollback choice. The historical b8 baseline below is retained for provenance, not current acceptance.
 
 ## Product vision
 
@@ -78,7 +78,7 @@ Expert mode is not a requirement for normal setup. Unknown endpoints, unsupporte
 | 6 | Quality and upstream | Exact-SHA CI, V2 delta register, dependency/ownership checks, tests, documentation and upstream reconciliation. |
 | 7 | HACS acceptance | Close implementation/evidence gates, prove static parity, package/install validation and the golden journey; stable/upstream promotion additionally requires real supported-context and rollback proof. |
 
-This roadmap is a direction, not a claim of completed implementation. The latest published experimental exception is 3.0.0b17; the development branch contains subsequent changes that have not been released. [Machine-readable completeness gate](../governance/V3_COMPLETENESS_GATE.json), [parity gate](V2_V3_PARITY_BASELINE.json), [closure plan](V3_ARCHITECTURE_CLOSURE.md), [community guide](V3_COMMUNITY_HOWTO.md).
+This roadmap is a direction, not a claim of completed implementation. The version-bound experimental exception for b18 permits live validation only after exact-candidate CI; ordinary completeness, parity and upstream gates remain unchanged. [Machine-readable completeness gate](../governance/V3_COMPLETENESS_GATE.json), [parity gate](V2_V3_PARITY_BASELINE.json), [closure plan](V3_ARCHITECTURE_CLOSURE.md), [community guide](V3_COMMUNITY_HOWTO.md).
 
 ## Historical implementation baseline (b8)
 

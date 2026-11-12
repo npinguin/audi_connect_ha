@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "baseline": "3.0.0b12",
-  "release_policy": "No normal HACS beta while an implementation or evidence-disposition blocker is open. Live candidate acceptance is separate and required for upstream promotion. No stable gate changes. Version-specific explicitly authorized b13, b14, b15, b16 and b17 experimental evidence-acquisition prereleases are recorded separately; ordinary completeness and upstream gates remain unchanged.",
+  "release_policy": "No normal HACS beta while an implementation or evidence-disposition blocker is open. Live candidate acceptance is separate and required for upstream promotion. No stable gate changes. Version-specific explicitly authorized b13, b14, b15, b16, b17 and b18 experimental evidence-acquisition prereleases are recorded separately; ordinary completeness and upstream gates remain unchanged.",
   "hacs_ready": false,
   "upstream_ready": false,
   "items": [

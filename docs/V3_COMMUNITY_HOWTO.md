@@ -2,7 +2,7 @@
 
 **Use your Audi. Explore its capabilities. Build what's missing. Share what works.**
 
-This guide explains the current development direction and the existing experimental release boundary. The latest published experimental HACS candidate is [3.0.0b17](V3_RELEASE_NOTES_3.0.0b17.md); subsequent development features require a new authorized release. V2 remains the default and rollback choice. Compatibility varies by model, market, services and authentication. Start with the [product vision and architecture](V3_ARCHITECTURE.md).
+This guide explains the current development direction and the existing experimental release boundary. The integrated experimental HACS candidate is [3.0.0b18](V3_RELEASE_NOTES_3.0.0b18.md), authorized for supervised live testing subject to full CI. V2 remains the default and rollback choice. Compatibility varies by model, market, services and authentication. Start with the [product vision and architecture](V3_ARCHITECTURE.md).
 
 ## Choose your path
 
@@ -15,7 +15,7 @@ This guide explains the current development direction and the existing experimen
 ## 1. Everyday users — connect and use
 
 1. Back up Home Assistant and note the installed Audi Connect version.
-2. In HACS, add `https://github.com/npinguin/audi_connect_ha` as a custom repository (Integration). Select Audi Connect and explicitly select the authorized experimental prerelease **3.0.0b17** if intentionally testing V3. This replaces the same integration domain, not a second integration.
+2. In HACS, add `https://github.com/npinguin/audi_connect_ha` as a custom repository (Integration). Select Audi Connect and explicitly select the authorized experimental prerelease **3.0.0b18** if intentionally testing V3. This replaces the same integration domain, not a second integration.
 3. Restart Home Assistant. For a new installation, add Audi Connect under **Settings → Devices & services → Add integration**. For an existing installation, keep your config entry, vehicle devices and entity registry.
 4. Sign in with myAudi if prompted. For Auth0, open the supplied login link, sign in, and copy the complete callback URL from your browser to the HA form. A localhost connection error after login is expected. Never share the callback URL.
 5. Open **Audi Connect → Configure → Runtime → V3 — Experimental**, save and allow the integration to reload.
@@ -38,7 +38,7 @@ A sleeping vehicle, expired session, permission failure, missing field or rate l
 
 ## 3. Engineers — discover, configure, test, activate, contribute
 
-**Development workflow (not yet released):** End-user validation reproduces the golden Configure → Discover → Use journey. Guided mode presents unresolved actions one at a time with Yes/No and OK/Not OK/Not sure; Expert mode lets an engineer select individual actions, retest and open the failed operation in the existing editor. The direct route editor remains available for technical experiments. Development supports one reviewed charging-equivalent route only after definitive non-execution evidence (405/410 with explicit unsupported indication); never after timeout, 5xx, acceptance or uncertainty. Supported fresh changed readback can verify without manual review. Read discovery exposes completion, unresolved work, pause and explicit recovery. Both modes use the same runtime and physical consent boundary.
+**Integrated b18 test workflow:** End-user validation reproduces the golden Configure → Discover → Use journey. Guided mode presents unresolved actions one at a time with Yes/No and OK/Not OK/Not sure; Expert mode lets an engineer select individual actions, retest and open the failed operation in the existing editor. The direct route editor remains available for technical experiments. Development supports one reviewed charging-equivalent route only after definitive non-execution evidence (405/410 with explicit unsupported indication); never after timeout, 5xx, acceptance or uncertainty. Supported fresh changed readback can verify without manual review. Read discovery exposes completion, unresolved work, pause and explicit recovery. Both modes use the same runtime and physical consent boundary.
 
 Do not wait for a Python change to start exploring. The Engineering Dashboard is an opt-in local laboratory. A finding on your own vehicle can become a reviewed catalog rule for other compatible vehicles.
 
