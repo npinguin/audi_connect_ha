@@ -2,6 +2,11 @@
 
 The upstream [Audi Connect README](../readme.md) remains the authoritative user guide for installation, configuration and vehicle controls.
 
+## Community and onboarding
+
+- [V3 community quick start and engineering how-to](V3_COMMUNITY_HOWTO.md) — user, explorer and engineer workflows, with contribution template.
+- [Proposed upstream README section](V3_UPSTREAM_README.md) — copy-ready community positioning and experimental release disclosure.
+
 ## V3 engineering — authoritative current design
 
 - [Architecture and module ownership](V3_ARCHITECTURE.md) — current baseline versus approved target.
