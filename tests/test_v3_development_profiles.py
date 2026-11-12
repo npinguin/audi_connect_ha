@@ -16,7 +16,7 @@ from custom_components.audiconnect.v3.registry import (
 
 CATALOG = (
     Path(__file__).resolve().parents[1] /
-    "custom_components/audiconnect/v3/climate.json"
+    "tests/fixtures/v3_climate_catalog.json"
 )
 
 

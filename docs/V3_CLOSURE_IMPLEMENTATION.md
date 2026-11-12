@@ -9,9 +9,9 @@ Implemented:
 - Generic non-climate status evidence and restore; dynamic HA projection on all nine platforms.
 - Pure automatic fast control resolution with catalog-matched versus versioned local evidence, user-disable/impairment/security checks, no actuator calls during discovery; one persisted evidence snapshot per poll.
 - Machine-readable current module ownership; synthetic regression tests.
+- Removed obsolete V3Runtime, inherited coordinator and first climate implementation/catalog from production. Minimal catalog remains test-only; persisted runtime selector stays unchanged.
 
 Still open:
-- Remove obsolete pilot runtime and obsolete test-only catalog from production package.
 - Fully generic catalog/attribute schema, status planning and custom parameterized operation activation/PUT; current historical job mapping remains.
 - Complete command journal (all attempts, durable request ID, physical readback) and shared lifecycle for engineering and normal commands, including specialized security preflight; current normal context is last-command only.
 - Reconcile removed vehicles/context changes and full HA integration acceptance.

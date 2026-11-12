@@ -206,15 +206,7 @@ async def async_get_config_entry_diagnostics(
             getattr(api, "vcf_remaining_calls_last_observed", None)
         ),
         "vehicle_count": len(vehicles),
-        "v3": (
-            {
-                "mode": "v3_climate",
-                "capabilities": ["climate"],
-                "vehicles": runtime.v3.diagnostics(vehicles),
-            }
-            if getattr(runtime, "v3", None) is not None
-            else {"mode": "v2", "capabilities": []}
-        ),
+        "v3": {"mode": "v2", "capabilities": []},
         "vehicles": [
             {
                 **_vehicle_snapshot(vehicle, idx, uses_auth0),

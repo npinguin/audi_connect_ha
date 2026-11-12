@@ -4,7 +4,8 @@
   "owners": {
     "engine": {
       "paths": [
-        "engine.py"
+        "engine.py",
+        "runtime.py"
       ],
       "responsibility": "composition, public facade, inventory/profile orchestration (pending extraction)"
     },
@@ -98,11 +99,7 @@
     }
   },
   "migration_exclusions": [
-    "runtime.py",
-    "climate.py",
-    "climate.json",
-    "coordinator.py",
     "__init__.py"
   ],
-  "status": "partial closure; obsolete pilot and remaining generic status work tracked"
+  "status": "partial closure; remaining generic catalog/status work tracked"
 }

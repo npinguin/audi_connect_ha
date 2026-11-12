@@ -54,13 +54,12 @@ from .const import (
 )
 from .coordinator import AudiDataUpdateCoordinator
 from .local_extensions import DEALER_FIELDS, update_local_dealer_options
-from .v3.coordinator import AudiV3Coordinator
 from .v3.coordinator_clean import V3CleanCoordinator
 from .v3.engine import V3Engine
 from .v3.service_commands import execute as v3_execute_action
 from .v3.registry import CapabilityRegistry
 from .v3.runtime import (
-    V3_DEFAULT, V3_ENABLED, V3_RUNTIME_OPTION, V3Runtime, catalog_path,
+    V3_DEFAULT, V3_ENABLED, V3_RUNTIME_OPTION, catalog_path,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -141,7 +140,7 @@ class AudiRuntimeData:
 
     account: AudiAccount | None
     coordinator: AudiDataUpdateCoordinator | V3CleanCoordinator
-    v3: V3Runtime | V3Engine | None = None
+    v3: V3Engine | None = None
     loaded_platforms: list[Platform] = field(default_factory=lambda: list(PLATFORMS))
     options_snapshot: dict[str, Any] = field(default_factory=dict)
     data_snapshot: dict[str, Any] = field(default_factory=dict)

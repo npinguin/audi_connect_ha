@@ -22,17 +22,18 @@ def test_beta_manifest_version_and_hacs_metadata_are_consistent():
     assert manifest["issue_tracker"].endswith("npinguin/audi_connect_ha/issues")
 
 
-def test_pilot_model_has_only_climate_with_optional_aspects():
-    model = json.loads((V3 / "climate.json").read_text())
+def test_only_active_catalog_is_packaged_and_no_obsolete_runtime():
+    model = json.loads((V3 / "full_catalog.json").read_text())
     assert model["schema_version"] == 1
-    assert list(model["capabilities"]) == ["climate"]
-    climate = model["capabilities"]["climate"]
-    assert set(climate) == {"status", "control"}
+    assert {"climate", "charging", "access", "vehicle_status", "service", "mobility", "remote"} == set(model["capabilities"])
+    for obsolete in ("climate.py", "climate.json", "coordinator.py"):
+        assert not (V3 / obsolete).exists()
+    assert "class V3Runtime" not in (V3 / "runtime.py").read_text()
     for operation in model["operations"].values():
         assert operation["path"].startswith("/")
         assert "://" not in operation["path"]
-        assert operation["method"] in ("GET", "POST")
-        if operation["method"] == "POST":
+        assert operation["method"] in ("GET", "POST", "PUT")
+        if operation["method"] != "GET":
             assert operation["delivery"] == "manual"
 
 

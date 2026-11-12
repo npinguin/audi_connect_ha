@@ -38,10 +38,10 @@ jobs:
           from pathlib import Path
           expected = "3.0.0b8"
           manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
-          model = json.loads(Path("custom_components/audiconnect/v3/climate.json").read_text())
           assert manifest["domain"] == "audiconnect"
           assert manifest["version"] == expected
-          assert list(model["capabilities"]) == ["climate"]
+          for obsolete in ("climate.py", "climate.json", "coordinator.py"):
+              assert not (Path("custom_components/audiconnect/v3") / obsolete).exists()
           full = json.loads(Path("custom_components/audiconnect/v3/full_catalog.json").read_text())
           assert full["schema_version"] == 1
           assert {"climate", "charging", "vehicle_status", "access", "service", "mobility"} <= set(full["capabilities"])

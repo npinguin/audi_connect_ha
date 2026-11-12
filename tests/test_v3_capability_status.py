@@ -8,7 +8,7 @@ from custom_components.audiconnect.v3.development_profiles import DevelopmentPro
 from custom_components.audiconnect.v3.registry import CapabilityRegistry, VehicleContext
 from custom_components.audiconnect.v3.vehicle import V3Vehicle
 
-CATALOG = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3/climate.json"
+CATALOG = Path(__file__).resolve().parents[1] / "tests/fixtures/v3_climate_catalog.json"
 
 
 def _fixture():

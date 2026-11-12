@@ -1,4 +1,4 @@
-"""V3 climate model has no dependency on Home Assistant or network access."""
+"""Minimal synthetic catalog tests for the generic registry, not a second runtime."""
 
 from __future__ import annotations
 
@@ -23,10 +23,10 @@ RegistryError = registry_module.RegistryError
 
 
 def get_registry():
-    return CapabilityRegistry(json.loads((ROOT / "climate.json").read_text()))
+    return CapabilityRegistry(json.loads((Path(__file__).resolve().parent / "fixtures/v3_climate_catalog.json").read_text()))
 
 
-def test_only_one_capability_is_owned_by_v3():
+def test_minimal_fixture_has_one_capability():
     model = get_registry()
     assert list(model.capabilities) == ["climate"]
     assert set(model.capabilities["climate"]) == {"status", "control"}
@@ -108,7 +108,7 @@ def test_both_cariad_response_variants_are_configured(field):
 
 
 def test_scope_refinement_is_optional():
-    raw = json.loads((ROOT / "climate.json").read_text())
+    raw = json.loads((Path(__file__).resolve().parent / "fixtures/v3_climate_catalog.json").read_text())
     raw["operations"]["cariad.climate.start.vehicle_settings"]["scope"] = {
         "region": "EU", "vehicle_type": "phev"
     }
@@ -126,18 +126,18 @@ def test_scope_refinement_is_optional():
 
 
 def test_url_host_override_and_unsupported_methods_rejected():
-    raw = json.loads((ROOT / "climate.json").read_text())
+    raw = json.loads((Path(__file__).resolve().parent / "fixtures/v3_climate_catalog.json").read_text())
     raw["operations"]["cariad.climate.status.batch"]["path"] = "https://bad.invalid/{VIN}"
     with pytest.raises(RegistryError):
         CapabilityRegistry(raw)
-    raw = json.loads((ROOT / "climate.json").read_text())
+    raw = json.loads((Path(__file__).resolve().parent / "fixtures/v3_climate_catalog.json").read_text())
     raw["operations"]["cariad.climate.start.stored"]["method"] = "DELETE"
     with pytest.raises(RegistryError):
         CapabilityRegistry(raw)
 
 
 def test_status_and_control_are_independently_optional():
-    raw = json.loads((ROOT / "climate.json").read_text())
+    raw = json.loads((Path(__file__).resolve().parent / "fixtures/v3_climate_catalog.json").read_text())
     raw["capabilities"]["climate"].pop("control")
     model = CapabilityRegistry(raw)
     assert model.resolve(
