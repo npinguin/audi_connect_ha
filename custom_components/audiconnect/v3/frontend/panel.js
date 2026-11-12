@@ -302,6 +302,13 @@ class AudiConnectV3Panel extends HTMLElement {
     this.attribute = ""; this.controlAction = "";
     this.category = "vehicle_identity"; this.step = 3; this.render();
   }
+  unresolvedCommands() {
+    const normal = this.capabilityStatus.normal_command;
+    return this.capabilityStatus.unresolved_commands || (normal && ["pending","uncertain"].includes(normal.state) ? [normal] : []);
+  }
+  capabilityBlocked(capability) {
+    return this.unresolvedCommands().some(row=>row.capability===capability);
+  }
   localTime(value) {
     if (!value) return "";
     const date = new Date(value);
@@ -410,8 +417,8 @@ class AudiConnectV3Panel extends HTMLElement {
         await this._load(); return;
       }
       if (action === "review-normal") {
-        const command = this.capabilityStatus.normal_command;
-        if (!command || !["pending", "uncertain"].includes(command.state)) throw new Error("No unresolved command");
+        const command = this.unresolvedCommands().find(row=>row.command_id===button.dataset.command);
+        if (!command) throw new Error("No unresolved command");
         this.lastResult = await this.api("review_normal_command", {...this.selection, command_id: command.command_id});
       } else if (action === "test") {
         let parameters = {};
@@ -454,7 +461,7 @@ class AudiConnectV3Panel extends HTMLElement {
         });
         this.controlChoice = this.lastResult.operation || this.controlChoice;
       } else if (action === "control-test") {
-        if (this.pending || ["pending","uncertain"].includes(this.capabilityStatus.normal_command?.state)) throw new Error("Resolve the previous vehicle command first");
+        if (this.pending || this.capabilityBlocked(this.controlCapability)) throw new Error("Resolve the previous command for this capability first");
         if (!approved || !["non_spin","spin"].includes(approvalGroup))
           throw new Error("Approve this exact vehicle control before sending it");
         if (approvalGroup === "spin" && !this.spinConfigured)
@@ -789,7 +796,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>
           </div>
         </section>`:""}
-        ${car&&coverage.normal_command && ["pending","uncertain"].includes(coverage.normal_command.state)?`<section class="card warn" style="margin-bottom:18px"><b>Vehicle controls temporarily blocked</b><p>Previous command: <b>${escapeHTML(coverage.normal_command.operation)}</b> · ${escapeHTML(coverage.normal_command.state)} · ${escapeHTML(this.localTime(new Date(coverage.normal_command.started_at*1000).toISOString()))}</p><p>Inspect the actual vehicle before acknowledging uncertainty. Read-only polling and query experiments remain available. No command is replayed and acknowledgement does not mark it successful.</p><button data-action="review-normal" ${this.loading?"disabled":""}>I inspected the vehicle — acknowledge uncertainty</button></section>`:""}
+        ${car?this.unresolvedCommands().map(command=>`<section class="card warn" style="margin-bottom:18px"><b>${escapeHTML(friendly(command.capability))} controls temporarily blocked</b><p>Previous command: <b>${escapeHTML(command.operation)}</b> · ${escapeHTML(command.state)} · ${escapeHTML(this.localTime(command.started_at*1000))}</p><p>Other capabilities remain available. Read-only polling and query experiments remain available. Inspect the actual vehicle before acknowledging uncertainty. No command is replayed or marked successful.</p><button data-action="review-normal" data-command="${escapeHTML(command.command_id)}" ${this.loading?"disabled":""}>I inspected the vehicle — acknowledge uncertainty</button></section>`).join(""):""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `
           <section style="display:${this.step===1?"block":"none"}" data-view="overview">
             <div class="metrics">
@@ -963,7 +970,7 @@ class AudiConnectV3Panel extends HTMLElement {
               I approve this exact action on the selected car and will verify its effect.
             </label>
             <div class="actions">
-              <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.pending||["pending","uncertain"].includes(coverage.normal_command?.state)||group==="unsupported"||(group==="spin"&&!this.spinConfigured)?"disabled":""}>Send one test command</button>
+              <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.pending||this.capabilityBlocked(this.controlCapability)||group==="unsupported"||(group==="spin"&&!this.spinConfigured)?"disabled":""}>Send one test command</button>
               <button data-action="control-select" ${this.loading||this.pending||selectedControl?.status!=="worked"||!selectedControl?.runtime_ready?"disabled":""}>Activate verified route</button>
               <button data-action="control-disable" ${this.loading||this.pending?"disabled":""}>Disable this control</button>
             </div>

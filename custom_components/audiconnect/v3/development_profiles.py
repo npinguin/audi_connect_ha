@@ -355,7 +355,17 @@ class DevelopmentProfile:
         self.command_journal.append(record)
         if record.origin == "home_assistant":
             self.last_command = record
-        self.command_journal[:] = self.command_journal[-HISTORY_LIMIT:]
+        # Never evict an unresolved HA command or the active engineering attempt.
+        while len(self.command_journal) > HISTORY_LIMIT:
+            active = self.discovery._active
+            index = next((i for i, row in enumerate(self.command_journal)
+                          if not (row.origin == "home_assistant" and row.unresolved)
+                          and not (active is not None and row.origin == "workbench"
+                                   and row.engineering_sequence == active.sequence)
+                          and row is not self.last_command), None)
+            if index is None:
+                raise DevelopmentProfileError("Command journal full of unresolved commands")
+            self.command_journal.pop(index)
 
     def engineering_record(self, sequence: int) -> CommandRecord | None:
         return next((record for record in reversed(self.command_journal)

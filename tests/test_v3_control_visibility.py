@@ -60,8 +60,8 @@ def test_pending_control_reason_distinguishes_uncertain_from_inflight():
     from custom_components.audiconnect.v3.command_journal import CommandRecord
     record = CommandRecord.begin("climate", "window_heating_start", "cariad.climate.window_heating_start", 10)
     profile = NS(discovery=NS(disabled=set(), _active=None), last_command=record)
-    assert control_decision(None, profile, None, "access", "lock")["reason"] == "vehicle_command_in_progress"
+    assert control_decision(None, profile, None, "climate", "stop")["reason"] == "vehicle_command_in_progress"
     record.state = "uncertain"
-    result = control_decision(None, profile, None, "access", "lock")
+    result = control_decision(None, profile, None, "climate", "stop")
     assert result["status"] == "pending_review" and result["operation"] is None
     assert result["reason"] == "previous_vehicle_command_uncertain"

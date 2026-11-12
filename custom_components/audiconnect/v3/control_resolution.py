@@ -23,11 +23,14 @@ def control_decision(car, profile, auth, capability: str, aspect: str) -> dict:
 
     if key in profile.discovery.disabled:
         return decision("user_disabled")
-    if profile.discovery._active is not None:
+    from .command_journal import blocking_normal_command
+    active = profile.discovery._active
+    if active is not None and active.capability == capability:
         return decision("pending_review", reason="engineering_command_awaiting_review")
-    if profile.last_command is not None and profile.last_command.unresolved:
+    blocker = blocking_normal_command(profile, capability)
+    if blocker is not None:
         return decision("pending_review", reason="previous_vehicle_command_uncertain"
-                        if profile.last_command.state == "uncertain" else "vehicle_command_in_progress")
+                        if blocker.state == "uncertain" else "vehicle_command_in_progress")
     restricted = capability == "remote" and aspect in ("engine_start", "engine_stop")
     allowed = eligible_operation(car, auth, capability, aspect) if restricted else None
     if restricted and not allowed:

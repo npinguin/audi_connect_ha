@@ -10,7 +10,8 @@ import time
 from typing import Any
 
 from .action_discovery import approval_group
-from .command_journal import CommandRecord, check_command_sequence, ENGINEERING_COMMAND_COOLDOWN_SECONDS
+from .command_journal import (CommandRecord, check_command_sequence, ENGINEERING_COMMAND_COOLDOWN_SECONDS,
+                              unresolved_normal_commands, blocking_normal_command)
 from .operation_revision import operation_revision
 from .command_parameters import map_parameters, runtime_ready
 from .command_readback import configure_readback, reconcile_readback, observe_command_response
@@ -117,15 +118,21 @@ class CommandEngine:
                 car = self.require_vehicle(vin)
             except ValueError:
                 continue
-            # A linked refresh/wake has no physical state readback of its own.
-            # Continue reconciling the latest actual action, even after a wake.
+            # Reconcile independent commands even when a different capability
+            # has subsequently been used. Never attribute a newer same-field
+            # observation to a superseded accepted action.
             latest = profile.last_command
-            record = latest
-            if latest.is_wake:
-                record = next((row for row in reversed(profile.command_journal)
-                               if row.origin == "home_assistant" and not row.is_wake), None)
-            if record is not None and reconcile_readback(record, car) and record is latest:
-                car.last_command_result = "verified"
+            seen = set()
+            for record in reversed(profile.command_journal):
+                if record.origin != "home_assistant" or not record.readback_attribute:
+                    continue
+                attribute = record.readback_attribute
+                if attribute in seen:
+                    continue
+                if record.state != "rejected":
+                    seen.add(attribute)
+                if reconcile_readback(record, car) and record is latest:
+                    car.last_command_result = "verified"
 
     def refresh_bindings(self) -> None:
         """Pure local matching; no request per control and no physical tests."""
@@ -187,7 +194,8 @@ class CommandEngine:
             if profile.discovery._active is not None:
                 raise ValueError("Review the previous action before trying another")
             if profile.last_command is not None:
-                profile.last_command.check_next(time.time(), cooldown=ENGINEERING_COMMAND_COOLDOWN_SECONDS)
+                check_command_sequence(profile, time.time(), capability=capability, action=aspect,
+                                       cooldown=ENGINEERING_COMMAND_COOLDOWN_SECONDS)
             if f"{capability}.{aspect}" in profile.discovery.disabled:
                 raise ValueError("This action has been disabled by the user")
             if (profile.discovery.history and
@@ -272,8 +280,10 @@ class CommandEngine:
         car = self.require_vehicle(vin)
         p = self.profiles[vin.lower()]
         async with self._actions:
-            if p.discovery._active is not None:
-                raise RuntimeError("A vehicle control experiment is awaiting physical confirmation")
+            if p.discovery._active is not None and p.discovery._active.capability == capability:
+                raise RuntimeError("A control experiment for this capability is awaiting physical confirmation")
+            if blocking_normal_command(p, capability) is not None:
+                raise RuntimeError("Previous command for this capability is uncertain; inspect and review it")
             if _follow_up_to is not None:
                 parent = p.last_command
                 if (capability != "remote" or aspect != "refresh" or parent is None
@@ -363,8 +373,9 @@ class CommandEngine:
         car = self.require_vehicle(vin)
         p = self.profiles[car.vin.lower()]
         async with self._actions:
-            record = p.last_command
-            if record is None or record.command_id != command_id or not record.unresolved:
+            record = next((row for row in unresolved_normal_commands(p)
+                           if row.command_id == command_id), None)
+            if record is None:
                 raise ValueError("No matching unresolved normal command")
             record.state = "reviewed"
             record.completed_at = max(record.started_at, time.time())

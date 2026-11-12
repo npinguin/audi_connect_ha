@@ -85,6 +85,8 @@ async def ws_status(hass, connection, msg):
         engine.commands.refresh_bindings()
         report = build_status_report(vehicle, profile)
         report["normal_command"] = profile.last_command.snapshot() if profile.last_command else None
+        from .command_journal import unresolved_normal_commands
+        report["unresolved_commands"] = [row.snapshot() for row in unresolved_normal_commands(profile)]
         report["command_journal"] = [row.snapshot() for row in profile.command_journal]
         report["fast_bindings"] = profile.fast_bindings
         from .product_contract import entity_projection_report, entity_key

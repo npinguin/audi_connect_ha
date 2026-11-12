@@ -126,40 +126,65 @@ class CommandRecord:
         return record
 
 
-def check_command_sequence(profile, now: float, *, capability: str, action: str) -> None:
-    """A preparatory wake cannot create or erase a real mutation cooldown.
+def unresolved_normal_commands(profile):
+    """All unresolved HA commands, not only the latest command pointer."""
+    rows = list(getattr(profile, "command_journal", ()))
+    latest = getattr(profile, "last_command", None)
+    if latest is not None and latest not in rows:
+        rows.append(latest)
+    return [row for row in rows if row.origin == "home_assistant" and row.unresolved]
 
-    Uncertain latest commands remain blocking. When an accepted wake is the
-    latest journal entry, recover the previous actual command's cooldown.
-    Engineering tests retain their separate cooldown and review gates.
-    """
+
+def blocking_normal_command(profile, capability):
+    return next((row for row in reversed(unresolved_normal_commands(profile))
+                 if row.capability == capability), None)
+
+
+def check_command_sequence(profile, now: float, *, capability: str, action: str,
+                           cooldown: float = HA_COMMAND_COOLDOWN_SECONDS) -> None:
+    """Uncertainty is capability-scoped; a short anti-flood cooldown stays global."""
+    blocker = blocking_normal_command(profile, capability)
+    if blocker is not None:
+        blocker.check_next(now, cooldown=cooldown, capability=capability, action=action)
     latest = profile.last_command
     if latest is None:
         return
-    latest.check_next(now, capability=capability, action=action)
+    if latest.unresolved:
+        # Its capability is already checked above. Never erase the journal.
+        if now < latest.started_at + cooldown:
+            raise RuntimeError(f"Vehicle command cooldown active; try again in {math.ceil(latest.started_at + cooldown - now)}s")
+        return
+    latest.check_next(now, cooldown=cooldown, capability=capability, action=action)
     if not latest.wake_accepted:
         return
     prior = next((record for record in reversed(profile.command_journal)
-                  if record.origin == "home_assistant" and not record.is_wake), None)
+                  if record.origin == "home_assistant" and not record.is_wake
+                  and not record.unresolved), None)
     if prior is not None:
-        prior.check_next(now, capability=capability, action=action)
+        prior.check_next(now, cooldown=cooldown, capability=capability, action=action)
 
 
 def restore_history(rows):
-    """Validate bounded private history; only the latest normal command can block."""
+    """Validate bounded private history; restore unresolved commands per capability."""
     if not isinstance(rows, list) or len(rows) > HISTORY_LIMIT:
         raise ValueError("Invalid command journal length")
     records = [CommandRecord.restore(row, recover_pending=False) for row in rows]
     if len({record.command_id for record in records}) != len(records):
         raise ValueError("Duplicate command journal ID")
     normal = next((record for record in reversed(records) if record.origin == "home_assistant"), None)
-    if normal is not None and normal.state in ("pending", "accepted_unconfirmed"):
-        # An acknowledged preparatory wake has no actuator readback to wait for.
-        if not (normal.is_wake and normal.state == "accepted_unconfirmed"
-                and normal.backend_result == "accepted_unconfirmed"):
-            normal.state = "uncertain"
+    latest_by_capability = {}
     for record in records:
-        if record.origin == "workbench" and record.state in ("pending", "accepted_unconfirmed"):
+        if record.origin == "home_assistant":
+            latest_by_capability[record.capability] = record
+    for record in records:
+        if record.origin == "home_assistant":
+            if record.state == "pending" or (
+                record.state == "accepted_unconfirmed"
+                and latest_by_capability[record.capability] is record
+                and not record.wake_accepted
+            ):
+                record.state = "uncertain"
+        elif record.state in ("pending", "accepted_unconfirmed"):
             record.state = "uncertain"
     return records, normal
 

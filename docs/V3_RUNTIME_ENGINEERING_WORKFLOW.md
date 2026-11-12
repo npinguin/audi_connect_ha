@@ -24,3 +24,12 @@ and a common community contribution contract. Do not claim these are implemented
 until tested. New API hosts/auth families require a reviewed executor; not a generic
 credential-forwarding proxy. Physical commands require per-action consent,
 journal, cooldown, verification and revision binding.
+
+
+## Capability isolation
+Uncertain normal commands block only their capability. Other capabilities may
+operate subject to existing policy, short anti-flood cooldown and quota. Every
+unresolved normal command remains in the journal across unrelated actions and
+restart, and can be acknowledged by ID after inspection. No retry or automatic
+authorization. The single Workbench physical-test slot still requires review
+before starting another Workbench test; normal unrelated commands remain usable.

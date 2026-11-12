@@ -347,10 +347,12 @@ test("uncertain vehicle command identifies blocker and leaves read-only workbenc
   const p=new Panel();p.selected="entry";p.vin="VIN1";
   p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
   p.capabilityStatus={counts:{},rows:[],normal_command:{
-    operation:"cariad.climate.window_heating_start",state:"uncertain",started_at:1794500000
+    operation:"cariad.climate.window_heating_start",capability:"climate",command_id:"cmd1",state:"uncertain",started_at:1794500000
   }};
   p.render();
-  assert.match(p.shadowRoot.innerHTML,/Vehicle controls temporarily blocked/);
+  assert.match(p.shadowRoot.innerHTML,/climate controls temporarily blocked/i);
+  assert.equal(p.capabilityBlocked("climate"),true);
+  assert.equal(p.capabilityBlocked("access"),false);
   assert.match(p.shadowRoot.innerHTML,/cariad.climate.window_heating_start/);
   assert.match(p.shadowRoot.innerHTML,/acknowledge uncertainty/);
   assert.match(p.shadowRoot.innerHTML,/Read-only polling and query experiments remain available/);
