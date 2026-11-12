@@ -21,7 +21,8 @@ _TRIP_FIELDS = frozenset((
     "mileage", "startMileage", "overallMileage", "averageSpeed",
 ))
 _MAX_CANDIDATE_RECORDS = 10000
-MAX_TRIP_HISTORY = 1000
+MAX_TRIP_HISTORY = 10000
+MAX_TRIP_ENTITY_ROWS = 50
 _MAX_CONTAINER_NODES = 30
 
 # Explicitly permitted key names, never raw JSON values or unknown keys.
