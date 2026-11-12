@@ -87,3 +87,15 @@ def test_normal_command_cooldown_expires_after_ten_seconds(cap,action):
         with pytest.raises(RuntimeError,match="uncertain"):
             check_command_sequence(profile,1020,capability=cap,action=action)
     check_command_sequence(profile,1100,capability=cap,action=action)
+
+
+def test_readback_selection_ignores_workbench_and_rejected_actions():
+    from custom_components.audiconnect.v3.command_readback import latest_readback_command
+
+    start = record("climate", "start")
+    engineering = record("climate", "stop")
+    engineering.origin = "workbench"
+    rejected = record("climate", "stop", state="rejected")
+    profile = NS(command_journal=[start, engineering, rejected])
+    assert latest_readback_command(profile, "climate") is start
+    assert projected_state(profile, "climate", "off", OLD, now=NOW) == ("on", "command_pending")
