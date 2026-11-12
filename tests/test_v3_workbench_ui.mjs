@@ -595,3 +595,25 @@ test("End-user discovery advances on No and only Yes sends the displayed action"
   assert.equal(sent[0][1].operation,second.operation);assert.equal(sent[0][1].end_user,true);
   p._resetVehicleSelection();assert.equal(p.skippedControls.size,0);
 });
+
+
+test("Expert mode tests selected action out of order and opens failed route for editing", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  const first={label:"Start climate",capability:"climate",action:"start",operation:"cariad.climate.start.stored",approval_group:"non_spin"};
+  const second={label:"Stop charging",capability:"charging",action:"stop",operation:"cariad.charging.stop",approval_group:"non_spin"};
+  p.capabilityStatus={rows:[],end_user_progress:{controls:[{capability:"charging",action:"stop",eligible:true,status:"catalog_matched",physical:"failed"}]},
+    end_user_candidates:[first],expert_candidates:[first,second],command_journal:[{capability:"charging",action:"stop",operation:second.operation,state:"physical_failed"}]};
+  const calls=[];p.api=async(name,args)=>{calls.push([name,args]);if(name==="status")return p.capabilityStatus;if(name==="api_results")return {records:[]};
+    if(name==="control_test")return {sequence:1};if(name==="control_routes")return {routes:[{id:second.operation,family:"cariad",method:"POST",path:"/vehicle/v1/vehicles/{VIN}/charging/stop",approval_group:"non_spin",status:"failed"}]};
+    throw Error(name);};
+  const click=(action,attrs={})=>p._click({target:{closest:()=>({dataset:{action,...attrs}})}});
+  await click("step-5");await click("discovery-mode",{mode:"expert"});
+  assert.match(p.shadowRoot.innerHTML,/Edit failed API/);assert.equal(calls.length,0);
+  await click("end-user-yes",{capability:"charging",control:"stop",operation:second.operation});
+  assert.equal(calls[0][0],"control_test");assert.equal(calls[0][1].operation,second.operation);assert.equal(calls[0][1].expert,true);
+  await click("select-control",{capability:"charging",control:"stop",operation:second.operation});
+  assert.equal(p.step,3);assert.equal(p.controlChoice,second.operation);
+  assert.equal(JSON.parse(p.initialControlRoute).path,"/vehicle/v1/vehicles/{VIN}/charging/stop");
+  assert.notEqual(JSON.parse(p.initialControlRoute).id,second.operation);
+});
