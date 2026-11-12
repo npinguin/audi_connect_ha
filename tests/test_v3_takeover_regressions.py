@@ -21,6 +21,12 @@ def test_parking_light_never_uses_other_light_types():
     assert car.readings["parking_light"]["value"] is False
     observe([{"name": "headlight", "status": "on"}])
     assert car.readings["parking_light"]["value"] is None
+    observe([{"name": "left", "status": "off"}, {"name": "right", "status": "on"}])
+    assert car.readings["parking_light"]["value"] is True
+    observe([{"name": "left", "status": "off"}])
+    assert car.readings["parking_light"]["value"] is None
+    observe([{"name": "left", "status": "off"}, {"name": "right", "status": "off"}])
+    assert car.readings["parking_light"]["value"] is False
 
 
 def test_partial_access_report_invalidates_missing_or_contradictory_components():
@@ -180,3 +186,13 @@ def test_health_warning_and_campaign_details_keep_explicit_information_only():
     assert "base64" not in str(health)
     assert detail["readiness"]["data"]["insufficient_battery_warning"] is False
     assert detail["readiness"]["vehicle_captured"] is None
+
+
+def test_extended_job_schema_is_not_limited_by_legacy_preview():
+    payload = {"test": {f"block{i}": {f"field{n}": True for n in range(20)}
+                        for i in range(12)}}
+    old, old_truncated = safe_schema_inventory(payload)
+    new, new_truncated = safe_schema_inventory(payload, all_items=True,
+                                              field_limit=512, char_limit=64000)
+    assert old_truncated and len(old) <= 128
+    assert not new_truncated and len(new) == 253
