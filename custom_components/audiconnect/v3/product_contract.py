@@ -114,6 +114,51 @@ def entity_key(unique_id, entry_id):
     return None
 
 
+def entity_availability_reason(engine, uid, key, status, state_present):
+    """Bounded evidence for unavailable entities; no private values or IDs."""
+    if status == "projected":
+        return "available"
+    if status == "disabled":
+        return "registry_disabled"
+    if status == "registered_not_projected":
+        return "not_offered_by_runtime"
+    if not state_present:
+        return "state_not_created"
+    car = getattr(engine, "vehicles", {}).get(uid.split("_", 1)[0].lower())
+    if car is None or key is None:
+        return "runtime_state_unavailable"
+    if not getattr(car, "inventory_present", True):
+        return "vehicle_not_in_inventory"
+    if key in ("button.flash_lights", "device_tracker.position", "sensor.park_time",
+               "sensor.position_last_updated") and car.position is None:
+        return "parking_position_missing"
+    definition = product_inventory()["entities"].get(key, {})
+    metric = definition.get("trip_metric")
+    scope = metric["source"] if metric else key.removeprefix("sensor.") if key in (
+        "sensor.last_trip", "sensor.shortterm_current", "sensor.longterm_current",
+        "sensor.shortterm_reset", "sensor.longterm_reset") else None
+    if scope and not car.trips.get(scope):
+        return "trip_snapshot_missing"
+    if metric and trip_metric_value(car, key.removeprefix("sensor.")) is None:
+        return "trip_metric_missing"
+    from .freshness import capture_age_minutes
+    for ident in definition.get("source_attributes", ()):
+        attribute = ATTRIBUTES.get(ident)
+        if not attribute:
+            continue
+        _, reading = projection_reading(car, attribute)
+        if not reading:
+            continue
+        if reading.get("status") == "invalid_value":
+            return "invalid_vehicle_value"
+        age = capture_age_minutes(reading.get("captured"))
+        if age is not None and age > 60:
+            return "vehicle_capture_stale"
+        if reading.get("captured") is None:
+            return "vehicle_capture_unknown"
+    return "runtime_state_unavailable"
+
+
 def entity_projection_report(engine):
     """Separate registry records, offered entities and HA state availability.
 
@@ -146,6 +191,7 @@ def entity_projection_report(engine):
         counts[status] += 1
         row = {"platform": platform, "contract_key": key or "unrecognized_registry_key",
                "status": status, "offered_by_runtime": offered, "state_present": state_present,
+               "availability_reason": entity_availability_reason(engine, uid, key, status, state_present),
                "disabled_by": getattr(disabled, "value", None),
                "entity_category": getattr(getattr(entry, "entity_category", None), "value", None),
                "hidden_by": getattr(getattr(entry, "hidden_by", None), "value", None),

@@ -128,3 +128,20 @@ def test_every_builtin_product_identity_has_clean_functional_label():
     assert canonical_entity_name("sensor.last_trip") == "Last trip"
     assert canonical_entity_name("sensor.next_climatisation_timer_local") == "Next climate timer"
     assert canonical_entity_name("sensor.hybrid_range") == "Combined range"
+
+
+def test_unavailable_reason_distinguishes_missing_trip_parking_and_stale_capture():
+    from datetime import UTC, datetime, timedelta
+    from custom_components.audiconnect.v3.product_contract import entity_availability_reason
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+    car = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    engine = NS(vehicles={VIN.lower(): car})
+    def reason(key):
+        return entity_availability_reason(engine, VIN+"_example", key, "projected_unavailable", True)
+    assert reason("sensor.last_trip_distance") == "trip_snapshot_missing"
+    assert reason("button.flash_lights") == "parking_position_missing"
+    car.readings["chargingState"] = {"value": "charging", "status": "readable_but_stale",
+        "captured": (datetime.now(UTC)-timedelta(hours=2)).isoformat()}
+    assert reason("sensor.charging_state") == "vehicle_capture_stale"
+    car.readings["chargingState"]["status"] = "invalid_value"
+    assert reason("sensor.charging_state") == "invalid_vehicle_value"
