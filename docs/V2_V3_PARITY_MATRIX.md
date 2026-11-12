@@ -1,17 +1,19 @@
-# Audi Connect — full V2 → V3 parity matrix
+# Audi Connect V2 / V3 parity matrix
 
-Baseline: V2 from source at `a0f188647e85` (11 Nov 2026); V3 b7 + isolated PR #21 read-only repair.
-Decision: **V2 is the acceptance baseline; V3 is not yet compatible. Feature roadmap blocked until parity gate passes.**
+**Review:** 87b127c3908f. Original upstream `d12f74c35c1c961f3b040e5cc77acbca2a5cca26`; previous fixbranch `bc1a8a3c73795b6ae54be2b9494b96aae4c630fd`. See [source comparison](V2_V3_SOURCE_COMPARISON.json) and [machine-readable matrix](V2_V3_PARITY_BASELINE.json).
 
-## What the labels mean
+**Decision:** code paths are present for the historical inventory, but code-complete equivalence is not signed off. A HACS test release requires static parity and CI; Q8 and rollback acceptance are stable-release gates, not preconditions for the first test installation.
 
-- `mapped_conditional`: a historical CARIAD response path is declared and a V3 native read-only entity can be created, but this is **not** proof of Q8 runtime parity.
-- `candidate_after_manual_proof`: operation and V3 HA control implementation exist but are not activated until per-vehicle validation.
-- `partial`: platform/entity exists but does not reproduce V2 behavior.
-- `semantic_mismatch`: similar-looking V3 feature is not equivalent to V2 (notably **cloud GET vs vehicle wake POST**).
-- `not_migrated`: V2 derived/computed/legacy field without matching V3 mapping.
-- `missing`: no V3 HA exposure.
-- `v2_experimental=true`: declared in V2 source but not automatically exposed in V2's button setup; do not present it as confirmed working.
+## Labels
+
+- `mapped_conditional`: an independent V3 path exists; actual source availability and semantics still require verification.
+- `candidate_after_manual_proof`: a native control and reviewed route exist; vehicle-specific capability and explicit action consent apply.
+- `partial`: known unresolved implementation difference.
+- No row has physical Q8 confirmation.
+
+## Current coverage
+
+109 original baseline entity slots across nine platforms, plus the previous fixbranch's `sensor.last_trip`. {"mapped_conditional":84,"partial":3,"candidate_after_manual_proof":22}. All 11 public HA services and 19 control workstreams are inventoried; four engineering probe services deliberately excluded. Nine V2 business files match the pre-repair Git blob hashes exactly. The original upstream comparison is a declaration comparison, not a claim that the fork's V2 equals current upstream byte-for-byte.
 
 ## The user's Q8: observed V2 ↔ V3 b7
 
@@ -28,236 +30,145 @@ Decision: **V2 is the acceptance baseline; V3 is not yet compatible. Feature roa
 
 V2 metadata evidence: downloaded diagnostic `mode: v2`, `disabled_per_platform: {}`. V3 evidence: b7 `mode: v3`, 59 integration-disabled entities, 207 API and invalid climate state. These diagnostics establish the regression, not physical operation of commands.
 
-## Platform completeness
 
-| V2 HA platform | Source inventory / additional dynamic entries | V3 status | Required gate |
-|---|---:|---|---|
-| `binary_sensor` | 23 | partial: only direct source-mapped attributes; derived V2 doors/windows/lights largely absent | 23 declared binary sensors; platform-specific polarity and security-critical freshness |
-| `button` | 9 | partial: 5 gated experimental buttons + separate V3 cloud refresh; V2 flash/engine absent | 9 declared V2 button types; exact controls and requests incl. V2 refresh semantics |
-| `climate` | 1 | partial: no target temperature control or restoring V2 last target | same unique ID, target temperature 15–30°C, on/off, status and settings |
-| `sensor` | 63 | partial: only historical source-mapped + a few diagnostics; derived composites absent | same unique IDs, 57 declared sensors + 6 supplemental sensors; correct metadata, Recorder and freshness |
-| `device_tracker` | 1 | structural V3 entity + bounded parked GET; live unverified | same unique ID; last-parked coordinates with timestamp/privacy and no live-driving claim |
-| `lock` | 1 | partial: guarded native lock; not physically verified | same unique ID, S-PIN, request-ID completion, real vehicle readback |
-| `number` | 3 | global target native entity added; dynamic profiles and write parity missing | two base SoC sliders + dynamic per-location target slider; bounds 20–100, step 5 |
-| `select` | 1 | native preferred charge mode entity added; writing gated/unverified | preferred charge mode select with reported options + safe manual/timer fallback |
-| `switch` | 7 | partial: only V3 climate quick switch, six V2 climate settings and preheater absent | 7 V2 switch declarations + climate quick contract |
+## Entity-level code paths and remaining gaps
 
-## V2 control-action and writable-setting parity — all control workstreams
+| Entity | Classification | Evidence | Remaining gap |
+|---|---|---|---|
+| sensor.last_update_time | mapped_conditional | v3/engine.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.shortterm_current | mapped_conditional | v3/trips.py, v3/engine.py, v3/entities.py | MBB current/reset and CARIAD current/last supported; CARIAD reset history not established. |
+| sensor.shortterm_reset | mapped_conditional | v3/trips.py, v3/engine.py, v3/entities.py | MBB current/reset and CARIAD current/last supported; CARIAD reset history not established. |
+| sensor.longterm_current | mapped_conditional | v3/trips.py, v3/engine.py, v3/entities.py | MBB current/reset and CARIAD current/last supported; CARIAD reset history not established. |
+| sensor.longterm_reset | mapped_conditional | v3/trips.py, v3/engine.py, v3/entities.py | MBB current/reset and CARIAD current/last supported; CARIAD reset history not established. |
+| sensor.model | mapped_conditional | v3/engine.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.mileage | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.service_adblue_distance | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.range | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.hybrid_range | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.service_inspection_time | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.service_inspection_distance | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.oil_change_time | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.oil_change_distance | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.oil_level | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.charging_state | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.charging_mode | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.charging_type | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.energy_flow | mapped_conditional | v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py | Historical MBB source; modern equivalent not established where the source does not expose it. |
+| sensor.max_charge_current | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.charging_current_limit_a | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.charging_current_limit_mode | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.charging_plug_auto_unlock | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.vehicle_reported_online | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.vehicle_reported_active | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.primary_engine_type | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.secondary_engine_type | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.primary_engine_range | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.secondary_engine_range | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.primary_engine_range_percent | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.car_type | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.secondary_engine_range_percent | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.charging_power | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.actual_charge_rate | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.tank_level | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.state_of_charge | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.remaining_charging_time | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.charging_complete_time | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.target_state_of_charge | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.external_power | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.plug_led_color | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.doors_trunk_status | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.climatisation_state | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.outdoor_temperature | mapped_conditional | v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py | Historical MBB source; modern equivalent not established where the source does not expose it. |
+| sensor.park_time | mapped_conditional | v3/engine.py, v3/entities.py | Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS. |
+| sensor.position_last_updated | mapped_conditional | v3/engine.py, v3/entities.py | Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS. |
+| sensor.remaining_climatisation_time | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.preheater_duration | partial | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.preheater_remaining | partial | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.active_charging_profile_target_soc | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.active_charging_profile_name | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.active_charging_profile_min_soc | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.preferred_charging_time_start | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.preferred_charging_time_end | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.climatisation_timer_enabled_count | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.next_climatisation_timer_local | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.charging_timer_enabled_count | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| sensor.vehicle_data_freshness | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.vehicle_data_age | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.cloud_last_successful_poll | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.local_dealer | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.service_overview | mapped_conditional | v3/entities.py, v3/ha_platforms.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| sensor.api_requests_remaining | partial | v3/entities.py, v3/transport.py | Account-level live quota implemented; V2 restored display after HA restart still needs matching behavior. |
+| binary_sensor.plug_state | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| binary_sensor.plug_lock_state | mapped_conditional | v3/historical_catalog.py, v3/attribute_runtime.py, v3/entities.py | Requires applicable Audi response and actual HA state/readback; no live proof. |
+| binary_sensor.glass_surface_heating | mapped_conditional | v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py | Historical MBB source; modern equivalent not established where the source does not expose it. |
+| binary_sensor.sun_roof | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.roof_cover | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.parking_light | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.any_window_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.any_door_unlocked | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.any_door_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.trunk_unlocked | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.trunk_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.hood_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.left_front_door_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.right_front_door_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.left_rear_door_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.right_rear_door_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.left_front_window_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.right_front_window_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.left_rear_window_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.right_rear_window_open | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.braking_status | mapped_conditional | v3/legacy_values.py, v3/legacy_read_mappings.py, v3/entities.py | Historical MBB source; modern equivalent not established where the source does not expose it. |
+| binary_sensor.oil_level_binary | mapped_conditional | v3/derived_values.py, v3/legacy_values.py, v3/entities.py | Source-dependent normalized/derived values; complete component evidence required for negative security states. |
+| binary_sensor.is_moving | mapped_conditional | v3/engine.py, v3/entities.py | Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS. |
+| button.refresh_vehicle_data | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.flash_lights | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.start_charging_modern | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.stop_charging_modern | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.start_window_heating_modern | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.stop_window_heating_modern | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.wake_vehicle_modern | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.start_engine | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| button.stop_engine | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| switch.preheater_active | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| switch.climatisation_window_heating | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| switch.climatisation_at_unlock | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| switch.climatisation_zone_front_left | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| switch.climatisation_zone_front_right | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| switch.climatisation_zone_rear_left | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| switch.climatisation_zone_rear_right | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| number.target_state_of_charge | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| number.active_charging_profile_target_soc | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| number.charge_profile_{profile_id}_target_soc | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| select.charge_mode | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| climate.climatisation | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| lock.lock | candidate_after_manual_proof | v3/entities.py, v3/ha_platforms.py, v3/engine.py, v3/full_catalog.json | Reviewed route and native entity exist; per-vehicle capability, consent and functional confirmation required. |
+| device_tracker.position | mapped_conditional | v3/engine.py, v3/entities.py | Parking endpoint only, quota/registry eligibility; movement is a recent endpoint indication, not live GPS. |
+| sensor.last_trip (fixbranch) | mapped_conditional | v3/trips.py, v3/entities.py | CARIAD last-trip response required |
 
-| Priority | Action / setting | V2 entrypoint | V3 b7 gap | V3 acceptance test |
-|---|---|---|---|---|
-| P0 | Cloud refresh | button.refresh_vehicle_data, service.refresh_cloud_data | V3 cloud GET is not V2 request_current_vehicle_data/wake | GET cloud refresh plus separate POST wake/requestID workflow |
-| P0 | Remote vehicle refresh / Wake | button.wake_vehicle_modern, service.refresh_vehicle_data | CARIAD wake candidate, no requestID tracking/wake budget | Explicit wake POST, JSON {}, bounded cooldown, requestID outcome |
-| P1 | Flash lights | button.flash_lights | V2 button exists, no V3 operation/native button | Capability honkAndFlash, physical test; never expose horn without explicit scope |
-| P0 | Start climatisation (stored) | climate.climatisation, service.start_climate_control | V3 bodyless candidate, no requestID end-to-end | No settings -> bodyless POST, requestID lifecycle and state readback |
-| P0 | Climate target temperature/settings start | climate.climatisation, service.start_climate_control | V3 lacks set_temperature and settings/body integration | V2 current temp in climate entity; only explicit setting changes use validated payload |
-| P0 | Stop climatisation | climate.climatisation, service.execute_vehicle_action | V3 bodyless candidate, no requestID lifecycle | Keep original ID, readback required |
-| P1 | Window heating action on/off | button.start_window_heating_modern/button.stop_window_heating_modern | V3 candidates only, physical Q8 result unverified | Independent button test & status |
-| P1 | Window heating settings + at unlock + 4 zones | switch.climatisation_window_heating / climatisation_at_unlock / 4 zone switches | Six V2 persisted-setting switches absent in V3 | GET settings then PUT reviewed body, no blind overwrite |
-| P0 | Start/Stop charging | button.start_charging_modern/button.stop_charging_modern, service.execute_vehicle_action | V3 candidates; no requestID result/readback | Separate start/stop, no blind retries, explicit selection |
-| P1 | Timed charging | service.execute_vehicle_action(start_timed_charger) | V3 lacks dedicated timed charging command | V2 semantics when supported, no guessed payload |
-| P0 | Charge mode manual/timer | select.charge_mode, service.set_charge_mode | V3 select platform missing and PUT adapter absent | PreferredChargeMode, not current chargeMode; preserve mode options |
-| P0 | Global charge target | number.target_state_of_charge, service.set_target_soc | V3 number platform missing | 20–100%, step 5; read-modify-write, readback |
-| P1 | Current location charge target | number.active_charging_profile_target_soc, service.set_location_charge_target | V3 number platform missing | Resolve current charging profile ID from vehicle, don't guess |
-| P1 | Individual profile charge target | number.charge_profile_{profile_id}_target_soc | V3 dynamic number creation missing | Stable unique_id based on immutable profile id; no name-key |
-| P1 | Preheater on/off | switch.preheater_active, service.execute_vehicle_action | V3 preheater controls not implemented; legacy MBB POST blocked | Legacy auth, security and status readback |
-| P1 | Auxiliary heating with duration | service.start_auxiliary_heating | V3 no native equivalent | Duration 10–60m step10, compatibility and auth checks |
-| P0 | Lock/Unlock | lock.lock, service.execute_vehicle_action | S-PIN templating exists; completion unverified | Actual lock state, requestID, S-PIN and no retries |
-| P2 | Start/Stop engine | button.start_engine/button.stop_engine, service.start_engine/service.stop_engine | V3 absent; V2 feature gated and model-specific | Never auto-enable on Q8 without OEM capability and risk review |
-| P1 | Local dealer management | service.set_local_dealer, sensor.local_dealer | V3 no service handler or local sensor | Local-only data, no Audi cloud request |
+## Control workstreams
 
-### Service API parity
-
-These are existing V2 Home Assistant service IDs. In b7, V3 used `account=None` and did not register all services; the patch shares account bootstrap and registers the services in both runtimes, but not every V3 service action is implemented. Even when an existing global registration survives another account, its handler expects a V2 account. Restoring only entity controls would therefore still break automations.
-
-| V2 service | Required in V3 |
-|---|---|
-| `audiconnect.set_local_dealer` | Local-only config, no cloud action |
-| `audiconnect.refresh_vehicle_data` | V3-independent implementation with original schema and authorization |
-| `audiconnect.execute_vehicle_action` | Preserve action selector, per-vehicle gating and response semantics |
-| `audiconnect.start_climate_control` | V3-independent implementation with original schema and authorization |
-| `audiconnect.start_auxiliary_heating` | V3-independent implementation with original schema and authorization |
-| `audiconnect.set_location_charge_target` | V3-independent implementation with original schema and authorization |
-| `audiconnect.set_charge_mode` | V3-independent implementation with original schema and authorization |
-| `audiconnect.set_target_soc` | V3-independent implementation with original schema and authorization |
-| `audiconnect.start_engine` | V3-independent implementation with original schema and authorization |
-| `audiconnect.stop_engine` | V3-independent implementation with original schema and authorization |
-| `audiconnect.refresh_cloud_data` | Bounded GET refresh, not vehicle wake |
-
-The `execute_vehicle_action` selector includes **all 11** V2 action names, including `start_timed_charger`, `start_preheater` and `stop_preheater`:
-
-```text
-lock, unlock, start_climatisation, stop_climatisation, start_charger, start_timed_charger, stop_charger, start_preheater, stop_preheater, start_window_heating, stop_window_heating
-```
-
-**Do not confuse registration with authorization:** a service may be registered globally while a vehicle-dependent mutation must be rejected until that VIN has the OEM capability, required S-PIN/credential and proven command semantics. No automatic POST probing.
-
-### Command execution contract (P0)
-
-For every mutating V2 action: `user action → capability/scope check → exact API family, path and payload → one POST/PUT → requestID (if supplied) → bounded pendingrequests follow-up → vehicle status readback → completed / rejected / unknown`. An HTTP 200/202 is only **accepted**, never physical success. If timed out, do not retry blindly. V2 climate stored start with **no new settings** stays bodyless; wake uses JSON `{}`.
-
-### Legacy/MBB compatibility (P1)
-
-V3's `MBBLegacyExecutor` is GET-only. Restore the V2 legacy per-region home endpoint and applicable climate, charging and preheater action variants separately, with security token/S-PIN authorization. Do not use modern CARIAD routes for legacy vehicles or auto-enable unsupported controls.
-
-## Canonical V2 entity rows (source-derived)
-
-The following rows are exhaustive source declarations, not the number of currently active Q8 entities. V2 has runtime/capability filtering and dynamic charging profiles. The `historical_paths` count describes schema inventory, **not live success**. The 110 historical field references at the end include aliases and duplicated entity keys. There are **109 V2 source entity slots**, plus a separately recorded V3-only climate quick switch.
-
-### sensor
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `last_update_time` | not_migrated | 0 | class=timestamp | P0 |
-| `shortterm_current` | not_migrated | 0 | class=timestamp | P2 |
-| `shortterm_reset` | not_migrated | 0 | class=timestamp | P2 |
-| `longterm_current` | not_migrated | 0 | class=timestamp | P2 |
-| `longterm_reset` | not_migrated | 0 | class=timestamp | P2 |
-| `model` | not_migrated | 0 | — | P2 |
-| `mileage` | mapped_conditional | 1 | unit=km, class=distance, state=total_increasing | P0 |
-| `service_adblue_distance` | mapped_conditional | 1 | unit=km, class=distance | P2 |
-| `range` | mapped_conditional | 1 | unit=km, class=distance | P0 |
-| `hybrid_range` | mapped_conditional | 1 | unit=km, class=distance | P0 |
-| `service_inspection_time` | mapped_conditional | 1 | unit=d | P0 |
-| `service_inspection_distance` | mapped_conditional | 1 | unit=km, class=distance | P0 |
-| `oil_change_time` | mapped_conditional | 1 | unit=d | P0 |
-| `oil_change_distance` | mapped_conditional | 1 | unit=km, class=distance | P0 |
-| `oil_level` | mapped_conditional | 1 | unit=% | P2 |
-| `charging_state` | mapped_conditional | 1 | — | P0 |
-| `charging_mode` | mapped_conditional | 2 | — | P2 |
-| `charging_type` | not_migrated | 0 | — | P2 |
-| `energy_flow` | not_migrated | 0 | — | P2 |
-| `max_charge_current` | not_migrated | 0 | unit=A, class=current | P2 |
-| `charging_current_limit_a` | mapped_conditional | 1 | unit=A, class=current | P2 |
-| `charging_current_limit_mode` | mapped_conditional | 1 | — | P2 |
-| `charging_plug_auto_unlock` | mapped_conditional | 1 | — | P2 |
-| `vehicle_reported_online` | mapped_conditional | 1 | — | P0 |
-| `vehicle_reported_active` | mapped_conditional | 1 | — | P2 |
-| `primary_engine_type` | not_migrated | 0 | — | P2 |
-| `secondary_engine_type` | not_migrated | 0 | — | P2 |
-| `primary_engine_range` | mapped_conditional | 1 | unit=km, class=distance | P0 |
-| `secondary_engine_range` | mapped_conditional | 1 | unit=km, class=distance | P0 |
-| `primary_engine_range_percent` | mapped_conditional | 1 | unit=% | P0 |
-| `car_type` | mapped_conditional | 1 | — | P2 |
-| `secondary_engine_range_percent` | mapped_conditional | 1 | unit=% | P0 |
-| `charging_power` | mapped_conditional | 1 | unit=kW, class=power | P0 |
-| `actual_charge_rate` | mapped_conditional | 1 | — | P2 |
-| `tank_level` | mapped_conditional | 1 | unit=% | P0 |
-| `state_of_charge` | mapped_conditional | 1 | unit=%, class=battery | P0 |
-| `remaining_charging_time` | mapped_conditional | 1 | — | P0 |
-| `charging_complete_time` | not_migrated | 0 | class=timestamp | P2 |
-| `target_state_of_charge` | mapped_conditional | 1 | unit=% | P0 |
-| `external_power` | mapped_conditional | 1 | — | P2 |
-| `plug_led_color` | not_migrated | 0 | — | P2 |
-| `doors_trunk_status` | not_migrated | 0 | — | P0 |
-| `climatisation_state` | mapped_conditional | 2 | — | P0 |
-| `outdoor_temperature` | not_migrated | 0 | unit=°C, class=temperature | P2 |
-| `park_time` | not_migrated | 0 | class=timestamp | P2 |
-| `position_last_updated` | not_migrated | 0 | class=timestamp | P2 |
-| `remaining_climatisation_time` | mapped_conditional | 1 | unit=min | P0 |
-| `preheater_duration` | not_migrated | 0 | unit=min | P2 |
-| `preheater_remaining` | not_migrated | 0 | unit=min | P2 |
-| `active_charging_profile_target_soc` | not_migrated | 0 | unit=%, state=measurement | P2 |
-| `active_charging_profile_name` | not_migrated | 0 | — | P2 |
-| `active_charging_profile_min_soc` | not_migrated | 0 | unit=% | P2 |
-| `preferred_charging_time_start` | not_migrated | 0 | — | P2 |
-| `preferred_charging_time_end` | not_migrated | 0 | — | P2 |
-| `climatisation_timer_enabled_count` | not_migrated | 0 | — | P2 |
-| `next_climatisation_timer_local` | not_migrated | 0 | — | P2 |
-| `charging_timer_enabled_count` | not_migrated | 0 | — | P2 |
-| `vehicle_data_freshness` | missing | 0 | — | P0 |
-| `vehicle_data_age` | partial | 0 | — | P0 |
-| `cloud_last_successful_poll` | partial | 0 | — | P0 |
-| `local_dealer` | missing | 0 | — | P2 |
-| `service_overview` | missing | 0 | — | P2 |
-| `api_requests_remaining` | missing | 0 | — | P2 |
-
-### binary_sensor
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `plug_state` | mapped_conditional | 1 | — | P0 |
-| `plug_lock_state` | mapped_conditional | 1 | — | P0 |
-| `glass_surface_heating` | not_migrated | 0 | — | P2 |
-| `sun_roof` | not_migrated | 0 | — | P2 |
-| `roof_cover` | not_migrated | 0 | — | P2 |
-| `parking_light` | not_migrated | 0 | — | P2 |
-| `any_window_open` | not_migrated | 0 | — | P2 |
-| `any_door_unlocked` | not_migrated | 0 | — | P2 |
-| `any_door_open` | not_migrated | 0 | — | P2 |
-| `trunk_unlocked` | not_migrated | 0 | — | P2 |
-| `trunk_open` | not_migrated | 0 | — | P2 |
-| `hood_open` | not_migrated | 0 | — | P2 |
-| `left_front_door_open` | not_migrated | 0 | — | P2 |
-| `right_front_door_open` | not_migrated | 0 | — | P2 |
-| `left_rear_door_open` | not_migrated | 0 | — | P2 |
-| `right_rear_door_open` | not_migrated | 0 | — | P2 |
-| `left_front_window_open` | not_migrated | 0 | — | P2 |
-| `right_front_window_open` | not_migrated | 0 | — | P2 |
-| `left_rear_window_open` | not_migrated | 0 | — | P2 |
-| `right_rear_window_open` | not_migrated | 0 | — | P2 |
-| `braking_status` | not_migrated | 0 | — | P2 |
-| `oil_level_binary` | not_migrated | 0 | — | P2 |
-| `is_moving` | not_migrated | 0 | — | P2 |
-
-### button
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `refresh_vehicle_data` | semantic_mismatch | 0 | — | P1 |
-| `flash_lights` | missing | 0 | — | P1 |
-| `start_charging_modern` | candidate_after_manual_proof (V2 experimental) | 0 | — | P1 |
-| `stop_charging_modern` | candidate_after_manual_proof (V2 experimental) | 0 | — | P1 |
-| `start_window_heating_modern` | candidate_after_manual_proof (V2 experimental) | 0 | — | P1 |
-| `stop_window_heating_modern` | candidate_after_manual_proof (V2 experimental) | 0 | — | P1 |
-| `wake_vehicle_modern` | candidate_after_manual_proof (V2 experimental) | 0 | — | P1 |
-| `start_engine` | missing | 0 | — | P1 |
-| `stop_engine` | missing | 0 | — | P1 |
-
-### switch
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `preheater_active` | missing | 0 | — | P1 |
-| `climatisation_window_heating` | missing | 0 | — | P1 |
-| `climatisation_at_unlock` | missing | 0 | — | P1 |
-| `climatisation_zone_front_left` | missing | 0 | — | P1 |
-| `climatisation_zone_front_right` | missing | 0 | — | P1 |
-| `climatisation_zone_rear_left` | missing | 0 | — | P1 |
-| `climatisation_zone_rear_right` | missing | 0 | — | P1 |
-
-
-### number
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `target_state_of_charge` | missing (dynamic) | 0 | — | P0 |
-| `active_charging_profile_target_soc` | missing (dynamic) | 0 | — | P1 |
-| `charge_profile_{profile_id}_target_soc` | missing (dynamic) | 0 | — | P1 |
-
-### select
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `charge_mode` | missing | 0 | — | P1 |
-
-### climate
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `climatisation` | partial | 0 | — | P1 |
-
-### lock
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `lock` | candidate_after_manual_proof | 0 | — | P1 |
-
-### device_tracker
-
-| V2 key / unique ID suffix | V3 static coverage | Historical CARIAD paths | Unit / class contract | Priority |
-|---|---|---:|---|---|
-| `position` | missing | 0 | — | P2 |
+| Action | Contract | Implementation and acceptance |
+|---|---|---|
+| Cloud refresh | button.refresh_vehicle_data, service.refresh_cloud_data | Live functional acceptance pending. Separate native cloud GET and historical remote refresh POST; no conflation. |
+| Remote vehicle refresh / Wake | button.wake_vehicle_modern, service.refresh_vehicle_data | Live functional acceptance pending. Reviewed wake and refresh routes, quota/cooldown/request-ID guards. |
+| Flash lights | button.flash_lights | Live functional acceptance pending. Native flash button, explicit capability and parked location required. |
+| Start climatisation (stored) | climate.climatisation, service.start_climate_control | Live functional acceptance pending. Stored/bodyless CARIAD start plus MBB parameterized start. |
+| Climate target temperature/settings start | climate.climatisation, service.start_climate_control | Live functional acceptance pending. 15–30 C setpoint, restore, temperature-bearing start; no start while off. |
+| Stop climatisation | climate.climatisation, service.execute_vehicle_action | Live functional acceptance pending. CARIAD and MBB stop; backend confirmation distinct from car state. |
+| Window heating action on/off | button.start_window_heating_modern/button.stop_window_heating_modern | Live functional acceptance pending. Explicit window heat start/stop with separate buttons. |
+| Window heating settings + at unlock + 4 zones | switch.climatisation_window_heating / climatisation_at_unlock / 4 zone switches | Live functional acceptance pending. Six persisted setting switches and reviewed settings PUT. |
+| Start/Stop charging | button.start_charging_modern/button.stop_charging_modern, service.execute_vehicle_action | Live functional acceptance pending. Explicit charging start/stop with bounded request status. |
+| Timed charging | service.execute_vehicle_action(start_timed_charger) | Live functional acceptance pending. Timed charging through reviewed execute-action routing; verify actual schedule effect. |
+| Charge mode manual/timer | select.charge_mode, service.set_charge_mode | Live functional acceptance pending. Native charge mode select and parameterized PUT. |
+| Global charge target | number.target_state_of_charge, service.set_target_soc | Live functional acceptance pending. Native 20–100% number, step 5 and reviewed target PUT. |
+| Current location charge target | number.active_charging_profile_target_soc, service.set_location_charge_target | Live functional acceptance pending. Active profile ID resolved from reported profiles. |
+| Individual profile charge target | number.charge_profile_{profile_id}_target_soc | Live functional acceptance pending. Per-profile numbers use immutable ID, not profile name. |
+| Preheater on/off | switch.preheater_active, service.execute_vehicle_action | Live functional acceptance pending. Preheater switch and CARIAD auxiliary routes; legacy data parsed independently. |
+| Auxiliary heating with duration | service.start_auxiliary_heating | Live functional acceptance pending. Explicit duration and S-PIN guarded auxiliary service. |
+| Lock/Unlock | lock.lock, service.execute_vehicle_action | Live functional acceptance pending. CARIAD PIN body and MBB challenge-response RLU; bounded completion. |
+| Start/Stop engine | button.start_engine/button.stop_engine, service.start_engine/service.stop_engine | Live functional acceptance pending. Capability-restricted engine start/stop; no model-only permission. |
+| Local dealer management | service.set_local_dealer, sensor.local_dealer | Live functional acceptance pending. Local dealer and service overview, config-only. |
 
 ## Raw historical V2 field-reference inventory
 
@@ -376,64 +287,10 @@ Source: `v3/historical_catalog.py`, 110 source references across 23 selective-st
 | `is_moving` | `binary_sensor.is_moving` | — | — (derived/unmapped) |
 | `any_door_unlocked` | `binary_sensor.any_door_unlocked` | — | — (derived/unmapped) |
 
-## Product versus engineering test actions
 
-User decision: temporary probe actions were runtime engineering tests and must not be migrated as V3 product functionality. Remove probe_api_paths, probe_vehicle_health, probe_trip_data and refresh_trip_data from public HA actions for both runtimes. These were fork engineering additions, not upstream V2 features; upstream V2 business logic remains unchanged. Keep the optional Workbench separate from the normal service surface. Trip data is consumed through normal V3 polling, not a manual probe: existing enabled trip entities or reported trip capability, three reviewed GET routes, three-hour per-vehicle cooldown, quota reserve, no guessed units, no raw trip response export.
+## Release gate
 
-## Recorder migration — 13 HA repair warnings
-
-HA displayed 13 *'no longer has a state class'* repairs after V3 activation. The current `attribute_contracts.json` has many `state_class: null` entries; blindly adding `measurement` would corrupt long-term statistics or misrepresent a field. Compare the exact Recorder/entity registry metadata and historical V2 behavior, then explicitly migrate changes with tests. Do not suppress repairs by deleting entities/statistics.
-
-| Repair-affected sensor key | Migration task |
-|---|---|
-| `sensor.service_inspection_time` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.oil_change_distance` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.primary_engine_range` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.secondary_engine_range` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.tank_level` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.state_of_charge` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.hybrid_range` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.secondary_engine_range_percent` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.service_inspection_distance` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.oil_change_time` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.remaining_climatisation_time` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.primary_engine_range_percent` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-| `sensor.range` | Compare V2 and V3 device/state classes, units, `state_class`, `unique_id`, restore existing statistics where semantically compatible |
-
-## Shared HA identity and clear device presentation
-
-**Zero user migration** is part of V2 parity: same config entry, VIN device, `unique_id`, `entity_id`, native platform, service identifiers and payload schemas, unit/Recorder metadata, dashboards and automations. Switching via the integration option currently unloads/reloads the config entry; it is not a second login, re-pairing or an instantaneous in-memory switch. Precisely one coordinator performs polling and actions.
-
-The implementation previously disabled 59 registry entries under V3 b7. This patch now restores **only** migration-owned `disabled_by=INTEGRATION` records and never disables historical V2 entries on future V3 loads. Other entities may remain `unavailable` pending V3 data mapping; keeping a registry ID is necessary but **not sufficient** for parity. User-disabled entries are untouched.
-
-V2 upstream platform metadata is immutable. The **V3 declarative metadata** reclassifies 15 vehicle sensor contracts out of Diagnostics, without any V2 sensor or binary sensor code changes. The legacy 11 binary status categories remain unchanged in V2; V3's own binary entities must implement independent metadata and categories. True cloud health (API requests remaining, last poll, freshness, V3 discovery) remains Diagnostic. These changes do not rename or recreate entity IDs and do not invent `state_class`. Existing user-customized categories must be respected by HA.
-
-The target architecture for reusing the **same V2 account/session owner** with an independent selected V2 or V3 engine is defined in [ADR: Shared Account and HA Entity Contract](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md). The shared authentication/session bootstrap is implemented on the patch branch; all-nine-platform and independent V3 control migrations remain open.
-
-## Acceptance gates — release blocked until all hold
-
-1. **Inventory diff**: every V2 entity/service/action has an explicit mapping to the independent V3 runtime, or is explicitly vehicle-unsupported. New V2 source declarations automatically fail an inventory-drift test.
-2. **No regression on Q8**: V2's 90 entity registry records remain attached to the same vehicle, no additional integration-disabled historical entities, no duplicate unique IDs, valid last-known telemetry after 1h/4h/24h parking.
-3. **Read-only parity**: compare actual values, timestamps, units, polarity, derived fields and unavailable semantics for all Q8 reported capabilities. Mixed CARIAD HTTP 207 and partial cloud failures cannot erase valid values.
-4. **Platform parity**: all 9 platforms set up in V3, including number, select, tracker; supplemental freshness, dealer/service, rate-limit and trip-related entities retained according to V2 support.
-5. **Control parity**: all V2 HA-native and service actions available for eligible vehicles, with exact historical service IDs and parameters, no test-only workaround needed; physical outcome not inferred from HTTP acceptance.
-6. **Safety**: physical commands require per-VIN capability/authorization verification; S-PIN never stored in logs; status readback, request-ID completion, duplicate prevention, bounded wake budget, no blind retries.
-7. **Recorder**: review and resolve all 13 warnings by metadata compatibility and proper statistics migration, without inventing state classes.
-8. **Legacy + regions**: Auth0/Q8 and legacy MBB paths separately tested; unknown capabilities not labeled permanently unsupported; region allowlists maintained.
-9. **Lifecycle**: V2 → V3 → V2 → V3 with no re-pairing, registry deletions, duplicate devices, lost user settings, broken dashboard IDs or automation/service names.
-10. **Quality**: pytest, HA test runtime, HACS/hassfest, Workbench, real Q8 acceptance, multi-vehicle comparison, and explicit release-gate signoff.
-
-## Work order / ownership
-
-| Phase | Focus | Stop/Go requirement |
-|---|---|---|
-| P0-A | Registry 59 disabled vs 0 on V2; complete CARIAD read-only and age behavior (PR #21) | No mass-unavailable regression |
-| P0-B | Q8 controls: climate, charging, access, wake, command-ID/pendingrequests | Safe readback on car and no blind retries |
-| P0-C | Number/select and service facade without V2 runtime dependency | Existing automations and sliders work |
-| P1-A | Derived sensors and 13 Recorder metadata repairs | Values/units/history equivalent to V2 |
-| P1-B | Preheater, auxiliary heating, timers/settings, window heating, location profile controls, flash | Eligible vehicle functions and UI available |
-| P1-C | MBB/legacy control and read-only parity, GPS/device tracker and dealer metadata | Per-family Q8 + legacy acceptance |
-| Gate | Restore all 9 platforms, full diff on Q8 and rollback | Only then resume Media, Trips expansion and roadmap |
-
-Machine-readable baseline: [`docs/V2_V3_PARITY_BASELINE.json`](V2_V3_PARITY_BASELINE.json). It contains all 109 source-defined V2 entity slots, 110 historical field references, V2 service IDs/action choices, V3 catalog operation inventory and current parity classifications. No VIN, token or GPS values are recorded.
-
+- Static source inventory and independent code paths: updated; no physical acceptance implied.
+- Open implementation/verification: quota restore display on HA restart; exact legacy timer payload semantics; CARIAD reset-history availability; HA integration behavior and per-vehicle entity availability. No guessed fields or fallback to V2.
+- Recorder: all thirteen reported state classes restored; actual migration to be checked in HA.
+- Test release remains blocked until code-complete static parity and CI. Physical Q8 and V2→V3→V2 registry rollback are subsequent stable-release acceptance gates.

@@ -14,14 +14,13 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 - **V3 device presentation:** 15 historical V2 sensor contracts that were tagged diagnostic are displayed under ordinary Sensors **in V3 only**. Upstream V2's existing platform metadata is not modified. Technical integration health remains in Diagnostics.
 - **Governance:** new exhaustive V2/V3 source parity matrix and machine-readable baseline: 109 historical V2 source entity slots across nine HA platforms, 110 source field references, 72 sensor metadata contracts, 11 HA service IDs and 19 control workstreams; CI tests detect drift.
 
-## Still missing before full V2 parity
+## Current parity status
 
-- All nine HA platforms are now forwarded into independent V3 code. Native `number`, `select` and parked `device_tracker` identities exist, but charge-target/profile writes and real Q8 tracker readback are not yet functionally accepted. Most derived sensor parity remains outstanding; an entity may remain `unavailable`.
-- The Q8's climate status was observed as `invalid` and no successful physical climate/start/stop/wake/lock end-to-end result has been established.
-- Global and location-specific charge targets, charge mode, timers, preheater/auxiliary heating, remote flash and engine controls need safe V3 routing, metadata and vehicle-specific confirmation. Their old HA service names exist; they **must not be considered functional in V3** yet.
-- V3 has bounded CARIAD request-ID/pendingrequests **backend** tracking, but physical vehicle state readback is not proven. Legacy MBB controls, full vehicle-specific dynamic entity coverage, and V2→V3→V2 rollback on a live HA installation remain open. All 13 reported Recorder state classes have been restored from the previous fixbranch; live repair resolution remains to be tested.
-- Temporary `probe_api_paths`, `probe_vehicle_health`, `probe_trip_data`, and `refresh_trip_data` services were fork engineering tests, not original upstream V2 functionality, and are removed from both runtime service surfaces. The optional development Workbench remains separate from normal HA actions.
-- Historical trip sensors are updated by bounded, ordinary V3 polling for vehicles with existing trip entities or a reported trip capability. The three reviewed CARIAD routes are read at most once per three hours per VIN, with quota guards and unit-validated data. New Media and expanded trip APIs remain separate roadmap work.
+- Independent MBB reads, climate start/stop, S-PIN challenge-response lock/unlock, bounded backend confirmation, region selection and legacy trip data are implemented. Explicitly reviewed legacy-bearer CARIAD routes are supported without V2 business fallback.
+- Historical access, charge profiles/timers, outdoor temperature, parking, trip data, and native HA controls now have independent source-backed paths. The matrix includes the fixbranch's additional last-trip sensor.
+- Remaining implementation/verification gaps: quota restore display after HA restart, legacy timer interpretation, modern reset-history availability and actual HA entity behavior. The current matrix is not a static-parity sign-off.
+- All four temporary probe services are intentionally excluded. No automatic mutating discovery.
+- Physical Q8 command acceptance, recorder repair and runtime rollback are required after the test package is published, before stable promotion.
 
 ## Installation / safe test
 
@@ -34,6 +33,6 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 
 ## Engineering quality gate
 
-Prerelease publication is blocked by `.github/workflows/v3-beta-release.yml` until an explicit manual dispatch and the four V2-parity sign-off flags are true. Routine pushes can run tests but cannot publish a tag or overwrite an existing ZIP.
+Prerelease publication is blocked by `.github/workflows/v3-beta-release.yml` until an explicit manual dispatch and the test-release code-completeness sign-off and CI pass; physical acceptance is a separate stable gate. Routine pushes can run tests but cannot publish a tag or overwrite an existing ZIP.
 
 **No real-car acceptance is implied by CI.** Compare [V2/V3 parity matrix](V2_V3_PARITY_MATRIX.md), [machine-readable baseline](V2_V3_PARITY_BASELINE.json), and [shared account & HA identity ADR](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md).
