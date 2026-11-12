@@ -11,7 +11,8 @@
       "acceptance": "Localized GraphQL manufacturer model and independent drive classification",
       "status": "implemented_pending_validation",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "GraphQL locale and inventory schema; stable model entity even when missing; verify actual model label and registry refresh."
     },
     {
       "id": "command_projection",
@@ -41,9 +42,10 @@
       "id": "trip_durable_history",
       "capability": "mobility",
       "acceptance": "Verify endpoint completeness, persistence/backfill policy, no overlap/double-counting; do not claim lifetime history",
-      "status": "open",
+      "status": "implemented_pending_validation",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Private per-entry trip archive, save/restore, 10000 record cap, 50 entity rows, paginated admin access, regression tests. Endpoint coverage and CI still open."
     },
     {
       "id": "range_soc",
@@ -67,7 +69,8 @@
       "acceptance": "Charging profiles and charging/climate/departure timers as normalized native entity attributes",
       "status": "open",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Typed charging/climate/ventilation timers and charging profiles projected on existing entities. Departure profile/timer and complete field schemas need evidence."
     },
     {
       "id": "access_details",
@@ -75,7 +78,8 @@
       "acceptance": "Individual door/window/lock/light states and access aggregate; resolve icons and partial array invalidation",
       "status": "open",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Component identity, structured doors/windows/lights, partial/contradictory invalidation; validate actual parking-light component labels and registry metadata."
     },
     {
       "id": "health_details",
@@ -89,9 +93,10 @@
       "id": "capability_details",
       "capability": "vehicle_status",
       "acceptance": "Connected-service availability, expiration and disable eligibility as normalized attributes",
-      "status": "open",
+      "status": "implemented_pending_validation",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Connected service ID, expiry and disable eligibility normalized and projected; safe source fields, no authority inferred from metadata."
     },
     {
       "id": "discovery",
@@ -99,7 +104,8 @@
       "acceptance": "Unobserved jobs and read-only routes: complete reviewed catalog scan; document context/quota exclusions, no silent unsupported inference",
       "status": "open",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Alternative activeVentilation timer namespace recognized as read evidence. Complete reviewed GET coverage still open."
     },
     {
       "id": "schema_disposition",
@@ -107,7 +113,8 @@
       "acceptance": "All observed response leaves assigned native state, normalized attribute, metadata or explicit unresolved disposition; resolve truncated schema",
       "status": "open",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Per-job and GraphQL structural evidence, safe windowLocation path and extended bounded traversal. Full untruncated inventory remains required."
     },
     {
       "id": "registry_lifecycle",
@@ -115,7 +122,8 @@
       "acceptance": "Clean install and upgrade; preserve IDs and user choices; verify remaining unprojected/disabled identities",
       "status": "open",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Model projection preserved and actual device class/state class/unit metadata reported; upgrade and rollback tests pending."
     },
     {
       "id": "upstream_matrix",
@@ -123,7 +131,8 @@
       "acceptance": "Per capability/API/model evidence; distinguish code tests, HTTP/schema, readback and physical confirmation",
       "status": "open",
       "blocks_hacs": true,
-      "blocks_upstream": true
+      "blocks_upstream": true,
+      "implementation_evidence": "Separate code/HTTP/schema/physical evidence. Add explicit matrix with baseline and candidate validation."
     },
     {
       "id": "live_acceptance",
