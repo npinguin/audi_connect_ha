@@ -18,8 +18,9 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 - All nine HA platforms are now forwarded into independent V3 code. Native `number`, `select` and parked `device_tracker` identities exist, but charge-target/profile writes and real Q8 tracker readback are not yet functionally accepted. Most derived sensor parity remains outstanding; an entity may remain `unavailable`.
 - The Q8's climate status was observed as `invalid` and no successful physical climate/start/stop/wake/lock end-to-end result has been established.
 - Global and location-specific charge targets, charge mode, timers, preheater/auxiliary heating, remote flash and engine controls need safe V3 routing, metadata and vehicle-specific confirmation. Their old HA service names exist; they **must not be considered functional in V3** yet.
-- V3 has bounded CARIAD request-ID/pendingrequests **backend** tracking, but physical vehicle state readback is not proven. Legacy MBB controls, all 13 Recorder metadata repairs, vehicle-specific dynamic entities, and V2→V3→V2 rollback on a live HA installation remain open.
-- New Media / Trips API expansion remains out of scope until V2 parity is accepted.
+- V3 has bounded CARIAD request-ID/pendingrequests **backend** tracking, but physical vehicle state readback is not proven. Legacy MBB controls, full vehicle-specific dynamic entity coverage, and V2→V3→V2 rollback on a live HA installation remain open. All 13 reported Recorder state classes have been restored from the previous fixbranch; live repair resolution remains to be tested.
+- Temporary `probe_vehicle_health`, `probe_trip_data`, and `refresh_trip_data` services are not product actions and are removed from V3. Upstream V2 retains its own historical `probe_api_paths` action; in a V3-only installation that action is not registered. The optional development Workbench remains separate from normal HA actions.
+- Historical trip sensors are updated by bounded, ordinary V3 polling for vehicles with existing trip entities or a reported trip capability. The three reviewed CARIAD routes are read at most once per three hours per VIN, with quota guards and unit-validated data. New Media and expanded trip APIs remain separate roadmap work.
 
 ## Installation / safe test
 

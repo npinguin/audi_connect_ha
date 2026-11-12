@@ -4095,5 +4095,16 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. V2-only upstream probe service remains untouched. Legacy controls, complete derived-data parity and real integration coverage still open."
+  "latest_candidate_notes": "V3 restores historical Recorder metadata and derived access data. Temporary probe services excluded from V3 product; trip data is normal bounded polling for known/capable vehicles. V2-only upstream probe service remains untouched. Legacy controls, complete derived-data parity and real integration coverage still open.",
+  "product_scope_exclusions": {
+    "temporary_runtime_probes": [
+      "probe_vehicle_health",
+      "probe_trip_data",
+      "refresh_trip_data"
+    ],
+    "upstream_v2_only_service": "probe_api_paths",
+    "v3_product_probes": false,
+    "trip_data": "bounded_normal_poll",
+    "reason": "User explicitly excluded runtime engineering test actions from V3 product."
+  }
 }

@@ -75,3 +75,7 @@ Every physical command: explicit user action → VIN capability and credentials 
 6. **Required accept:** V2→V3→V2→V3 on the Q8, no renames or HA code changes, active polling and service calls work, physical actions validated on authorized vehicle.
 
 The [full parity matrix](V2_V3_PARITY_MATRIX.md) and [JSON baseline](V2_V3_PARITY_BASELINE.json) are the per-feature checklist; this ADR is the architecture/identity/presentation contract. Keep V2 the production fallback until all gates pass.
+
+## Product surface exclusion
+
+Temporary API probe actions belong to engineering validation, not the V3 product. V3 must not register probe actions or manual trip probes. Normal V3 polling supplies trip entities. Upstream V2 stays unchanged. The optional developer Workbench is separate from the public HA action contract.
