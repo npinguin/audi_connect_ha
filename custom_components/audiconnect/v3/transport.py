@@ -27,6 +27,16 @@ _GRAPHQL_QUERY = """query vehicleList {
 }"""
 
 
+# Optional OEM render discovery is deliberately separate from identity.
+# Public reference: vwgroup-connect-ha/cariad/api/graphql.py (renderPictures).
+_GRAPHQL_IMAGES_QUERY = """query vehicleImages {
+  userVehicles {
+    vin
+    vehicle { renderPictures { mediaType url } }
+  }
+}"""
+
+
 @dataclass(frozen=True)
 class V3Response:
     status: int
@@ -80,7 +90,8 @@ class V3Transport:
             # GraphQL inventory uses POST transport but is a fixed read-only query.
             read_only = method == "GET" or (
                 family == "graphql" and method == "POST"
-                and path == "/vgql/v1/graphql" and body == {"query": _GRAPHQL_QUERY}
+                and path == "/vgql/v1/graphql"
+                and body in ({"query": _GRAPHQL_QUERY}, {"query": _GRAPHQL_IMAGES_QUERY})
             )
             self.quota.authorize(datetime.now(UTC), read_only=read_only)
             await self.auth.ensure_ready()
@@ -127,3 +138,30 @@ class V3Transport:
         # Only request metadata is retained here, not an account-wide raw response.
         self.last_inventory_metadata = replace(response, data=None)
         return [car for car in vehicles if isinstance(car, dict)]
+
+
+    async def discover_vehicle_images(self) -> dict[str, str]:
+        """One optional fixed read query; no token exchange or fallback login."""
+        response = await self.request(
+            "graphql", "POST", "/vgql/v1/graphql",
+            body={"query": _GRAPHQL_IMAGES_QUERY}, explicit_action=True,
+        )
+        if not 200 <= response.status < 300 or not isinstance(response.data, dict):
+            raise RuntimeError("Audi vehicle render query unavailable")
+        data = response.data.get("data")
+        rows = data.get("userVehicles") if isinstance(data, dict) else None
+        if not isinstance(rows, list):
+            raise RuntimeError("Audi vehicle render list unavailable")
+        from .vehicle import select_vehicle_image
+        result = {}
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            vin = row.get("vin")
+            if not isinstance(vin, str) or len(vin) != 17 or not vin.isalnum():
+                continue
+            vehicle = row.get("vehicle")
+            url = select_vehicle_image(vehicle, vin)
+            if url:
+                result[vin.lower()] = url
+        return result

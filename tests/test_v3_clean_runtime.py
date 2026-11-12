@@ -487,3 +487,30 @@ async def test_standalone_schema_evidence_and_discovery_export_without_trip_valu
     assert snapshot["discovery_progress"]["control_evidence_scope"].startswith("stored_vehicle_context")
     assert "123.456" not in json.dumps(snapshot)
     assert "private-trip" not in json.dumps(snapshot)
+
+
+@pytest.mark.asyncio
+async def test_optional_vehicle_render_failure_does_not_break_identity_or_repeat():
+    engine, transport, _ = engine_for()
+    from unittest.mock import AsyncMock
+    transport.discover_vehicle_images = AsyncMock(side_effect=RuntimeError("denied"))
+    await engine.discover()
+    car = engine.vehicles[VIN.lower()]
+    assert car.model_family == "q8"
+    assert car.image_status == "inconclusive"
+    await engine.discover()
+    transport.discover_vehicle_images.assert_awaited_once()
+    assert car.model_family == "q8"
+
+
+@pytest.mark.asyncio
+async def test_optional_vehicle_render_url_is_not_exported_in_diagnostics():
+    engine, transport, _ = engine_for()
+    from unittest.mock import AsyncMock
+    url = "https://mediaservice.audi.com/render/example.png"
+    transport.discover_vehicle_images = AsyncMock(return_value={VIN.lower(): url})
+    await engine.discover()
+    car = engine.vehicles[VIN.lower()]
+    assert car.image_url == url
+    assert car.image_status == "observed"
+    assert url not in json.dumps(engine.diagnostics())

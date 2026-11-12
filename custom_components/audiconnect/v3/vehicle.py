@@ -95,6 +95,33 @@ def powertrain_identity(vehicle):
     return {"value": value, "sources": sources, "conflict": conflict}
 
 
+def select_vehicle_image(vehicle, vin):
+    """Pick one trusted, public Audi render; never use arbitrary CDN URLs."""
+    from urllib.parse import urlsplit, parse_qsl
+    if not isinstance(vehicle, dict) or not isinstance(vehicle.get("renderPictures"), list):
+        return None
+    candidates = []
+    for picture in vehicle["renderPictures"][:32]:
+        if not isinstance(picture, dict):
+            continue
+        url, kind = picture.get("url"), picture.get("mediaType")
+        if not isinstance(url, str) or len(url) > 4096 or not isinstance(kind, str):
+            continue
+        try:
+            parsed = urlsplit(url)
+            if (parsed.scheme != "https" or parsed.hostname != "mediaservice.audi.com"
+                    or parsed.username or parsed.password or parsed.port or parsed.fragment
+                    or not parsed.path or vin.lower() in url.lower()
+                    or any(re.search(r"token|secret|auth|password|credential|session|vin", k, re.I)
+                           for k, _ in parse_qsl(parsed.query, keep_blank_values=True))):
+                continue
+        except ValueError:
+            continue
+        # Prefer a large side profile where available; accept other OEM views.
+        candidates.append((0 if kind == "MS_MYP3" else 1, url))
+    return min(candidates)[1] if candidates else None
+
+
 @dataclass
 class V3Vehicle:
     vin: str
@@ -128,6 +155,8 @@ class V3Vehicle:
     v2_initial_discovery_completed: bool = False
     inventory_present: bool = True
     inventory_misses: int = 0
+    image_url: str | None = None
+    image_status: str = "not_assessed"
 
     @classmethod
     def from_graphql(cls, item: dict[str, Any], country: str) -> "V3Vehicle":

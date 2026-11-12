@@ -64,3 +64,15 @@ def test_incomplete_identity_retries_are_bounded_and_quota_aware():
     assert identity_retry_due(vehicles, 2, None)
     incomplete.inventory_present = False
     assert not identity_retry_due(vehicles, 2, 50)
+
+
+def test_oem_render_selection_only_accepts_public_audi_cdn():
+    from custom_components.audiconnect.v3.vehicle import select_vehicle_image
+    good = "https://mediaservice.audi.com/render/example.png"
+    assert select_vehicle_image({"renderPictures": [
+        {"mediaType": "MS_MYP3", "url": "https://other.example/vehicle.png"},
+        {"mediaType": "MS_MYP3", "url": "https://mediaservice.audi.com/render?token=private"},
+        {"mediaType": "MS_MYP3", "url": "https://mediaservice.audi.com/" + VIN},
+        {"mediaType": "MS_MYP3", "url": good}]}, VIN) == good
+    assert select_vehicle_image({"renderPictures": [{"mediaType": "MS_MYP3",
+        "url": "http://mediaservice.audi.com/render.png"}]}, VIN) is None

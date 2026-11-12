@@ -77,6 +77,7 @@ class V3Engine:
         self.vehicles: dict[str, V3Vehicle] = {}
         self.profiles: dict[str, DevelopmentProfile] = {}
         self._known_vehicle_inventory = False
+        self._image_probe_attempted = False
         self.cloud_refresh_vin: str | None = None
         self.projected_entities: dict[str, set[str]] = {}
         self.commands = CommandEngine(
@@ -199,6 +200,26 @@ class V3Engine:
                                       metadata.observed_at, metadata.remaining_calls, metadata.request)
                 self._api_record(self.profiles[vin], INVENTORY_OPERATION, "graphql", "POST",
                                  response, known[vin].vin)
+        # One bounded best-effort read per runtime. The image response is
+        # intentionally excluded from API observations and engineering exports.
+        image_reader = getattr(self.transport, "discover_vehicle_images", None)
+        remaining = self.transport.remaining_calls
+        if (image_reader is not None and not self._image_probe_attempted
+                and (remaining is None or remaining > 20)):
+            self._image_probe_attempted = True
+            try:
+                images = await image_reader()
+            except (RuntimeError, ValueError, OSError, TimeoutError):
+                for car in known.values():
+                    car.image_status = "inconclusive"
+            else:
+                for key, car in known.items():
+                    url = images.get(key)
+                    if url:
+                        car.image_url = url
+                        car.image_status = "observed"
+                    elif not car.image_url:
+                        car.image_status = "not_observed"
 
     def _resolve_secure_body(
         self, vehicle: V3Vehicle, ident: str, family: str,
@@ -847,6 +868,8 @@ class V3Engine:
                 },
                 "identity_evidence": {"manufacturer_model_present": bool(car.model),
                                       "model_source": car.model_source or None,
+                                      "vehicle_image_present": bool(car.image_url),
+                                      "vehicle_image_status": car.image_status,
                                       "model_year_present": bool(car.model_year),
                                       "drive_type_present": bool(car.car_type),
                                       "powertrain": powertrain_identity(car)},

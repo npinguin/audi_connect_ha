@@ -941,6 +941,7 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
 
 class V3ModelSensor(V3BaseEntity, SensorEntity):
     """Manufacturer inventory, not a vehicle capture or a nickname."""
+    _unrecorded_attributes = frozenset({"vehicle_image_url", "entity_picture"})
     _attr_name = canonical_entity_name("sensor.model")
     _attr_icon = "mdi:car-info"
 
@@ -961,6 +962,10 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
         super()._handle_coordinator_update()
 
     @property
+    def entity_picture(self):
+        return self.vehicle.image_url
+
+    @property
     def native_value(self):
         return self.vehicle.model or None
 
@@ -977,6 +982,8 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
                 "model_family": self.vehicle.model_family or None,
                 "model_year": self.vehicle.model_year or None,
                 "model_source": self.vehicle.model_source or None,
+                "vehicle_image_url": self.vehicle.image_url,
+                "vehicle_image_status": self.vehicle.image_status,
                 "vehicle_type": identity["value"],
                 "classification_sources": identity["sources"],
                 "classification_conflict": identity["conflict"]}
