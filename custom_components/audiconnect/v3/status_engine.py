@@ -177,7 +177,10 @@ class StatusEngine:
         now = time.monotonic()
         initial = not self._inventory_ready()
         session = getattr(self.auth, "session_generation", None)
-        elapsed = now - self._identity_attempt_at if self._identity_attempt_at is not None else float("inf")
+        if self._identity_attempt_at is None:
+            self._identity_attempt_at = now
+            self._identity_session = session
+        elapsed = now - self._identity_attempt_at
         if initial or identity_refresh_due(
                 self.vehicles, elapsed, self.transport.remaining_calls,
                 token_renewed=session is not None and session != self._identity_session):
