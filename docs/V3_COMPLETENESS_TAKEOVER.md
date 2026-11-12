@@ -90,3 +90,24 @@ and OEM quota/rate limiting remains in force. Engineering experiments retain
 the separate stricter 90-second normal-command guard and their own review
 and cooldown rules. The wake-specific budget remains unchanged.
 Regression tests cover the exact ten-second boundary and restart.
+
+
+## Additional b12 response normalization review
+
+Both shared selective-status schema inventories were capped at 128 rows.
+The union includes climate request operation/status, charging preferred mode,
+charging timer timeInCar (vendor sentinel in b12), access overallStatus,
+engine-specific fuel and electric measurements, and connected service metadata.
+Climate request operation/status are exposed as bounded attributes independent
+of physical HVAC state; no request ID or inferred completion is exported.
+Preferred charge mode is separate from actual mode. Discovery reports
+current-session schema inventory coverage separately from assessed read jobs.
+An untruncated captured response is not proof of all OEM variants or complete
+semantic mapping.
+
+The b12 warningLights value is only visible as an object, without its children.
+Charging profile, readiness, and timer inner schemas are incomplete; a valid
+timeInCar example is absent. Low-voltage battery, battery support/care, departure
+profiles/timers and auxiliary heating require additional response evidence.
+No invented warning list, 12V voltage, departure schema or healthy vehicle
+state may be published from this snapshot. The completeness gate remains open.
