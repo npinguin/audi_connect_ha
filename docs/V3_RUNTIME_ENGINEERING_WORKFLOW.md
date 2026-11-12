@@ -3,11 +3,9 @@
 ## Incident: all controls pending review
 b17 Q8 diagnostics (2026-11-12) recorded remote refresh HTTP 200/backend_completed,
 then window heating start HTTP 502/uncertain. All 20 controls reported pending_review
-while cloud polling succeeded. The command interlock is intentional: a 502 does not
-prove a mutation failed. Acknowledge only after inspecting the actual vehicle, via
-the Workbench review banner. No retry or invented physical confirmation. The banner
-now names the blocking operation and state; the decision reason distinguishes
-in-flight, uncertain and engineering review. The original diagnostics are private.
+while cloud polling succeeded. The b17 global interlock was an overreaction to uncertain execution, not proof of
+unsupported capabilities. The temporary-error policy below replaces it. No automatic
+retry or invented physical confirmation. The original diagnostics are private.
 
 ## Runtime API experimentation
 The Workbench must not require a rebuild for a new query variant. Identity queries
@@ -27,12 +25,12 @@ journal, cooldown, verification and revision binding.
 
 
 ## Capability isolation
-Uncertain normal commands block only their capability. Other capabilities may
-operate subject to existing policy, short anti-flood cooldown and quota. Every
-unresolved normal command remains in the journal across unrelated actions and
-restart, and can be acknowledged by ID after inspection. No retry or automatic
-authorization. The single Workbench physical-test slot still requires review
-before starting another Workbench test; normal unrelated commands remain usable.
+The temporary-error policy below governs routine uncertainty; only pending or
+security-sensitive unresolved commands retain a capability-scoped review interlock.
+Other capabilities remain usable subject to existing policy, cooldown and quota.
+The bounded journal preserves outcomes without making ordinary history an interlock.
+The single Workbench physical-test slot still requires review before another
+Workbench test; unrelated normal commands remain usable.
 
 
 ## Local draft persistence
@@ -52,3 +50,6 @@ an early retry gets a useful error. No automatic replay. Only unresolved access
 and remote engine commands retain mandatory review due to their consequences.
 The Workbench physical-test review remains proof for activation, not a routine
 HA command prerequisite outside the tested capability.
+
+## Engineering discipline
+Follow the canonical [simplify-before-adding policy](V3_ARCHITECTURE_CLOSURE.md#mandatory-engineering-principle--simplify-before-adding). Reuse the existing operation, evidence and mapping owners before adding another layer. Keep runtime experimentation distinct from approved production mappings without duplicating the executor.

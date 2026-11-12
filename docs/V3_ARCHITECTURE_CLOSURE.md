@@ -67,6 +67,60 @@ Refactor incrementally on the canonical branch. Each slice carries its migration
 
 Current upstream master/dev is 2.5.2 (`d12f74c35c1c961f3b040e5cc77acbca2a5cca26`). At audit, seven of 32 upstream integration files outside V3 were unchanged, 25 modified and eight extra files existed. File differences are not semantic parity. Classify each deviation as required HA/runtime/auth seam, justified reliability fix, upstream contribution, metadata or unnecessary fork behavior. Keep explicit reason, owner, tests, upstream issue/PR and exit strategy. Rebase/reconcile accepted upstream fixes rather than maintain duplicate implementations. Protect external PR #915 and research PR #916; neither is a V3 development base.
 
+## Mandatory engineering principle — simplify before adding
+
+V3 is entering stabilization and cleanup. Avoid additive "lasagna" architecture:
+a bug, missing capability or ambiguous API result is not justification for a new
+layer, framework, fallback, state model or defensive interlock.
+
+Every change must first inspect the existing owner, contract and implementation.
+Prefer, in order: delete obsolete behavior; consolidate duplicated behavior;
+correct or reuse the existing implementation; extend the canonical contract;
+add a new component only if none of those meets a demonstrated requirement.
+
+- One canonical source of truth per fact and one owner per responsibility.
+  HA, Workbench and diagnostics are projections of the same evidence, not
+  independent capability/state models.
+- Prefer native Home Assistant entities and semantics. Avoid parallel controls
+  and redundant sensors unless compatibility or distinct user value is proven.
+  Preserve stable entity IDs, user-disabled choices and V2 rollback; retire
+  integration-disabled legacy entities only with a documented migration.
+- Separate capability support from execution outcomes. Report errors clearly,
+  use bounded temporary cooldowns and permit explicit retries for ordinary
+  transient failures. Do not permanently disable a capability on speculation.
+  Keep proven security, quota, consent and physical-action safeguards; never
+  fabricate success, replay a mutation automatically or weaken an established
+  authorization boundary to reduce code.
+- Prefer declarative, validated runtime definitions and the existing Workbench
+  for new query/mapping variants; no build/deploy for each ordinary experiment.
+  Do not invent a generic framework for a single exception.
+- Refactor in the same change when reasonably scoped. Remove obsolete paths,
+  duplicated mappings, dead configuration, redundant tests and superseded
+  documentation after proving the replacement. No permanent fallback chains
+  or parallel pilot implementations.
+- Keep tests focused on user behavior, contracts and actual failure modes.
+  Replace obsolete assertions rather than preserving accidental complexity.
+  Do not equate more tests, more modules or less code with correctness.
+
+### Change review / definition of done
+
+For each PR or engineering change, record in the existing PR description or
+review notes (a few sentences are sufficient):
+
+1. What existing owner/contract was reused, corrected or consolidated?
+2. What obsolete or duplicated behavior was removed, or why is none relevant?
+3. If adding a layer, fallback, model, entity or persistent state: what observed
+   requirement cannot be satisfied by the current owner/contract? What is the
+   retirement condition for any transitional mechanism?
+4. Which existing behavior, HA compatibility, failure recovery and release
+   constraints were validated? What remains unproven?
+
+Unjustified parallel implementations, duplicate facts, permanent workaround
+layers and speculative feature lockouts are review blockers. A small focused
+change may simply state that no additional complexity or cleanup is needed.
+Do not create a separate approval process, arbitrary LOC target or generic
+cleanup framework. Review is risk-based and part of the existing delivery flow.
+
 ## Governance and quality gates
 
 Proposed machine-readable artifacts: `governance/OWNERSHIP.json`, `DEPENDENCIES.json`, `UPSTREAM_V2_DELTA.json`, `QUALITY_GATES.json`. These are implementation deliverables, not existing gates. Enforce import/AST dependency direction, no cycles, lint/format, typed public contracts, risk-based coverage, HA lifecycle tests, generated parity/catalog inventories and no unexplained V2 drift. Exact-SHA pytest, Workbench, hassfest and HACS remain required. Do not assert coverage from source strings alone.
@@ -81,6 +135,7 @@ Proposed machine-readable artifacts: `governance/OWNERSHIP.json`, `DEPENDENCIES.
 - Safe bounded quota recovery, serialized auth refresh, complete multi-vehicle/HA entity reconciliation.
 - All applicable historical entity/attribute/service/control contracts explained and verified; no fabricated telemetry or unknown safety state.
 - Architecture, code, docs, generated inventories, tests and release gates aligned.
+- Simplify-before-adding review satisfied; replacement paths and migration validated, unjustified duplication removed.
 - Static code-complete acceptance and full CI before experimental publication; physical vehicle and rollback proof before stable.
 
 Current b8 is not code-complete and no gate is flipped by this design documentation. All illustrative schemas, target module paths and performance targets need implementation and validation.

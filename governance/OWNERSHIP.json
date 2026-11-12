@@ -114,5 +114,29 @@
   "migration_exclusions": [
     "__init__.py"
   ],
-  "status": "partial closure; remaining generic catalog/status work tracked"
+  "status": "partial closure; remaining generic catalog/status work tracked",
+  "change_policy": {
+    "principle": "simplify_before_adding",
+    "canonical_policy": "docs/V3_ARCHITECTURE_CLOSURE.md#mandatory-engineering-principle--simplify-before-adding",
+    "review_required": true,
+    "review_evidence": [
+      "existing_owner_and_contract",
+      "cleanup_or_no_cleanup_reason",
+      "justification_and_retirement_condition_for_new_complexity",
+      "regression_and_remaining_validation"
+    ],
+    "review_blockers": [
+      "unjustified_parallel_implementation",
+      "duplicate_source_of_truth",
+      "permanent_workaround_layer",
+      "speculative_capability_lockout"
+    ],
+    "preserve": [
+      "HA_entity_identity_and_user_preferences",
+      "V2_rollback",
+      "security_and_quota_boundaries",
+      "release_gates"
+    ],
+    "enforcement": "existing PR review; ownership and contract regression tests; no additional workflow"
+  }
 }

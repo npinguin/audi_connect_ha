@@ -20,6 +20,10 @@ Pull requests are the best way to propose changes to the codebase.
 By contributing, you agree that your contributions will be licensed under the same [MIT License](http://choosealicense.com/licenses/mit/) that covers the project.
 Feel free to contact the maintainers if that's a concern.
 
+## V3 change review
+
+For V3 work, use the canonical development branch and follow [branch governance](docs/BRANCH_GOVERNANCE.md). Every change follows the [simplify-before-adding principle](docs/V3_ARCHITECTURE_CLOSURE.md#mandatory-engineering-principle--simplify-before-adding): reuse the existing owner, remove duplication where relevant, justify any additional complexity, and report regression evidence and remaining limitations in the PR. No additional approval workflow is required.
+
 ## Coding Style
 
 This project uses [black](https://github.com/ambv/black) to ensure the code follows a consistent style.
