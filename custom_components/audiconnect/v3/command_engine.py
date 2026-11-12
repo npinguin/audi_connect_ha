@@ -11,7 +11,7 @@ from typing import Any
 
 from .action_discovery import approval_group
 from .command_journal import CommandRecord
-from .control_resolution import resolve_control
+from .control_resolution import control_decision, resolve_control
 from .response_preview import safe_response_preview
 from .vehicle import V3Vehicle
 
@@ -82,9 +82,11 @@ class CommandEngine:
             for op in applicable if profile.registry.operations[op]["method"] in ("POST", "PUT")
         ]
         in_progress = profile.discovery._active
+        match = control_decision(vehicle, profile, self.auth, capability, action)
         return {
             "capability": capability, "action": action,
-            "routes": routes, "active": profile.active.get(f"{capability}.{action}"),
+            "routes": routes, "active": match["operation"],
+            "binding": match,
             "pending": in_progress.public() if in_progress else None,
             "requires": "Explicit per-action consent and physical verification",
             "spin_configured": bool(getattr(getattr(self.auth, "service", None), "_spin", None)),
@@ -96,6 +98,19 @@ class CommandEngine:
         profile.disable(capability, action)
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
+
+    def refresh_bindings(self) -> None:
+        """Pure local matching; no request per control and no physical tests."""
+        for key, profile in self.profiles.items():
+            try:
+                car = self.require_vehicle(key)
+            except ValueError:
+                continue
+            profile.fast_bindings = {
+                f"{capability}.{action}": control_decision(car, profile, self.auth, capability, action)
+                for capability, definition in profile.registry.capabilities.items()
+                for action in (definition.get("control") or {})
+            }
 
     def _command_route(self, vin: str, aspect: str, capability: str) -> str | None:
         car = self.require_vehicle(vin)
@@ -214,6 +229,10 @@ class CommandEngine:
                 raise RuntimeError("A vehicle control experiment is awaiting physical confirmation")
             if p.last_command is not None:
                 p.last_command.check_next(time.time())
+            if p.discovery.history and time.time() < (
+                p.discovery.history[-1].started_at + p.discovery.cooldown_seconds
+            ):
+                raise RuntimeError("Vehicle command cooldown active after engineering test")
             ident = self._command_route(vin, aspect, capability)
             if ident is None:
                 raise RuntimeError("No eligible Audi command route")
@@ -255,6 +274,7 @@ class CommandEngine:
                 await self.storage.async_save(self.profiles)
                 raise RuntimeError("Audi command outcome uncertain; check the car") from err
             await self.storage.async_save(self.profiles)
+            self._notify_discovery_change()
             if record.state in ("rejected", "uncertain"):
                 raise RuntimeError("Audi command rejected or uncertain; no automatic retry")
 

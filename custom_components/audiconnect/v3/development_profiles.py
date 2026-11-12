@@ -17,6 +17,7 @@ from urllib.parse import quote
 from .action_discovery import DiscoveryError, GuidedActionDiscovery
 from .registry import CapabilityRegistry, RegistryError, VehicleContext
 from .command_journal import CommandRecord
+from .operation_revision import operation_revision
 
 _ID = re.compile(r"^user\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}\.[a-z][a-z0-9_]{0,31}$")
 _VAR = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
@@ -233,6 +234,8 @@ class DevelopmentProfile:
         }
         self.custom: dict[str, dict[str, Any]] = {}
         self.active: dict[str, str] = {}
+        self.active_revisions: dict[str, str] = {}
+        self.fast_bindings: dict[str, dict] = {}
         # A candidate is an editable preference, NOT an enabled command.
         self.draft_selected: dict[str, str] = {}
         # Last classified status-GET outcome per operation. This is transport
@@ -386,6 +389,7 @@ class DevelopmentProfile:
                     "Latest real vehicle test must confirm this route"
                 )
         self.active[key] = operation
+        self.active_revisions[key] = operation_revision(self.registry.operations[operation])
         self.draft_selected[key] = operation
 
     def disable(self, capability: str, action: str) -> None:
@@ -398,6 +402,8 @@ class DevelopmentProfile:
             "schema_version": 1,
             "custom_routes": deepcopy(list(self.custom.values())),
             "active": dict(self.active),
+            "active_revisions": dict(self.active_revisions),
+            "fast_bindings": deepcopy(self.fast_bindings),
             "draft_selected": dict(self.draft_selected),
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),

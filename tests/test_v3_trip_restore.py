@@ -44,13 +44,14 @@ def test_no_v3_probe_services_in_public_contract():
     assert 'for obsolete in ("probe_api_paths", "probe_vehicle_health", "probe_trip_data", "refresh_trip_data"):' in init
     engine = (root / "v3" / "engine.py").read_text()
     assert "async def restore_reads(" not in engine
-    assert "await self._poll_trips(car)" in engine
+    status = (root / "v3" / "status_engine.py").read_text()
+    assert "await self._poll_trips(car)" in status
 
 
 def test_trip_data_poll_uses_one_cadence_and_retains_existing_data():
     import asyncio
     from unittest.mock import AsyncMock
-    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.status_engine import StatusEngine
     from custom_components.audiconnect.v3.vehicle import V3Vehicle
     car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
     stamp = datetime.now(UTC).isoformat()
@@ -58,8 +59,8 @@ def test_trip_data_poll_uses_one_cadence_and_retains_existing_data():
         status=200, data={"data":[{"tripEndTimestamp": stamp, "mileage_km": 35}]}
     )))
     engine = NS(transport=transport, _trip_poll_at={})
-    asyncio.run(V3Engine._poll_trips(engine, car))
+    asyncio.run(StatusEngine._poll_trips(engine, car))
     assert transport.request.await_count == 3
     assert car.trips["shortterm_current"]["mileage"] == 35
-    asyncio.run(V3Engine._poll_trips(engine, car))
+    asyncio.run(StatusEngine._poll_trips(engine, car))
     assert transport.request.await_count == 3

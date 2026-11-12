@@ -10,6 +10,7 @@ from typing import Any
 
 from .action_discovery import ActionAttempt
 from .command_journal import CommandRecord
+from .operation_revision import operation_revision
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
 from .historical_catalog import ATTRIBUTES, V2_JOBS
@@ -204,13 +205,25 @@ def restore_profile(
             raise DevelopmentProfileError("Unknown draft capability")
         capability, action = key.split(".", 1)
         profile.save_candidate(capability, action, operation)
+    revisions = saved.get("active_revisions", {})
+    if not isinstance(revisions, dict):
+        raise DevelopmentProfileError("Malformed route revisions")
     for key, operation in active.items():
         if "." not in key:
             raise DevelopmentProfileError("Unexpected active capability")
         capability, action = key.split(".", 1)
+        # Validate the evidence even for old, unversioned data. Do not treat
+        # the old record as proof for a changed or unknown operation revision.
         profile.choose_working(capability, action, operation)
         if action != "status":
-            profile.discovery.preferred[key] = operation
+            if revisions.get(key) != operation_revision(profile.registry.operations[operation]):
+                profile.active.pop(key, None)
+                profile.active_revisions.pop(key, None)
+                profile.discovery.preferred.pop(key, None)
+            else:
+                profile.discovery.preferred[key] = operation
+    # Catalog-match cache is not an authorization source; recomputed at poll.
+    profile.fast_bindings = {}
     return profile
 
 

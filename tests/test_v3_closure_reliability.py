@@ -87,3 +87,79 @@ def test_engine_composes_status_and_command_owners():
     source = (root / "engine.py").read_text()
     assert "self.status = StatusEngine(" in source
     assert "self.commands = CommandEngine(" in source
+
+
+@pytest.mark.asyncio
+async def test_fast_discovery_enables_known_controls_without_mutating_requests():
+    from pathlib import Path
+    from types import SimpleNamespace as NS
+    from unittest.mock import AsyncMock
+    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+
+    vin = "WAUZZZ4M0MD123456"
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    model = CapabilityRegistry.from_json_file(root / "full_catalog.json")
+    transport = NS(request=AsyncMock())
+    engine = V3Engine(None, NS(entry_id="test"), model,
+                      auth=NS(uses_auth0=True, service=NS(_spin="test")),
+                      transport=transport, storage=NS(async_save=AsyncMock()))
+    car = V3Vehicle(vin, "Audi", "Q8", "q8", "DE")
+    car.advertised_capabilities = {"charging", "access"}
+    engine.vehicles[vin.lower()] = car
+    profile = DevelopmentProfile(model, car.context)
+    engine.profiles[vin.lower()] = profile
+    engine.commands.refresh_bindings()
+    assert engine.control_enabled(vin, "start", "charging")
+    assert profile.fast_bindings["charging.start"]["status"] == "catalog_matched"
+    assert engine.control_enabled(vin, "lock", "access")
+    assert profile.control_results == {}
+    assert profile.active == {}
+    car.impaired_capabilities.add("charging")
+    assert not engine.control_enabled(vin, "start", "charging")
+    profile.disable("access", "lock")
+    assert not engine.control_enabled(vin, "lock", "access")
+    transport.request.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_normal_command_persisted_before_dispatch_and_timeout_blocks_restart():
+    from pathlib import Path
+    from types import SimpleNamespace as NS
+    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.profile_store import restore_profile
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+
+    vin = "WAUZZZ4M0MD123456"
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    model = CapabilityRegistry.from_json_file(root / "full_catalog.json")
+    car = V3Vehicle(vin, "Audi", "Q8", "q8", "DE")
+    car.advertised_capabilities = {"charging"}
+    saved = []
+    calls = []
+    class Storage:
+        async def async_save(self, profiles):
+            saved.append(profiles[vin.lower()].snapshot())
+    class Transport:
+        async def request(self, family, method, path, **kwargs):
+            assert saved[-1]["last_command"]["state"] == "pending"
+            calls.append(method)
+            raise TimeoutError("synthetic")
+    engine = V3Engine(None, NS(entry_id="test"), model,
+                      auth=NS(uses_auth0=True, service=NS(_spin=None)),
+                      transport=Transport(), storage=Storage())
+    engine.vehicles[vin.lower()] = car
+    engine.profiles[vin.lower()] = DevelopmentProfile(model, car.context)
+    with pytest.raises(RuntimeError, match="uncertain"):
+        await engine.send_control(vin, "start", "charging")
+    assert calls == ["POST"]
+    restored = restore_profile(model, car.context, saved[-1])
+    assert restored.last_command.unresolved
+    engine.profiles[vin.lower()] = restored
+    with pytest.raises(RuntimeError, match="uncertain"):
+        await engine.send_control(vin, "start", "charging")
+    assert calls == ["POST"]

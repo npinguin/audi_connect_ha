@@ -1,4 +1,4 @@
-"""V3-only discovery, polling and guided climate command owner.
+"""V3 composition root, public runtime facade and profile orchestration.
 
 No V2 account, vehicle model, legacy service calls, or V2 coordinator imports.
 The auth facade is the only bridge to existing Audi credential code.
@@ -286,7 +286,10 @@ class V3Engine:
         ]
 
     async def poll(self) -> list[V3Vehicle]:
-        return await self.status.poll()
+        cars = await self.status.poll()
+        self.commands.refresh_bindings()
+        await self.storage.async_save(self.profiles)
+        return cars
 
     def require_vehicle(self, vin: str) -> V3Vehicle:
         vehicle = self.vehicles.get(vin.lower())

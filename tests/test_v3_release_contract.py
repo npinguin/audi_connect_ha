@@ -55,7 +55,7 @@ def test_clean_capability_owner_and_in_place_entity_id():
     entry = (V3 / "ha_platforms.py").read_text()
     modern = (V3 / "entities.py").read_text()
     engine = (V3 / "engine.py").read_text()
-    assert "V3ClimateEntity(" in entry
+    assert 'add_once(f"{vin}:climate", V3ClimateEntity)' in entry
     assert 'vehicle.vin.lower()}_climate_climatisation' in modern
     assert "def control_enabled(" in engine
     assert "async_refresh_data" not in engine

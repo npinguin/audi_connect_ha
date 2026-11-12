@@ -398,9 +398,7 @@ class StatusEngine:
                         "path": "vehicle_capture" if ident == "last_update_time" else "graphql.vehicle.media",
                         "job": None,
                     }
-        # One local write per scheduled discovery cycle; keep learned routes
-        # and evidence across HA restarts without touching integration options.
-        await self.storage.async_save(self.profiles)
+        # The composition root persists status and control bindings together.
         return list(self.vehicles.values())
 
     async def _poll_parked_positions(self) -> None:

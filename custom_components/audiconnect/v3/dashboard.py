@@ -84,6 +84,8 @@ async def ws_status(hass, connection, msg):
         profile = engine.profiles[vehicle.vin.lower()]
         report = build_status_report(vehicle, profile)
         report["normal_command"] = profile.last_command.snapshot() if profile.last_command else None
+        engine.commands.refresh_bindings()
+        report["fast_bindings"] = profile.fast_bindings
         connection.send_result(msg["id"], report)
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_status_failed", str(exc))

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "scope": "v3 active runtime",
+  "owners": {
+    "engine": {
+      "paths": [
+        "engine.py"
+      ],
+      "responsibility": "composition, public facade, inventory/profile orchestration (pending extraction)"
+    },
+    "status": {
+      "paths": [
+        "status_engine.py",
+        "attribute_runtime.py",
+        "read_discovery.py",
+        "freshness.py",
+        "derived_values.py",
+        "legacy_read_mappings.py",
+        "legacy_values.py",
+        "trips.py",
+        "parking.py"
+      ],
+      "responsibility": "read-only polling and observations"
+    },
+    "command": {
+      "paths": [
+        "command_engine.py",
+        "command_journal.py",
+        "control_resolution.py",
+        "command_policy.py",
+        "command_payloads.py",
+        "action_discovery.py",
+        "request_status.py",
+        "legacy_commands.py"
+      ],
+      "responsibility": "fast control resolution, explicit tests, execution and confirmation"
+    },
+    "api": {
+      "paths": [
+        "auth.py",
+        "transport.py",
+        "quota.py",
+        "family_executors.py"
+      ],
+      "responsibility": "authentication, transport, quota and protocols"
+    },
+    "catalog": {
+      "paths": [
+        "registry.py",
+        "full_catalog.json",
+        "historical_catalog.py",
+        "attribute_contracts.json",
+        "attribute_contracts.py",
+        "api_value_mappings.json",
+        "api_value_mappings.py",
+        "attribute_routes.py",
+        "operation_revision.py"
+      ],
+      "responsibility": "operation and attribute definitions/validation"
+    },
+    "profiles": {
+      "paths": [
+        "development_profiles.py",
+        "profile_store.py",
+        "api_observations.py"
+      ],
+      "responsibility": "bindings and evidence persistence"
+    },
+    "vehicle": {
+      "paths": [
+        "vehicle.py"
+      ],
+      "responsibility": "vehicle state"
+    },
+    "ha": {
+      "paths": [
+        "coordinator_clean.py",
+        "ha_platforms.py",
+        "entities.py",
+        "service_commands.py",
+        "registry_lifecycle.py"
+      ],
+      "responsibility": "HA projection and scheduling"
+    },
+    "workbench": {
+      "paths": [
+        "dashboard.py",
+        "frontend/panel.js"
+      ],
+      "responsibility": "admin engineering UX"
+    },
+    "diagnostics": {
+      "paths": [
+        "capability_status.py",
+        "response_preview.py"
+      ],
+      "responsibility": "read-only reporting and redaction"
+    }
+  },
+  "migration_exclusions": [
+    "runtime.py",
+    "climate.py",
+    "climate.json",
+    "coordinator.py",
+    "__init__.py"
+  ],
+  "status": "partial closure; obsolete pilot and remaining generic status work tracked"
+}
