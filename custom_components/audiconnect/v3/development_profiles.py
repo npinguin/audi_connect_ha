@@ -279,6 +279,7 @@ class DevelopmentProfile:
         self.api_observations: dict[str, dict[str, Any]] = {}
         self.job_schema: dict[str, dict[str, Any]] = {}  # session-only structural evidence
         self.standalone_discovery: dict[str, int] = {}
+        self.unsupported_reads: set[str] = set()
         self.engineering_responses: dict[str, dict[str, Any]] = {}
         self.engineering_history: list[dict[str, Any]] = []
         self.registry = CapabilityRegistry(deepcopy(self._base))
@@ -389,7 +390,7 @@ class DevelopmentProfile:
                      self.draft_selected, self.read_results, self.control_results,
                      self.attribute_routes, self.attribute_evidence, self.attribute_drafts,
                      self.attribute_route_evidence, self.job_discovery, self.job_probe_attempts,
-                     self.api_observations, self.job_schema, self.standalone_discovery, self.engineering_responses, self.engineering_history):
+                     self.api_observations, self.job_schema, self.standalone_discovery, self.unsupported_reads, self.engineering_responses, self.engineering_history):
             data.clear()
 
     def confirm(
@@ -515,6 +516,7 @@ class DevelopmentProfile:
             "job_discovery": dict(self.job_discovery),
             "job_probe_attempts": dict(self.job_probe_attempts),
             "standalone_discovery": dict(self.standalone_discovery),
+            "unsupported_reads": sorted(self.unsupported_reads),
             "api_observations": deepcopy(self.api_observations),
             "discovery": self.discovery.snapshot(),
         }
