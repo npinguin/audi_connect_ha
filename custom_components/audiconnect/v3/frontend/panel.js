@@ -210,6 +210,8 @@ class AudiConnectV3Panel extends HTMLElement {
       this.render();
     } else if (e.target.id === "global-search") {
       this.searchText = e.target.value.trim(); this.focusOperation = ""; if(this.searchText) this.apiFamily="all"; this.render();
+    } else if (e.target.id === "operation-focus") {
+      this.focusOperation = e.target.value; this.render();
     } else if (e.target.id === "operation-filter") {
       this.operationFilter = e.target.value; this.focusOperation = "";
       this.render();
@@ -326,6 +328,12 @@ class AudiConnectV3Panel extends HTMLElement {
       this.step = Number(action.slice(5)); this.focusOperation = ""; this.render(); return;
     }
     if (action === "filter-entity") { this.selectEntityFilter(button.dataset.entity); return; }
+    if (action === "open-operation") {
+      this.focusOperation = button.dataset.operation || "";
+      this.step = 4; this.apiFamily = "all"; this.operationFilter = "all";
+      this.operationMethod = "all"; this.logCapability = ""; this.logOutcome = "all";
+      this.logFrom = ""; this.logTo = ""; this.searchText = ""; this.render(); return;
+    }
     if (action === "identity-test" || action === "identity-reset") {
       this.openIdentityEditor(button.dataset.operation || this.identityOperation, action==="identity-reset"); return;
     }
@@ -648,6 +656,20 @@ class AudiConnectV3Panel extends HTMLElement {
       ...(source?.conversion ? {conversion:source.conversion} : {})}, null, 2);
   }
 
+  entityInspector(link) {
+    if (!link) return "";
+    const rows = (this.capabilityStatus.rows||[]).filter(r=>(r.entity_keys||[]).includes(link.contract_key));
+    return `<details open class="card compact"><summary>Entity trace · ${escapeHTML(link.contract_key)}</summary>
+      ${link.entity_ids.map(id=>{
+        const state=this._hass?.states?.[id];
+        return `<div><b>${escapeHTML(id)}</b> · ${escapeHTML(state?.state ?? "No HA state")} ${escapeHTML(state?.attributes?.unit_of_measurement||"")} <span class="muted">${escapeHTML(state?.attributes?.device_class||"")} ${escapeHTML(state?.attributes?.state_class||"")}</span></div>`;
+      }).join("") || "<p>Entity not registered on this vehicle.</p>"}
+      ${rows.map(r=>`<div class="subline"><b>${escapeHTML(r.attribute)}</b> · ${escapeHTML(r.status)} · ${escapeHTML(r.normalized_value ?? "No scalar observation")}<br><code>${escapeHTML(r.path||"")}</code> · ${escapeHTML(this.localTime(r.captured))}</div>`).join("")}
+      <div class="actions">${link.operations.map(op=>`<button data-action="open-operation" data-operation="${escapeHTML(op)}">${escapeHTML(op)}</button>`).join("")}</div>
+      <p class="helper">HA state and normalized observation can differ due to freshness, conversion or pending commands. No request is sent.</p>
+    </details>`;
+  }
+
   executionReviewFields(row, index) {
     if (!row.at) return "";
     const review = this.executionReviews.find(item=>item.operation===row.operation && item.at===row.at);
@@ -848,6 +870,7 @@ class AudiConnectV3Panel extends HTMLElement {
         </div>
         <div class="toolbar" style="padding-top:0"><label for="global-search">Search capabilities, entities and API fields</label><input id="global-search" type="search" value="${escapeHTML(this.searchText)}" placeholder="e.g. model, charging, media.longName"></div>
         <div class="toolbar"><label for="entity-filter">Home Assistant entity</label><select id="entity-filter"><option value="">All entities</option>${entityLinks.flatMap(link=>(link.entity_ids.length?link.entity_ids:[link.contract_key]).map(id=>`<option value="${escapeHTML(id)}" ${this.entityFilter===id?"selected":""}>${escapeHTML(id)}${link.entity_ids.length?"":" (not registered)"}</option>`)).join("")}</select>${selectedEntity?`<p class="helper">${escapeHTML(selectedEntity.capabilities.map(domainName).join(" · ")||"No capability mapping declared")} · ${selectedEntity.operations.length} linked API operations</p>`:""}</div>
+        ${this.entityInspector(selectedEntity)}
         <div class="steps">
           <button data-action="step-1" class="${this.step===1?"current":""}">Overview</button>
           <button data-action="step-2" class="${this.step===2?"current":""}">Capabilities</button>
@@ -902,6 +925,7 @@ class AudiConnectV3Panel extends HTMLElement {
             ${this.focusOperation?`<div class="callout">Focused on ${escapeHTML(this.focusOperation)} <button data-action="step-4">Show all operations</button></div>`:""}
             <p>Tested, active, schema validity and physical confirmation are independent. HTTP 2xx/207 alone is not proof of a working command or complete mapping.</p>
             <div class="line">
+              <label>Operation <select id="operation-focus"><option value="">All operations</option>${operations.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.focusOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
               <label>Evidence <select id="operation-filter">${["all","tested","untested","active","attention","historical"].map(v=>`<option value="${v}" ${this.operationFilter===v?"selected":""}>${v}</option>`).join("")}</select></label>
               <label>Method <select id="operation-method">${["all","GET","POST","PUT","DELETE"].map(v=>`<option value="${v}" ${this.operationMethod===v?"selected":""}>${v}</option>`).join("")}</select></label>
             </div>
