@@ -154,3 +154,34 @@ Native climate state, capture time and path derive from the canonical climatisat
 ## Audit 02 — concrete API evidence identity
 
 Attribute route choices are template bindings, not API evidence identifiers. Targeted CARIAD reads use their actual catalog job operation, shared reads use the existing scheduled batch operation and MBB reads use their resource-specific discovery operation. Custom variants use their unique definition ID. Workbench inspects the corresponding concrete evidence. Historical ambiguous generic targeted/batch records remain reference-only rather than being attributed to an arbitrary job.
+
+## Engineering use-case acceptance inventory — working draft
+
+Scope: optimize the existing four Workbench views and canonical runtime. This is a requirements and code-coverage review, not completed implementation or release authorization. Baseline 765e2a486519a82f2a17c35a6078c59847eb45df. Existing sources: dashboard.py, frontend/panel.js, engine.py, development_profiles.py, attribute_routes.py, entity_traceability.py, test_v3_workbench_ui.mjs and test_v3_local_attribute_extension.py.
+
+| ID | Engineer outcome | Existing coverage and remaining acceptance |
+| --- | --- | --- |
+| UC01 Inventory/navigation | Browse and cross-filter vehicle, capability, attribute/action, HA entity, operation and family from any entry point | Existing inventory, entity links, family/function/status filters; complete reverse links including missing entities, consistent combined filters and dependency impact |
+| UC02 Capability lifecycle | Create/read/update/retire capability, attribute/action, link/unlink operations and native entity contracts, test and annotate | Local read attributes and derived groups exist; generic capability/action editing and safe retirement incomplete. Prefer existing definitions and immutable revisions over a second capability database. |
+| UC03 Operation lifecycle | Inspect, create/copy/edit request, response mapping and typed transformation; test, review, activate, retire | Existing guarded templates, GraphQL drafts, route testing and activation for reads/controls; identity activation, portable drafts, dependency-aware retirement and shared editor remain gaps. |
+| UC04 Family lifecycle | Inspect applicability, auth roles, quota and reviewed operations; link/test within family | CARIAD/MBB/GraphQL and bounded read scans exist. New family requires reviewed host/auth/transport code; no arbitrary host/credential forwarding. |
+| UC05 HA entity debugging | Trace actual or intended entity to capability, selected route, source field, normalized value, capture and publication; create/remap via contract | Existing registry links, status, local read-only entities and evidence; complete end-to-end trace, reverse links, real HA lifecycle acceptance missing. Preserve unique IDs and user choices. |
+| UC06 Execution log | Filter by vehicle, capability, entity, operation/revision, family, origin, time, method and outcome; inspect paired masked request/reply and mapping outcome | Existing latest per-operation previews and bounded session history (24 executions, 32 route caches); capability/result/time/payload filters and correlation incomplete. Keep detailed private data session-only by default. |
+| UC07 Test/review | Execute existing candidate, compare expected/observed values; record review result and comments, attach evidence | Physical action review and read mapping evidence exist; comments and consistent revision/context-scoped review workflow missing. Manual review must never override objective runtime evidence. |
+| UC08 Activation/rollback | Preview dependencies; activate tested revision locally; verify HA result; disable or revert to previous valid binding | Existing read/control activation and disable; identity activation, explicit previous-binding restore and dependency-aware retirement need acceptance. No automatic physical test or activation. |
+| UC09 Reuse/contribute | Reuse local verified definition in another applicable context; sanitized export/import and contribution | Existing manual contribution guide; portable reviewed definitions and evidence export/import incomplete. No credentials or private payloads. |
+
+### Acceptance scenarios (draft, not claims of passing)
+
+1. SOC debugging: entity -> capability -> selected mapping -> actual API execution -> raw field -> normalization -> published state and capture, without sending an extra request.
+2. Missing identity: edit the existing GraphQL draft, execute read-only, compare with original, record outcome; activation only through reviewed mapping.
+3. New local attribute: define capability group, typed attribute, relative operation and transformation; test including missing/zero/false/stale, activate, verify native HA identity and restart.
+4. Alternative charging/climate command: save immutable variant, validate parameters, consent, dispatch once, separately assess HTTP/backend/physical result, activate only verified revision.
+5. Change and retire: inspect all dependent mappings/entities, create successor revision, keep old active until new verification, revert without losing IDs or evidence; block deletion of referenced definitions.
+6. Historical incident: filter one vehicle by capability/entity/operation/time/result; inspect paired existing request/reply and evidence without another command; document review and distinguish unavailable historical details.
+7. Isolation: switch vehicle/family and confirm filters, drafts, approvals and evidence cannot leak or activate another context.
+8. Contribution: share only sanitized reusable definitions and scoped evidence; imported drafts never activate automatically.
+
+### Simplification rule
+
+Use the existing status report, product contract, operation registry, profile store, command journal, observation/evidence owners and four UI views. One shared filter context, one editor pattern, one execution/evidence projection. Distinguish definition lifecycle, test review, binding/activation and objective runtime health; do not collapse them into a manually editable success flag. Prefer revisioned replacements and retirement to destructive mutation. No new runtime module, database, UI framework or generic workflow language is authorized by this draft. Prioritize traceability, shared filtering and the existing configure/test workflow before expanding authoring scope.
