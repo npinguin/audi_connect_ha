@@ -636,3 +636,22 @@ test("End-user validation includes real native entity state and refreshes only f
   await Promise.resolve();await Promise.resolve();
   assert.deepEqual(calls,["status"]);
 });
+
+
+test("Overview prioritizes current actions without deleting historical findings", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  const old={id:"attribute:oil",reason:"boolean_oil_level_use_binary",capability:"vehicle_status"};
+  const missing={id:"vehicle:manufacturer_model",reason:"manufacturer_identity_missing",capability:"vehicle_identity",operation:"graphql.inventory.vehicleList"};
+  p.capabilityStatus={rows:[],findings:[old,missing],next_actions:[missing],
+    identity_summary:{manufacturer_model:false,model_year:false,oem_drivetrain:true},
+    operations:[{operation:missing.operation,family:"graphql",read_only:true,capabilities:["vehicle_identity"],mappings:[]}]};
+  p.render();
+  const overview=p.shadowRoot.innerHTML.split('data-view="overview"')[1].split('data-view="evidence"')[0];
+  assert.match(overview,/Manufacturer identity missing/);
+  assert.match(overview,/3 identity fields/);
+  assert.doesNotMatch(overview,/Oil level is a warning/);
+  assert.match(p.shadowRoot.innerHTML,/Oil level is a warning/);
+  await p._click({target:{closest:()=>({dataset:{action:"inspect-finding",index:"1"}})}});
+  assert.equal(p.category,"vehicle_identity");assert.equal(p.step,2);
+});
