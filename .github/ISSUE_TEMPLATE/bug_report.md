@@ -22,6 +22,6 @@ For commands, distinguish backend acceptance from observed physical effect.
 Do not repeat an uncertain remote command just to reproduce an issue.
 
 **Diagnostics**
-Download native integration diagnostics from Settings > Devices & services > Audi Connect > three-dot menu > Download diagnostics. Review the file before attaching it. Home Assistant may include environment metadata.
+Download native integration diagnostics from Settings > Devices & services > Audi Connect > three-dot menu > Download diagnostics. Do not attach the original file: Home Assistant may add unrelated integrations, installation metadata and identifiers. Share only the reviewed Audi Connect `data` object and HA/integration versions. Remove response previews from older releases. See [diagnostics privacy](https://github.com/npinguin/audi_connect_ha/blob/feature/v3-clean-discovery/docs/V3_COMMUNITY_DIAGNOSTICS.md).
 
 Never attach tokens, credentials, S-PIN, VIN, coordinates, raw HTTP payloads, private trip history or the internal profile store. Logs/screenshots are optional; redact identifiers before sharing.

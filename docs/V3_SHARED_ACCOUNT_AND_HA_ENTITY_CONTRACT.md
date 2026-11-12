@@ -5,7 +5,7 @@
 
 ## Objective
 
-One Audi Connect integration installation and config entry. Reuse the existing V2 Audi account, authentication, region, credentials, S-PIN, VIN ownership and Home Assistant device registry. Let the user switch the selected data/command engine between V2 and V3 without reconfiguration or changing entity IDs in dashboards, templates, scripts, automations, Recorder/statistics or RHI Mobility references.
+One Audi Connect integration installation and config entry. Reuse the existing V2 Audi account, authentication, region, credentials, S-PIN, VIN ownership and Home Assistant device registry. Let the user switch the selected data/command engine between V2 and V3 without reconfiguration or changing entity IDs in dashboards, templates, scripts, automations, Recorder/statistics or external integrations.
 
 The switch currently triggers a Home Assistant config-entry unload/reload, **not** a zero-downtime hot swap. No new login or pairing should be required and only one active engine may poll/send commands.
 

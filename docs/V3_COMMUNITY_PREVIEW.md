@@ -23,12 +23,12 @@ Back up Home Assistant. Add [the fork](https://github.com/npinguin/audi_connect_
 
 ## Help us test
 
-Report your model/year/powertrain, region, HA version, V2/V3 behavior and whether the same function works in myAudi. Attach native integration diagnostics after reviewing them for private information. No VIN, credentials, S-PIN, token, callback URL, raw payloads or private location/trip history. Do not repeat uncertain remote commands.
+Report your model/year/powertrain, region, HA version, V2/V3 behavior and whether the same function works in myAudi. Share only reviewed Audi Connect diagnostic data and relevant software versions, not the full Home Assistant diagnostics wrapper or installation inventory. See [diagnostics privacy](V3_COMMUNITY_DIAGNOSTICS.md). No VIN, credentials, S-PIN, token, callback URL, raw payloads or private location/trip history. Do not repeat uncertain remote commands.
 
 [Report an issue in the fork](https://github.com/npinguin/audi_connect_ha/issues).
 
 ## Status
 
-1,058 Python tests passed on each of HA 2026.7.0 and 2026.11.1, plus Workbench, hassfest, HACS and package checks ([release CI](https://github.com/npinguin/audi_connect_ha/actions/runs/43321338969)). This is software validation, not physical certification across Audi vehicles. Identity recovery, cross-model evidence, full V2 parity and live restart/rollback validation remain open. V3 is not part of the official upstream stable release.
+1,058 Python tests passed on each of HA 2026.7.0 and 2026.11.1, plus Workbench, hassfest, HACS and package checks ([release CI](https://github.com/npinguin/audi_connect_ha/actions/runs/43321338969)). This is software validation, not physical certification across Audi vehicles. Manufacturer metadata has worked previously but is intermittently absent in OEM responses; backend or authorization context may be involved, but the cause is unconfirmed. Identity recovery, cross-model evidence, full V2 parity and live restart/rollback validation remain open. V3 is not part of the official upstream stable release.
 
 We welcome feedback and would like to agree the upstream review and delivery approach with the original maintainers. No upstream merge is requested at this stage.
