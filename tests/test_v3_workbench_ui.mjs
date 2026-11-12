@@ -502,3 +502,31 @@ test("Shared capability and operation filters survive navigation and search", as
   await p._click({target:{closest:()=>({dataset:{action:"clear-operation"}})}});
   assert.equal(p.focusOperation,""); assert.equal(p.capabilityFilter,"charging");
 });
+
+test("Execution review edits retained evidence without vehicle calls", async () => {
+  const p = new Panel();
+  p.selected="entry"; p.vin="VIN1"; p.step=4;
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",api_family:"cariad"}]}];
+  p.apiHistory=[{operation:"test.read",family:"cariad",method:"GET",at:"2026-11-12T10:00:00Z",http_status:200}];
+  p.shadowRoot.getElementById = id => id==="review-outcome-0" ? {value:"worked"} :
+    id==="review-comment-0" ? {value:"Compared against myAudi"} : null;
+  const calls=[];
+  p.api=async(name,args)=>{
+    calls.push(name);
+    if(name==="review_execution"){
+      assert.equal(args.operation,"test.read");
+      assert.equal(args.outcome,"worked");
+      assert.equal(args.comment,"Compared against myAudi");
+      return {saved:true};
+    }
+    if(name==="api_results")return {records:p.apiHistory,execution_reviews:[{operation:"test.read",at:p.apiHistory[0].at,outcome:"worked",comment:"Compared against myAudi"}]};
+    if(name==="status")return {counts:{},rows:[]};
+    if(name==="list")return {integrations:p.entries};
+    throw Error("Unexpected operation "+name);
+  };
+  await p._click({target:{closest:()=>({dataset:{action:"execution-review",index:"0",operation:"test.read",at:p.apiHistory[0].at}})}});
+  assert.equal(p.error,"");
+  assert.equal(calls.filter(name=>name==="review_execution").length,1);
+  assert.equal(calls.some(name=>name.includes("test")||name.includes("activate")),false);
+  assert.match(p.shadowRoot.innerHTML,/Compared against myAudi/);
+});
