@@ -558,3 +558,17 @@ test("Identical GraphQL templates keep edits separate by operation", () => {
   p.openIdentityEditor("graphql.one");
   assert.match(p.definitionValue("identity",p.identityDefinition).query,/role/);
 });
+
+
+test("Portable definition JSON reuses editor and never executes a request", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";p.attribute="stateOfCharge";
+  const template=p.initialReadRoute;
+  const value={...JSON.parse(template),id:"user.read.imported",response_path:"charging.value",capture_path:"charging.time"};
+  p.shadowRoot.getElementById=id=>id==="definition-json-read"?{value:JSON.stringify(value)}:null;
+  p.api=async()=>{throw Error("Import must not call API");};
+  await p._click({target:{closest:()=>({dataset:{action:"definition-json",editor:"read"}})}});
+  assert.equal(p.error,"");
+  assert.equal(p.definitionValue("read",template).id,"user.read.imported");
+  assert.equal(p.definitionValue("read",template).capture_path,"charging.time");
+  assert.throws(()=>p.loadDefinitionJSON("read",template,JSON.stringify({...value,credentials:"forbidden"})),/Unknown definition fields/);
+});
