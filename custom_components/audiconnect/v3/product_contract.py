@@ -1,4 +1,4 @@
-"""Canonical diagnostic projection and explicitly retired pilot entity identities."""
+"""Canonical HA product identity, source resolution and presentation policy."""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -171,13 +171,17 @@ def compatibility_hidden(vehicle, key):
 
 
 def canonical_entity_category(key):
-    """Categories are product semantics, not API provenance."""
-    if key.startswith("binary_sensor.") and key != "binary_sensor.custom_attribute":
-        return None
-    if key in ("number.target_state_of_charge", "number.active_charging_profile_target_soc",
-               "number.charge_profile_{profile_id}_target_soc", "select.charge_mode"):
-        return "config"
-    return None
+    """Resolve presentation from the authoritative product/metadata contracts."""
+    from .attribute_contracts import binary_contract_for, contract_for
+
+    definition = product_inventory()["entities"].get(key, {})
+    platform, _, entity = key.partition(".")
+    if definition.get("metadata_contract"):
+        if platform == "binary_sensor":
+            return binary_contract_for(entity).get("category")
+        if platform == "sensor":
+            return contract_for(entity).get("category")
+    return definition.get("category")
 
 def electric_soc_sources(vehicle):
     readings = vehicle.readings

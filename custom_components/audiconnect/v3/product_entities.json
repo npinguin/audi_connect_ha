@@ -890,28 +890,32 @@
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "number.active_charging_profile_target_soc": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "number.charge_profile_{profile_id}_target_soc": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "select.charge_mode": {
       "origin": "v2",
       "scope": "vehicle",
       "source_attributes": [],
       "metadata_contract": null,
-      "freshness": "native_entity_contract"
+      "freshness": "native_entity_contract",
+      "category": "config"
     },
     "climate.climatisation": {
       "origin": "v2",

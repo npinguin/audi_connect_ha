@@ -26,7 +26,7 @@ from ..const import DOMAIN
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
-from .product_contract import projection_reading, compatibility_hidden, engine_role
+from .product_contract import projection_reading, compatibility_hidden, engine_role, canonical_entity_category
 
 
 def _binding_status(profile, key):
@@ -874,7 +874,7 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
     """V2 global charge-target identity; command gated by V3 route evidence."""
 
     _attr_name = "Target state of charge"
-    _attr_entity_category = EntityCategory.CONFIG
+    _attr_entity_category = EntityCategory(canonical_entity_category("number.target_state_of_charge"))
     _attr_device_class = NumberDeviceClass.BATTERY
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_native_min_value = 20
@@ -1045,7 +1045,7 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
     """V2 select identity, independent preferred-mode source and command gate."""
 
     _attr_name = "Preferred charge mode"
-    _attr_entity_category = EntityCategory.CONFIG
+    _attr_entity_category = EntityCategory(canonical_entity_category("select.charge_mode"))
     _attr_icon = "mdi:battery-clock"
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):

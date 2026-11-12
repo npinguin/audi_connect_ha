@@ -99,3 +99,7 @@ One supervised HACS prerelease is authorized before static parity completion. Th
 - A changed requirement requires explicit contract and test updates together. Never change expected results merely to match a failing implementation. Preserve negative cases and add an independent behavioural assertion.
 - For entity rationalisation, require no evidence/no entity, invalid type/no numeric entity, valid zero, repeat-discovery deduplication, read/write gating, vehicle category, user registry overrides and reversible migration. Actual HA installation and rollback remain separate live acceptance.
 - The b10 release candidate failure (826 passed, two failed) is recorded in its notes. Subsequent test-only improvements are independently validated; an immutable published release is never rewritten.
+
+### Maintainability rules
+
+One product contract per entity; metadata references resolve from the owning catalog rather than duplicated category lists. Native projection and registry migration consume the same category policy. Use named behavioral tests and realistic fixtures; retain source checks only for actual architecture/packaging constraints. Keep historical release notes immutable and current acceptance criteria separate. Avoid release-specific implementation names in new tests unless validating migration from that version.

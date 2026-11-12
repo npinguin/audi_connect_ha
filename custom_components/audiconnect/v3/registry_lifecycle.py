@@ -101,9 +101,11 @@ async def async_apply_v3_entity_visibility(
         if car is None:
             continue
         updates = {}
-        if key.startswith("binary_sensor.") and key != "binary_sensor.custom_attribute" and current.entity_category == EntityCategory.DIAGNOSTIC:
+        desired = canonical_entity_category(key)
+        if (key.startswith("binary_sensor.") and key != "binary_sensor.custom_attribute"
+                and current.entity_category == EntityCategory.DIAGNOSTIC and desired is None):
             updates["entity_category"] = None
-        if canonical_entity_category(key) == "config" and current.entity_category is None:
+        if desired == "config" and current.entity_category is None:
             updates["entity_category"] = EntityCategory.CONFIG
         if uid not in reviewed and compatibility_hidden(car, key):
             reviewed.add(uid)

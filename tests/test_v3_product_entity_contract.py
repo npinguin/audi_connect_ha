@@ -64,3 +64,13 @@ def test_registry_diagnostics_does_not_export_identifiers_or_values(monkeypatch)
         assert private not in data
     assert entity_key(VIN+"_number_charge_profile_42_target_soc","secret") == "number.charge_profile_{profile_id}_target_soc"
     assert entity_key("secret_api_requests_remaining","secret") == "sensor.api_requests_remaining"
+
+
+def test_canonical_category_resolves_from_shared_metadata_and_product_contract():
+    from custom_components.audiconnect.v3.product_contract import canonical_entity_category
+    from custom_components.audiconnect.v3.attribute_contracts import binary_contracts
+    for key in binary_contracts():
+        assert canonical_entity_category("binary_sensor." + key) is None
+    for key in ("number.target_state_of_charge", "number.active_charging_profile_target_soc",
+                "number.charge_profile_{profile_id}_target_soc", "select.charge_mode"):
+        assert canonical_entity_category(key) == "config"
