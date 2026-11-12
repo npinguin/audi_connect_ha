@@ -2,6 +2,8 @@
 
 **Status:** accepted target direction, not fully implemented. Date: 2026-11-12. Supersedes the assumption in ADR 001 / older beta documentation that each end user must manually test each control before activation, and any proposal to automatically sequence different physical actuator tests without individual action consent. ADR 001's independent runtime and no blind mutations remain binding.
 
+See [product vision, core use cases and technical architecture](V3_ARCHITECTURE.md) for the community overview and delivery roadmap.
+
 ## Decision
 
 Two modes of the same capability and command engine, not two runtimes.
