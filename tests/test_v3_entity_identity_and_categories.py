@@ -261,3 +261,33 @@ def test_registry_product_names_clean_unavailable_and_preserve_user_name(monkeyp
     assert [row.original_name for row in rows] == ["Last trip","Next climate timer","Combined range"]
     assert rows[2].name == "My custom range"
     assert rows[2].entity_id == "sensor.hybrid_range"
+
+
+def test_stateful_button_visibility_is_reversible_without_disabling_automations(monkeypatch):
+    MemoryStore.state={}
+    vin="wauzzz4m0md123456"
+    car=V3Vehicle(vin,"Audi","Audi Q8","q8","DE")
+    car.readings["chargingState"]={"value":"charging","status":"verified"}
+    engine=NS(vehicles={vin:car},control_enabled=lambda *args:True)
+    rows=[NS(entity_id="button."+key,unique_id=vin+"_button_"+key,
+             hidden_by=hidden,disabled_by=None,entity_category=None)
+          for key,hidden in (("start_charging_modern",None),
+                             ("stop_charging_modern",er.RegistryEntryHider.USER))]
+    entries={row.entity_id:row for row in rows}
+    def update(entity_id,**changes):
+        for key,value in changes.items():
+            setattr(entries[entity_id],key,value)
+    registry=NS(async_get=entries.get,async_update_entity=update)
+    monkeypatch.setattr(lifecycle,"Store",MemoryStore)
+    monkeypatch.setattr(lifecycle.er,"async_get",lambda _:registry)
+    monkeypatch.setattr(lifecycle.er,"async_entries_for_config_entry",lambda *_:rows)
+    entry=NS(entry_id="abc",runtime_data=NS(v3=engine))
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,True))
+    assert rows[0].hidden_by==er.RegistryEntryHider.INTEGRATION
+    assert rows[1].hidden_by==er.RegistryEntryHider.USER
+    assert all(row.disabled_by is None for row in rows)
+    car.readings.clear()
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None,entry,True))
+    assert rows[0].hidden_by is None
+    assert rows[1].hidden_by==er.RegistryEntryHider.USER
+    assert all(row.disabled_by is None for row in rows)

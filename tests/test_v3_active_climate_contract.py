@@ -38,7 +38,8 @@ def test_stale_climate_readback_is_never_reported_as_current():
 def test_trusted_manufacturer_context_not_nickname():
     car = V3Vehicle.from_graphql({"vin": VIN, "nickname": "Audi Q8",
                                  "vehicle": {"media": {"longName": "Audi A4"}}}, "DE")
-    assert car.model_family == ""
+    assert car.model_family == "a4"
+    assert car.model_family != "q8"
     car = V3Vehicle.from_graphql({"vin": VIN, "nickname": "other",
                                  "vehicle": {"media": {"longName": "Audi Q8"}}}, "DE")
     assert car.model_family == "q8"

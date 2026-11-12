@@ -111,3 +111,27 @@ def test_window_readback_survives_journal_restore():
     assert restored.readback_attribute=="windowHeatingActive"
     assert restored.readback_values==[False]
     assert restored.state=="uncertain"
+
+
+def test_platform_discovers_switch_after_state_and_both_commands_are_observed():
+    from custom_components.audiconnect.v3.ha_platforms import setup
+    car=V3Vehicle(VIN,"Audi","Audi Q8","q8","DE")
+    enabled=set()
+    engine=NS(vehicles={VIN.lower():car},profiles={},
+              control_enabled=lambda vin,action,cap="climate":(cap,action) in enabled)
+    offered,listeners=[],[]
+    co=NS(engine=engine,last_update_success=True,async_add_listener=lambda cb:listeners.append(cb))
+    entry=NS(entry_id="entry",runtime_data=NS(v3=engine,coordinator=co),
+             async_on_unload=lambda cb:None)
+    setup("switch",entry,offered.extend)
+    assert not offered
+    enabled.update({("charging","start"),("charging","stop")})
+    listeners[0]()
+    assert not offered
+    car.readings["chargingState"]={"value":"charging","status":"verified",
+                                  "captured":datetime.now(UTC).isoformat()}
+    listeners[0]()
+    listeners[0]()
+    assert [entity.unique_id for entity in offered]==[VIN.lower()+"_switch_charging"]
+    assert offered[0].is_on is True
+    assert offered[0].name=="Charging"
