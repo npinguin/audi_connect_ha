@@ -329,3 +329,38 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
         "excluded_reads": ["custom and reference-only routes"],
         "parking_policy": "disabled" if parking_allowed is False else "enabled" if parking_allowed is True else "unknown",
         "scope": "selective-status jobs and reviewed standard trip/legacy resources; not vehicle support"}
+
+
+def user_test_candidates(engine, car, profile):
+    """Only simple, reviewed, currently eligible native operations."""
+    from .control_resolution import control_decision
+    from .action_discovery import approval_group
+    labels = {
+        ("climate", "start"): "Start cabin climate",
+        ("climate", "stop"): "Stop cabin climate",
+        ("climate", "window_heating_start"): "Start window heating",
+        ("climate", "window_heating_stop"): "Stop window heating",
+        ("charging", "start"): "Start charging",
+        ("charging", "stop"): "Stop charging",
+        ("access", "lock"): "Lock vehicle",
+        ("access", "unlock"): "Unlock vehicle",
+        ("remote", "flash"): "Flash vehicle lights",
+        ("remote", "wake"): "Wake vehicle",
+    }
+    result = {}
+    for (capability, action), label in labels.items():
+        if capability not in profile.registry.capabilities:
+            continue
+        definition = profile.registry.capabilities[capability].get("control", {})
+        if action not in definition:
+            continue
+        decision = control_decision(car, profile, engine.auth, capability, action)
+        operation = decision["operation"]
+        if not operation or operation in profile.custom:
+            continue
+        op = profile.registry.operations[operation]
+        group = approval_group(capability, action, op)
+        if group not in ("non_spin", "spin") or op.get("request_variables"):
+            continue
+        result[capability + "." + action] = (label, capability, action, operation, group)
+    return result
