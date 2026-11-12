@@ -310,7 +310,7 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
     schema_captured = sum(row["schema_inventory"] == "captured" for row in jobs.values())
     attr_total = sum(row["attributes_total"] for row in capabilities.values())
     attr_normalized = sum(row["attributes_normalized"] for row in capabilities.values())
-    pending = {job for group in pending_groups(profile, max_groups=len(PROBE_GROUPS)) for job in group} if modern else set()
+    pending = {job for group in pending_groups(profile, max_groups=2 * len(PROBE_GROUPS)) for job in group} if modern else set()
     exhausted = [job for job, row in jobs.items() if row["retry_exhausted"]]
     missing_reads = [op for op, value in reads.items() if not assessed_http(value)]
     unresolved = [job for job, row in jobs.items() if row["status"] not in ("observed", "unsupported") and job not in pending]
