@@ -491,6 +491,30 @@ async def ws_test_family_reads(hass, connection, msg):
         connection.send_error(msg["id"], "v3_family_read_test_failed", str(exc))
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/trip_history",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0, max=10000)),
+    vol.Optional("limit", default=100): vol.All(int, vol.Range(min=1, max=250)),
+})
+@websocket_api.async_response
+async def ws_trip_history(hass, connection, msg):
+    """Paginated local archive; no cloud request or raw trip identifiers."""
+    try:
+        car = _engine(hass, msg["entry_id"]).require_vehicle(msg["vin"])
+        offset, limit = msg["offset"], msg["limit"]
+        rows = car.trip_history
+        connection.send_result(msg["id"], {
+            "total": len(rows), "offset": offset, "limit": limit,
+            "coverage": "observed_records",
+            "trips": [{k: v for k, v in row.items() if k != "tripID" and v is not None}
+                      for row in rows[offset:offset + limit]],
+        })
+    except (ValueError, KeyError, RuntimeError):
+        connection.send_error(msg["id"], "v3_trip_history_failed", "Trip archive unavailable")
+
+
 async def async_setup_dashboard(hass) -> None:
     if hass.data.get(_READY_KEY):
         return
@@ -506,7 +530,7 @@ async def async_setup_dashboard(hass) -> None:
             ws_review, ws_review_normal_command, ws_select, ws_save_candidate, ws_disable,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
-            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads,
+            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads, ws_trip_history,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True
