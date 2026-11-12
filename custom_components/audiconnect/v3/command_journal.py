@@ -10,6 +10,9 @@ from uuid import uuid4
 _UNRESOLVED = frozenset({"pending", "uncertain"})
 _STATES = _UNRESOLVED | {"accepted_unconfirmed", "backend_completed", "verified", "rejected", "reviewed", "physical_failed"}
 HISTORY_LIMIT = 50
+# Local anti-flood policy, not a claimed Audi server limit.
+HA_COMMAND_COOLDOWN_SECONDS = 10
+ENGINEERING_COMMAND_COOLDOWN_SECONDS = 90
 _READBACKS = {"climate", "chargingState", "doorLockStatus", "targetstateOfCharge", "preferredChargeMode", "windowHeatingActive", "preheater_active",
               "climatisationWindowHeatingEnabled", "climatisationAtUnlock",
               "climatisationZoneFrontLeft", "climatisationZoneFrontRight",
@@ -52,7 +55,7 @@ class CommandRecord:
     def wake_accepted(self) -> bool:
         return self.is_wake and self.state in ("accepted_unconfirmed", "backend_completed", "verified")
 
-    def check_next(self, now: float, cooldown: float = 90, *, capability=None, action=None) -> None:
+    def check_next(self, now: float, cooldown: float = HA_COMMAND_COOLDOWN_SECONDS, *, capability=None, action=None) -> None:
         if self.unresolved:
             raise RuntimeError("Previous vehicle command outcome uncertain; inspect and review it")
         if self.wake_accepted and capability is not None and action is not None:
@@ -74,7 +77,8 @@ class CommandRecord:
                     and reversible.get((self.capability, self.action)) == action
                     and action is not None):
                 return
-            raise RuntimeError("Vehicle command cooldown active; verify vehicle state")
+            remaining = math.ceil(self.started_at + cooldown - now)
+            raise RuntimeError(f"Vehicle command cooldown active; try again in {remaining}s")
 
     def snapshot(self) -> dict:
         return asdict(self)
