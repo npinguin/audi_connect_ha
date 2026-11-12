@@ -18,6 +18,7 @@ from .command_parameters import runtime_ready
 from .status_engine import StatusEngine
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
+from .trip_archive import V3TripArchive
 from .response_preview import safe_response_preview, engineering_response, MAX_ENGINEERING_ROUTES, MAX_ENGINEERING_HISTORY
 from .api_observations import record_for, save_record
 from .registry import CapabilityRegistry
@@ -72,6 +73,7 @@ class V3Engine:
         self.auth = auth or V3Auth(hass, entry)
         self.transport = transport or V3Transport(hass, self.auth)
         self.storage = storage or V3ProfileStorage(hass, entry.entry_id)
+        self.trip_archive = V3TripArchive(hass, entry.entry_id) if storage is None else None
         self.vehicles: dict[str, V3Vehicle] = {}
         self.profiles: dict[str, DevelopmentProfile] = {}
         self._known_vehicle_inventory = False
@@ -179,6 +181,11 @@ class V3Engine:
             self.profiles.update(
                 await self.storage.async_load(self.registry, missing)
             )
+        if self.trip_archive is not None and missing:
+            try:
+                await self.trip_archive.restore({key: known[key] for key in missing})
+            except (OSError, ValueError):
+                _LOGGER.warning("Unable to restore private Audi trip archive")
         self.vehicles.update(known)
         self._known_vehicle_inventory = True
         metadata = getattr(self.transport, "last_inventory_metadata", None)
@@ -422,6 +429,7 @@ class V3Engine:
                 stopped = "account_or_service_error"
                 break
         await self.storage.async_save(self.profiles)
+        await self._save_trip_archive()
         self._notify_discovery_change()
         remaining = [ident for ident, _ in plan if not (
             (http := profile.api_observations.get(ident, {}).get("http_status")) is not None
@@ -461,11 +469,19 @@ class V3Engine:
             return {"available": False, "operation": operation}
         return {"available": True, **detail}
 
+    async def _save_trip_archive(self) -> None:
+        if self.trip_archive is not None:
+            try:
+                await self.trip_archive.save(self.vehicles)
+            except (OSError, ValueError):
+                _LOGGER.warning("Unable to save private Audi trip archive")
+
     async def poll(self) -> list[V3Vehicle]:
         cars = await self.status.poll()
         self.commands.reconcile_commands()
         self.commands.refresh_bindings()
         await self.storage.async_save(self.profiles)
+        await self._save_trip_archive()
         return cars
 
     def require_vehicle(self, vin: str) -> V3Vehicle:
