@@ -345,7 +345,6 @@ class AudiConnectV3Panel extends HTMLElement {
       const id=button.dataset.editor;
       const template=this.editorTemplate(id);
       try {
-        const key=this.definitionKey(id,template);
         const raw=this.shadowRoot.getElementById("definition-json-"+id)?.value || "";
         this.loadDefinitionJSON(id,template,raw);
         this.error="";
@@ -588,11 +587,19 @@ class AudiConnectV3Panel extends HTMLElement {
       throw Error("Unknown definition fields");
     if (Object.keys(base).some(k=>!Object.hasOwn(value,k)&&!Object.hasOwn(optional,k)))
       throw Error("Missing definition fields");
-    const key=this.definitionKey(id,template);
-    for (const [field,original] of Object.entries({...optional,...base})) {
+    if ((id==="read" && value.attribute!==base.attribute) ||
+        (id==="control" && (value.capability!==base.capability || value.aspect!==base.aspect)))
+      throw Error("Select the matching attribute or action before importing");
+    const fields={...optional,...base};
+    const edits=Object.entries(fields).map(([field,original])=>{
       const v=value[field];
-      this.definitionEdits.set(key+":"+field, v===undefined?"":typeof original==="string"||field==="capture_path"?String(v):JSON.stringify(v,null,2));
-    }
+      const simple=typeof original==="string"||field==="capture_path";
+      if (v!==undefined && simple && typeof v!=="string")
+        throw Error("Expected text in "+field);
+      return [field,v===undefined?"":simple?v:JSON.stringify(v,null,2)];
+    });
+    const key=this.definitionKey(id,template);
+    for (const [field,value] of edits) this.definitionEdits.set(key+":"+field,value);
   }
 
   definitionFields(id, template, optional = this.editorOptional(id)) {
