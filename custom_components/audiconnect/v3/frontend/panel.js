@@ -724,8 +724,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const operations = (coverage.operations || []).filter(o => (family === "all" || o.family === family) && operationMatches(o)
       && (!this.capabilityFilter || (o.capabilities||[]).includes(this.capabilityFilter)));
     const matchesSearch = value => !this.searchText || JSON.stringify(value).toLowerCase().includes(this.searchText.toLowerCase());
-    const visibleOperations = operations.filter(o => matchesSearch(o) &&
-      (!this.focusOperation || o.operation===this.focusOperation) &&
+    const matchingOperations = operations.filter(o => matchesSearch(o) &&
       (this.operationMethod === "all" || o.method === this.operationMethod) &&
       (this.operationFilter === "all" ||
        this.operationFilter === "tested" && o.tested ||
@@ -733,6 +732,7 @@ class AudiConnectV3Panel extends HTMLElement {
        this.operationFilter === "active" && o.active ||
        this.operationFilter === "attention" && (o.attention || []).length ||
        this.operationFilter === "historical" && o.reference_only));
+    const visibleOperations = matchingOperations.filter(o => !this.focusOperation || o.operation === this.focusOperation);
     const findings = coverage.findings || [];
     const projection = coverage.account_entity_projection || {};
     const filteredRows = rows.filter(r => (!this.capabilityFilter || r.capability === this.capabilityFilter) && (family === "all" || r.api_family === family) && (!selectedEntity || entityMatches(r) || (!r.entity_key && selectedEntity.operations.includes(r.operation))));
@@ -935,7 +935,7 @@ class AudiConnectV3Panel extends HTMLElement {
             ${this.focusOperation?`<div class="callout">Focused on ${escapeHTML(this.focusOperation)} <button data-action="clear-operation">Show all operations</button></div>`:""}
             <p>Tested, active, schema validity and physical confirmation are independent. HTTP 2xx/207 alone is not proof of a working command or complete mapping.</p>
             <div class="line">
-              <label>Operation <select id="operation-focus"><option value="">All operations</option>${operations.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.focusOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
+              <label>Operation <select id="operation-focus"><option value="">All operations</option>${matchingOperations.map(o=>`<option value="${escapeHTML(o.operation)}" ${this.focusOperation===o.operation?"selected":""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
               <label>Evidence <select id="operation-filter">${["all","tested","untested","active","attention","historical"].map(v=>`<option value="${v}" ${this.operationFilter===v?"selected":""}>${v}</option>`).join("")}</select></label>
               <label>Method <select id="operation-method">${["all","GET","POST","PUT","DELETE"].map(v=>`<option value="${v}" ${this.operationMethod===v?"selected":""}>${v}</option>`).join("")}</select></label>
             </div>
