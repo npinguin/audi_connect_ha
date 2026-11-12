@@ -317,7 +317,11 @@ class StatusEngine:
         # No POST, no wake, no parking coordinates, no unbounded API probing.
         remaining_discovery = (MAX_EXTRA_INITIAL_REQUESTS if self._poll_cycles == 1
                                else MAX_EXTRA_PERIODIC_REQUESTS)
-        for key, car in self.vehicles.items():
+        # Rotate the existing account-wide discovery budget across vehicles.
+        discovery_keys = list(self.vehicles)
+        start = (self._poll_cycles - 1) % len(discovery_keys) if discovery_keys else 0
+        for key in discovery_keys[start:] + discovery_keys[:start]:
+            car = self.vehicles[key]
             if not car.inventory_present:
                 continue
             profile = self.profiles[key]
@@ -336,12 +340,12 @@ class StatusEngine:
                     response = await self.transport.request("cariad", "GET", path)
                 except (TimeoutError, OSError, RuntimeError, ValueError):
                     break
+                self._api_record(profile, "cariad.discovery." + "_".join(jobs),
+                                 "cariad", "GET", response, car.vin)
                 if response.status in (401, 403, 429) or response.status >= 500:
                     record_jobs(profile, jobs, status=response.status, payload=response.data)
                     break
                 reserve_group(profile, jobs)
-                self._api_record(profile, "cariad.discovery." + "_".join(jobs),
-                                 "cariad", "GET", response, car.vin)
                 if 200 <= response.status < 300:
                     cloud_reachable = True
                     observe_read_only(car, profile, response.data, response.observed_at)
