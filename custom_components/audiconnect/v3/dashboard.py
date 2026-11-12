@@ -145,6 +145,12 @@ async def ws_status(hass, connection, msg):
             for label, capability, action, operation, group in
             user_test_candidates(engine, vehicle, profile).values()
         ]
+        report["expert_candidates"] = [
+            {"label": label, "capability": capability, "action": action,
+             "operation": operation, "approval_group": group}
+            for label, capability, action, operation, group in
+            user_test_candidates(engine, vehicle, profile, include_verified=True).values()
+        ]
         coordinator = getattr(engine.entry.runtime_data, "coordinator", None)
         interval = getattr(coordinator, "update_interval", None)
         report["end_user_timing"] = {"poll_interval_seconds": interval.total_seconds() if interval else None,
@@ -372,6 +378,7 @@ async def ws_control_routes(hass, connection, msg):
     vol.Required("approval"): vol.In(("non_spin", "spin")),
     vol.Optional("parameters"): dict,
     vol.Optional("end_user", default=False): bool,
+    vol.Optional("expert", default=False): bool,
 })
 @websocket_api.async_response
 async def ws_control_test(hass, connection, msg):
@@ -381,7 +388,7 @@ async def ws_control_test(hass, connection, msg):
             from .read_discovery import user_test_candidates
             car = engine.require_vehicle(msg["vin"])
             profile = engine.profiles[car.vin.lower()]
-            candidate = user_test_candidates(engine, car, profile).get(msg["capability"] + "." + msg["action"])
+            candidate = user_test_candidates(engine, car, profile, include_verified=msg.get("expert", False)).get(msg["capability"] + "." + msg["action"])
             if candidate is None or candidate[3:] != (msg["operation"], msg["approval"]) or msg.get("parameters"):
                 raise ValueError("End-user control changed or requires parameters; refresh discovery before testing")
         value = await engine.approved_control_discovery(
