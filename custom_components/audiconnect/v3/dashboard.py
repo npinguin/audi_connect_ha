@@ -125,6 +125,16 @@ async def ws_status(hass, connection, msg):
                     actual.setdefault(key, []).append(entity.entity_id)
             from .entity_traceability import link_entities
             link_entities(report, actual)
+            # Admin-only scalar observation trace; never add private values
+            # to the shared capability report or exported diagnostics.
+            from .response_preview import engineering_response
+            spin, secrets = engine._evidence_credentials()
+            for row in report["rows"]:
+                reading = vehicle.readings.get(row.get("attribute"), {})
+                value = reading.get("value")
+                if row.get("entity_key") and type(value) in (str, int, float, bool):
+                    row["normalized_value"] = engineering_response(
+                        value, vehicle_vin=vehicle.vin, spin=spin, secrets=secrets)["payload"]
         if hasattr(engine, "health"):
             report["integration_health"] = engine.health.snapshot(engine, vehicle)
         connection.send_result(msg["id"], report)
