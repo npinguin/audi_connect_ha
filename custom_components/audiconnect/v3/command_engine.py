@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from .action_discovery import approval_group
-from .command_journal import CommandRecord, check_command_sequence
+from .command_journal import CommandRecord, check_command_sequence, ENGINEERING_COMMAND_COOLDOWN_SECONDS
 from .operation_revision import operation_revision
 from .command_parameters import map_parameters, runtime_ready
 from .command_readback import configure_readback, reconcile_readback, observe_command_response
@@ -187,7 +187,7 @@ class CommandEngine:
             if profile.discovery._active is not None:
                 raise ValueError("Review the previous action before trying another")
             if profile.last_command is not None:
-                profile.last_command.check_next(time.time())
+                profile.last_command.check_next(time.time(), cooldown=ENGINEERING_COMMAND_COOLDOWN_SECONDS)
             if f"{capability}.{aspect}" in profile.discovery.disabled:
                 raise ValueError("This action has been disabled by the user")
             if (profile.discovery.history and
