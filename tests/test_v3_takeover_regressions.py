@@ -196,3 +196,20 @@ def test_extended_job_schema_is_not_limited_by_legacy_preview():
                                               field_limit=512, char_limit=64000)
     assert old_truncated and len(old) <= 128
     assert not new_truncated and len(new) == 253
+
+
+def test_shared_cariad_battery_support_is_read_only_and_does_not_invent_voltage():
+    car = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    now = datetime.now(UTC)
+    observe_structured(car, {
+        "lvBattery": {"lvBatteryStatus": {"value": {"batterySupport": "enabled"}}},
+        "batterySupport": {"batterySupportStatus": {"value": {"batterySupport": "pendingDisable"}}},
+    }, now, _accept_observation)
+    detail = details_for(car, "low_voltage_battery_detail", "battery_support_detail")
+    assert detail["low_voltage_battery"]["data"] == {"battery_support": "enabled"}
+    assert detail["battery_support"]["data"] == {"battery_support": "pendingDisable"}
+    assert not car.advertised_capabilities
+    other = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    observe_structured(other, {"lvBattery": {"lvBatteryStatus": {"value": {
+        "batterySupport": "invalid", "voltage": 12.4}}}}, now, _accept_observation)
+    assert not details_for(other, "low_voltage_battery_detail")
