@@ -1,19 +1,19 @@
 # Audi Connect V2 / V3 parity matrix
 
-**Review:** 87b127c3908f. Original upstream `d12f74c35c1c961f3b040e5cc77acbca2a5cca26`; previous fixbranch `bc1a8a3c73795b6ae54be2b9494b96aae4c630fd`. See [source comparison](V2_V3_SOURCE_COMPARISON.json) and [machine-readable matrix](V2_V3_PARITY_BASELINE.json).
+**Review:** b8 release source `da0a3e8f3639` plus current engineering closure. Original upstream `d12f74c35c1c961f3b040e5cc77acbca2a5cca26`; previous fixbranch `bc1a8a3c73795b6ae54be2b9494b96aae4c630fd`. See [source comparison](V2_V3_SOURCE_COMPARISON.json) and [machine-readable matrix](V2_V3_PARITY_BASELINE.json).
 
-**Decision:** code paths are present for the historical inventory, but code-complete equivalence is not signed off. A HACS test release requires static parity and CI; Q8 and rollback acceptance are stable-release gates, not preconditions for the first test installation.
+**Decision:** code paths are present for the historical inventory, but code-complete equivalence is not signed off. Ordinary code-complete HACS releases require static parity and CI. The explicitly authorized b8 experimental exception is historical; Q8 and rollback remain stable-release gates.
 
 ## Labels
 
 - `mapped_conditional`: an independent V3 path exists; actual source availability and semantics still require verification.
-- `candidate_after_manual_proof`: a native control and reviewed route exist; vehicle-specific capability and explicit action consent apply.
+- `candidate_after_manual_proof`: a native control and reviewed route exist; eligible known routes may be automatically exposed by fast discovery. Physical mutation requires explicit invocation; catalog matching is not local physical proof.
 - `partial`: known unresolved implementation difference.
 - No row has physical Q8 confirmation.
 
 ## Current coverage
 
-109 original baseline entity slots across nine platforms, plus the previous fixbranch's `sensor.last_trip`. {"mapped_conditional":87,"candidate_after_manual_proof":22}. All 11 public HA services and 19 control workstreams are inventoried; four engineering probe services deliberately excluded. Nine V2 business files match the pre-repair Git blob hashes exactly. The original upstream comparison is a declaration comparison, not a claim that the fork's V2 equals current upstream byte-for-byte.
+109 original baseline entity slots across nine platforms, plus the previous fixbranch's `sensor.last_trip`. {"mapped_conditional":87,"candidate_after_manual_proof":22}. All 11 public HA services and 19 control workstreams are inventoried; four engineering probe services deliberately excluded. Nine V2 business files are pinned against the reviewed current implementation. The obsolete V2 read-only probe implementation is removed; V3 Workbench owns discovery. The operation inventory is generated from the active 59-operation catalog. The original upstream comparison is a declaration comparison, not a claim that the fork's V2 equals current upstream byte-for-byte.
 
 ## The user's Q8: observed V2 ↔ V3 b7
 

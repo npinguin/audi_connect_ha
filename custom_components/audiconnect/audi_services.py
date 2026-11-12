@@ -17,7 +17,6 @@ from aiohttp import ClientResponseError
 from bs4 import BeautifulSoup
 
 from .audi_api import AudiAPI
-from .api_probe import run_read_only_probes
 from .capability_jobs import (
     BASE_SELECTIVE_JOBS,
     capability_snapshot,
@@ -369,25 +368,6 @@ class AudiService:
         self._api.use_token(self.vwToken)
         return await self._api.get(
             f"{await self._get_home_region(vin.upper())}/fs-car/bs/rs/v1/{self._type}/{self._country}/vehicles/{vin.upper()}/status"
-        )
-
-    async def probe_known_read_only_paths(
-        self, vin: str, *, extended: bool = False
-    ) -> dict[str, Any]:
-        """Use current CARIAD credentials for opt-in diagnostic GET probes.
-
-        Does not create/refresh an auth session or send an action.
-        """
-        token = self._bearer_token_json
-        access_token = token.get("access_token") if isinstance(token, dict) else None
-        if not isinstance(access_token, str) or not access_token:
-            raise ValueError("Active CARIAD access token unavailable")
-        self._api.use_token(token)
-        return await run_read_only_probes(
-            self._api,
-            access_token,
-            lambda suffix: self.__get_cariad_url_for_vin(vin, suffix),
-            extended=extended,
         )
 
     async def get_stored_vehicle_data(self, vin: str):

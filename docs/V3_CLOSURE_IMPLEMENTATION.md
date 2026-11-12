@@ -17,9 +17,13 @@ Still open:
 - Fully generic catalog/attribute schema and HA projection, custom parameterized operation activation/PUT; current historical attribute/job mapping remains.
 - Complete bounded command journal history and single lifecycle representation for engineering and normal commands; current normal context is last-command only, readback covers known stateful actions and does not prove transient actions.
 - Context-change migration and full HA integration acceptance. Inventory removal and return are implemented.
-- Review all pinned V2 upstream deltas; CI dependency/type/coverage gates, generated parity and actual vehicle/recorder/rollback proof.
+- Complete semantic review of retained V2 deviations, CI type/coverage gates and actual vehicle/recorder/rollback proof.
 - Review actual catalog eligibility across supported vehicle families. Catalog match is not physical proof.
 
 Do not mark static parity or release gates complete.
 
 - Vehicle inventory reconciliation retains object/entity identity, blocks excluded or repeatedly missing VINs, and restores them on rediscovery. Empty/malformed responses do not revoke existing vehicles. Context-change migration remains a separate acceptance item.
+
+## Post-b8 V2 parity work
+
+Removed the dormant V2 probe implementation (account methods, service adapter, diagnostic report and standalone probe module). V3 family-read tests cover the supported engineering path. Refreshed the machine-readable operation inventory directly from the active catalog; added exact inventory regression and V2/V3 differential tests. No parity flag is promoted.

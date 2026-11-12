@@ -91,7 +91,8 @@
     "v3_code_path_classifications": {
       "mapped_conditional": 87,
       "candidate_after_manual_proof": 22
-    }
+    },
+    "v3_api_operations": 59
   },
   "entities": [
     {
@@ -3724,7 +3725,7 @@
       "method": "POST",
       "family": "cariad",
       "path": "/vehicle/v1/vehicles/{VIN}/climatisation/start",
-      "request_mode": "verified_vehicle_target",
+      "request_mode": "climate_start_settings",
       "delivery": "manual"
     },
     {
@@ -3740,7 +3741,7 @@
       "method": "POST",
       "family": "mbb",
       "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater/actions",
-      "request_mode": "existing_adapter",
+      "request_mode": "mbb_climate_start",
       "delivery": "manual"
     },
     {
@@ -3748,7 +3749,7 @@
       "method": "POST",
       "family": "mbb",
       "path": "/fs-car/bs/climatisation/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/climater/actions",
-      "request_mode": "existing_adapter",
+      "request_mode": "mbb_climate_stop",
       "delivery": "manual"
     },
     {
@@ -4062,6 +4063,102 @@
       "path": "/vehicle/v1/vehicles/{VIN}/windowheating/stop",
       "request_mode": "json",
       "delivery": "manual"
+    },
+    {
+      "id": "cariad.charging.settings",
+      "method": "PUT",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/settings",
+      "request_mode": "charging_settings_update",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.charging.mode",
+      "method": "PUT",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/mode",
+      "request_mode": "charge_mode",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.charging.profiles",
+      "method": "PUT",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/profiles",
+      "request_mode": "charging_profile_update",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.climate.settings",
+      "method": "PUT",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/climatisation/settings",
+      "request_mode": "climate_settings_update",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.remote.refresh",
+      "method": "POST",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/vehiclewakeup",
+      "request_mode": "bodyless",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.remote.flash",
+      "method": "POST",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/honkandflash",
+      "request_mode": "flash",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.climate.preheater_start",
+      "method": "POST",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/auxiliaryheating/start",
+      "request_mode": "auxiliary_start",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.climate.preheater_stop",
+      "method": "POST",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/auxiliaryheating/stop",
+      "request_mode": "bodyless",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.remote.engine_start",
+      "method": "POST",
+      "family": "cariad",
+      "path": "/vehicle/v1/engine/{VIN}/start",
+      "request_mode": "engine_start",
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.remote.engine_stop",
+      "method": "POST",
+      "family": "cariad",
+      "path": "/vehicle/v1/engine/{VIN}/stop",
+      "request_mode": "bodyless",
+      "delivery": "manual"
+    },
+    {
+      "id": "mbb.access.lock",
+      "method": "POST",
+      "family": "mbb",
+      "path": "/api/bs/rlu/v1/vehicles/{VIN}/lock",
+      "request_mode": "mbb_rlu",
+      "delivery": "manual"
+    },
+    {
+      "id": "mbb.access.unlock",
+      "method": "POST",
+      "family": "mbb",
+      "path": "/api/bs/rlu/v1/vehicles/{VIN}/unlock",
+      "request_mode": "mbb_rlu",
+      "delivery": "manual"
     }
   ],
   "control_workstreams": [
@@ -4347,7 +4444,7 @@
     "request_id_pendingrequests_followup_implemented": true,
     "request_id_physical_vehicle_readback_proven": false
   },
-  "latest_candidate_notes": "All 109 baseline slots and the additional fixbranch last_trip slot now have a source-backed V3 code path or conditional implementation. MBB read and climate/RLU command execution, legacy bearer routing, and historical derived fields are implemented. This is not code-complete equivalence: modern reset history, legacy timer interpretation and end-to-end HA behavior remain unproven. No release gate promoted.",
+  "latest_candidate_notes": "b8 is immutable. Architecture-closure continuation: generated operation inventory, current source comparison and fixture-based parity tests. Static/live parity remains unproven.",
   "product_scope_exclusions": {
     "temporary_runtime_probes": [
       "probe_api_paths",
@@ -4358,7 +4455,8 @@
     "v3_product_probes": false,
     "trip_data": "bounded_normal_poll",
     "reason": "User explicitly excluded runtime engineering test actions from V3 product.",
-    "v2_product_probes": false
+    "v2_product_probes": false,
+    "retired_v2_probe_implementation": "Removed from production; V3 Workbench owns bounded read-only discovery."
   },
   "source_comparison": "docs/V2_V3_SOURCE_COMPARISON.json",
   "fixbranch_additional_entities": [
@@ -4369,5 +4467,5 @@
       "remaining_gap": "CARIAD last-trip response required; no fabricated fallback"
     }
   ],
-  "reviewed_implementation_ref": "87b127c3908fde97d749d57ee1fe8f82551119a4"
+  "reviewed_implementation_ref": "da0a3e8f3639d30103970de7cc25b305e3f8fa7d"
 }

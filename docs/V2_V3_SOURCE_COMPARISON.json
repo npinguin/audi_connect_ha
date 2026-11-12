@@ -237,8 +237,8 @@
   "pre_repair_ref": "a0f188647e857c16392c75bb3826d9ec6c9e28ec",
   "reviewed_ref": "87b127c3908fde97d749d57ee1fe8f82551119a4",
   "unchanged_v2_business_blob_sha1": {
-    "audi_services": "13db5457eefe31d00f6425be2fd56e2c4999d562",
-    "audi_connect_account": "a7a5f8784a8e1998271f1643cc1537e6a4789779",
+    "audi_services": "c5bd61c437bc3ce71065821a95621bf3e4a156e2",
+    "audi_connect_account": "47f82e8f1f6bc9d511aa1b1446999645a47d0714",
     "audi_account": "b7516b1e50d414a7936d3055848ebc76f8d45dcf",
     "audi_models": "c02252e54504e5c4fde3ed08e832eb5d3f7608cb",
     "audi_api": "2e535cb6b9617307afb3883302727325c50fa0d3",
@@ -264,5 +264,10 @@
   "consolidation_v2_patch": {
     "source": "43be48268262ef9e2c8942a955888415b8e86dc8",
     "description": "Preserve targeted stable V2 cancellation, position recovery and confirmation regressions only; no V3 business changes. Pinned blob hashes renewed after explicit reconciliation."
+  },
+  "post_b8_v2_cleanup": {
+    "base": "da0a3e8f3639d30103970de7cc25b305e3f8fa7d",
+    "description": "Remove retired V2 probes from production and diagnostics, preserve active product contracts. Updated pinned hashes after intentional review.",
+    "remaining_deltas": 32
   }
 }

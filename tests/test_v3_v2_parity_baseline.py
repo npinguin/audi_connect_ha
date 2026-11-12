@@ -125,3 +125,24 @@ def test_parity_matrix_never_promotes_candidates_to_proven_controls():
     assert not any(row["q8_v3_verified"] for row in BASE["entities"])
     ids = [row["id"] for row in BASE["entities"]]
     assert len(ids) == len(set(ids)) == BASE["counts"]["entity_rows"] == 109
+
+
+def test_operation_inventory_matches_active_catalog_exactly():
+    catalog = json.loads((SRC / "v3/full_catalog.json").read_text())
+    expected = [
+        {"id": ident, "method": op["method"], "family": op["family"],
+         "path": op["path"], "request_mode": op.get("request_mode"),
+         "delivery": op["delivery"]}
+        for ident, op in catalog["operations"].items()
+    ]
+    assert BASE["v3_operations"] == expected
+    assert BASE["counts"]["v3_api_operations"] == len(expected)
+
+
+def test_retired_v2_probe_runtime_does_not_return():
+    assert not (SRC / "api_probe.py").exists()
+    for file in ("audi_connect_account.py", "audi_services.py", "diagnostics.py"):
+        source = (SRC / file).read_text()
+        assert "probe_known_read_only_paths" not in source
+        assert "probe_read_only_api" not in source
+        assert "get_read_only_probe_report" not in source
