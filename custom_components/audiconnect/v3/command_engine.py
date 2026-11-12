@@ -146,14 +146,15 @@ class CommandEngine:
     async def disable_control(self, vin: str, capability: str, action: str, *, disabled=True) -> None:
         vehicle = self.require_vehicle(vin)
         profile = self.profiles[vehicle.vin.lower()]
-        if disabled:
-            profile.disable(capability, action)
-        else:
-            if not profile.registry.operations_for(capability, action):
-                raise ValueError("Unknown control")
-            profile.discovery.enable(capability, action)
-        await self.storage.async_save(self.profiles)
-        self._notify_discovery_change()
+        async with self._actions:
+            if disabled:
+                profile.disable(capability, action)
+            else:
+                if not profile.registry.operations_for(capability, action):
+                    raise ValueError("Unknown control")
+                profile.discovery.enable(capability, action)
+            await self.storage.async_save(self.profiles)
+            self._notify_discovery_change()
 
     def reconcile_commands(self) -> None:
         """Correlate fresh scheduled observations without another request."""
@@ -281,24 +282,25 @@ class CommandEngine:
         self, vin: str, sequence: int, outcome: str,
     ) -> dict[str, Any]:
         profile = self.profiles[self.require_vehicle(vin).vin.lower()]
-        if outcome not in ("worked", "failed", "uncertain"):
-            raise ValueError("Unsupported outcome")
-        profile.confirm(
-            sequence,
-            worked=None if outcome == "uncertain" else outcome == "worked",
-            inspected_vehicle=outcome != "uncertain",
-            now=time.time(),
-        )
-        if outcome == "worked":
-            attempt = profile.discovery.history[-1]
-            if (profile.control_results.get(attempt.operation) == "worked"
-                    and runtime_ready(profile.custom.get(attempt.operation, {}))):
-                profile.choose_working(
-                    attempt.capability, attempt.action, attempt.operation
-                )
-        await self.storage.async_save(self.profiles)
-        self._notify_discovery_change()
-        return {"confirmed": outcome, "active": dict(profile.active)}
+        async with self._actions:
+            if outcome not in ("worked", "failed", "uncertain"):
+                raise ValueError("Unsupported outcome")
+            profile.confirm(
+                sequence,
+                worked=None if outcome == "uncertain" else outcome == "worked",
+                inspected_vehicle=outcome != "uncertain",
+                now=time.time(),
+            )
+            if outcome == "worked":
+                attempt = profile.discovery.history[-1]
+                if (profile.control_results.get(attempt.operation) == "worked"
+                        and runtime_ready(profile.custom.get(attempt.operation, {}))):
+                    profile.choose_working(
+                        attempt.capability, attempt.action, attempt.operation
+                    )
+            await self.storage.async_save(self.profiles)
+            self._notify_discovery_change()
+            return {"confirmed": outcome, "active": dict(profile.active)}
 
     async def send_control(
         self, vin: str, aspect: str, capability: str = "climate",
