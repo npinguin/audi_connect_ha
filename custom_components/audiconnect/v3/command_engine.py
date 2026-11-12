@@ -247,13 +247,14 @@ class CommandEngine:
             # physical action, otherwise a mere validation error locks the car.
             prepared = await self._prepare_command(vehicle, operation, params)
             self._reserve_wake(vehicle.vin, operation)
-            attempt = profile.begin_test(
-                capability, aspect, operation, now=time.time()
-            )
-            await self.storage.async_save(self.profiles)
-            record = profile.engineering_record(attempt.sequence)
-            if record is None:
-                raise RuntimeError("Missing durable engineering command record")
+            with profile.command_transaction():
+                attempt = profile.begin_test(
+                    capability, aspect, operation, now=time.time()
+                )
+                record = profile.engineering_record(attempt.sequence)
+                if record is None:
+                    raise RuntimeError("Missing durable engineering command record")
+                await self.storage.async_save(self.profiles)
             try:
                 _, _, response = await self._execute_prepared(vehicle, profile, record, prepared, params)
             except (TimeoutError, OSError, RuntimeError, ValueError):
@@ -336,9 +337,10 @@ class CommandEngine:
                                          operation_revision=operation_revision(p.registry.operations[ident]),
                                          parent_command_id=_follow_up_to)
             configure_readback(record, params)
-            p.track_command(record)
-            # If storage fails here, no physical action is attempted.
-            await self.storage.async_save(self.profiles)
+            with p.command_transaction():
+                p.track_command(record)
+                # No physical action until the pending record is durable.
+                await self.storage.async_save(self.profiles)
             try:
                 family, path, response = await self._execute_prepared(car, p, record, prepared, params)
                 if not 200 <= response.status < 300:
