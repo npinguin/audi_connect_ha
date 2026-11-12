@@ -221,76 +221,113 @@ class CommandEngine:
         *, params: dict[str, Any] | None = None, capability: str = "climate",
         guided: bool = False, expert: bool = False, approval: str | None = None,
     ) -> dict[str, Any]:
-        """One user-triggered control request, never automatic POST discovery."""
+        """One action consent; at most one reviewed equivalent after definite rejection."""
         async with self._actions:
-            vehicle = self.require_vehicle(vin)
+            from .control_resolution import reviewed_alternative
+            car = self.require_vehicle(vin)
+            context = car.context
+            result = await self._test_action_once(vin, aspect, operation, params=params,
+                capability=capability, guided=guided, expert=expert, approval=approval)
+            alternative = reviewed_alternative(capability, aspect, operation) if guided else None
+            if not alternative or result["physical_result"] != "rejected":
+                return result
             profile = self.profiles[vin.lower()]
-            if guided:
-                from .read_discovery import user_test_candidates
-                candidate = user_test_candidates(self, vehicle, profile, include_verified=expert).get(f"{capability}.{aspect}")
-                if candidate is None or candidate[3:] != (operation, approval) or params:
-                    raise ValueError("Discovery action changed; refresh status before testing")
-            family = profile.registry.operations.get(operation, {}).get("family")
-            if family not in ("cariad","mbb") or (family=="mbb" and self.auth.uses_auth0):
-                raise ValueError("Control is not applicable to this authentication family")
-            if operation not in profile.registry.resolve(
-                capability, aspect, vehicle.context
-            )["available_operations"]:
-                raise ValueError("Control not applicable to this car")
-            if capability == "remote" and aspect in ("engine_start", "engine_stop"):
-                from .command_policy import eligible_operation
-                if eligible_operation(vehicle, self.auth, capability, aspect) != operation:
-                    raise ValueError("Remote engine operation is not permitted for this vehicle")
-            if profile.registry.operations[operation]["method"] not in ("POST", "PUT"):
-                raise ValueError("Read-only operation cannot be a control")
-            if profile.discovery._active is not None:
-                raise ValueError("Review the previous action before trying another")
-            if profile.last_command is not None:
-                check_command_sequence(profile, time.time(), capability=capability, action=aspect,
-                                       cooldown=ENGINEERING_COMMAND_COOLDOWN_SECONDS)
-            if f"{capability}.{aspect}" in profile.discovery.disabled:
-                raise ValueError("This action has been disabled by the user")
-            if (profile.discovery.history and
-                    time.time() < profile.discovery.history[-1].started_at
-                    + profile.discovery.cooldown_seconds):
-                raise ValueError("Vehicle command cooldown still active")
-            # Reject invalid templates/parameters BEFORE reserving a pending
-            # physical action, otherwise a mere validation error locks the car.
-            prepared = await self._prepare_command(vehicle, operation, params)
-            self._reserve_wake(vehicle.vin, operation)
-            with profile.command_transaction():
-                attempt = profile.begin_test(
-                    capability, aspect, operation, now=time.time()
-                )
-                record = profile.engineering_record(attempt.sequence)
-                if record is None:
-                    raise RuntimeError("Missing durable engineering command record")
-                if guided:
-                    configure_discovery_readback(record, vehicle, params)
-                await self.storage.async_save(self.profiles)
+            # Respect the same per-vehicle cooldown; no detached background work.
+            delay = profile.discovery.history[-1].started_at + profile.discovery.cooldown_seconds - time.time()
+            if delay > 0:
+                await asyncio.sleep(delay)
+            remaining = getattr(self.transport, "remaining_calls", None)
+            if car.context != context or (remaining is not None and remaining <= 12):
+                return {**result, "alternative": "paused_context_or_quota"}
+            from .read_discovery import user_test_candidates
+            candidate = user_test_candidates(self, car, profile, include_verified=expert).get(f"{capability}.{aspect}")
+            if candidate is None or candidate[3:] != (alternative, approval):
+                return {**result, "alternative": "no_eligible_route"}
             try:
-                family, _, response = await self._execute_prepared(vehicle, profile, record, prepared, params)
-            except (TimeoutError, OSError, RuntimeError, ValueError):
-                response = None
-            if guided and response is not None and record.state == "accepted_unconfirmed":
-                observe_command_response(record, vehicle, profile, family, response)
-                if record.state == "verified" and attempt.sequence != profile.invalidated_attempt_sequence:
-                    self._confirm_working_readback(profile, attempt, record)
+                next_result = await self._test_action_once(vin, aspect, alternative, params=params,
+                    capability=capability, guided=True, expert=expert, approval=approval)
+            except (ValueError, RuntimeError, OSError, TimeoutError):
+                return {**result, "alternative": "paused_check_status"}
+            return {**next_result, "previous_attempt": {"operation": operation,
+                        "sequence": result["sequence"], "status": result["status"], "result": "rejected"}}
+
+    async def _test_action_once(self, vin, aspect, operation, *, params, capability,
+                                guided, expert, approval):
+        """Shared single physical dispatch; caller holds the command lock."""
+        vehicle = self.require_vehicle(vin)
+        profile = self.profiles[vin.lower()]
+        if guided:
+            from .read_discovery import user_test_candidates
+            candidate = user_test_candidates(self, vehicle, profile, include_verified=expert).get(f"{capability}.{aspect}")
+            if candidate is None or candidate[3:] != (operation, approval) or params:
+                raise ValueError("Discovery action changed; refresh status before testing")
+        family = profile.registry.operations.get(operation, {}).get("family")
+        if family not in ("cariad","mbb") or (family=="mbb" and self.auth.uses_auth0):
+            raise ValueError("Control is not applicable to this authentication family")
+        if operation not in profile.registry.resolve(
+            capability, aspect, vehicle.context
+        )["available_operations"]:
+            raise ValueError("Control not applicable to this car")
+        if capability == "remote" and aspect in ("engine_start", "engine_stop"):
+            from .command_policy import eligible_operation
+            if eligible_operation(vehicle, self.auth, capability, aspect) != operation:
+                raise ValueError("Remote engine operation is not permitted for this vehicle")
+        if profile.registry.operations[operation]["method"] not in ("POST", "PUT"):
+            raise ValueError("Read-only operation cannot be a control")
+        if profile.discovery._active is not None:
+            raise ValueError("Review the previous action before trying another")
+        if profile.last_command is not None:
+            check_command_sequence(profile, time.time(), capability=capability, action=aspect,
+                                   cooldown=ENGINEERING_COMMAND_COOLDOWN_SECONDS)
+        if f"{capability}.{aspect}" in profile.discovery.disabled:
+            raise ValueError("This action has been disabled by the user")
+        if (profile.discovery.history and
+                time.time() < profile.discovery.history[-1].started_at
+                + profile.discovery.cooldown_seconds):
+            raise ValueError("Vehicle command cooldown still active")
+        # Reject invalid templates/parameters BEFORE reserving a pending
+        # physical action, otherwise a mere validation error locks the car.
+        prepared = await self._prepare_command(vehicle, operation, params)
+        self._reserve_wake(vehicle.vin, operation)
+        with profile.command_transaction():
+            attempt = profile.begin_test(
+                capability, aspect, operation, now=time.time()
+            )
+            record = profile.engineering_record(attempt.sequence)
+            if record is None:
+                raise RuntimeError("Missing durable engineering command record")
+            if guided:
+                configure_discovery_readback(record, vehicle, params)
             await self.storage.async_save(self.profiles)
-            if guided and attempt.result == "worked":
-                self._notify_discovery_change()
-            return {
-                "sequence": attempt.sequence, "operation": operation,
-                "transport": attempt.transport,
-                "status": response.status if response else None,
-                "response_preview": None if (capability == "access" or aspect in (
-                    "engine_start", "engine_stop", "preheater_start"
-                )) else safe_response_preview(
-                    response.data if response else None,
-                    vehicle_vin=vehicle.vin,
-                ),
-                "physical_result": "verified" if attempt.result == "worked" else "requires_user_confirmation",
-            }
+        try:
+            family, _, response = await self._execute_prepared(vehicle, profile, record, prepared, params)
+        except (TimeoutError, OSError, RuntimeError, ValueError):
+            response = None
+        from .read_discovery import explicitly_unsupported
+        if (guided and response is not None and response.status in (405, 410)
+                and explicitly_unsupported(response.data) and record.state == "rejected"
+                and attempt.sequence != profile.invalidated_attempt_sequence):
+            profile.reject_test(attempt.sequence, now=time.time())
+        if guided and response is not None and record.state == "accepted_unconfirmed":
+            observe_command_response(record, vehicle, profile, family, response)
+            if record.state == "verified" and attempt.sequence != profile.invalidated_attempt_sequence:
+                self._confirm_working_readback(profile, attempt, record)
+        await self.storage.async_save(self.profiles)
+        if guided and attempt.result in ("worked", "rejected"):
+            self._notify_discovery_change()
+        return {
+            "sequence": attempt.sequence, "operation": operation,
+            "transport": attempt.transport,
+            "status": response.status if response else None,
+            "response_preview": None if (capability == "access" or aspect in (
+                "engine_start", "engine_stop", "preheater_start"
+            )) else safe_response_preview(
+                response.data if response else None,
+                vehicle_vin=vehicle.vin,
+            ),
+            "physical_result": ("verified" if attempt.result == "worked" else
+                                "rejected" if attempt.result == "rejected" else "requires_user_confirmation"),
+        }
 
     def _confirm_working_readback(self, profile, attempt, record):
         profile.confirm(attempt.sequence, worked=True, inspected_vehicle=False,
