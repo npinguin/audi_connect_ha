@@ -255,11 +255,26 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         captured = block.get("carCapturedTimestamp")
         if accepts({"captured": car.charging_profiles_captured}
                    if car.charging_profiles_captured else None, captured):
-            profiles = [dict(id=x["id"], name=x.get("name"),
-                        targetSOC_pct=x.get("targetSOC_pct"),
-                        minSOC_pct=x.get("minSOC_pct"),
+            from .structured_details import _clock, _boolean, _timer, _array, _zoned_datetime
+            def percentage(value):
+                return value if type(value) in (int, float) and 0 <= value <= 100 else None
+            def preference(t):
+                return {"id": t.get("id") if type(t.get("id")) is int else None,
+                        "enabled": _boolean(t.get("enabled")),
+                        "startTimeLocal": _clock(t.get("startTimeLocal") or t.get("startTime")),
+                        "endTimeLocal": _clock(t.get("endTimeLocal") or t.get("endTime"))}
+            profiles = [dict(id=x["id"], name=x.get("name") if isinstance(x.get("name"), str) else None,
+                        targetSOC_pct=percentage(x.get("targetSOC_pct")),
+                        minSOC_pct=percentage(x.get("minSOC_pct")),
+                        minSOC_enabled=_boolean(x.get("minSOC_enabled")),
+                        maxChargingCurrent=x.get("maxChargingCurrent") if x.get("maxChargingCurrent") in ("max", "reduced") else None,
+                        options={k: v for k, v in (x.get("options") or {}).items()
+                                 if k in ("autoUnlockPlugWhenCharged", "usePreferredChargingTimes")
+                                 and (type(v) is bool or v in ("on", "off", "permanent", "unsupported", "invalid"))}
+                                 if isinstance(x.get("options"), dict) else {},
+                        timers=_array(x.get("timers"), _timer, 30),
                         preferredChargingTimes=[
-                            {k: t.get(k) for k in ("enabled", "startTimeLocal", "endTimeLocal")}
+                            preference(t)
                             for t in x.get("preferredChargingTimes", [])[:12]
                             if isinstance(t, dict)
                         ] if isinstance(x.get("preferredChargingTimes"), list) else [])
@@ -269,6 +284,13 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
             car.charging_profiles_captured = captured
             active_id = block.get("vehiclePositionedInProfileID")
             car.active_charging_profile_id = active_id if type(active_id) is int else None
+            next_timer = block.get("nextChargingTimer")
+            record("charging_profile_context_detail", {
+                "vehicle_time": _zoned_datetime(block.get("timeInCar")),
+                "next_charging_timer": {"id": next_timer.get("id") if type(next_timer.get("id")) is int else None,
+                    "target_soc_reachable": _boolean(next_timer.get("targetSOCreachable"))}
+                    if isinstance(next_timer, dict) else None,
+            }, captured, "chargingProfiles", path)
             active = next((x for x in profiles if x["id"] == car.active_charging_profile_id), None)
             keys = {"active_charging_profile_target_soc": "targetSOC_pct",
                     "active_charging_profile_name": "name",
