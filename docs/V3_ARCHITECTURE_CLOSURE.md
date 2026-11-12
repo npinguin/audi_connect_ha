@@ -50,6 +50,8 @@ Command flow: requested → validated → pending (persisted before dispatch) �
 
 ## Delivery sequence and acceptance
 
+The community-facing priority order and core use cases are maintained in [V3 Architecture](V3_ARCHITECTURE.md). The work packages below are technical ownership/acceptance scopes, not a competing roadmap. Prioritize the golden Configure → Discover → Use journey, especially automatic discovery, identity and real HA use, before expanding engineering tooling.
+
 | WP | Owner/scope | Required result and gate |
 |---|---|---|
 | WP0 Freeze/baseline | Governance, catalog, V2 | Pin baseline; explicit upstream delta, ownership/dependencies and test inventory; preserve behavior |
