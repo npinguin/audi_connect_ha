@@ -1389,6 +1389,15 @@
       "metadata_contract": null,
       "freshness": "last_known",
       "name": "Trip history"
+    },
+    "sensor.discovery_coverage": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [],
+      "metadata_contract": null,
+      "freshness": "native_entity_contract",
+      "category": "diagnostic",
+      "name": "Discovery coverage"
     }
   },
   "retired_v3_sensors": [
