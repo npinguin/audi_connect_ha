@@ -163,6 +163,20 @@ async def ws_status(hass, connection, msg):
 
 @websocket_api.require_admin
 @websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/resume_discovery",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+})
+@websocket_api.async_response
+async def ws_resume_discovery(hass, connection, msg):
+    try:
+        progress = await _engine(hass, msg["entry_id"]).resume_read_discovery(msg["vin"])
+        connection.send_result(msg["id"], progress)
+    except (ValueError, KeyError, RuntimeError, OSError, TimeoutError) as exc:
+        connection.send_error(msg["id"], "v3_discovery_resume_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
     vol.Required("type"): "audiconnect/v3/add_route",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("route"): dict,
@@ -569,7 +583,7 @@ async def async_setup_dashboard(hass) -> None:
             StaticPathConfig("/audiconnect_v3", str(frontend_dir), False)
         ])
         for handler in (
-            ws_list, ws_status, ws_add_route, ws_discard_route,
+            ws_list, ws_status, ws_resume_discovery, ws_add_route, ws_discard_route,
             ws_review, ws_review_normal_command, ws_select,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
