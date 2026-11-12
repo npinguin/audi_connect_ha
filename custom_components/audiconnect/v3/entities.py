@@ -249,9 +249,24 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
         return SensorStateClass.MEASUREMENT if self.kind == "age" else None
 
     def _vehicle_age(self):
-        # Match historical HA age semantics; ignore future and sentinel clocks.
-        ages = [_reading_age_minutes(x.get("captured")) for x in self.vehicle.readings.values()]
-        return min((int(x) for x in ages if x is not None), default=None)
+        from .freshness import capture_coverage
+        ages = [group["newest_minutes"] for group in capture_coverage(self.vehicle).values()
+                if group["newest_minutes"] is not None]
+        return min(ages, default=None)
+
+    def _freshness(self):
+        from .freshness import capture_coverage
+        groups = capture_coverage(self.vehicle)
+        ages = [group["oldest_minutes"] for group in groups.values()
+                if group["oldest_minutes"] is not None]
+        if not ages:
+            return "unknown"
+        age = max(ages)
+        if age > 120:
+            return "stale"
+        if age > 30:
+            return "delayed"
+        return "unknown" if any(group["unknown"] for group in groups.values()) else "fresh"
 
     @property
     def native_unit_of_measurement(self):
@@ -269,14 +284,14 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
             age = self._vehicle_age()
             if self.kind == "age":
                 return age
-            return ("unknown" if age is None else "fresh" if age <= 30
-                    else "delayed" if age <= 120 else "stale")
+            return self._freshness()
         return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         engine = self.coordinator.engine
         if self.kind == "freshness":
+            from .freshness import capture_coverage
             last = self.vehicle.readings.get("last_update_time", {}).get("value")
             return {
                 "vehicle_last_update": last,
@@ -289,7 +304,8 @@ class V3StatusSensor(V3BaseEntity, SensorEntity):
                     if engine.last_cloud_poll_attempt else None),
                 "last_cloud_poll_succeeded": getattr(engine, "last_cloud_poll_succeeded",
                                                         self.coordinator.last_update_success),
-                "freshness_basis": "newest_vehicle_timestamp_not_all_fields",
+                "freshness_basis": "oldest_observed_job_capture_not_unobserved_support",
+                "job_capture_coverage": capture_coverage(self.vehicle),
             }
         if self.kind == "cloud":
             return {
@@ -433,18 +449,8 @@ class V3CloudRefreshButton(V3BaseEntity, ButtonEntity):
         await self.coordinator.async_request_refresh()
 
 def _reading_age_minutes(captured: str | None) -> float | None:
-    if not captured:
-        return None
-    try:
-        point = datetime.fromisoformat(captured.replace("Z", "+00:00"))
-    except (TypeError, ValueError, AttributeError):
-        return None
-    if point.tzinfo is None or point.year < 2020:
-        return None
-    delta = (datetime.now(UTC) - point.astimezone(UTC)).total_seconds()
-    if delta < -300:
-        return None
-    return max(0.0, delta / 60)
+    from .freshness import capture_age_minutes
+    return capture_age_minutes(captured)
 
 
 def _reading_available(

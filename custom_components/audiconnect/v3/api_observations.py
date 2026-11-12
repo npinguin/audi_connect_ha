@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import json
 from typing import Any
-from .response_preview import safe_response_preview, safe_schema_fields, validate_schema_fields
+from .response_preview import safe_response_preview, safe_schema_inventory, validate_schema_fields
 
 MAX_ROUTES = 48
 MAX_PREVIEW_CHARS = 3800
@@ -44,13 +44,13 @@ def record_for(
     record = {"at": stamp, "family": family, "method": method,
               "http_status": http_status, "result": outcome, "preview": preview}
     if method == "GET":
-        record["fields"] = safe_schema_fields(payload, vehicle_vin=vin)
+        record["fields"], record["fields_truncated"] = safe_schema_inventory(payload, vehicle_vin=vin)
     validate_record(record)
     return record
 
 def validate_record(item: Any) -> None:
     required = {"at", "family", "method", "http_status", "result", "preview"}
-    if not isinstance(item, dict) or not required <= set(item) or set(item) - required - {"fields"}:
+    if not isinstance(item, dict) or not required <= set(item) or set(item) - required - {"fields", "fields_truncated"}:
         raise ValueError("Invalid API observation")
     if item["family"] not in FAMILIES or item["method"] not in METHODS or item["result"] not in OUTCOMES:
         raise ValueError("Invalid API observation enums")
@@ -66,10 +66,12 @@ def validate_record(item: Any) -> None:
         raise ValueError("Invalid API record payload") from exc
     if len(text) > MAX_PREVIEW_CHARS:
         raise ValueError("Excessive response preview")
-    if item["method"] != "GET" and (item["preview"] != "[control response withheld: security]" or "fields" in item):
+    if item["method"] != "GET" and (item["preview"] != "[control response withheld: security]" or "fields" in item or "fields_truncated" in item):
         raise ValueError("Control responses must never be saved")
     if "fields" in item:
         validate_schema_fields(item["fields"])
+    if "fields_truncated" in item and ("fields" not in item or type(item["fields_truncated"]) is not bool):
+        raise ValueError("Invalid schema truncation evidence")
 
 def save_record(profile: Any, operation: str, record: dict[str, Any]) -> None:
     validate_record(record)

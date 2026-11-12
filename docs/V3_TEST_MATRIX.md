@@ -103,3 +103,5 @@ One supervised HACS prerelease is authorized before static parity completion. Th
 ### Maintainability rules
 
 One product contract per entity; metadata references resolve from the owning catalog rather than duplicated category lists. Native projection and registry migration consume the same category policy. Use named behavioral tests and realistic fixtures; retain source checks only for actual architecture/packaging constraints. Keep historical release notes immutable and current acceptance criteria separate. Avoid release-specific implementation names in new tests unless validating migration from that version.
+
+Observed job freshness must not be masked by a newer unrelated capture. Age retains the newest-capture meaning for compatibility; freshness is conservative across observed jobs, not proof of unobserved coverage. Response field samples must report truncation; timestamp metadata must not be reported as a missing functional entity.

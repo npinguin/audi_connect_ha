@@ -62,8 +62,8 @@ _SCHEMA_PATH = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\[\])*(?:\.[A-Za-z_][A-Za-
 _SCHEMA_TYPES = frozenset(("object", "array", "boolean", "integer", "number", "string", "null"))
 
 
-def safe_schema_fields(payload: Any, *, vehicle_vin: str = "") -> list[dict[str, str]]:
-    """Bounded structural inventory of GET fields; no values or sensitive keys."""
+def safe_schema_inventory(payload: Any, *, vehicle_vin: str = "") -> tuple[list[dict[str, str]], bool]:
+    """Bounded structural inventory, with explicit sampling/truncation evidence."""
     from collections import deque
     from itertools import islice
     import json
@@ -71,10 +71,12 @@ def safe_schema_fields(payload: Any, *, vehicle_vin: str = "") -> list[dict[str,
     queue = deque([(payload, "", 0)])
     rows: dict[tuple[str, str], dict[str, str]] = {}
     budget = 640
+    truncated = False
     while queue and budget and len(rows) < MAX_SCHEMA_FIELDS:
         value, path, depth = queue.popleft()
         budget -= 1
         if depth > 12 or len(path) > 220:
+            truncated = True
             continue
         kind = {dict: "object", list: "array", bool: "boolean", int: "integer",
                 float: "number", str: "string", type(None): "null"}.get(type(value))
@@ -97,6 +99,7 @@ def safe_schema_fields(payload: Any, *, vehicle_vin: str = "") -> list[dict[str,
             if key not in rows or quality != "observed":
                 rows[key] = {"path": path, "type": kind, "quality": quality}
         if isinstance(value, dict):
+            truncated |= len(value) > 40
             for key, child in islice(value.items(), 40):
                 if (not isinstance(key, str) or not _SCHEMA_KEY.fullmatch(key)
                         or _SENSITIVE.search(key) or _VIN.search(key)
@@ -104,12 +107,20 @@ def safe_schema_fields(payload: Any, *, vehicle_vin: str = "") -> list[dict[str,
                     continue
                 queue.append((child, f"{path}.{key}" if path else key, depth + 1))
         elif isinstance(value, list) and path:
+            truncated |= len(value) > 4
             for child in value[:4]:
                 queue.append((child, path + "[]", depth + 1))
+    truncated |= bool(queue)
     result = list(rows.values())
     while result and len(json.dumps(result, ensure_ascii=True)) > MAX_SCHEMA_CHARS:
         result.pop()
-    return result
+        truncated = True
+    return result, truncated
+
+
+def safe_schema_fields(payload: Any, *, vehicle_vin: str = "") -> list[dict[str, str]]:
+    """Compatibility accessor for callers requiring field rows only."""
+    return safe_schema_inventory(payload, vehicle_vin=vehicle_vin)[0]
 
 
 def validate_schema_fields(rows: Any) -> None:

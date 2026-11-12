@@ -401,7 +401,8 @@ def _cockpit(vehicle, profile, rows, controls):
         for field in record.get("fields", []):
             path = field["path"]
             matches = sorted(mapped_paths.get(path, set()))
-            status = ("declared_mapping" if matches else
+            status = ("metadata" if path.rsplit(".", 1)[-1] in ("carCapturedTimestamp", "timestamp") else
+                      "declared_mapping" if matches else
                       "container" if field["type"] in ("array", "object") else
                       "review_unmapped")
             if path == "oilLevel.oilLevelStatus.value.value" and field["type"] == "boolean":
@@ -409,6 +410,7 @@ def _cockpit(vehicle, profile, rows, controls):
                 matches = ["oil_level_binary"]
             fields.append({**field, "mapping": status, "attributes": matches})
         operation["fields"] = fields
+        operation["fields_truncated"] = record.get("fields_truncated")
         if any(field["mapping"] == "review_unmapped" for field in fields):
             reasons.append("unmapped_response_fields_review")
         operations.append(operation)
@@ -434,7 +436,9 @@ def _cockpit(vehicle, profile, rows, controls):
                           "attention": sum(r.get("capability") == name for r in findings)})
     if not vehicle.model_family:
         findings.append({"id": "vehicle:model_family", "severity": "review", "reason": "model_family_unknown"})
+    from .freshness import capture_coverage
     return {"operations": operations, "capability_summary": summaries,
+            "job_capture_coverage": capture_coverage(vehicle),
             "findings": findings,
             "api_job_status": {job: profile.job_discovery.get(job, "not_scanned") for job in _V2_SELECTIVE_JOBS},
             "operation_counts": {"total": len(operations), "tested": sum(r["tested"] for r in operations),

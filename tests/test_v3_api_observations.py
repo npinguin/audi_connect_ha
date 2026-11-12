@@ -70,3 +70,15 @@ def test_schema_inventory_is_bounded_redacted_and_supports_old_records():
     validate_record({k:v for k,v in rec.items() if k != "fields"})
     with pytest.raises(ValueError):
         validate_record({**rec, "fields": [{"path": "coordinates.lat", "type": "number", "quality": "observed"}]})
+
+def test_schema_truncation_is_explicit_and_metadata_stays_private():
+    from custom_components.audiconnect.v3.response_preview import safe_schema_inventory
+    fields, truncated = safe_schema_inventory({"job": {"items": [{"value": i} for i in range(10)]}})
+    assert truncated and fields
+    rec = record_for(family="cariad", method="GET", http_status=207, vin="",
+                     payload={"job": {"items": [{"value": i} for i in range(10)]}})
+    assert rec["fields_truncated"] is True
+    with pytest.raises(ValueError):
+        validate_record({**rec, "fields_truncated": "yes"})
+    assert "fields_truncated" not in record_for(family="cariad", method="POST",
+                                                http_status=204, vin="", payload=None)

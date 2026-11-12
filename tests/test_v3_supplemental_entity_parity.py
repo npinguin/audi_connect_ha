@@ -77,3 +77,15 @@ def test_aliases_and_completion_keep_source_capture():
     assert car.readings["max_charge_current"]["value"]==16
     assert car.readings["charging_complete_time"]["value"]==(now+timedelta(minutes=45)).isoformat()
     assert car.readings["charging_complete_time"]["captured"]==stamp
+
+def test_freshness_does_not_hide_old_climate_behind_recent_charging():
+    car, co, now = context()
+    car.readings.update(
+        stateOfCharge={"value": 77, "job": "charging", "captured": now.isoformat()},
+        climatisationState={"value": "off", "job": "climatisation",
+                            "captured": (now-timedelta(hours=3)).isoformat()},
+    )
+    assert V3StatusSensor(co, car, "age").native_value == 0
+    sensor = V3StatusSensor(co, car, "freshness")
+    assert sensor.native_value == "stale"
+    assert sensor.extra_state_attributes["job_capture_coverage"]["climatisation"]["oldest_minutes"] >= 180
