@@ -223,10 +223,21 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
     if isinstance(lights, dict) and isinstance(lights.get("lights"), list):
         # Explicit component identity is mandatory; headlights are not parking lights.
         # Unknown or conflicting evidence cannot imply OFF.
-        states = [x.get("status") for x in lights["lights"] if isinstance(x, dict)
-                  and x.get("name") in ("parkingLight", "parkingLights")]
-        if states and all(x in ("on", "off") for x in states) and len(set(states)) == 1:
-            record("parking_light", states[0] == "on", lights.get("carCapturedTimestamp"),
+        # Upstream Audi status examples and V2 LIGHT_STATUS identify the
+        # parking lights by left/right. Accept explicit aggregate labels too.
+        rows = [x for x in lights["lights"] if isinstance(x, dict)
+                and x.get("name") in ("left", "right", "parkingLight", "parkingLights")]
+        names = [x["name"] for x in rows]
+        states = [x.get("status") for x in rows]
+        valid = len(set(names)) == len(names) and all(x in ("on", "off") for x in states)
+        active = None
+        if valid and "on" in states:
+            active = True
+        elif valid and states and ({"left", "right"} <= set(names) or
+                                  set(names) & {"parkingLight", "parkingLights"}):
+            active = False
+        if active is not None:
+            record("parking_light", active, lights.get("carCapturedTimestamp"),
                    "vehicleLights", path)
         else:
             from .attribute_runtime import record_invalid_observation
