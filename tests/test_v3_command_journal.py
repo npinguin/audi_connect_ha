@@ -129,3 +129,24 @@ def test_full_protected_journal_rejects_insertion_atomically():
     restored = restore_profile(model(), p.discovery.context, p.snapshot())
     assert len(restored.command_journal) == HISTORY_LIMIT
     assert restored.last_command.command_id == last.command_id
+
+def test_failed_engineering_journal_insert_restores_discovery_transaction():
+    import pytest
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfileError
+
+    p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
+    for i in range(HISTORY_LIMIT):
+        record = CommandRecord.begin("access", "unlock", "cariad.access.unlock", i)
+        record.state = "uncertain"
+        p.track_command(record)
+    before = p.snapshot()
+    sequence = p.discovery._sequence
+    with pytest.raises(DevelopmentProfileError, match="journal full"):
+        p.begin_test("charging", "start", "cariad.charging.start", now=100)
+    assert p.snapshot() == before
+    assert p.discovery._active is None
+    assert p.discovery._sequence == sequence
+    p.command_journal[0].state = "reviewed"
+    attempt = p.begin_test("charging", "start", "cariad.charging.start", now=101)
+    assert attempt.sequence == sequence + 1
+    assert p.engineering_record(attempt.sequence) is not None
