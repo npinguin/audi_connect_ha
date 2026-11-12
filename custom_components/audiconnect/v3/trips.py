@@ -15,7 +15,8 @@ _TRIP_FIELDS = frozenset((
     "startMileage_km", "overallMileage_km", "averageSpeed_kmph",
     "travelTime", "travelTime_min", "traveltime", "averageFuelConsumption",
     "averageFuelConsumption_L_per_100km",
-    "averageElectricEngineConsumption_kWh_per_100km",
+    "averageElectricEngineConsumption_kWh_per_100km", "averageElectricConsumption",
+    "totalElectricConsumption_kwh", "totalFuelConsumption_L",
     "zeroEmissionDistance_km", "zeroEmissionDistance",
     "mileage", "startMileage", "overallMileage", "averageSpeed",
 ))
@@ -28,7 +29,8 @@ _SAFE_SCHEMA_KEYS = frozenset((
     "startMileage_km", "overallMileage_km", "averageSpeed_kmph",
     "travelTime", "travelTime_min", "averageFuelConsumption",
     "averageFuelConsumption_L_per_100km",
-    "averageElectricEngineConsumption_kWh_per_100km",
+    "averageElectricEngineConsumption_kWh_per_100km", "averageElectricConsumption",
+    "totalElectricConsumption_kwh", "totalFuelConsumption_L",
     "zeroEmissionDistance_km",
 ))
 
@@ -151,8 +153,19 @@ def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
     electric = _number(
         item, ("averageElectricEngineConsumption_kWh_per_100km",), 0, 150
     )
+    # Modern Q8 responses include display-unit averageElectricConsumption
+    # and an explicitly unit-suffixed total. Check the relationship rather
+    # than importing V2's tenths scaling or trusting an ambiguous raw field.
+    total_electric = _number(item, ("totalElectricConsumption_kwh",), 0, 3000000)
+    total_fuel = _number(item, ("totalFuelConsumption_L",), 0, 1000000)
+    if electric is None and distance is not None and distance > 0 and total_electric is not None:
+        candidate = _number(item, ("averageElectricConsumption",), 0, 150)
+        if candidate is not None and math.isclose(
+                candidate * distance / 100, total_electric, rel_tol=0.02, abs_tol=0.02):
+            electric = candidate
     zero_emission = _number(item, ("zeroEmissionDistance_km",), 0, 2000000)
-    readings = [distance, overall, starting, speed, duration, fuel, electric, zero_emission]
+    readings = [distance, overall, starting, speed, duration, fuel, electric, zero_emission,
+                total_electric, total_fuel]
     if all(x is None for x in readings):
         return None, "no_unambiguous_numeric_trip_fields"
     return {
@@ -160,6 +173,8 @@ def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
         "timestamp": stamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         "averageElectricEngineConsumption": electric,
         "averageFuelConsumption": fuel,
+        "totalElectricConsumption": total_electric,
+        "totalFuelConsumption": total_fuel,
         "averageSpeed": speed,
         "mileage": distance,
         "startMileage": starting,
@@ -172,6 +187,8 @@ def normalize_cariad_trip(payload: Any) -> tuple[dict[str, Any] | None, str]:
             "averageSpeed": "km/h",
             "averageFuelConsumption": "L/100km",
             "averageElectricEngineConsumption": "kWh/100km",
+            "totalElectricConsumption": "kWh",
+            "totalFuelConsumption": "L",
             "traveltime": "min",
             "zeroEmissionDistance": "km",
         },

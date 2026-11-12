@@ -88,3 +88,41 @@ def test_trip_observation_rejects_older_capture():
     assert observe_cariad_trip(car,op,{"data":[{"tripEndTimestamp":now.isoformat(),"mileage_km":35}]})
     assert not observe_cariad_trip(car,op,{"data":[{"tripEndTimestamp":(now-timedelta(days=1)).isoformat(),"mileage_km":10}]})
     assert car.trips["last_trip"]["mileage"] == 35
+
+
+@pytest.mark.parametrize("distance,avg_electric,total_electric,avg_fuel,total_fuel", [
+    (16, 38.5, 6.16, 2.6, 0.416),
+    (14087, 16.5, 2324.355, 7.1, 1000.177),
+    (48, 29.8, 14.304, 2.3, 1.104),
+])
+def test_modern_trip_energy_and_fuel_from_observed_response_shape(
+        distance, avg_electric, total_electric, avg_fuel, total_fuel):
+    # Sanitized b12 response shape; no real vehicle or trip identifiers.
+    row = {"tripEndTimestamp": "2026-11-12T06:11:53Z",
+           "mileage_km": distance, "averageElectricConsumption": avg_electric,
+           "totalElectricConsumption_kwh": total_electric,
+           "averageFuelConsumption": avg_fuel, "totalFuelConsumption_L": total_fuel}
+    trip, verdict = normalize_cariad_trip({"data": row})
+    assert verdict == "normalized"
+    assert trip["averageElectricEngineConsumption"] == avg_electric
+    assert trip["totalElectricConsumption"] == total_electric
+    assert trip["totalFuelConsumption"] == total_fuel
+    assert trip["units"]["totalElectricConsumption"] == "kWh"
+    assert trip["units"]["totalFuelConsumption"] == "L"
+    assert trip["tripID"] is None
+
+
+def test_ambiguous_modern_electric_rate_and_zero_values():
+    row = {"tripEndTimestamp": "2026-11-12T06:11:53Z", "mileage_km": 16,
+           "averageElectricConsumption": 38.5, "totalElectricConsumption_kwh": 0.616,
+           "totalFuelConsumption_L": 0}
+    trip, _ = normalize_cariad_trip({"data": row})
+    assert trip["averageElectricEngineConsumption"] is None
+    assert trip["totalElectricConsumption"] == 0.616
+    assert trip["totalFuelConsumption"] == 0
+    row["totalElectricConsumption_kwh"] = True
+    assert normalize_cariad_trip({"data": row})[0]["totalElectricConsumption"] is None
+    row.update(averageElectricConsumption=0, totalElectricConsumption_kwh=0)
+    trip, _ = normalize_cariad_trip({"data": row})
+    assert trip["averageElectricEngineConsumption"] == 0
+    assert trip["totalElectricConsumption"] == 0
