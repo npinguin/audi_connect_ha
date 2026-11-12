@@ -158,6 +158,24 @@ def full_read_plan(profile, context, family):
     return sorted(candidates, key=priority), excluded
 
 
+STANDALONE_READS = frozenset(
+    ("cariad.mobility.status.shortTerm", "cariad.mobility.status.longTerm",
+     "cariad.mobility.status.lastTrip") +
+    tuple("mbb.discovery." + kind for kind in
+          ("charger", "climater", "vehicle_data", "preheater", "timer"))
+)
+
+
+def record_standalone_read(profile, operation, status):
+    """Persist assessment, not values; a transient error cannot erase coverage."""
+    if operation not in STANDALONE_READS or not hasattr(profile, "standalone_discovery"):
+        return
+    if type(status) is int and (200 <= status < 300 or status in (400, 404, 405, 410, 422)):
+        previous = profile.standalone_discovery.get(operation)
+        if previous is None or 200 <= status < 300 or not 200 <= previous < 300:
+            profile.standalone_discovery[operation] = status
+
+
 def user_progress(car, profile, auth):
     """Read coverage and control evidence are independent, never proof of support."""
     from .historical_catalog import INVENTORY
@@ -175,7 +193,7 @@ def user_progress(car, profile, auth):
         available = profile.registry.resolve("mobility", "status", car.context)["available_operations"]
         for operation in CARIAD_TRIP_OPERATIONS:
             if operation in available:
-                reads[operation] = profile.api_observations.get(operation, {}).get("http_status")
+                reads[operation] = getattr(profile, "standalone_discovery", {}).get(operation, profile.api_observations.get(operation, {}).get("http_status"))
     if car.context.auth == "legacy":
         from .legacy_read_mappings import ROUTES
         for kind in ROUTES:
