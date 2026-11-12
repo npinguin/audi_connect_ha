@@ -22,10 +22,11 @@ A successful experiment becomes valuable to the wider community when its route, 
 
 **Current status:** V3 is an experimental fork prerelease, not a feature of the official stable upstream release. V2 remains the default/fallback in the fork. Full parity, cross-model physical validation and rollback acceptance remain open. No automatic physical actions during unattended discovery; optional guided physical verification requires individual consent; API availability varies by car.
 
-- [Experimental V3 release (3.0.0b17)](https://github.com/npinguin/audi_connect_ha/releases/tag/3.0.0b17)
+- [Experimental V3 release (3.0.0b19)](https://github.com/npinguin/audi_connect_ha/releases/tag/3.0.0b19)
 - [How-to: users, testers and engineers](https://github.com/npinguin/audi_connect_ha/blob/feature/v3-clean-discovery/docs/V3_COMMUNITY_HOWTO.md)
 - [Product vision, architecture and delivery roadmap](https://github.com/npinguin/audi_connect_ha/blob/feature/v3-clean-discovery/docs/V3_ARCHITECTURE.md)
 - [API knowledgebase](https://github.com/npinguin/audi_connect_ha/tree/feature/v3-clean-discovery/docs/research/cariad)
+- [Community diagnostics and privacy](https://github.com/npinguin/audi_connect_ha/blob/feature/v3-clean-discovery/docs/V3_COMMUNITY_DIAGNOSTICS.md)
 - [Share a discovery or report a gap](https://github.com/npinguin/audi_connect_ha/issues)
 
 Use a Home Assistant backup and opt into the beta only if comfortable with experimental software. Respect Audi service limits, protect personal data and verify physical results before relying on remote controls.
