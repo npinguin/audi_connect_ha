@@ -57,3 +57,13 @@ def test_automatic_probe_plan_covers_every_known_missing_job():
             attempted.update(group)
             reserve_group(profile, group)
     assert attempted == set(V2_JOBS)
+
+
+def test_active_ventilation_timer_namespace_is_read_evidence():
+    profile = blank_profile()
+    record_jobs(profile, ("activeVentilation",), status=207, payload={
+        "climatisationTimers": {"activeVentilationTimersStatus": {"value": {
+            "timers": [{"id": 1, "enabled": False}]}}}
+    })
+    assert profile.job_discovery["activeVentilation"] == "observed"
+    assert "climatisation" not in profile.job_discovery
