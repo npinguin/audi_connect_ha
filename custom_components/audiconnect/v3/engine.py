@@ -18,7 +18,7 @@ from .command_parameters import runtime_ready
 from .status_engine import StatusEngine
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
-from .response_preview import safe_response_preview, engineering_response, MAX_ENGINEERING_ROUTES
+from .response_preview import safe_response_preview, engineering_response, MAX_ENGINEERING_ROUTES, MAX_ENGINEERING_HISTORY
 from .api_observations import record_for, save_record
 from .registry import CapabilityRegistry
 from .product_contract import entity_projection_report
@@ -33,7 +33,7 @@ from .legacy_read_mappings import FIELDS as MBB_FIELDS
 from .legacy_read_mappings import ROUTES as MBB_ROUTES
 from .api_value_mappings import normalize_api_value
 from .historical_catalog import V2_JOBS
-from .read_discovery import record_jobs, pending_groups, reserve_group, summary as discovery_summary
+from .read_discovery import record_jobs, pending_groups, reserve_group, full_read_plan, summary as discovery_summary
 from ..const import (CONF_FILTER_VINS, CONF_REFRESH_AFTER_ACTION, CONF_UPDATE_SLEEP,
                      CONF_SPIN, CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN,
                      DOMAIN, REFRESH_VEHICLE_DATA_COMPLETED_EVENT,
@@ -254,6 +254,7 @@ class V3Engine:
                     family: str, method: str, response: V3Response | None,
                     vin: str) -> None:
         detail = None
+        request = None
         if response is not None:
             settings = getattr(self.entry, "data", {})
             known = [settings.get(key) for key in (CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN)]
@@ -267,6 +268,9 @@ class V3Engine:
             try:
                 detail = engineering_response(response.data, vehicle_vin=vin,
                                               spin=settings.get(CONF_SPIN), secrets=tuple(known))
+                if response.request is not None:
+                    request = engineering_response(response.request, vehicle_vin=vin,
+                                                   spin=settings.get(CONF_SPIN), secrets=tuple(known))
             except (TypeError, ValueError, OverflowError, RecursionError):
                 detail = {"payload": "[RESPONSE INSPECTION UNAVAILABLE]", "truncated": True}
         record = record_for(
@@ -280,12 +284,18 @@ class V3Engine:
         if detail is not None:
             profile.engineering_responses[operation] = {
                 "operation": operation, "family": family, "method": method,
-                "http_status": record["http_status"], "at": record["at"], **detail,
+                "http_status": record["http_status"], "at": record["at"],
+                "request": request, **detail,
             }
+            current = profile.engineering_responses[operation]
+            if not any(item["operation"] == operation and item["at"] == current["at"]
+                       for item in profile.engineering_history):
+                profile.engineering_history.append(current)
+                del profile.engineering_history[:-MAX_ENGINEERING_HISTORY]
             while len(profile.engineering_responses) > MAX_ENGINEERING_ROUTES:
                 profile.engineering_responses.pop(next(iter(profile.engineering_responses)))
 
-    async def test_family_reads(self, vin: str, family: str) -> dict[str, Any]:
+    async def test_family_reads(self, vin: str, family: str, *, full: bool = False) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.
 
         CARIAD: one 23-job GET plus at most two targeted mapped GET groups.
@@ -297,6 +307,8 @@ class V3Engine:
         if family != expected and not (family=="cariad" and vehicle.legacy_cariad):
             raise ValueError("API family is not applicable to this vehicle")
         profile = self.profiles[vehicle.vin.lower()]
+        if full:
+            return await self._scan_catalog_reads(vehicle, profile, family)
         outcomes: list[dict[str, Any]] = []
         if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
             raise RuntimeError("Audi quota is low; read-only scan has been suspended")
@@ -349,6 +361,65 @@ class V3Engine:
             "results": outcomes, "readable_attributes": len(vehicle.readings),
             "note": "Only safe GET requests were sent. Stale cloud data is not current vehicle data.",
         }
+
+    async def _scan_catalog_reads(self, car, profile, family):
+        """Explicit exhaustive reviewed-route scan, in bounded resumable batches."""
+        plan, excluded = full_read_plan(profile, car.context, family)
+        results = []
+        pending = []
+        stopped = None
+        for ident, template in plan:
+            prior = profile.api_observations.get(ident, {})
+            status = prior.get("http_status")
+            if status is not None and status not in (401, 403, 429) and status < 500:
+                results.append({"operation": ident, "http_status": status, "result": "previously_attempted"})
+                continue
+            pending.append((ident, template))
+        attempted = 0
+        for ident, template in pending:
+            if attempted >= 12:
+                stopped = "batch_limit"
+                break
+            if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+                stopped = "quota_reserve"
+                break
+            path = template.format(VIN=car.vin, TYPE="Audi", COUNTRY=car.country)
+            attempted += 1
+            try:
+                reply = await self.transport.request(family, "GET", path)
+            except (TimeoutError, OSError, RuntimeError, ValueError):
+                self._api_record(profile, ident, family, "GET", None, car.vin)
+                results.append({"operation": ident, "http_status": None, "result": "transport_uncertain"})
+                stopped = "transport_uncertain"
+                break
+            self._api_record(profile, ident, family, "GET", reply, car.vin)
+            outcome = "http_ok" if 200 <= reply.status < 300 else "http_error"
+            results.append({"operation": ident, "http_status": reply.status, "result": outcome})
+            if family == "cariad" and "selectivestatus?jobs=" in path:
+                jobs = tuple(path.rsplit("jobs=", 1)[-1].split(","))
+                record_jobs(profile, jobs, status=reply.status, payload=reply.data)
+                if outcome == "http_ok":
+                    observe_read_only(car, profile, reply.data, reply.observed_at)
+            # Individual 400/404/405/422 results are evidence; continue.
+            # Account/auth/quota/server failures suspend the scan.
+            if reply.status in (401, 403, 429) or reply.status >= 500:
+                stopped = "account_or_service_error"
+                break
+        await self.storage.async_save(self.profiles)
+        self._notify_discovery_change()
+        remaining = [ident for ident, _ in plan if not (
+            (http := profile.api_observations.get(ident, {}).get("http_status")) is not None
+            and http not in (401, 403, 429) and http < 500)]
+        return {"family": family, "mode": "full", "request_count": attempted,
+                "eligible_routes": len(plan), "remaining_routes": remaining,
+                "excluded_routes": excluded, "stopped": stopped,
+                "results": results, "note": "Read-only; no automatic vehicle actions or activation."}
+
+    def engineering_history_for(self, vin: str, family: str = "all") -> list[dict[str, Any]]:
+        car = self.require_vehicle(vin)
+        profile = self.profiles[car.vin.lower()]
+        return [item for item in reversed(profile.engineering_history)
+                if family == "all" or item["family"] == family]
 
     def api_results_for(self, vin: str, family: str = "all") -> list[dict[str, Any]]:
         car = self.require_vehicle(vin)

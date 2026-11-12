@@ -6,7 +6,7 @@ Never execute a user-provided absolute URL or untrusted Authorization header.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -32,6 +32,7 @@ class V3Response:
     data: Any
     observed_at: datetime
     remaining_calls: int | None = None
+    request: dict[str, Any] | None = field(default=None, repr=False, compare=False)
 
 
 class V3Transport:
@@ -106,6 +107,7 @@ class V3Transport:
                         data=payload,
                         observed_at=timestamp,
                         remaining_calls=self.remaining_calls,
+                        request={"method": plan.method, "url": plan.url, "body": plan.body},
                     )
 
     async def discover_vehicles(self) -> list[dict[str, Any]]:

@@ -409,6 +409,8 @@ def _cockpit(vehicle, profile, rows, controls):
                 status = "derived_binary"
                 matches = ["oil_level_binary"]
             fields.append({**field, "mapping": status, "attributes": matches})
+        job = (op.get("path", "").split("jobs=", 1)[-1] if "jobs=" in op.get("path", "") else None)
+        operation["job_evidence"] = profile.job_discovery.get(job) if job else None
         operation["fields"] = fields
         operation["fields_truncated"] = record.get("fields_truncated")
         if any(field["mapping"] == "review_unmapped" for field in fields):

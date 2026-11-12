@@ -47,3 +47,13 @@ def test_transient_api_errors_cannot_mark_a_supported_job_missing():
     assert profile.job_discovery["charging"] == "observed"
     record_jobs(profile, ("charging",), status=503, payload=None)
     assert profile.job_discovery["charging"] == "observed"
+
+def test_automatic_probe_plan_covers_every_known_missing_job():
+    profile = blank_profile()
+    attempted = set()
+    while groups := pending_groups(profile, max_groups=2):
+        for group in groups:
+            assert not attempted.intersection(group)
+            attempted.update(group)
+            reserve_group(profile, group)
+    assert attempted == set(V2_JOBS)

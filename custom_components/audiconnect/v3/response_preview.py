@@ -145,7 +145,8 @@ def validate_schema_fields(rows: Any) -> None:
 # Engineering response cache is RAM-only and exposed through one admin WS
 # route. Its larger limit must never be used for shareable diagnostics.
 MAX_ENGINEERING_CHARS = 262144
-MAX_ENGINEERING_ROUTES = 12
+MAX_ENGINEERING_ROUTES = 32
+MAX_ENGINEERING_HISTORY = 24
 _JWT = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
 _AUTH_VALUE = re.compile(r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]+")
 _SECRET_QUERY = re.compile(r"(?i)([?&](?:access_token|refresh_token|id_token|token|password|code|spin|s-pin|client_secret|authorization)=)[^&#\s]+")

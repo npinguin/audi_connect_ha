@@ -25,3 +25,7 @@ The optional admin-only V3 Development Workbench is presented as **Audi Engineer
 ### Local engineering response inspection
 
 Select a route and choose Inspect actual JSON response. Detailed decoded response bodies (GET and command results) are masked using template placeholders `{VIN}`, `{SPIN}`, `{SECRET}`, `{LOCATION}`, `{PERSONAL}`, `{ID}`. This admin-only view reads bounded RAM evidence from existing calls; no additional Audi request and no disk persistence. After restart or eviction, rerun only a safe read if needed. Do not repeat a physical action for debug evidence. Diagnostics remain restricted and command bodies withheld. Response limits and masking are explicit; the engineering view is not a public export.
+
+### Read-only coverage and execution history
+
+The dashboard shows the actual masked request and response immediately after a test and when browsing recorded executions. Local history is bounded to 24 executions; latest per-route detail is bounded to 32. No headers or credentials are exposed, and detailed evidence is not persisted. Older persisted evidence is labeled restricted. Full scan explicitly tests distinct applicable fixed catalog GET routes in resumable batches of up to 12 calls with a quota reserve of 12. Unmapped jobs are included in automatic bounded follow-ups. Context-incompatible, custom and parameterized routes are excluded with a reason; no automatic mutation or activation.

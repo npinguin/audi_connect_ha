@@ -49,6 +49,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.inventoryFilter = "all";
     this.functionMode = "all";
     this.apiHistory = [];
+    this.engineeringHistory = [];
     this.responseDetail = null;
     this.apiFamily = "vehicle";
     this.operationFilter = "all";
@@ -125,8 +126,9 @@ class AudiConnectV3Panel extends HTMLElement {
 
   async _apiResults() {
     if (!this.selected || !this.vin) { this.apiHistory = []; return; }
-    const response = await this.api("api_results", this.selection);
+    const response = await this.api("api_results", {...this.selection, include_engineering:true});
     this.apiHistory = response.records || [];
+    this.engineeringHistory = response.engineering_history || [];
     this.responseDetail = null;
   }
 
@@ -239,7 +241,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
     this.readRoutes = []; this.controlRoutes = []; this.readChoice = ""; this.controlChoice = "";
     this.readActive = ""; this.readDraft = ""; this.pending = null; this.lastResult = null;
-    this.apiHistory = []; this.responseDetail = null; this.capabilityStatus = {counts:{},rows:[]}; this.routeChoice = "";
+    this.apiHistory = []; this.engineeringHistory = []; this.responseDetail = null; this.capabilityStatus = {counts:{},rows:[]}; this.routeChoice = "";
     this.step = 1; this.apiFamily = "vehicle"; this.functionMode = "all"; this.discoveryGroup = "read_only";
     this.focusOperation = ""; this.operationFilter = "all"; this.operationMethod = "all";
   }
@@ -371,12 +373,12 @@ class AudiConnectV3Panel extends HTMLElement {
         this.lastResult = await this.api("disable", {
           ...this.selection, aspect: this.aspect
         });
-      } else if (action === "family-test") {
+      } else if (action === "family-test" || action === "family-full-test") {
         const car = this.entries.find(e=>e.entry_id===this.selected)
           ?.vehicles.find(v=>v.vin===this.vin);
         const family = this.apiFamily === "vehicle" || this.apiFamily === "all"
           ? car?.api_family || "cariad" : this.apiFamily;
-        this.lastResult = await this.api("test_family_reads", {...this.selection, family});
+        this.lastResult = await this.api("test_family_reads", {...this.selection, family, full:action==="family-full-test"});
       } else if (action === "control-add") {
         this.lastResult = await this.api("add_route", {
           ...this.selection, route: JSON.parse(rawControlDefinition)
@@ -440,8 +442,10 @@ class AudiConnectV3Panel extends HTMLElement {
       await this._loadCapabilityStatus();
       await this._readRoutes();
       await this._controlRoutes();
-      if (["test","read-test","control-test","family-test"].includes(action)) {
+      if (["test","read-test","control-test","family-test","family-full-test"].includes(action)) {
         await this._apiResults();
+        if(action==="read-test" && this.readRoutes.some(r=>r.id===readRoute)) this.readChoice=readRoute;
+        if(action==="control-test" && this.controlRoutes.some(r=>r.id===controlRoute)) this.controlChoice=controlRoute;
       }
       const list = await this.api("list");
       this.entries = list.integrations || [];
@@ -511,16 +515,22 @@ class AudiConnectV3Panel extends HTMLElement {
         "charging.batteryStatus.value.currentSOC_pct"}, null, 2);
   }
 
-  responseInspector(operation) {
+  responseInspector(operation, execution=null) {
     if (!operation) return "";
-    const detail = this.responseDetail?.operation === operation ? this.responseDetail : null;
-    return `<div class="actions"><button data-action="inspect-response" data-operation="${escapeHTML(operation)}" ${this.loading?"disabled":""}>Inspect actual JSON response</button>
-      ${detail?'<button data-action="close-response">Close response</button>':""}</div>
-      ${detail?.available?`<div class="callout"><b>Local engineering response · HTTP ${escapeHTML(detail.http_status??"—")}</b>
-        <div>${escapeHTML(detail.at)} · ${escapeHTML(detail.method)} · ${escapeHTML(detail.family)}</div>
-        <p>Actual decoded JSON; sensitive values replaced with {VIN}, {SPIN}, {SECRET}, {LOCATION}, {PERSONAL} or {ID}. Not for public sharing. ${detail.truncated?"Size limit reached; response is partial.":"Within local inspection limits."}</p>
-        <pre style="max-height:none;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text">${escapeHTML(JSON.stringify(detail.payload,null,2))}</pre>
-      </div>`:detail?'<p>No detailed response in this HA session. Refresh a read-only route; do not repeat a vehicle action just to recover evidence.</p>':""}`;
+    const detail = execution || (this.responseDetail?.operation === operation && this.responseDetail.available ? this.responseDetail : null)
+      || this.engineeringHistory.find(r=>r.operation===operation);
+    const saved = this.apiHistory.find(r=>r.operation===operation);
+    const json = value=>escapeHTML(JSON.stringify(value,null,2));
+    if(!detail) return saved?`<h3>Response · restricted historical evidence</h3><pre>${json(saved.preview)}</pre>
+      <p>Full request/response was not retained. Never repeat a vehicle command just to obtain evidence.</p>`:
+      "<p>No execution recorded for this route.</p>";
+    return `<div class="callout"><b>HTTP ${escapeHTML(detail.http_status??"—")} · ${escapeHTML(detail.at)}</b>
+      <h3>Request sent</h3>
+      ${detail.request?`<pre style="max-height:none;user-select:text">${json(detail.request.payload)}</pre>`:"<p>Actual request was not recorded for this execution.</p>"}
+      <h3>Response received</h3>
+      <pre style="max-height:none;user-select:text">${json(detail.payload)}</pre>
+      <p class="helper">Masked JSON · ${detail.truncated||detail.request?.truncated?"Size limit reached; partial evidence.":"Within local inspection limits."} HTTP acceptance is not physical confirmation.</p>
+    </div>`;
   }
 
   render() {
@@ -747,7 +757,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <thead><tr><th>Operation / capability</th><th>Test & HTTP</th><th>Mapping / binding</th><th>Physical / attention</th></tr></thead>
               <tbody>${visibleOperations.map(o=>`<tr>
                 <td><b>${escapeHTML(o.operation)}</b><div class="subline">${escapeHTML(o.family)} · ${escapeHTML(o.method)} · ${escapeHTML((o.capabilities||[]).join(", "))}</div><code>${escapeHTML(o.path||"")}</code></td>
-                <td><b>${o.reference_only?"Historical only":o.tested?"Tested":"Not tested"}</b><div class="subline">HTTP ${escapeHTML(o.http_status??"—")} · ${escapeHTML(o.transport||"unknown")} · ${escapeHTML(o.last_test||"")}</div></td>
+                <td><b>${o.reference_only?"Historical only":o.tested?"Tested directly":o.job_evidence==="observed"?"Observed via batch":o.job_evidence==="not_observed"?"Requested; not observed":"Not tested"}</b><div class="subline">HTTP ${escapeHTML(o.http_status??"—")} · ${escapeHTML(o.transport||"unknown")} · ${escapeHTML(o.last_test||"")}</div></td>
                 <td>Schema: ${escapeHTML(o.schema||"unknown")}<div class="subline">${o.active?"ACTIVE":"Inactive"} · ${escapeHTML(o.applicability||"unknown")}</div>
                   ${(o.fields||[]).length?`<details><summary>${o.fields.length} response fields · ${o.fields_truncated===true?"truncated":o.fields_truncated===false?"within sample limits":"coverage unknown"}</summary>${o.fields.map(f=>`<div class="subline"><code>${escapeHTML(f.path)}</code> · ${escapeHTML(f.type)} · ${escapeHTML(f.quality)} · ${escapeHTML(f.mapping)} ${escapeHTML((f.attributes||[]).join(", "))}</div>`).join("")}</details>`:""}</td>
                 <td>Physical: ${escapeHTML(o.physical||"not verified")}<div class="subline">${escapeHTML(o.last_command_state||"")} ${escapeHTML(o.backend_result||"")}</div>
@@ -847,8 +857,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="callout" style="margin-top:18px">
               <b>Latest saved response for this route</b>
               <div>${escapeHTML(lastSelectedResult?.at||"Never executed")} · HTTP ${escapeHTML(lastSelectedResult?.http_status??"-")} · ${escapeHTML(lastSelectedResult?.result||"not tested")}</div>
-              ${this.responseInspector(activeRoute)}
-              <details><summary>Restricted diagnostics preview</summary><pre>${escapeHTML(JSON.stringify(lastSelectedResult?.preview??"No recorded response",null,2))}</pre></details>
+              ${this.step===3&&this.attribute&&!this.controlAction?this.responseInspector(activeRoute):""}
             </div>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===3&&this.controlAction?"block":"none"}">
@@ -885,17 +894,19 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="callout" style="margin-top:18px">
               <b>Last control execution</b>
               <div>${escapeHTML(lastSelectedResult?.at||"Never executed")} · HTTP ${escapeHTML(lastSelectedResult?.http_status??"-")} · ${escapeHTML(lastSelectedResult?.result||"not tested")}</div>
-              ${this.responseInspector(activeRoute)}
+              ${this.step===3&&this.controlAction?this.responseInspector(activeRoute):""}
               <p>HTTP acceptance does not confirm the vehicle acted. Detailed response stays in local session memory; control bodies are not exported.</p>
             </div>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step===4?"block":"none"}">
             <div class="eyebrow">Read-only discovery</div>
             <h2>Scan read-only functions · ${escapeHTML(family==="all"?vehicleFamily.toUpperCase():family.toUpperCase())}</h2>
-            <p>Up to three safe CARIAD GET requests (one batch and two targeted probes), or five MBB legacy GETs. No POST commands, no wake-up, no automatic fallback, and no repeated route spraying.</p>
+            <p>Quick scan uses the shared batch and a few targeted GETs. Full scan tries each distinct applicable reviewed GET route, including unmapped jobs, in batches of up to 12 calls. No vehicle commands, no automatic activation.</p>
             ${!applicableFamily?'<div class="warn">This API family does not apply to the selected vehicle.</div>':""}
             <div class="actions"><button data-action="family-test" class="primary"
-              ${this.loading||!applicableFamily?"disabled":""}>Test read-only API family</button></div>
+              ${this.loading||!applicableFamily?"disabled":""}>Quick scan</button>
+              <button data-action="family-full-test" ${this.loading||!applicableFamily?"disabled":""}>Full read-only scan / continue</button></div>
+            ${this.lastResult?.mode==="full"?`<p><b>${this.lastResult.request_count} requests · ${this.lastResult.eligible_routes} eligible routes · ${this.lastResult.remaining_routes.length} remaining</b> ${escapeHTML(this.lastResult.stopped||"Completed")}</p><details open><summary>Remaining and excluded routes</summary><pre>${escapeHTML(JSON.stringify({remaining:this.lastResult.remaining_routes,excluded:this.lastResult.excluded_routes},null,2))}</pre></details>`:""}
             <div class="helper">${escapeHTML(this.lastResult?.family?JSON.stringify(this.lastResult):"No manual family test in this session")}</div>
           </section>
           ${this.step===3&&!this.attribute&&!this.controlAction?`<section class="card" style="margin-bottom:18px">
@@ -906,12 +917,14 @@ class AudiConnectV3Panel extends HTMLElement {
             <div class="eyebrow">Engineering / API evidence</div>
             <h2>Last result and response by API route</h2>
             <p>Inspect the latest masked JSON from existing requests, including command responses. Detailed responses are session-only; restricted diagnostics previews survive a restart.</p>
-            ${records.map(r=>`<details class="record">
+            ${this.step===4?[
+              ...this.engineeringHistory.filter(r=>family==="all"||r.family===family).map(r=>({record:r,detail:r})),
+              ...records.filter(r=>!this.engineeringHistory.some(e=>e.operation===r.operation&&e.at===r.at)).map(r=>({record:r,detail:null}))
+            ].map(({record:r,detail})=>`<details class="record" open>
               <summary>${escapeHTML(r.operation)} · HTTP ${escapeHTML(r.http_status??"-")} · ${escapeHTML(r.at)}</summary>
-              <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b> · ${escapeHTML(r.result)}</div>
-              ${this.responseInspector(r.operation)}
-              <details><summary>Restricted diagnostics preview</summary><pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre></details>
-            </details>`).join("")||'<p>No saved API results yet.</p>'}
+              <div><b>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.method)}</b></div>
+              ${detail?this.responseInspector(r.operation,detail):`<h3>Restricted historical response</h3><pre>${escapeHTML(JSON.stringify(r.preview,null,2))}</pre><p>Actual request and full response were not retained.</p>`}
+            </details>`).join("")||'<p>No saved API results yet.</p>':""}
           </section>
           <p class="foot">Experimental mode. HTTP 200/202 confirms gateway acceptance, not vehicle action.
           Detailed engineering responses are local, temporary and masked. Only restricted previews are persisted. V2 remains available for rollback.</p>`}

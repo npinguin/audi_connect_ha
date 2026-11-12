@@ -13,13 +13,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from .historical_catalog import ATTRIBUTES, V2_JOBS
+from .historical_catalog import V2_JOBS
 
 MAX_EXTRA_INITIAL_REQUESTS = 2
 MAX_EXTRA_PERIODIC_REQUESTS = 1
 
-# Prioritize jobs with concrete V2 response mappings. Unmapped historical jobs
-# are inventoried and included in the initial shared batch, not sprayed as GETs.
+# Prioritize mapped jobs first, then exhaust all known fixed read-only jobs.
 PROBE_GROUPS: tuple[tuple[str, ...], ...] = (
     ("climatisation",),
     ("charging",),
@@ -30,13 +29,13 @@ PROBE_GROUPS: tuple[tuple[str, ...], ...] = (
     ("chargingProfiles", "chargingTimers"),
     ("climatisationTimers",),
     ("userCapabilities",),
+    ("activeVentilation", "auxiliaryHeating", "hybridCarAuxiliaryHeating"),
+    ("batteryChargingCare", "batterySupport"),
+    ("departureProfiles", "departureTimers"),
+    ("honkAndFlash", "lvBattery", "vehicleHealthWarnings"),
 )
 
 _JOBS = frozenset(V2_JOBS)
-_MAPPED = frozenset(
-    item["job"] for item in ATTRIBUTES.values()
-    if item["paths"] and item["job"]
-)
 
 
 def record_jobs(profile: Any, requested: tuple[str, ...], *,
@@ -79,7 +78,7 @@ def pending_groups(profile: Any, *, max_groups: int) -> list[tuple[str, ...]]:
     groups = []
     for group in PROBE_GROUPS:
         pending = tuple(job for job in group
-                        if job in _MAPPED
+                        if job in _JOBS
                         and profile.job_discovery.get(job) != "observed"
                         and profile.job_probe_attempts.get(job, 0) < 1)
         if pending:
@@ -91,8 +90,8 @@ def pending_groups(profile: Any, *, max_groups: int) -> list[tuple[str, ...]]:
 
 def reserve_group(profile: Any, jobs: tuple[str, ...]) -> None:
     for job in jobs:
-        if job not in _MAPPED:
-            raise ValueError("Unmapped job cannot be auto-probed")
+        if job not in _JOBS:
+            raise ValueError("Unknown job cannot be auto-probed")
         profile.job_probe_attempts[job] = profile.job_probe_attempts.get(job, 0) + 1
 
 
@@ -106,3 +105,43 @@ def summary(profile: Any) -> dict[str, int]:
         "not_scanned_jobs": len(V2_JOBS) - observed - missing - inconclusive,
         "targeted_probe_jobs": len(profile.job_probe_attempts),
     }
+
+def full_read_plan(profile, context, family):
+    """One reviewed fixed GET per distinct path, with explicit exclusions."""
+    import string
+    candidates, excluded = [], []
+    seen = set()
+    registry = profile.registry
+    for capability, definition in registry.capabilities.items():
+        if not definition.get("status"):
+            continue
+        resolved = registry.resolve(capability, "status", context)
+        allowed = set(resolved["available_operations"])
+        for ident in registry.operations_for(capability, "status"):
+            op = registry.operations[ident]
+            if op.get("method") != "GET" or op.get("family") != family:
+                continue
+            reason = None
+            if ident not in allowed:
+                reason = "context_or_adapter_not_applicable"
+            elif ident in profile.custom:
+                reason = "custom_route_requires_explicit_test"
+            elif "{JOBS}" in op["path"]:
+                reason = "shared_batch_covered_separately"
+            elif any(name not in ("VIN", "TYPE", "COUNTRY")
+                     for _, name, _, _ in string.Formatter().parse(op["path"]) if name):
+                reason = "parameters_required"
+            elif op.get("request_body") is not None:
+                reason = "unexpected_get_body"
+            elif op["path"] in seen:
+                reason = "duplicate_path"
+            if reason:
+                excluded.append({"operation": ident, "reason": reason})
+                continue
+            seen.add(op["path"])
+            candidates.append((ident, op["path"]))
+    # Prioritize not-observed jobs without omitting already batch-observed routes.
+    def priority(item):
+        job = item[1].split("jobs=", 1)[-1] if "jobs=" in item[1] else None
+        return (profile.job_discovery.get(job) == "observed", item[0])
+    return sorted(candidates, key=priority), excluded

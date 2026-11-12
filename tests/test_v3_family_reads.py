@@ -62,3 +62,29 @@ async def test_legacy_scan_never_attempts_modern_endpoint_or_post():
     assert len(calls)==5
     assert result["request_count"]==5
     assert len({path for _,_,path in calls})==5
+
+@pytest.mark.asyncio
+async def test_full_scan_resumes_and_covers_unmapped_jobs_without_mutations():
+    model = CapabilityRegistry.from_json_file(catalog_path())
+    car = V3Vehicle("WAUZZZ4M0MD123456", "Audi", "Q8", "", "DE")
+    calls = []
+    class Transport:
+        remaining_calls = 60
+        async def request(self, family, method, path, **kwargs):
+            calls.append(path)
+            assert family == "cariad" and method == "GET"
+            return V3Response(404 if "activeVentilation" in path else 207, {}, datetime.now(UTC))
+    class Storage:
+        async def async_save(self, profiles): pass
+    engine = V3Engine(None, SimpleNamespace(entry_id="id", options={}, data={}), model,
+                      auth=SimpleNamespace(uses_auth0=True, country="DE"), transport=Transport(), storage=Storage())
+    engine.vehicles[car.vin.lower()] = car
+    engine.profiles[car.vin.lower()] = DevelopmentProfile(model, car.context)
+    first = await engine.test_family_reads(car.vin, "cariad", full=True)
+    assert first["request_count"] == 12 and first["remaining_routes"]
+    while first["remaining_routes"]:
+        first = await engine.test_family_reads(car.vin, "cariad", full=True)
+    assert len(calls) == len(set(calls)) == first["eligible_routes"]
+    assert any("activeVentilation" in path for path in calls)
+    assert any("batterySupport" in path for path in calls)
+    assert any("parkingposition" in path for path in calls)

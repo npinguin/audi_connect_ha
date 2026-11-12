@@ -347,3 +347,21 @@ async def test_engineering_and_restricted_evidence_mask_echoed_configured_secret
     assert "private-password-value" not in json.dumps(profile.snapshot())
     assert "private-password-value" not in json.dumps(engine.api_results_for(VIN))
     assert "charging" in json.dumps(engine.api_results_for(VIN))
+
+@pytest.mark.asyncio
+async def test_engineering_execution_history_pairs_actual_request_and_response():
+    engine, _, _ = engine_for()
+    await engine.discover()
+    profile = engine.profiles[VIN.lower()]
+    from datetime import timedelta
+    now = datetime.now(UTC)
+    for i in range(2):
+        engine._api_record(profile, "test.command", "cariad", "POST",
+                           V3Response(202, {"value": i}, now+timedelta(seconds=i),
+                                      request={"method": "POST", "url": "/vehicles/"+VIN,
+                                               "body": {"spin": "1234", "target": i}}), VIN)
+    rows = engine.engineering_history_for(VIN)
+    assert [row["payload"]["value"] for row in rows] == [1, 0]
+    assert rows[0]["request"]["payload"]["body"] == {"spin": "{SPIN}", "target": 1}
+    assert VIN not in json.dumps(rows)
+    assert "engineering_history" not in profile.snapshot()

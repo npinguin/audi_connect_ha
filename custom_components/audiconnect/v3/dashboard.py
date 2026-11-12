@@ -444,14 +444,16 @@ async def ws_control_disable(hass, connection, msg):
     vol.Required("type"): "audiconnect/v3/api_results",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Optional("family", default="all"): vol.In(("all", "cariad", "mbb", "graphql")),
+    vol.Optional("include_engineering", default=False): bool,
 })
 @websocket_api.async_response
 async def ws_api_results(hass, connection, msg):
     try:
         engine = _engine(hass, msg["entry_id"])
-        connection.send_result(msg["id"], {
-            "records": engine.api_results_for(msg["vin"], msg.get("family", "all"))
-        })
+        result = {"records": engine.api_results_for(msg["vin"], msg.get("family", "all"))}
+        if msg.get("include_engineering"):
+            result["engineering_history"] = engine.engineering_history_for(msg["vin"], msg.get("family", "all"))
+        connection.send_result(msg["id"], result)
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_api_results_failed", str(exc))
 
@@ -476,12 +478,13 @@ async def ws_engineering_response(hass, connection, msg):
     vol.Required("type"): "audiconnect/v3/test_family_reads",
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("family"): vol.In(("cariad", "mbb")),
+    vol.Optional("full", default=False): bool,
 })
 @websocket_api.async_response
 async def ws_test_family_reads(hass, connection, msg):
     try:
         result = await _engine(hass, msg["entry_id"]).test_family_reads(
-            msg["vin"], msg["family"]
+            msg["vin"], msg["family"], full=msg.get("full", False)
         )
         connection.send_result(msg["id"], result)
     except (ValueError, KeyError, RuntimeError, OSError, TimeoutError) as exc:
@@ -511,7 +514,7 @@ async def async_setup_dashboard(hass) -> None:
         hass,
         webcomponent_name="audiconnect-v3-panel",
         frontend_url_path=_PANEL,
-        module_url="/audiconnect_v3/panel.js?v=3.0.0b11-dashboard2",
+        module_url="/audiconnect_v3/panel.js?v=3.0.0b11-dashboard3",
         sidebar_title="Audi Engineering Dashboard",
         sidebar_icon="mdi:car-cog",
         require_admin=True,

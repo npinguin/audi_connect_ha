@@ -309,3 +309,16 @@ test("engineering response is explicitly inspected without sending an Audi reque
   assert.match(p.shadowRoot.innerHTML,/&lt;script&gt;/);
   p._resetVehicleSelection();assert.equal(p.responseDetail,null);
 });
+
+test("selected test and historical execution show request and response without another click", async()=>{
+  const p=new Panel();p.selected="entry";p.vin="VIN1";p.step=4;
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",model:"Q8",api_family:"cariad"}]}];
+  p.api=async(name,data)=>{assert.equal(name,"api_results");assert.equal(data.include_engineering,true);
+    return {records:[],engineering_history:[{operation:"test.read",family:"cariad",method:"GET",at:"now",http_status:207,
+      request:{payload:{method:"GET",url:"/vehicles/{VIN}"}},payload:{value:15.5}}]};};
+  await p._apiResults();p.render();
+  assert.match(p.shadowRoot.innerHTML,/Request sent/);
+  assert.match(p.shadowRoot.innerHTML,/Response received/);
+  assert.match(p.shadowRoot.innerHTML,/15\.5/);
+  assert.match(p.shadowRoot.innerHTML,/<details class="record" open>/);
+});
