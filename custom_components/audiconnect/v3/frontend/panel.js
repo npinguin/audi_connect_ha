@@ -484,6 +484,10 @@ class AudiConnectV3Panel extends HTMLElement {
       if (action === "refresh") {
         await this._load(); return;
       }
+      if (action === "resume-discovery") {
+        this.lastResult=await this.api("resume_discovery",this.selection);
+        await this._loadCapabilityStatus(); await this._apiResults(); return;
+      }
       if (action === "execution-review") {
         this.lastResult = await this.api("review_execution", {...this.selection, ...executionReview});
         await this._apiResults();
@@ -809,6 +813,7 @@ class AudiConnectV3Panel extends HTMLElement {
       <details><summary>Registered entities &amp; actual states</summary>${[...new Set(registered)].map(id=>`<div class="attribute-row"><div>${this.entityLinks([id])}</div><span>${escapeHTML(this._hass?.states?.[id]?.state??"No HA state")}</span></div>`).join("")||"<p>No registered entities in current report.</p>"}</details>
       ${this.entityFilter?this.entityInspector(this.selectedEntityLink()):""}
       <h3>5 · Recovery &amp; timing</h3>
+      <button data-action="resume-discovery" ${this.loading?"disabled":""}>Resume unresolved reads</button>
       <p>Last poll: ${escapeHTML(this.localTime(timing.last_poll_attempt))} · Last success: ${escapeHTML(this.localTime(timing.last_poll_success))} · Poll interval: ${timing.poll_interval_seconds==null?"unknown":escapeHTML(timing.poll_interval_seconds/60)+" min"} · Quota: ${escapeHTML(health.quota_remaining??"unknown")}</p>
       ${(health.active_findings||[]).map(f=>`<div class="subline">${escapeHTML(friendly(f.code))} · ${escapeHTML(f.source)} ${f.http_status?"· HTTP "+escapeHTML(f.http_status):""}</div>`).join("")}
       <p>Uncertain commands are never replayed automatically. Use the existing review above when needed. <button data-action="step-4">Inspect API evidence</button></p>
