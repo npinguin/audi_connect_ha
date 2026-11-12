@@ -1,8 +1,8 @@
-# Audi Connect 3.0.0b8 — V2-compatible identity & parked-car telemetry (experimental)
+# Audi Connect 3.0.0b8 — V3 architecture, reliability & parked-car telemetry (experimental HACS test)
 
-**Release class:** PREPARATION ONLY: not approved for publication until V2 parity is complete. **NOT full V2 parity.**
+**Release class:** Explicit maintainer-requested experimental HACS test prerelease. **NOT full V2 parity, NOT code-complete, NOT stable.** This one-time authorization does not change normal publication or stable-promotion gates.
 
-This package uses the **existing Audi Connect config entry** and keeps V2 available through the runtime selector. Upstream V2 business code is unchanged; V3 is a separate implementation, sharing only bootstrap/authentication and configuration. No second integration or account setup is required. Switching V2↔V3 still reloads the HA config entry; it is not a no-downtime process.
+This package uses the **existing Audi Connect config entry** and keeps V2 available through the runtime selector. V2 remains a fallback; its 33 upstream/shared file deltas are recorded for review. V3 is a separate implementation with shared bootstrap/authentication and configuration. No second integration or account setup is required. Switching V2↔V3 still reloads the HA config entry; it is not a no-downtime process.
 
 ## Fixed since b7
 
@@ -13,6 +13,15 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 - **Guided control discovery:** read-only discovery remains automatic; non-S-PIN and S-PIN controls have separate candidate groups and exact-action consent. Only one command is authorized at a time, settings PUTs accept explicit parameters, and physical results are reviewed before activation. No new HA probe services or automatic command tests.
 - **V3 device presentation:** 15 historical V2 sensor contracts that were tagged diagnostic are displayed under ordinary Sensors **in V3 only**. Upstream V2's existing platform metadata is not modified. Technical integration health remains in Diagnostics.
 - **Governance:** new exhaustive V2/V3 source parity matrix and machine-readable baseline: 109 historical V2 source entity slots across nine HA platforms, 110 source field references, 72 sensor metadata contracts, 11 HA service IDs and 19 control workstreams; CI tests detect drift.
+
+## Architecture and reliability closure in this build
+
+- Independent status and command engines, generic scheduled capability status planning, and dynamic HA entity projection across all nine platforms.
+- Serialized authentication and profile writes, bounded read-only quota recovery, and per-vehicle control matching with versioned route evidence.
+- Persisted normal command context before mutation; no automatic replay after uncertainty, request-ID persistence, cooldown, and fresh post-command readback for known stateful commands.
+- Removed obsolete V3 climate pilot and inherited coordinator from production; original config-entry selector and entity identities remain.
+- Inventory reconciliation preserves existing entity identities, blocks excluded or repeatedly missing vehicles, and supports rediscovery.
+- Pinned V2 upstream delta register and module ownership. Full static/live parity, generic custom parameterized commands/PUT and unified command history remain open.
 
 ## Current parity status
 
@@ -25,7 +34,7 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 ## Installation / safe test
 
 1. Keep the existing working **V2** selected unless testing V3 intentionally.
-2. **Do not install a b8 prerelease yet:** this is an unreleased draft and publishing is blocked until the V2 parity sign-off. Continue using the already working V2.
+2. Back up Home Assistant (configuration, entity registry and recorder). In HACS, open Audi Connect from `npinguin/audi_connect_ha`, select Redownload / Show beta versions and choose `3.0.0b8`. Restart HA and initially keep V2 selected. Switch to V3 only for supervised testing.
 3. Confirm the **same Audi device and existing entity IDs** remain in HA before and after switching the runtime option.
 4. In V3, observe SoC, range, mileage and maintenance data while parked for over 60 minutes. Check `vehicle_freshness`/`stale_last_known` and avoid interpreting old active status as live.
 5. Do not test physical lock, climate, wake or charging commands unless present at the vehicle and the V3 Workbench route has been explicitly verified. An HTTP 2xx means **accepted, not physically completed**.
@@ -33,6 +42,6 @@ This package uses the **existing Audi Connect config entry** and keeps V2 availa
 
 ## Engineering quality gate
 
-Prerelease publication is blocked by `.github/workflows/v3-beta-release.yml` until an explicit manual dispatch and the test-release code-completeness sign-off and CI pass; physical acceptance is a separate stable gate. Routine pushes can run tests but cannot publish a tag or overwrite an existing ZIP.
+Normal prerelease publication still requires manual dispatch, static parity and code-completeness sign-off. This one-time b8 experimental HACS test exception requires exact version-bound authorization and successful full CI on the release commit. It is a prerelease, never latest/stable. No existing tag or ZIP may be replaced. Physical acceptance and rollback remain separate stable gates.
 
 **No real-car acceptance is implied by CI.** Compare [V2/V3 parity matrix](V2_V3_PARITY_MATRIX.md), [machine-readable baseline](V2_V3_PARITY_BASELINE.json), and [shared account & HA identity ADR](V3_SHARED_ACCOUNT_AND_HA_ENTITY_CONTRACT.md).

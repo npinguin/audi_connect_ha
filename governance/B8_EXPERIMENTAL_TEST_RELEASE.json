@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "version": "3.0.0b8",
+  "classification": "experimental_hacs_test_only",
+  "authorized_by": "explicit maintainer request for a HACS test release",
+  "date": "2026-11-12",
+  "base_commit": "342024cdba8c397b8cac3959580f7571bd2cdcf3",
+  "branch": "feature/v3-clean-discovery",
+  "release_intent": "release(test): publish 3.0.0b8 HACS prerelease",
+  "static_parity_claimed": false,
+  "stable_promotion_allowed": false,
+  "normal_release_gates_unchanged": true,
+  "scope": "one version, one immutable prerelease, full CI required; no stable promotion or physical acceptance claim"
+}

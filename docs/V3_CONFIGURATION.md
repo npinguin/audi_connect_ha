@@ -1,6 +1,6 @@
 # Audi Connect V3 — configuration and discovery
 
-**Current baseline:** 3.0.0b8 preparation only, not published or approved for installation as a new release. Keep the existing working V2 until a test release is approved. See the [b8 release notes](V3_RELEASE_NOTES_3.0.0b8.md). Older beta installation instructions are historical and should not be used as current guidance.
+**Current baseline:** 3.0.0b8 is explicitly authorized as a supervised experimental HACS test prerelease, not a code-complete or stable release. Back up HA, select this beta explicitly in HACS, restart, and keep V2 as fallback. See the [b8 release notes](V3_RELEASE_NOTES_3.0.0b8.md). Older beta installation instructions are historical and should not be used as current guidance.
 
 ## Shared setup and rollback
 

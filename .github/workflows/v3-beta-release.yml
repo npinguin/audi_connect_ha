@@ -102,7 +102,12 @@ jobs:
 
   publish-prerelease:
     # Physical Q8 acceptance requires an installable test release. Stable promotion is separate.
-    if: github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-code-complete-test' && github.ref == 'refs/heads/feature/v3-clean-discovery'
+    # Version-bound one-time experimental test authorization.
+    if: >-
+      github.repository == 'npinguin/audi_connect_ha' &&
+      github.ref == 'refs/heads/feature/v3-clean-discovery' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.confirmation == 'publish-code-complete-test') ||
+      (github.event_name == 'push' && github.event.head_commit.message == 'release(test): publish 3.0.0b8 HACS prerelease'))
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -111,12 +116,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 2
 
       - uses: actions/download-artifact@v4
         with:
           name: audi-connect-v3-3.0.0b8-validated
 
       - name: Reject test release without code-complete V2 parity
+        if: github.event_name == 'workflow_dispatch'
         run: |
           python - <<'PY'
           import json
@@ -127,6 +134,26 @@ jobs:
           assert gate.get("test_release_code_complete") is True, "Code-complete test sign-off missing"
           # Q8 physical and rollback evidence belong to the stable release gate.
           PY
+
+      - name: Validate one-time experimental test authorization
+        if: github.event_name == 'push'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          authorization = json.loads(Path("governance/B8_EXPERIMENTAL_TEST_RELEASE.json").read_text())
+          manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
+          gate = json.loads(Path("docs/V2_V3_PARITY_BASELINE.json").read_text())["release_gate"]
+          assert authorization["version"] == manifest["version"] == "3.0.0b8"
+          assert authorization["classification"] == "experimental_hacs_test_only"
+          assert authorization["base_commit"] == "342024cdba8c397b8cac3959580f7571bd2cdcf3"
+          assert authorization["stable_promotion_allowed"] is False
+          assert authorization["static_parity_claimed"] is False
+          assert gate["v3_static_parity_proven"] is False
+          assert gate["test_release_code_complete"] is False
+          assert gate["full_release_allowed"] is False
+          PY
+          test "$(git rev-parse HEAD^)" = "342024cdba8c397b8cac3959580f7571bd2cdcf3"
 
       - name: Prevent prerelease replacement
         env:
@@ -148,6 +175,6 @@ jobs:
         run: |
           gh release create 3.0.0b8 audi_connect_v3_3.0.0b8.zip SHA256SUMS_V3_3.0.0b8.txt \
             --target "${GITHUB_SHA}" \
-            --title "Audi Connect 3.0.0b8 — V3 V2-compatibility fixes (experimental)" \
+            --title "Audi Connect 3.0.0b8 — V3 architecture & reliability (experimental HACS test)" \
             --notes-file docs/V3_RELEASE_NOTES_3.0.0b8.md \
-            --prerelease
+            --prerelease --latest=false

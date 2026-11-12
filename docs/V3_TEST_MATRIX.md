@@ -87,3 +87,7 @@ Extend the capability inventory using historic V2 job and researched API paths. 
 | Quality | Lint/format, type contracts, risk-based coverage, generated inventory parity, full CI | Architecture closure review |
 
 Static code-complete parity before beta publication; physical vehicle and rollback acceptance before stable. No release gate is changed by documentation.
+
+### Explicit b8 experimental test exception
+
+One supervised HACS prerelease is authorized before static parity completion. This does not mark any acceptance row passed, change the standard code-complete beta policy, or permit stable publication. See b8 release notes and the version-bound authorization record.
