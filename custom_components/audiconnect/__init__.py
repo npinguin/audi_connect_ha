@@ -261,12 +261,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            # Vehicle wake and cloud GET refresh are not interchangeable.
-            raise HomeAssistantError(
-                "V3 vehicle refresh requires verified wake/request-ID support; "
-                "use the V3 cloud refresh button or switch to V2"
-            )
-        await account.refresh_vehicle_data(vin)
+            await v3_execute_action(account, vin, "refresh_vehicle_data")
+        else:
+            await account.refresh_vehicle_data(vin)
 
     async def _handle_probe_api_paths(service: ServiceCall) -> None:
         """Explicit user action. A diagnostics download never triggers probes."""
@@ -330,7 +327,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await v3_execute_action(account, vin, "start_auxiliary_heating")
+            await v3_execute_action(account, vin, "start_auxiliary_heating", dict(service.data))
         else:
             await account.start_auxiliary_heating(vin, service)
 
@@ -340,7 +337,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await v3_execute_action(account, vin, "set_location_charge_target")
+            await v3_execute_action(account, vin, "set_location_charge_target", dict(service.data))
         else:
             await account.set_location_charge_target(vin, service)
 
@@ -350,7 +347,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await v3_execute_action(account, vin, "set_charge_mode")
+            await v3_execute_action(account, vin, "set_charge_mode", dict(service.data))
         else:
             await account.set_charge_mode(vin, service)
 
@@ -360,7 +357,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             return
         vin, account = result
         if isinstance(account, V3Engine):
-            await v3_execute_action(account, vin, "set_target_soc")
+            await v3_execute_action(account, vin, "set_target_soc", dict(service.data))
         else:
             await account.set_target_soc(vin, service)
 

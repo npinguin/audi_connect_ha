@@ -161,7 +161,7 @@ def restore_profile(
             or attempt.capability not in catalog.capabilities
             or attempt.action not in (catalog.capabilities.get(attempt.capability, {}).get("control") or {})
             or attempt.operation not in profile.registry.operations
-            or profile.registry.operations[attempt.operation]["method"] != "POST"
+            or profile.registry.operations[attempt.operation]["method"] not in ("POST", "PUT")
             or attempt.result not in (
                 "worked", "failed", "uncertain_pending_review",
                 "awaiting_user_feedback"

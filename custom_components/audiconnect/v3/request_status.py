@@ -13,7 +13,7 @@ from typing import Any
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 _PENDING = frozenset({"in_progress", "pending", "queued", "accepted"})
 _SUCCESS = frozenset({"successful", "succeeded", "completed"})
-_REJECTED = frozenset({"failed", "rejected", "error", "cancelled", "canceled"})
+_REJECTED = frozenset({"failed", "rejected", "error", "cancelled", "canceled", "timeout"})
 
 
 def request_id_of(payload: Any) -> str | None:

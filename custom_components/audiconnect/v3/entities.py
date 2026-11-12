@@ -49,6 +49,24 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     _attr_name = "Climatisation"
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT_COOL]
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_min_temp = 15
+    _attr_max_temp = 30
+    _attr_target_temperature_step = 0.5
+
+    @property
+    def target_temperature(self):
+        row = self.vehicle.readings.get("climatisationTargetTemperatureC", {})
+        value = row.get("value")
+        return value if isinstance(value, (int, float)) else None
+
+    async def async_set_temperature(self, **kwargs):
+        value = kwargs.get("temperature")
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not 15 <= value <= 30:
+            raise HomeAssistantError("Climate temperature must be 15..30 C")
+        await self.coordinator.engine.send_control(
+            self.vehicle.vin, "set_settings", "climate",
+            params={"targetTemperature_C": value},
+        )
 
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
         super().__init__(coordinator, vehicle)
@@ -58,6 +76,8 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     @property
     def supported_features(self) -> ClimateEntityFeature:
         value = ClimateEntityFeature(0)
+        if self.coordinator.engine.control_enabled(self.vehicle.vin, "set_settings"):
+            value |= ClimateEntityFeature.TARGET_TEMPERATURE
         if self.coordinator.engine.control_enabled(self.vehicle.vin, "start"):
             value |= ClimateEntityFeature.TURN_ON
         if self.coordinator.engine.control_enabled(self.vehicle.vin, "stop"):
@@ -360,6 +380,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
 # The workbench always shows unverified candidates without injecting unusable
 # lock/button/switch entities into a customer's HA device.
 CONTROL_BUTTONS = (
+    ("refresh_vehicle_data", "Refresh vehicle data", "mdi:cloud-refresh", "remote", "refresh"),
+    ("flash_lights", "Flash lights", "mdi:car-light-high", "remote", "flash"),
     ("wake_vehicle_modern", "Wake vehicle", "mdi:car-connected", "remote", "wake"),
     ("start_charging_modern", "Start charging", "mdi:ev-station", "charging", "start"),
     ("stop_charging_modern", "Stop charging", "mdi:ev-station", "charging", "stop"),

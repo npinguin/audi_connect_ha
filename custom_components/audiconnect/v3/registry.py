@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 _ALLOWED_FIELDS = frozenset({"VIN", "COUNTRY", "TYPE", "JOBS"})
 _ALLOWED_SCOPE = frozenset({"auth", "region", "vehicle_type", "model_family"})
-_ALLOWED_METHODS = frozenset({"GET", "POST"})
+_ALLOWED_METHODS = frozenset({"GET", "POST", "PUT"})
 
 
 def read_json_path(payload: Any, path: str) -> Any:
@@ -153,7 +153,7 @@ class CapabilityRegistry:
                 raise RegistryError("Context scope values must be strings")
             if op.get("delivery") not in ("existing_poll", "manual"):
                 raise RegistryError("Unknown operation owner")
-            if op["method"] == "POST" and op["delivery"] != "manual":
+            if op["method"] != "GET" and op["delivery"] != "manual":
                 raise RegistryError("A control may never execute automatically")
             if op["method"] == "GET":
                 if not isinstance(op.get("response_paths"), list):
@@ -180,7 +180,7 @@ class CapabilityRegistry:
                     raise RegistryError("Missing or duplicate operation reference")
                 for ref in refs:
                     op = self.operations.get(ref)
-                    if op is None or op["method"] != ("GET" if aspect == "status" else "POST"):
+                    if op is None or (op["method"] == "GET") != (aspect == "status"):
                         raise RegistryError("Invalid operation reference")
     
     @classmethod

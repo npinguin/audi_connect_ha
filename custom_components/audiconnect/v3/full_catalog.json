@@ -34,7 +34,6 @@
         "start": {
           "operations": [
             "cariad.climate.start.stored",
-            "cariad.climate.start.vehicle_settings",
             "mbb.climate.start"
           ]
         },
@@ -52,6 +51,26 @@
         "window_heating_stop": {
           "operations": [
             "cariad.climate.window_heating_stop"
+          ]
+        },
+        "set_settings": {
+          "operations": [
+            "cariad.climate.settings"
+          ]
+        },
+        "start_with_settings": {
+          "operations": [
+            "cariad.climate.start.vehicle_settings"
+          ]
+        },
+        "preheater_start": {
+          "operations": [
+            "cariad.climate.preheater_start"
+          ]
+        },
+        "preheater_stop": {
+          "operations": [
+            "cariad.climate.preheater_stop"
           ]
         }
       }
@@ -123,6 +142,21 @@
             "cariad.charging.stop",
             "cariad.charging.stop.combined"
           ]
+        },
+        "set_target_soc": {
+          "operations": [
+            "cariad.charging.settings"
+          ]
+        },
+        "set_charge_mode": {
+          "operations": [
+            "cariad.charging.mode"
+          ]
+        },
+        "set_location_charge_target": {
+          "operations": [
+            "cariad.charging.profiles"
+          ]
         }
       }
     },
@@ -144,6 +178,16 @@
         "wake": {
           "operations": [
             "cariad.remote.wake"
+          ]
+        },
+        "refresh": {
+          "operations": [
+            "cariad.remote.refresh"
+          ]
+        },
+        "flash": {
+          "operations": [
+            "cariad.remote.flash"
           ]
         }
       }
@@ -197,11 +241,9 @@
       "method": "POST",
       "path": "/vehicle/v1/vehicles/{VIN}/climatisation/start",
       "delivery": "manual",
-      "priority": 10,
-      "request_mode": "verified_vehicle_target",
-      "confirmation": "vehicle_readback",
-      "notes": "Opt-in: only vehicle-reported target temp, existing safe settings read-modify-write.",
-      "implementation": "not_implemented"
+      "priority": 0,
+      "request_mode": "climate_start_settings",
+      "confirmation": "vehicle_readback"
     },
     "cariad.climate.stop": {
       "family": "cariad",
@@ -718,6 +760,78 @@
       "confirmation": "physical_vehicle_readback",
       "request_mode": "json",
       "request_body": {}
+    },
+    "cariad.charging.settings": {
+      "family": "cariad",
+      "method": "PUT",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/settings",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "charging_settings_update",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.charging.mode": {
+      "family": "cariad",
+      "method": "PUT",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/mode",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "charge_mode",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.charging.profiles": {
+      "family": "cariad",
+      "method": "PUT",
+      "path": "/vehicle/v1/vehicles/{VIN}/charging/profiles",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "charging_profile_update",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.climate.settings": {
+      "family": "cariad",
+      "method": "PUT",
+      "path": "/vehicle/v1/vehicles/{VIN}/climatisation/settings",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "climate_settings_update",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.remote.refresh": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/vehiclewakeup",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "bodyless",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.remote.flash": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/honkandflash",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "flash",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.climate.preheater_start": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/auxiliaryheating/start",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "auxiliary_start",
+      "confirmation": "vehicle_readback"
+    },
+    "cariad.climate.preheater_stop": {
+      "family": "cariad",
+      "method": "POST",
+      "path": "/vehicle/v1/vehicles/{VIN}/auxiliaryheating/stop",
+      "delivery": "manual",
+      "priority": 0,
+      "request_mode": "bodyless",
+      "confirmation": "vehicle_readback"
     }
   },
   "source": "v2_historical_catalog_plus_climate_pilot",

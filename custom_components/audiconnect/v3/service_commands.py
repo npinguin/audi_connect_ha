@@ -21,6 +21,15 @@ _V2_ACTIONS: dict[str, tuple[str, str]] = {
     "stop_charger": ("charging", "stop"),
     "start_window_heating": ("climate", "window_heating_start"),
     "stop_window_heating": ("climate", "window_heating_stop"),
+    "start_preheater": ("climate", "preheater_start"),
+    "stop_preheater": ("climate", "preheater_stop"),
+    "start_auxiliary_heating": ("climate", "preheater_start"),
+    "refresh_vehicle_data": ("remote", "refresh"),
+    "flash_lights": ("remote", "flash"),
+    "set_target_soc": ("charging", "set_target_soc"),
+    "set_charge_mode": ("charging", "set_charge_mode"),
+    "set_location_charge_target": ("charging", "set_location_charge_target"),
+    "start_timed_charger": ("charging", "set_charge_mode"),
 }
 
 
@@ -32,15 +41,17 @@ async def execute(
 
     Never discard unknown service parameters or fall back to V2 actions.
     """
-    values = data or {}
-    if action == "start_climatisation":
-        unsupported = set(values) - {"device_id", "action"}
-        if unsupported:
-            raise HomeAssistantError(
-                "V3 parameterized climate start is not yet implemented: "
-                + ", ".join(sorted(unsupported))
-            )
+    values = {k: v for k, v in (data or {}).items()
+              if k not in ("device_id", "action") and v is not None}
     mapped = _V2_ACTIONS.get(action)
+    if action == "start_climatisation" and values:
+        mapped = ("climate", "start_with_settings")
+    if action == "start_timed_charger":
+        values = {"value": "timer"}
+    elif action == "set_charge_mode":
+        values = {"value": values.get("charge_mode")}
+    elif action in ("set_target_soc", "set_location_charge_target"):
+        values["value"] = values.pop("target_soc", None)
     if mapped is None:
         raise HomeAssistantError(
             f"Audi action '{action}' is not yet V3-verified; "
@@ -48,6 +59,9 @@ async def execute(
         )
     capability, aspect = mapped
     try:
-        await engine.send_control(vin, aspect, capability)
+        if values:
+            await engine.send_control(vin, aspect, capability, params=values)
+        else:
+            await engine.send_control(vin, aspect, capability)
     except (RuntimeError, ValueError) as exc:
         raise HomeAssistantError(f"Audi {action}: {exc}") from exc

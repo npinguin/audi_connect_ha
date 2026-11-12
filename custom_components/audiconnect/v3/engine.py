@@ -66,6 +66,7 @@ class V3Engine:
         self.last_cloud_poll_attempt: datetime | None = None
         self._actions = asyncio.Lock()
         self._normal_action_at: dict[str, float] = {}
+        self._wake_attempts: dict[str, list[float]] = {}
         self._known_vehicle_inventory = False
         self._poll_cycles = 0
 
@@ -158,14 +159,6 @@ class V3Engine:
                 ),
             )
         op = profile.registry.operations[ident]
-        # This historical CARIAD variant is a read-modify-write settings
-        # operation, not a bodyless command. Do not silently alias it to the
-        # Q8 bodyless start. Developers can test explicit custom JSON routes.
-        if ident == "cariad.climate.start.vehicle_settings":
-            raise ValueError(
-                "The stored-settings start adapter is not implemented in clean V3; "
-                "add an explicit development route and test its payload first"
-            )
         path = op["path"].format(
             VIN=vehicle.vin, COUNTRY=vehicle.country,
             TYPE="Audi", JOBS=",".join(planned_jobs(vehicle, profile)),
@@ -176,6 +169,18 @@ class V3Engine:
         return op["family"], op["method"], path, self._resolve_secure_body(
             vehicle, ident, op["family"], op["method"], path, body
         )
+
+    async def _command_request(self, car: V3Vehicle, ident: str,
+                               params: dict[str, Any] | None = None):
+        family, method, path, body = self._operation_request(car, ident, params)
+        op = self.profiles[car.vin.lower()].registry.operations[ident]
+        mode = op.get("request_mode")
+        if mode in {"charging_settings_update", "charge_mode",
+                    "charging_profile_update", "climate_settings_update",
+                    "climate_start_settings", "flash", "auxiliary_start"}:
+            from .command_payloads import build
+            body = await build(self, car, mode, params or {})
+        return family, method, path, body
 
     def _api_record(self, profile: DevelopmentProfile, operation: str,
                     family: str, method: str, response: V3Response | None,
@@ -510,15 +515,45 @@ class V3Engine:
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
 
-    def control_enabled(self, vin: str, aspect: str, capability: str = "climate") -> bool:
-        self.require_vehicle(vin)
+    def _command_route(self, vin: str, aspect: str, capability: str) -> str | None:
+        car = self.require_vehicle(vin)
         p = self.profiles[vin.lower()]
-        return (
-            f"{capability}.{aspect}" not in p.discovery.disabled
-            and p.active.get(f"{capability}.{aspect}") is not None
-            and p.control_results.get(p.active[f"{capability}.{aspect}"]) == "worked"
-            and not p.custom.get(p.active[f"{capability}.{aspect}"], {}).get("variables")
-        )
+        key = f"{capability}.{aspect}"
+        if key in p.discovery.disabled:
+            return None
+        ident = p.active.get(key)
+        if ident and p.control_results.get(ident) == "worked" and not p.custom.get(ident, {}).get("variables"):
+            return ident
+        if car.context.auth != "auth0":
+            return None
+        # Historical V2 routes, not exploratory alternatives, are selectable
+        # on the vehicle's own declared capability or reviewed status shape.
+        # A previous failed physical experiment overrides defaults.
+        from .command_policy import eligible_operation
+        ident = eligible_operation(car, self.auth, capability, aspect)
+        if not ident or p.control_results.get(ident) == "failed":
+            return None
+        try:
+            if ident in p.registry.resolve(capability, aspect, car.context)["available_operations"]:
+                return ident
+        except ValueError:
+            pass
+        return None
+
+    def control_enabled(self, vin: str, aspect: str, capability: str = "climate") -> bool:
+        return self._command_route(vin, aspect, capability) is not None
+
+    def _reserve_wake(self, vin: str, operation: str) -> None:
+        if operation not in ("cariad.remote.wake", "cariad.remote.refresh"):
+            return
+        if self.transport.remaining_calls is not None and self.transport.remaining_calls <= 12:
+            raise RuntimeError("Audi wake quota reserve reached")
+        now = time.monotonic()
+        attempts = self._wake_attempts.setdefault(vin.lower(), [])
+        attempts[:] = [x for x in attempts if now - x < 86400]
+        if len(attempts) >= 4 or (attempts and now - attempts[-1] < 1800):
+            raise RuntimeError("Audi wake budget: 30 minutes and four attempts per 24 hours")
+        attempts.append(now)
 
     async def test_action(
         self, vin: str, aspect: str, operation: str,
@@ -533,14 +568,15 @@ class V3Engine:
             capability, aspect, vehicle.context
         )["available_operations"]:
             raise ValueError("Control not applicable to this car")
-        if profile.registry.operations[operation]["method"] != "POST":
+        if profile.registry.operations[operation]["method"] not in ("POST", "PUT"):
             raise ValueError("Read-only operation cannot be a control")
         async with self._actions:
             # Reject invalid templates/parameters BEFORE reserving a pending
             # physical action, otherwise a mere validation error locks the car.
-            family, method, path, body = self._operation_request(
+            family, method, path, body = await self._command_request(
                 vehicle, operation, params
             )
+            self._reserve_wake(vehicle.vin, operation)
             attempt = profile.begin_test(
                 capability, aspect, operation, now=time.time()
             )
@@ -697,8 +733,11 @@ class V3Engine:
                 raise RuntimeError(
                     "Vehicle command cooldown active; verify vehicle state"
                 )
-            ident = p.active[f"{capability}.{aspect}"]
-            family, method, path, body = self._operation_request(car, ident, params)
+            ident = self._command_route(vin, aspect, capability)
+            if ident is None:
+                raise RuntimeError("No eligible Audi command route")
+            family, method, path, body = await self._command_request(car, ident, params)
+            self._reserve_wake(vin, ident)
             self._normal_action_at[vin.lower()] = now
             try:
                 response = await self.transport.request(
