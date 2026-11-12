@@ -126,7 +126,10 @@ class CommandEngine:
             }
 
     def _command_route(self, vin: str, aspect: str, capability: str) -> str | None:
-        car = self.require_vehicle(vin)
+        try:
+            car = self.require_vehicle(vin)
+        except ValueError:
+            return None
         return resolve_control(car, self.profiles[vin.lower()], self.auth, capability, aspect)
 
     def control_enabled(self, vin: str, aspect: str, capability: str = "climate") -> bool:

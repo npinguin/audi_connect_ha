@@ -20,3 +20,5 @@ Still open:
 - Review actual catalog eligibility across supported vehicle families. Catalog match is not physical proof.
 
 Do not mark static parity or release gates complete.
+
+- Vehicle inventory reconciliation retains object/entity identity, blocks excluded or repeatedly missing VINs, and restores them on rediscovery. Empty/malformed responses do not revoke existing vehicles. Context-change migration remains a separate acceptance item.

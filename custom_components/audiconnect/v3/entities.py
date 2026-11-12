@@ -36,6 +36,10 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
         self.vehicle = vehicle
 
     @property
+    def available(self) -> bool:
+        return getattr(self.vehicle, "inventory_present", True) and super().available
+
+    @property
     def device_info(self) -> DeviceInfo:
         name = self.vehicle.model.removeprefix("Audi ").strip() or "Audi"
         return DeviceInfo(
@@ -113,6 +117,8 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity, RestoreEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         age = self.vehicle.capture_age_minutes
         status_current = (
             self.vehicle.climate_state is not None
@@ -482,6 +488,8 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         reading = self.vehicle.readings.get(self.attribute["id"])
         return _reading_available(reading, allow_last_known=self._allow_last_known)
 
@@ -545,6 +553,8 @@ class V3TripSensor(V3BaseEntity, SensorEntity):
 
     @property
     def available(self):
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         return self.native_value is not None
 
     @property
@@ -563,6 +573,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         reading = self.vehicle.readings.get(self.attribute["id"])
         if self.attribute["id"] == "is_moving" and reading:
             # Historical parking endpoint indication, not a live GPS fix.
@@ -631,6 +643,8 @@ class V3ControlButton(V3BaseEntity, ButtonEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         return (
             self.coordinator.last_update_success and
             self.coordinator.engine.control_enabled(
@@ -678,6 +692,8 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         engine = self.coordinator.engine
         # A stale vehicle state is unknown, not a disabled explicit action.
         return (self.coordinator.last_update_success and
@@ -725,6 +741,8 @@ class V3LockEntity(V3BaseEntity, LockEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         engine = self.coordinator.engine
         pin = getattr(getattr(engine.auth, "service", None), "_spin", None)
         # Do not hide an authorized explicit command just because the car
@@ -783,6 +801,8 @@ class V3ParkedTracker(V3BaseEntity, TrackerEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         return self._coordinates() is not None
 
     @property
@@ -828,6 +848,8 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         return (
             _reading_available(self.vehicle.readings.get("targetstateOfCharge"),
                                allow_last_known=True)
@@ -876,6 +898,8 @@ class V3LocationChargeTargetNumber(V3ChargeTargetNumber):
 
     @property
     def available(self):
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         return self.native_value is not None and self.coordinator.engine.control_enabled(
             self.vehicle.vin, "set_location_charge_target", "charging")
 
@@ -917,6 +941,8 @@ class V3PreheaterSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def available(self):
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         engine = self.coordinator.engine
         return self.coordinator.last_update_success and any(
             engine.control_enabled(self.vehicle.vin, aspect, "climate")
@@ -955,6 +981,8 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def available(self):
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         return self.is_on is not None and self.coordinator.engine.control_enabled(
             self.vehicle.vin, "set_settings", "climate")
 
@@ -985,6 +1013,8 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
+        if not getattr(self.vehicle, "inventory_present", True):
+            return False
         return (
             _reading_available(self.vehicle.readings.get("preferredChargeMode"),
                                allow_last_known=True)

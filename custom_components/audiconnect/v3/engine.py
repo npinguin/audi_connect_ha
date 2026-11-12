@@ -96,18 +96,32 @@ class V3Engine:
             CONF_FILTER_VINS, data.get(CONF_FILTER_VINS, "")
         )).split(",") if x.strip()}
         known: dict[str, V3Vehicle] = {}
+        complete = bool(found)
         for item in found:
             try:
                 parsed = V3Vehicle.from_graphql(item, self.auth.country)
-            except ValueError:
+            except (ValueError, TypeError, AttributeError):
+                complete = False
                 continue
             if parsed.vin.lower() in excluded:
                 continue
             vehicle = self.vehicles.get(parsed.vin.lower(), parsed)
+            vehicle.inventory_present = True
+            vehicle.inventory_misses = 0
+            vehicle.name = parsed.name
             vehicle.auth_family = "auth0" if self.auth.uses_auth0 else "legacy"
             vehicle.legacy_cariad = not self.auth.uses_auth0 and bool(getattr(self.auth,"has_cariad_bearer",False))
             vehicle.legacy_api_level = getattr(self.auth,"legacy_api_level",0)
             known[parsed.vin.lower()] = vehicle
+        # An empty or malformed inventory cannot revoke a vehicle. Require two
+        # complete nonempty snapshots, or an explicit local VIN exclusion.
+        for key, car in self.vehicles.items():
+            if key in excluded:
+                car.inventory_present = False
+            elif key not in known and complete:
+                car.inventory_misses += 1
+                if car.inventory_misses >= 2:
+                    car.inventory_present = False
         if not known:
             if found and excluded:
                 self._known_vehicle_inventory = True
@@ -294,8 +308,8 @@ class V3Engine:
 
     def require_vehicle(self, vin: str) -> V3Vehicle:
         vehicle = self.vehicles.get(vin.lower())
-        if vehicle is None:
-            raise ValueError("Vehicle is not part of this account")
+        if vehicle is None or not vehicle.inventory_present:
+            raise ValueError("Vehicle is not present in the current account inventory")
         return vehicle
 
     def control_routes_for(self, vin: str, capability: str, action: str) -> dict[str, Any]:

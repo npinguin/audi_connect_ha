@@ -34,6 +34,8 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
     def add_verified() -> None:
         entities: list[Any] = []
         for car in engine.vehicles.values():
+            if not car.inventory_present:
+                continue
             vin = car.vin.lower()
             def add_once(tag: str, factory, *args) -> None:
                 if tag not in seen:

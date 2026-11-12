@@ -21,8 +21,6 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import AudiRuntimeData
 from .audi_entity import AudiEntity, entity_unique_id, should_create_entity
 from .coordinator import AudiDataUpdateCoordinator
-from .v3.climate import AudiV3Climate
-from .v3.runtime import context_for
 
 _ATTR_KEY = "climatisation_state"
 # services.yaml bounds the temp_c field the same way.
@@ -55,33 +53,9 @@ async def async_setup_entry(
     entities = []
     for config_vehicle in runtime_data.account.config_vehicles:
         vehicle = config_vehicle.vehicle
-        modern_v3 = (
-            runtime_data.v3 is not None
-            and context_for(vehicle, config_entry).auth == "auth0"
-        )
-        # A known positive capability can create control-only climate even
-        # without a current status value. But an *omitted* capability in a
-        # partial Audi list is not proof that an existing status entity must
-        # disappear: preserve its registry ID/state, gate commands separately.
-        create = should_create_entity(
+        if should_create_entity(
             hass, "climate", "climatisation", vehicle, _ATTR_KEY
-        )
-        if modern_v3:
-            # Capability aspects are optional and independent. Control-only
-            # climate must be constructible without a current status reading,
-            # including after the user explicitly opts into testing an UNKNOWN
-            # capability. An explicit negative verdict still blocks control.
-            entity = AudiV3Climate(
-                runtime_data.coordinator, vehicle, runtime_data.v3
-            )
-            create = create or entity._may_control
-        if not create:
-            continue
-        # Preserve the same unique ID and registry history. Other V2 climate
-        # features remain untouched until individually migrated.
-        if modern_v3:
-            entities.append(entity)
-        else:
+        ):
             entities.append(AudiClimate(runtime_data.coordinator, vehicle))
     async_add_entities(entities)
 

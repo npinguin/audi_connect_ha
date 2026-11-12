@@ -38,6 +38,8 @@ class V3Vehicle:
     advertised_capabilities: set[str] = field(default_factory=set)
     impaired_capabilities: set[str] = field(default_factory=set)
     v2_initial_discovery_completed: bool = False
+    inventory_present: bool = True
+    inventory_misses: int = 0
 
     @classmethod
     def from_graphql(cls, item: dict[str, Any], country: str) -> "V3Vehicle":

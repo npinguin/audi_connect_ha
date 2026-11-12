@@ -176,6 +176,8 @@ class StatusEngine:
         # must never trigger a second call for a response already in this poll.
         polled_responses: dict[tuple[str, str, str], V3Response] = {}
         for key, vehicle in self.vehicles.items():
+            if not vehicle.inventory_present:
+                continue
             profile = self.profiles[key]
             if vehicle.context.auth == "legacy" and len(profile.registry.capabilities) > 1:
                 if vehicle.legacy_cariad:
@@ -293,6 +295,8 @@ class StatusEngine:
         # two small job groups immediately and one group on later polls.
         # No POST, no wake, no parking coordinates, no unbounded API probing.
         for key, car in self.vehicles.items():
+            if not car.inventory_present:
+                continue
             profile = self.profiles[key]
             if car.context.auth != "auth0" or len(profile.registry.capabilities) <= 1:
                 continue  # Pilot-only synthetic tests and legacy cars are unaffected.
@@ -325,6 +329,8 @@ class StatusEngine:
         # Explicitly selected targeted/custom GET routes are executed separately
         # from the default shared batch, deduplicated across attributes.
         for key, car in self.vehicles.items():
+            if not car.inventory_present:
+                continue
             profile = self.profiles[key]
             unique: dict[tuple[str, str], list[tuple[str, str, list[str]]]] = {}
             for ident, route in profile.attribute_routes.items():
@@ -366,6 +372,8 @@ class StatusEngine:
                     if entity.domain == "sensor" and entity.disabled_by is None
                 }
                 for car in self.vehicles.values():
+                    if not car.inventory_present:
+                        continue
                     profile = self.profiles[car.vin.lower()]
                     prefix = f"{car.vin.lower()}_sensor_"
                     known_trip = any(prefix + key in registered for key in (
@@ -379,6 +387,8 @@ class StatusEngine:
                     if len(profile.registry.capabilities) > 1 and (known_trip or capability or car.context.auth == "legacy"):
                         await self._poll_trips(car)
         for car in self.vehicles.values():
+            if not car.inventory_present:
+                continue
             captures = [
                 x.get("captured") for x in car.readings.values()
                 if isinstance(x.get("captured"), str)
@@ -418,6 +428,8 @@ class StatusEngine:
             if entity.domain == "device_tracker"
         }
         for car in self.vehicles.values():
+            if not car.inventory_present:
+                continue
             tracker=f"{car.vin.lower()}_device_tracker_position"
             enabled=(tracker in trackers and trackers[tracker] is None)
             discovered=(tracker not in trackers and "parkingPosition" in car.advertised_capabilities
