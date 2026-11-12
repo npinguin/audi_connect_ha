@@ -253,33 +253,37 @@ class V3Engine:
     def _api_record(self, profile: DevelopmentProfile, operation: str,
                     family: str, method: str, response: V3Response | None,
                     vin: str) -> None:
-        record = record_for(
-            family=family, method=method,
-            http_status=response.status if response else None,
-            payload=response.data if response else None, vin=vin,
-            at=response.observed_at if response else None,
-        )
-        save_record(profile, operation, record)
+        detail = None
         if response is not None:
             settings = getattr(self.entry, "data", {})
             known = [settings.get(key) for key in (CONF_USERNAME, CONF_PASSWORD, CONF_REFRESH_TOKEN)]
-            # Redact any echoed credentials, without requesting or refreshing tokens.
+            # Redact echoed credentials before building either evidence view,
+            # without requesting or refreshing tokens.
             service = getattr(self.auth, "service", None)
             for name in ("_bearer_token_json", "audiToken", "vwToken"):
                 token = getattr(service, name, None)
                 if isinstance(token, dict):
                     known.extend(token.get(k) for k in ("access_token", "refresh_token", "id_token"))
-            detail = engineering_response(response.data, vehicle_vin=vin,
-                                          spin=settings.get(CONF_SPIN), secrets=tuple(known))
-            profile.engineering_responses.pop(operation, None)
+            try:
+                detail = engineering_response(response.data, vehicle_vin=vin,
+                                              spin=settings.get(CONF_SPIN), secrets=tuple(known))
+            except (TypeError, ValueError, OverflowError, RecursionError):
+                detail = {"payload": "[RESPONSE INSPECTION UNAVAILABLE]", "truncated": True}
+        record = record_for(
+            family=family, method=method,
+            http_status=response.status if response else None,
+            payload=detail["payload"] if detail else None, vin=vin,
+            at=response.observed_at if response else None,
+        )
+        save_record(profile, operation, record)
+        profile.engineering_responses.pop(operation, None)
+        if detail is not None:
             profile.engineering_responses[operation] = {
                 "operation": operation, "family": family, "method": method,
                 "http_status": record["http_status"], "at": record["at"], **detail,
             }
             while len(profile.engineering_responses) > MAX_ENGINEERING_ROUTES:
                 profile.engineering_responses.pop(next(iter(profile.engineering_responses)))
-        else:
-            profile.engineering_responses.pop(operation, None)
 
     async def test_family_reads(self, vin: str, family: str) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.

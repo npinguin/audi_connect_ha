@@ -333,3 +333,17 @@ async def test_local_response_detail_isolated_from_storage_diagnostics_and_vehic
     assert len(transport.calls) == 1
     engine._api_record(profile, "test.command", "cariad", "POST", None, VIN)
     assert not engine.engineering_response_for(VIN, "test.command")["available"]
+
+@pytest.mark.asyncio
+async def test_engineering_and_restricted_evidence_mask_echoed_configured_secret():
+    engine, _, _ = engine_for()
+    engine.entry.data = {"password": "private-password-value"}
+    await engine.discover()
+    profile = engine.profiles[VIN.lower()]
+    engine._api_record(profile, "test.read", "cariad", "GET",
+                       V3Response(200, {"message": "error private-password-value",
+                                        "capability": "charging"}, datetime.now(UTC)), VIN)
+    assert engine.engineering_response_for(VIN, "test.read")["payload"]["message"] == "error {SECRET}"
+    assert "private-password-value" not in json.dumps(profile.snapshot())
+    assert "private-password-value" not in json.dumps(engine.api_results_for(VIN))
+    assert "charging" in json.dumps(engine.api_results_for(VIN))
