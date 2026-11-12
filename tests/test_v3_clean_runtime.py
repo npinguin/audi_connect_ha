@@ -751,3 +751,19 @@ async def test_pre_dispatch_storage_failure_rolls_back_without_mutation(origin):
     store.async_save = save
     await dispatch()
     assert transport.request_count == 2
+
+@pytest.mark.asyncio
+async def test_schema_evidence_excludes_echoed_spin_in_field_names():
+    from custom_components.audiconnect.const import CONF_SPIN
+    from custom_components.audiconnect.v3.transport import INVENTORY_OPERATION
+
+    engine, _, _ = engine_for()
+    engine.entry.data = {CONF_SPIN: "9387"}
+    await engine.discover()
+    profile = engine.profiles[VIN.lower()]
+    payload = {"data": {"userVehicles": [{"vehicle": {"field9387": 1, "modelYear": 2020}}]}}
+    engine._api_record(profile, INVENTORY_OPERATION, "graphql", "POST",
+                       V3Response(200, payload, datetime.now(UTC)), VIN)
+    schema = profile.job_schema["inventory"]["fields"]
+    assert any("modelYear" in row["path"] for row in schema)
+    assert all("9387" not in row["path"] for row in schema)
