@@ -87,3 +87,18 @@ def test_generic_charging_does_not_authorize_unobserved_parameter_writes():
     car.charging_profiles = [{"id": 1, "targetSOC_pct": 70}]
     for aspect in ("set_target_soc", "set_charge_mode", "set_location_charge_target"):
         assert eligible_operation(car, auth, "charging", aspect) is not None
+
+
+def test_climate_request_metadata_does_not_become_climate_state_or_fake_timestamp():
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    now = datetime.now(UTC)
+    observe_structured(car, {"climatisation": {"climatisationStatus": {
+        "requests": [{"operation": "start", "status": "accepted", "requestId": "private"}],
+        "value": {"carCapturedTimestamp": now.isoformat(), "climatisationState": "invalid"}
+    }}}, now, _accept_observation)
+    detail = details_for(car, "climate_requests_detail")["climate_requests"]
+    assert detail["data"]["items"] == [{"operation": "start", "status": "accepted"}]
+    assert detail["vehicle_captured"] is None
+    assert detail["cloud_observed"] == now.isoformat()
+    assert car.climate_state is None
+    assert "private" not in str(detail)
