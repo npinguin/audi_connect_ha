@@ -236,6 +236,19 @@ class GuidedActionDiscovery:
         self._active = None
         return record
 
+    def reject_nonexecution(self, sequence: int, *, now: float) -> ActionAttempt:
+        """Close a definitive pre-execution rejection without inventing physical feedback."""
+        record = self._require_active(sequence)
+        if record.http_status not in (405, 410) or record.transport != "http_rejected_or_error" or now < record.started_at:
+            raise DiscoveryError("No definitive route rejection")
+        record.result = "rejected"
+        record.closed_at = now
+        key = f"{record.capability}.{record.action}"
+        if self.preferred.get(key) == record.operation:
+            self.preferred.pop(key)
+        self._active = None
+        return record
+
     def disable(self, capability: str, action: str) -> None:
         """A user may disable an unwanted action independently of status."""
         if not self.registry.operations_for(capability, action):
