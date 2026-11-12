@@ -1,12 +1,12 @@
 # V3 upstream readiness — release and PR acceptance
 
-**Decision: NO-GO for upstream release and normal completeness-qualified HACS release. One-time b13 experimental evidence-acquisition prerelease explicitly authorized.** Development branch: `feature/v3-clean-discovery`. Internal [draft PR #22](https://github.com/npinguin/audi_connect_ha/pull/22) targets `main`; it is not an upstream release PR. Published b12 stays immutable; b13 must pass exact-SHA CI and the [version-specific authorization](../governance/B13_EXPERIMENTAL_TEST_RELEASE.json). The machine-readable [completeness gate](../governance/V3_COMPLETENESS_GATE.json) remains authoritative; this document describes the work and evidence needed, not a gate override.
+**Decision: NO-GO for upstream release and normal completeness-qualified HACS release. Version-specific b13 and b14 experimental evidence-acquisition prereleases explicitly authorized.** Development branch: `feature/v3-clean-discovery`. Internal [draft PR #22](https://github.com/npinguin/audi_connect_ha/pull/22) targets `main`; it is not an upstream release PR. Published b12 and b13 stay immutable; b14 must pass exact-SHA CI and the [version-specific authorization](../governance/B14_EXPERIMENTAL_TEST_RELEASE.json). The machine-readable [completeness gate](../governance/V3_COMPLETENESS_GATE.json) remains authoritative; this document describes the work and evidence needed, not a gate override.
 
 ## 1. What the upstream community gets
 
 V3 adds a capability-driven multi-generation Audi API runtime, native HA projection, improved freshness and guarded command execution, plus an optional Engineering Dashboard. Users connect and use eligible known capabilities; explorers discover gaps; engineers configure, test and locally activate supported routes, then contribute reusable evidence. See [community how-to](V3_COMMUNITY_HOWTO.md) and [proposed upstream README](V3_UPSTREAM_README.md).
 
-Development after b12 includes a bounded private trip archive, complementary telemetry and structured details, native charging/window-heating switches, automatic reviewed read discovery and command/wake fixes. These are b13 candidate changes, not a physically certified feature list.
+Development after b12 includes a bounded private trip archive, complementary telemetry and structured details, native charging/window-heating switches, automatic reviewed read discovery and command/wake fixes. These are b13/b14 candidate changes, not a physically certified feature list. See [b14 release notes](V3_RELEASE_NOTES_3.0.0b14.md) for Q8 evidence and reliability fixes.
 
 ## 2. Remaining blockers — gate snapshot
 

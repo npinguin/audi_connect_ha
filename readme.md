@@ -1,18 +1,18 @@
 # Audi Connect Integration for Home Assistant
 
 > [!WARNING]
-> **Audi V3 3.0.0b13 is explicitly authorized as an experimental HACS test prerelease.**
+> **Audi V3 3.0.0b14 is explicitly authorized as an experimental HACS test prerelease.**
 > V2 remains the default and rollback choice. V3 has its own vehicle API,
 > polling, commands and nine HA platforms with shared account authentication.
-> Architecture closure and static parity are not complete. Back up HA, select b13
+> Architecture closure and static parity are not complete. Back up HA, select b14
 > explicitly as a beta in HACS, and keep V2 as fallback. Not stable.
-> b13 is an evidence-acquisition exception: seven completeness gates remain open for validation.
+> b14 is an evidence-acquisition exception: seven completeness gates remain open for validation.
 > Engineering uses an opt-in administrator Workbench for explicit control tests;
 > the end-user target is automatic fast discovery of known eligible controls,
 > with no automatic physical vehicle actions. See [architecture](docs/V3_ARCHITECTURE.md),
 > [closure plan](docs/V3_ARCHITECTURE_CLOSURE.md), [fast discovery ADR](docs/V3_ADR_002_FAST_DISCOVERY.md),
 > [configuration](docs/V3_CONFIGURATION.md), [test matrix](docs/V3_TEST_MATRIX.md)
-> and [3.0.0b13 release notes](docs/V3_RELEASE_NOTES_3.0.0b13.md).
+> and [3.0.0b14 release notes](docs/V3_RELEASE_NOTES_3.0.0b14.md).
 
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]](LICENSE.md)
@@ -26,7 +26,7 @@
 V3 builds on the original Audi Connect integration and introduces capability-driven discovery, native HA entities and an optional Engineering Dashboard. Everyday users can connect and use eligible known vehicle functions. Explorers can investigate missing data. Engineers can discover and configure new API paths, test and locally activate verified functionality where supported, and contribute reusable evidence to the community.
 
 - [Community quick start: users, explorers and engineers](docs/V3_COMMUNITY_HOWTO.md)
-- [Experimental b13 release notes](docs/V3_RELEASE_NOTES_3.0.0b13.md)
+- [Experimental b14 release notes](docs/V3_RELEASE_NOTES_3.0.0b14.md)
 - [Proposed upstream README section](docs/V3_UPSTREAM_README.md)
 
 V3 remains experimental; V2 is the default and fallback. No automatic physical actions during discovery.

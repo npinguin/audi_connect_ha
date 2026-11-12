@@ -17,8 +17,8 @@ def test_completeness_gate_is_explicit_and_next_beta_cannot_skip_open_blockers()
     if manifest["version"] != gate["baseline"]:
         if not gate["hacs_ready"]:
             # Explicit, version-specific evidence-acquisition exception only.
-            assert manifest["version"] == "3.0.0b13", "Completeness audit has open HACS blockers"
-            auth = json.loads((ROOT/"governance/B13_EXPERIMENTAL_TEST_RELEASE.json").read_text())
+            assert manifest["version"] in ("3.0.0b13", "3.0.0b14"), "Completeness audit has open HACS blockers"
+            auth = json.loads((ROOT / f"governance/B{manifest['version'].split('b')[-1]}_EXPERIMENTAL_TEST_RELEASE.json").read_text())
             exception = auth["completeness_exception"]
             pending = [item for item in items if item["blocks_hacs"] and item["status"] != "closed"]
             assert auth["version"] == exception["version"] == manifest["version"]
