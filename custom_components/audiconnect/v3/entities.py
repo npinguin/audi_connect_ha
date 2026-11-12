@@ -47,14 +47,14 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
 
     @property
     def device_info(self) -> DeviceInfo:
-        name = self.vehicle.model.removeprefix("Audi ").strip() or "Audi"
-        if self.vehicle.model_year:
+        name = self.vehicle.model.removeprefix("Audi ").strip()
+        if name and self.vehicle.model_year:
             name = f"{name} {self.vehicle.model_year}"
         return DeviceInfo(
             identifiers={(DOMAIN, self.vehicle.vin.lower())},
             manufacturer="Audi",
             name=self.vehicle.name,
-            model=name,
+            model=name or None,
         )
 
 
@@ -927,7 +927,9 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
     def extra_state_attributes(self):
         from .vehicle import powertrain_identity
         identity = powertrain_identity(self.vehicle)
-        return {"model_family": self.vehicle.model_family or None,
+        from .structured_details import details_for
+        return {**details_for(self.vehicle, "connected_services_detail"),
+                "model_family": self.vehicle.model_family or None,
                 "model_year": self.vehicle.model_year or None,
                 "model_source": self.vehicle.model_source or None,
                 "vehicle_type": identity["value"],
