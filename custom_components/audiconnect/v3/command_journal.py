@@ -42,9 +42,21 @@ class CommandRecord:
     def unresolved(self) -> bool:
         return self.state in _UNRESOLVED
 
+    @property
+    def is_wake(self) -> bool:
+        """Only the reviewed CARIAD wake/refresh operations are preparatory."""
+        return (self.capability == "remote" and self.action in ("wake", "refresh")
+                and self.operation in ("cariad.remote.wake", "cariad.remote.refresh"))
+
+    @property
+    def wake_accepted(self) -> bool:
+        return self.is_wake and self.state in ("accepted_unconfirmed", "backend_completed", "verified")
+
     def check_next(self, now: float, cooldown: float = 90, *, capability=None, action=None) -> None:
         if self.unresolved:
             raise RuntimeError("Previous vehicle command outcome uncertain; inspect and review it")
+        if self.wake_accepted and capability is not None and action is not None:
+            return  # Wake has its own quota/cadence guard in CommandEngine.
         if now < self.started_at + cooldown:
             # A user can explicitly stop a just-accepted comfort/charging
             # operation. No bypass for repeated starts, locks, engine or
@@ -106,6 +118,25 @@ class CommandRecord:
         if recover_pending and record.state in ("pending", "accepted_unconfirmed"):
             record.state = "uncertain"  # Never replay an interrupted mutation.
         return record
+
+
+def check_command_sequence(profile, now: float, *, capability: str, action: str) -> None:
+    """A preparatory wake cannot create or erase a real mutation cooldown.
+
+    Uncertain latest commands remain blocking. When an accepted wake is the
+    latest journal entry, recover the previous actual command's cooldown.
+    Engineering tests retain their separate cooldown and review gates.
+    """
+    latest = profile.last_command
+    if latest is None:
+        return
+    latest.check_next(now, capability=capability, action=action)
+    if not latest.wake_accepted:
+        return
+    prior = next((record for record in reversed(profile.command_journal)
+                  if record.origin == "home_assistant" and not record.is_wake), None)
+    if prior is not None:
+        prior.check_next(now, capability=capability, action=action)
 
 
 def restore_history(rows):
