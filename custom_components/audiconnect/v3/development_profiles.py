@@ -8,6 +8,7 @@ V3-owned dispatcher. No arbitrary hosts, auth headers, python or Jinja eval.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import asdict
 import re
@@ -415,26 +416,37 @@ class DevelopmentProfile:
         return next((record for record in reversed(self.command_journal)
                      if record.origin == "workbench" and record.engineering_sequence == sequence), None)
 
-    def begin_test(self, capability: str, action: str, operation: str, *, now: float):
-        """Called only after an authenticated user clicks Test."""
+    @contextmanager
+    def command_transaction(self):
+        """Rollback journal/discovery changes only before physical dispatch."""
+        rows = list(self.command_journal)
+        last = self.last_command
         history = list(self.discovery.history)
         sequence = self.discovery._sequence
-        attempt = self.discovery.begin(
-            capability, action, operation, user_initiated=True, now=now
-        )
+        active = self.discovery._active
+        invalidated = self.invalidated_attempt_sequence
         try:
+            yield
+        except BaseException:
+            self.command_journal[:] = rows
+            self.last_command = last
+            self.discovery.history[:] = history
+            self.discovery._sequence = sequence
+            self.discovery._active = active
+            self.invalidated_attempt_sequence = invalidated
+            raise
+
+    def begin_test(self, capability: str, action: str, operation: str, *, now: float):
+        """Called only after an authenticated user clicks Test."""
+        with self.command_transaction():
+            attempt = self.discovery.begin(
+                capability, action, operation, user_initiated=True, now=now
+            )
             self.track_command(CommandRecord.begin(
                 capability, action, operation, now, origin="workbench",
                 engineering_sequence=attempt.sequence,
                 operation_revision=operation_revision(self.registry.operations[operation]),
             ))
-        except Exception:
-            # No dispatch has occurred. Restore the discovery transaction,
-            # including history entries trimmed by begin().
-            self.discovery.history[:] = history
-            self.discovery._sequence = sequence
-            self.discovery._active = None
-            raise
         return attempt
 
     def observe_http(self, sequence: int, status: int | None) -> None:
