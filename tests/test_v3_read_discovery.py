@@ -98,7 +98,65 @@ def test_standalone_discovery_progress_survives_snapshot_and_transient_failure()
     profile = restore_profile(registry, car.context, profile.snapshot())
     assert profile.standalone_discovery["cariad.mobility.status.lastTrip"] == 200
     result = user_progress(car, profile, auth)
-    assert result["read_total"] == 26
+    assert result["read_total"] == 28
     assert result["read_assessed"] == 2
     assert result["controls_physically_verified"] == 0
-    assert result["read_assessment_percent"] == round(200 / 26, 1)
+    assert result["read_assessment_percent"] == round(200 / 28, 1)
+
+
+def test_unknown_jobs_remain_in_normal_batch_only_explicit_job_negative_excludes():
+    from custom_components.audiconnect.v3.attribute_runtime import planned_jobs
+    profile = blank_profile()
+    car = SimpleNamespace(v2_initial_discovery_completed=True)
+    record_jobs(profile, V2_JOBS, status=207, payload={
+        "charging": {"batteryStatus": {"value": {"currentSOC_pct": 40}}},
+        "batterySupport": {"error": {"code": "jobNotSupported"}},
+        "lvBattery": {"error": {"code": "temporarilyUnavailable"}},
+        "activeVentilation": {"timerStatus": {"error": {"code": "unsupported"}}},
+    })
+    reserve_group(profile, ("lvBattery",))
+    assert set(planned_jobs(car, profile)) == set(V2_JOBS) - {"batterySupport"}
+    assert "batterySupport" not in {job for group in pending_groups(profile, max_groups=23) for job in group}
+    record_jobs(profile, ("batterySupport",), status=429, payload=None)
+    assert profile.job_discovery["batterySupport"] == "unsupported"
+    record_jobs(profile, ("batterySupport",), status=207, payload={})
+    assert profile.job_discovery["batterySupport"] == "unsupported"
+    record_jobs(profile, ("batterySupport",), status=200,
+                payload={"batterySupport": {"status": {"value": {"enabled": True}}}})
+    assert "batterySupport" in planned_jobs(car, profile)
+
+
+def test_read_route_exclusion_requires_explicit_negative_and_survives_transient_failure():
+    from custom_components.audiconnect.v3.read_discovery import record_standalone_read, read_excluded
+    profile = SimpleNamespace(standalone_discovery={}, unsupported_reads=set())
+    route = "cariad.mobility.status.lastTrip"
+    for status in (401, 403, 404, 429, 503):
+        record_standalone_read(profile, route, status)
+        assert not read_excluded(profile, route)
+    record_standalone_read(profile, route, 404, {"error": {"code": "notSupported"}})
+    assert read_excluded(profile, route)
+    record_standalone_read(profile, route, 429)
+    assert read_excluded(profile, route)
+    record_standalone_read(profile, route, 200, {"data": []})
+    assert not read_excluded(profile, route)
+
+
+def test_explicit_read_exclusions_survive_restart_and_context_change_invalidates_them():
+    from pathlib import Path
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry, VehicleContext
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.profile_store import restore_profile
+    from custom_components.audiconnect.v3.read_discovery import record_standalone_read
+    root = Path(__file__).resolve().parents[1] / "custom_components/audiconnect/v3"
+    registry = CapabilityRegistry.from_json_file(root / "full_catalog.json")
+    context = VehicleContext(auth="auth0", region="DE")
+    profile = DevelopmentProfile(registry, context)
+    profile.job_discovery["batterySupport"] = "unsupported"
+    route = "cariad.mobility.status.lastTrip"
+    record_standalone_read(profile, route, 410)
+    restored = restore_profile(registry, context, profile.snapshot())
+    assert restored.job_discovery["batterySupport"] == "unsupported"
+    assert route in restored.unsupported_reads
+    restored.rebind_context(VehicleContext(auth="auth0", region="BE"))
+    assert not restored.unsupported_reads
+    assert not restored.job_discovery
