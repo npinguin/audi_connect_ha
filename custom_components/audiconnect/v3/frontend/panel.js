@@ -81,6 +81,7 @@ class AudiConnectV3Panel extends HTMLElement {
     this._loaded = false;
     this.definitionEdits = new Map();
     this.skippedControls = new Set();
+    this.expertDiscovery = false;
     this.shadowRoot.addEventListener("input", (e) => {
       const {definition, field} = e.target.dataset || {};
       if (definition && field) this.definitionEdits.set(definition + ":" + field, e.target.value);
@@ -240,7 +241,7 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   _resetVehicleSelection() {
-    this.definitionEdits.clear(); this.skippedControls.clear();
+    this.definitionEdits.clear(); this.skippedControls.clear(); this.expertDiscovery=false;
     this.entityFilter = "";
     this.identityOperation = ""; this.identityExecution = null;
     this.attribute = ""; this.controlAction = ""; this.controlCapability = "";
@@ -338,9 +339,12 @@ class AudiConnectV3Panel extends HTMLElement {
     const button = e.target.closest("button[data-action]");
     if (!button || this.loading) return;
     const action = button.dataset.action;
+    if (action === "discovery-mode") {
+      this.expertDiscovery=button.dataset.mode==="expert"; this.render(); return;
+    }
     if (action === "end-user-no" || action === "end-user-yes") {
       if (this.step!==5 || this.pending) return;
-      const candidate=this.nextEndUserCandidate();
+      const candidate=this.expertDiscovery ? (this.capabilityStatus.expert_candidates||[]).find(c=>c.capability===button.dataset.capability && c.action===button.dataset.control && c.operation===button.dataset.operation) : this.nextEndUserCandidate();
       if (!candidate || candidate.operation!==button.dataset.operation ||
           candidate.capability!==button.dataset.capability || candidate.action!==button.dataset.control) return;
       if (action==="end-user-no") {
@@ -349,7 +353,7 @@ class AudiConnectV3Panel extends HTMLElement {
       this.loading=true; this.error=""; this.render();
       try {
         this.lastResult=await this.api("control_test",{...this.selection,capability:candidate.capability,
-          action:candidate.action,operation:candidate.operation,approval:candidate.approval_group,end_user:true,parameters:{}});
+          action:candidate.action,operation:candidate.operation,approval:candidate.approval_group,end_user:true,expert:this.expertDiscovery,parameters:{}});
         await this._loadCapabilityStatus(); await this._apiResults();
       } catch(err) {
         this.error=String(err.message||err);
@@ -440,7 +444,7 @@ class AudiConnectV3Panel extends HTMLElement {
       this.controlCapability = button.dataset.capability;
       this.controlAction = button.dataset.control;
       this.attribute = "";
-      this.step = 3; this.controlRoutes = []; this.controlChoice = ""; this.controlRequirement = "";
+      this.step = 3; this.controlRoutes = []; this.controlChoice = button.dataset.operation || ""; this.controlRequirement = "";
       this.loading = true; this.error = ""; this.render();
       try { await this._controlRoutes(); }
       catch(err) { this.error = String(err.message || err); }
@@ -548,9 +552,15 @@ class AudiConnectV3Panel extends HTMLElement {
       } else if (action.startsWith("confirm-")) {
         if (!this.pending) throw new Error("No open action to review");
         const result = action.slice("confirm-".length);
+        const reviewed=this.pending;
         this.lastResult = await this.api("review", {
-          ...this.selection, sequence: this.pending.sequence, result
+          ...this.selection, sequence: reviewed.sequence, result
         });
+        if (this.step===5 && this.expertDiscovery && result==="failed") {
+          this.controlCapability=reviewed.capability; this.controlAction=reviewed.action;
+          this.category=reviewed.capability; this.controlChoice=reviewed.operation;
+          this.attribute=""; this.identityOperation=""; this.controlRoutes=[]; this.step=3;
+        }
       }
       await this._loadCapabilityStatus();
       await this._readRoutes();
@@ -749,6 +759,8 @@ class AudiConnectV3Panel extends HTMLElement {
     const candidates=this.capabilityStatus.end_user_candidates||[];
     const candidate=this.nextEndUserCandidate();
     const rows=p.controls||[];
+    const expertCandidates=this.capabilityStatus.expert_candidates||[];
+    const history=this.capabilityStatus.command_journal||[];
     return `<section class="card" data-view="end-user-validation">
       <div class="section-head"><h2>End-user validation</h2><button data-action="refresh" ${this.loading?"disabled":""}>Refresh status</button></div>
       <p>Same configuration and evidence as native Home Assistant discovery. Refresh reads local status; background discovery follows the normal poll cadence.</p>
@@ -760,11 +772,19 @@ class AudiConnectV3Panel extends HTMLElement {
       <div class="coverage-table"><table><thead><tr><th>Capability</th><th>Read jobs assessed</th><th>Normalized attributes</th></tr></thead><tbody>
       ${Object.entries(p.capabilities||{}).map(([cap,c])=>`<tr><td><button data-action="open-capability" data-capability="${escapeHTML(cap)}">${escapeHTML(domainName(cap))}</button></td><td>${c.jobs_assessed}/${c.jobs_total}</td><td>${c.attributes_normalized}/${c.attributes_total}</td></tr>`).join("")}</tbody></table></div>
       <h3>3 · Control discovery &amp; physical verification</h3>
+      <div class="actions"><button data-action="discovery-mode" data-mode="guided" class="${!this.expertDiscovery?"primary":""}">Guided</button><button data-action="discovery-mode" data-mode="expert" class="${this.expertDiscovery?"primary":""}">Expert · selective</button></div>
       <p>${rows.filter(c=>c.eligible).length} eligible · ${escapeHTML(p.controls_physically_verified??0)} physically verified / ${escapeHTML(p.controls_catalog_applicable??0)} applicable · ${this.skippedControls.size} skipped · ${candidates.filter(c=>!this.skippedControls.has(c.capability+"."+c.action)).length} ready to test</p>
-      ${candidate&&!this.pending?`<div class="callout"><b>Discover ${escapeHTML(candidate.label)}?</b><p>Yes sends the selected physical action once. Be present at the safely parked vehicle and able to restore its state.</p>
+      ${this.expertDiscovery?`<p>Select any eligible action below. Each Test sends that action once; no mandatory sequence. Failed routes can be edited in the existing API editor.</p>`:candidate&&!this.pending?`<div class="callout"><b>Discover ${escapeHTML(candidate.label)}?</b><p>Yes sends the selected physical action once. Be present at the safely parked vehicle and able to restore its state.</p>
       <div class="actions">${["yes","no"].map(answer=>`<button data-action="end-user-${answer}" data-operation="${escapeHTML(candidate.operation)}" data-capability="${escapeHTML(candidate.capability)}" data-control="${escapeHTML(candidate.action)}" ${this.loading?"disabled":""}>${answer==="yes"?"Yes":"No"}</button>`).join("")}</div>
       <details><summary>Engineering route</summary><code>${escapeHTML(candidate.operation)}</code></details></div>`:this.pending?"<p>Waiting for your physical result above.</p>":"<p>No remaining eligible actions in this session. Review unavailable or skipped functions below.</p>"}
-      ${rows.map(c=>`<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability,c.action))}</b> · ${escapeHTML(friendly(c.status))} · ${escapeHTML(this.skippedControls.has(c.capability+"."+c.action)?"Skipped":friendly(c.physical))}<div class="subline">${escapeHTML(friendly(c.reason||""))}</div></div></div>`).join("")}
+      ${rows.filter(c=>!this.expertDiscovery||!this.capabilityFilter||c.capability===this.capabilityFilter).map(c=>{
+        const candidate=expertCandidates.find(x=>x.capability===c.capability&&x.action===c.action);
+        const latest=[...history].reverse().find(x=>x.capability===c.capability&&x.action===c.action);
+        const failed=latest&&["physical_failed","rejected"].includes(latest.state);
+        const attrs=`data-capability="${escapeHTML(c.capability)}" data-control="${escapeHTML(c.action)}"`;
+        return `<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability,c.action))}</b> · ${escapeHTML(friendly(c.status))} · ${escapeHTML(!this.expertDiscovery&&this.skippedControls.has(c.capability+"."+c.action)?"Skipped":friendly(c.physical))}<div class="subline">${escapeHTML(friendly(c.reason||""))}</div></div>
+        ${this.expertDiscovery?`<div class="actions">${candidate?`<button data-action="end-user-yes" ${attrs} data-operation="${escapeHTML(candidate.operation)}" ${this.pending||this.loading?"disabled":""}>Test</button>`:""}
+        <button data-action="select-control" ${attrs} data-operation="${escapeHTML(failed?latest.operation:candidate?.operation||"")}">${failed?"Edit failed API":"Edit API"}</button></div>`:""}</div>`;}).join("")}
       <h3>4 · Recovery &amp; timing</h3>
       <p>Last poll: ${escapeHTML(this.localTime(timing.last_poll_attempt))} · Last success: ${escapeHTML(this.localTime(timing.last_poll_success))} · Poll interval: ${timing.poll_interval_seconds==null?"unknown":escapeHTML(timing.poll_interval_seconds/60)+" min"} · Quota: ${escapeHTML(health.quota_remaining??"unknown")}</p>
       ${(health.active_findings||[]).map(f=>`<div class="subline">${escapeHTML(friendly(f.code))} · ${escapeHTML(f.source)} ${f.http_status?"· HTTP "+escapeHTML(f.http_status):""}</div>`).join("")}
