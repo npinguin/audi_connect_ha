@@ -249,10 +249,14 @@ class AudiConnectV3Panel extends HTMLElement {
   entityLinks(ids) {
     return [...new Set(ids||[])].map(id=>`<button class="entity-link" data-action="filter-entity" data-entity="${escapeHTML(id)}">${escapeHTML(id)}</button>`).join(" ");
   }
+  selectedEntityLink() {
+    return (this.capabilityStatus.entity_links||[]).find(row =>
+      row.contract_key === this.entityFilter || (row.entity_ids||[]).includes(this.entityFilter));
+  }
   selectEntityFilter(id) {
     this.entityFilter = id || ""; this.searchText = ""; this.focusOperation = ""; this.apiFamily = "all";
     this.attribute = ""; this.controlAction = ""; this.identityOperation = ""; this.identityExecution = null;
-    const link = (this.capabilityStatus.entity_links||[]).find(row=>(row.entity_ids||[]).includes(id));
+    const link = this.selectedEntityLink();
     if(link?.capabilities?.length) this.category = link.capabilities[0];
     if(this.step===3) this.step=2;
     this.render();
@@ -661,8 +665,10 @@ class AudiConnectV3Panel extends HTMLElement {
     const vehicleFamily = car?.api_family || "cariad";
     const family = this.apiFamily === "vehicle" ? vehicleFamily : this.apiFamily;
     const entityLinks = coverage.entity_links || [];
-    const selectedEntity = entityLinks.find(r=>(r.entity_ids||[]).includes(this.entityFilter));
-    const entityMatches = r => !selectedEntity || (r.entity_ids||[]).includes(this.entityFilter);
+    const selectedEntity = this.selectedEntityLink();
+    const entityMatches = r => !selectedEntity || (r.entity_ids||[]).includes(this.entityFilter)
+      || r.contract_key === selectedEntity.contract_key || r.entity_key === selectedEntity.contract_key
+      || (r.entity_keys||[]).includes(selectedEntity.contract_key);
     const operationMatches = o => !selectedEntity || selectedEntity.operations.includes(o.operation) || (o.mappings||[]).some(entityMatches);
     const operations = (coverage.operations || []).filter(o => (family === "all" || o.family === family) && operationMatches(o));
     const matchesSearch = value => !this.searchText || JSON.stringify(value).toLowerCase().includes(this.searchText.toLowerCase());
@@ -820,7 +826,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </select></div>
         </div>
         <div class="toolbar" style="padding-top:0"><label for="global-search">Search capabilities, entities and API fields</label><input id="global-search" type="search" value="${escapeHTML(this.searchText)}" placeholder="e.g. model, charging, media.longName"></div>
-        <div class="toolbar"><label for="entity-filter">Home Assistant entity</label><select id="entity-filter"><option value="">All entities</option>${entityLinks.flatMap(link=>link.entity_ids.map(id=>`<option value="${escapeHTML(id)}" ${this.entityFilter===id?"selected":""}>${escapeHTML(id)}</option>`)).join("")}</select>${selectedEntity?`<p class="helper">${escapeHTML(selectedEntity.capabilities.map(domainName).join(" · ")||"No capability mapping declared")} · ${selectedEntity.operations.length} linked API operations</p>`:""}</div>
+        <div class="toolbar"><label for="entity-filter">Home Assistant entity</label><select id="entity-filter"><option value="">All entities</option>${entityLinks.flatMap(link=>(link.entity_ids.length?link.entity_ids:[link.contract_key]).map(id=>`<option value="${escapeHTML(id)}" ${this.entityFilter===id?"selected":""}>${escapeHTML(id)}${link.entity_ids.length?"":" (not registered)"}</option>`)).join("")}</select>${selectedEntity?`<p class="helper">${escapeHTML(selectedEntity.capabilities.map(domainName).join(" · ")||"No capability mapping declared")} · ${selectedEntity.operations.length} linked API operations</p>`:""}</div>
         <div class="steps">
           <button data-action="step-1" class="${this.step===1?"current":""}">Overview</button>
           <button data-action="step-2" class="${this.step===2?"current":""}">Capabilities</button>
