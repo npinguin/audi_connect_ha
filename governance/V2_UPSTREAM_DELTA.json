@@ -176,10 +176,10 @@
       "path": "custom_components/audiconnect/config_flow.py",
       "change": "modified",
       "upstream_blob": "ec9a7e83149d15c91058ed6b6cdc0825a542a800",
-      "development_blob": "1098bafa5dc95794d4aeceed6b8b0e22bc1d682e",
+      "development_blob": "87bd30d7782c1e638596c99ae4b7a1fc16a1f14f",
       "classification": "integration_seam",
       "owner": "integration",
-      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration.; V3 user discovery and action-specific consent/review",
+      "reason": "Shared runtime selector, dealer configuration and safe existing-entry migration; V3 user discovery and action-specific consent/review; simplified per-action Yes/No and OK/Not OK flow",
       "regression_tests": [
         "tests/test_v3_options_save.py"
       ],
@@ -358,10 +358,10 @@
       "path": "custom_components/audiconnect/strings.json",
       "change": "modified",
       "upstream_blob": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
-      "development_blob": "a85d31dd139d744c90c57b48487708fd31912e37",
+      "development_blob": "6dd2ca1e8fa7f562a6f361580ee66aa974db6236",
       "classification": "metadata",
       "owner": "integration",
-      "reason": "Shared config and runtime selector labels.; V3 discovery and consent labels",
+      "reason": "Shared config and runtime selector labels; V3 discovery and consent labels; simplified per-action Yes/No and OK/Not OK flow",
       "regression_tests": [
         "tests/test_v3_release_contract.py"
       ],
@@ -400,10 +400,10 @@
       "path": "custom_components/audiconnect/translations/en.json",
       "change": "modified",
       "upstream_blob": "23d66430b6f51ceeae2771e0a3872e0b3ddbb765",
-      "development_blob": "b14a36eccfbdb9b7d2f75c80e9ddb3cc56d15577",
+      "development_blob": "86dec89f7da306b5f7dff30688a930d6872d5421",
       "classification": "metadata",
       "owner": "integration",
-      "reason": "Localized options and service labels.; V3 discovery and consent labels",
+      "reason": "Localized options and service labels; V3 discovery and consent labels; simplified per-action Yes/No and OK/Not OK flow",
       "regression_tests": [
         "tests/test_v3_release_contract.py"
       ],
