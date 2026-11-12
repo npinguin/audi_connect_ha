@@ -379,9 +379,30 @@ async def ws_api_results(hass, connection, msg):
         result = {"records": engine.api_results_for(msg["vin"], msg.get("family", "all"))}
         if msg.get("include_engineering"):
             result["engineering_history"] = engine.engineering_history_for(msg["vin"], msg.get("family", "all"))
+            result["execution_reviews"] = engine.profiles[engine.require_vehicle(msg["vin"]).vin.lower()].execution_reviews
         connection.send_result(msg["id"], result)
     except (ValueError, KeyError, RuntimeError) as exc:
         connection.send_error(msg["id"], "v3_api_results_failed", str(exc))
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "audiconnect/v3/review_execution",
+    vol.Required("entry_id"): str, vol.Required("vin"): str,
+    vol.Required("operation"): vol.All(str, vol.Length(min=1, max=120)),
+    vol.Required("at"): vol.All(str, vol.Length(min=1, max=64)),
+    vol.Required("outcome"): vol.In(("unreviewed", "worked", "failed", "inconclusive")),
+    vol.Required("comment"): vol.All(str, vol.Length(max=500)),
+})
+@websocket_api.async_response
+async def ws_review_execution(hass, connection, msg):
+    try:
+        engine = _engine(hass, msg["entry_id"])
+        await engine.review_execution(msg["vin"], msg["operation"], msg["at"],
+                                      msg["outcome"], msg["comment"])
+        connection.send_result(msg["id"], {"saved": True})
+    except (ValueError, KeyError, RuntimeError, OSError) as exc:
+        connection.send_error(msg["id"], "v3_execution_review_failed", str(exc))
 
 
 @websocket_api.require_admin
@@ -502,7 +523,7 @@ async def async_setup_dashboard(hass) -> None:
             ws_review, ws_review_normal_command, ws_select,
             ws_attribute_routes, ws_attribute_add, ws_attribute_test,
             ws_attribute_save, ws_attribute_activate, ws_attribute_disable,
-            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_engineering_response, ws_test_family_reads, ws_test_identity_operation, ws_save_identity_draft, ws_trip_history,
+            ws_control_routes, ws_control_test, ws_control_disable, ws_api_results, ws_review_execution, ws_engineering_response, ws_test_family_reads, ws_test_identity_operation, ws_save_identity_draft, ws_trip_history,
         ):
             websocket_api.async_register_command(hass, handler)
         hass.data[_HANDLERS_KEY] = True
