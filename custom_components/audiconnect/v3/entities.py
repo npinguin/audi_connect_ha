@@ -915,6 +915,18 @@ class V3ModelSensor(V3BaseEntity, SensorEntity):
         super().__init__(coordinator, vehicle)
         self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_model"
 
+    def _handle_coordinator_update(self):
+        # Entity identity survives temporary missing inventory. Update the
+        # existing HA device when a real manufacturer model arrives later.
+        if self.hass is not None and self.vehicle.model:
+            from homeassistant.helpers import device_registry as dr
+            registry = dr.async_get(self.hass)
+            device = registry.async_get_device(identifiers={(DOMAIN, self.vehicle.vin.lower())})
+            model = self.device_info.get("model")
+            if device is not None and model and device.model != model:
+                registry.async_update_device(device.id, model=model)
+        super()._handle_coordinator_update()
+
     @property
     def native_value(self):
         return self.vehicle.model or None
