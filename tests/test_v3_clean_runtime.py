@@ -327,8 +327,16 @@ async def test_local_response_detail_isolated_from_storage_diagnostics_and_vehic
     assert detail["payload"]["settings"]["targetTemperature_C"] == 15.5
     assert detail["payload"]["vin"] == "{VIN}"
     assert "engineering_responses" not in profile.snapshot()
-    assert "15.5" not in json.dumps(profile.snapshot())
-    assert "15.5" not in json.dumps(engine.api_results_for(VIN))
+    def contains_private_number(value):
+        if isinstance(value, dict):
+            return any(contains_private_number(item) for item in value.values())
+        if isinstance(value, list):
+            return any(contains_private_number(item) for item in value)
+        return type(value) in (int, float) and value == 15.5
+    for evidence in (profile.snapshot(), engine.api_results_for(VIN)):
+        assert "targetTemperature_C" not in json.dumps(evidence)
+        assert not contains_private_number(evidence)
+    assert profile.api_observations["test.command"]["preview"] == "[control response withheld: security]"
     with pytest.raises(ValueError):
         engine.engineering_response_for("WAUZZZ4M0MD999999", "test.command")
     assert len(transport.calls) == 1
