@@ -18,3 +18,19 @@ def test_local_and_unmapped_entities_are_not_given_fake_api_routes():
     assert report["entity_links"][0]["capabilities"] == ["integration_health"]
     assert report["entity_links"][0]["operations"] == []
     assert report["entity_links"][1]["capabilities"] == []
+
+
+def test_missing_and_local_entity_contracts_remain_traceable_without_registry_id():
+    report = {"rows": [
+        {"attribute": "user.attribute.pressure", "capability": "local", "operation": "read",
+         "platform": "sensor", "entity_key": "v3_custom_pressure", "custom": True},
+        {"attribute": "stateOfCharge", "capability": "charging", "operation": "soc",
+         "platform": "sensor", "entity_key": "state_of_charge"}],
+        "operations": [{"operation": "read", "mappings": [
+            {"entity_key": "sensor.v3_custom_pressure", "attribute": "user.attribute.pressure", "capability": "local"}]}]}
+    link_entities(report, {}, {"sensor.state_of_charge": {}})
+    by_key = {row["contract_key"]: row for row in report["entity_links"]}
+    assert by_key["sensor.v3_custom_pressure"]["operations"] == ["read"]
+    assert by_key["sensor.v3_custom_pressure"]["entity_ids"] == []
+    assert by_key["sensor.state_of_charge"]["capabilities"] == ["charging"]
+    assert report["rows"][1]["entity_keys"] == ["sensor.state_of_charge"]
