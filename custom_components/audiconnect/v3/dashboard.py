@@ -155,6 +155,7 @@ async def ws_add_route(hass, connection, msg):
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("aspect"): vol.In(("status", "start", "stop")),
     vol.Required("operation"): str, vol.Optional("parameters"): dict,
+    vol.Optional("approval"): vol.In(("non_spin", "spin")),
 })
 @websocket_api.async_response
 async def ws_test(hass, connection, msg):
@@ -165,9 +166,9 @@ async def ws_test(hass, connection, msg):
                 msg["vin"], msg["operation"], params=msg.get("parameters"),
             )
         else:
-            result = await engine.test_action(
+            result = await engine.approved_control_discovery(
                 msg["vin"], msg["aspect"], msg["operation"],
-                params=msg.get("parameters"),
+                params=msg.get("parameters"), approval=msg.get("approval"),
             )
         connection.send_result(msg["id"], result)
     except (ValueError, TypeError, KeyError, RuntimeError) as exc:
@@ -375,13 +376,16 @@ async def ws_control_routes(hass, connection, msg):
     vol.Required("entry_id"): str, vol.Required("vin"): str,
     vol.Required("capability"): str, vol.Required("action"): str,
     vol.Required("operation"): str,
+    vol.Required("approval"): vol.In(("non_spin", "spin")),
+    vol.Optional("parameters"): dict,
 })
 @websocket_api.async_response
 async def ws_control_test(hass, connection, msg):
     try:
-        value = await _engine(hass, msg["entry_id"]).test_action(
+        value = await _engine(hass, msg["entry_id"]).approved_control_discovery(
             msg["vin"], msg["action"], msg["operation"],
-            capability=msg["capability"],
+            capability=msg["capability"], approval=msg["approval"],
+            params=msg.get("parameters"),
         )
         connection.send_result(msg["id"], value)
     except (ValueError, KeyError, RuntimeError, TypeError) as exc:
@@ -462,7 +466,7 @@ async def async_setup_dashboard(hass) -> None:
         hass,
         webcomponent_name="audiconnect-v3-panel",
         frontend_url_path=_PANEL,
-        module_url="/audiconnect_v3/panel.js?v=3.0.0b7",
+        module_url="/audiconnect_v3/panel.js?v=3.0.0b8-discovery1",
         sidebar_title="Audi V3 Development",
         sidebar_icon="mdi:car-cog",
         require_admin=True,

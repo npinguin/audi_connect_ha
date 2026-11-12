@@ -16,6 +16,36 @@ from .registry import CapabilityRegistry, RegistryError, VehicleContext
 Result = Literal["worked", "failed", "uncertain"]
 
 
+def approval_group(capability: str, action: str, operation: dict) -> str:
+    """Classify the actual command, not a UI-provided security label.
+
+    Engine stop and auxiliary stop share the protected discovery group even
+    when the OEM stop endpoint itself does not transmit a PIN. Unknown
+    legacy adapters and arbitrary custom secure bodies cannot be tested here.
+    """
+    if operation.get("method") == "GET":
+        return "read_only"
+    if operation.get("family") != "cariad":
+        return "unsupported"
+    if operation.get("method") not in ("POST", "PUT"):
+        return "unsupported"
+    if (capability == "access" or action in (
+            "engine_start", "engine_stop", "preheater_start", "preheater_stop"
+        ) or operation.get("request_mode") in ("secure_spin", "engine_start", "auxiliary_start")):
+        return "spin"
+    return "non_spin"
+
+
+def validate_approval(capability: str, action: str, operation: dict,
+                      approval: object, *, has_spin: bool) -> str:
+    group = approval_group(capability, action, operation)
+    if group not in ("non_spin", "spin") or approval != group:
+        raise DiscoveryError("Explicit approval for this control security group is required")
+    if group == "spin" and not has_spin:
+        raise DiscoveryError("S-PIN must already be configured for protected discovery")
+    return group
+
+
 class DiscoveryError(ValueError):
     """Guided discovery cannot safely advance in its current state."""
 

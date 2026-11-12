@@ -106,3 +106,7 @@ claims that those APIs are working in V3.
 The Options dialog preserves original V2 flags and local dealer metadata
 when switching runtimes. V3-only workbench controls are off in V2; returning
 to V3 does not delete custom API profiles or route test history.
+
+## Three discovery modes
+
+Automatic read-only discovery does not actuate the car. In the existing optional administrator Workbench, select **Controls without S-PIN** or **Controls with S-PIN** to list applicable catalog candidates across capabilities. Selecting a group does not send a command. The user selects a route and explicitly approves that exact action on that VIN, then reviews the physical outcome. Protected discovery uses only the configured account S-PIN; no PIN is passed through the browser or persisted in discovery evidence. Engine and auxiliary stop remain in the protected group even where the stop request itself is bodyless. PUT settings are included with user-supplied parameters. Neither group authorizes automatic commands, retries, or other vehicles. Ordinary HA service calls remain separate from discovery.

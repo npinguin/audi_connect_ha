@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from .development_profiles import DevelopmentProfile
+from .action_discovery import approval_group
 from .vehicle import V3Vehicle
 from .historical_catalog import INVENTORY, ALIAS_OF, CANONICAL_ATTRIBUTES
 from .legacy_read_mappings import variant_for as legacy_variant_for
@@ -210,6 +211,10 @@ def build_status_report(
                 "capability": capability, "action": action,
                 "api_family": "mbb" if vehicle.context.auth == "legacy" else "cariad",
                 "candidate_count": len(available),
+                "approval_groups": sorted({
+                    approval_group(capability, action, profile.registry.operations[ident])
+                    for ident in available
+                }),
                 "verified": current is not None and profile.control_results.get(current) == "worked",
                 "status": "verified" if current and profile.control_results.get(current) == "worked"
                           else "not_tested" if available else "not_applicable_to_vehicle",

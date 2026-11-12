@@ -212,3 +212,41 @@ test("Saving an access command template does not send a POST or require PIN inpu
   assert.deepEqual(calls.filter(x=>/test|control_test/.test(x)),[]);
   assert.equal(p.controlChoice,"user.access.lock.alternative");
 });
+
+
+test("Discovery modes do not send commands; exact approval is required", async () => {
+  const p = new Panel();
+  p.selected="entry"; p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  p.capabilityStatus={counts:{},rows:[],control_actions:[
+    {capability:"remote",action:"wake",api_family:"cariad",candidate_count:1,approval_groups:["non_spin"]},
+    {capability:"access",action:"unlock",api_family:"cariad",candidate_count:1,approval_groups:["spin"]}
+  ]};
+  const calls=[];
+  p.api=async (name,args)=>{
+    calls.push({name,args});
+    if(name==="control_test") return {sequence:1};
+    if(name==="routes")return {routes:[],history:[]};
+    if(name==="status")return p.capabilityStatus;
+    if(name==="control_routes")return {routes:p.controlRoutes,spin_configured:true};
+    if(name==="api_results")return {records:[]};
+    if(name==="list")return {integrations:p.entries};
+    throw Error(name);
+  };
+  const click=(action,group)=>p._click({target:{closest:()=>({dataset:{action,group}})}});
+  await click("discovery-group","spin");
+  assert.equal(p.discoveryGroup,"spin");
+  assert.equal(calls.length,0);
+  p.controlCapability="access";p.controlAction="unlock";p.step=3;
+  p.controlChoice="cariad.access.unlock";
+  p.controlRoutes=[{id:p.controlChoice,family:"cariad",approval_group:"spin"}];
+  p.spinConfigured=true;
+  await click("control-test");
+  assert.equal(calls.filter(x=>x.name==="control_test").length,0);
+  p.shadowRoot.getElementById=id=>id==="control-approval"?{checked:true}:null;
+  await click("control-test");
+  const sent=calls.filter(x=>x.name==="control_test");
+  assert.equal(sent.length,1);
+  assert.equal(sent[0].args.approval,"spin");
+  assert.equal(sent[0].args.operation,"cariad.access.unlock");
+});

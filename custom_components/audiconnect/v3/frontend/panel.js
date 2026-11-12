@@ -23,6 +23,8 @@ class AudiConnectV3Panel extends HTMLElement {
     this.controlRoutes = [];
     this.controlChoice = "";
     this.controlRequirement = "";
+    this.discoveryGroup = "read_only";
+    this.spinConfigured = false;
     this.inventoryFilter = "all";
     this.apiHistory = [];
     this.apiFamily = "vehicle";
@@ -122,6 +124,7 @@ class AudiConnectV3Panel extends HTMLElement {
     });
     this.controlRoutes = value.routes || [];
     this.controlRequirement = value.requires || "";
+    this.spinConfigured = value.spin_configured === true;
     this.controlChoice = value.active && this.controlRoutes.some(r=>r.id===value.active)
       ? value.active : this.controlRoutes.some(r=>r.id===this.controlChoice)
         ? this.controlChoice : this.controlRoutes[0]?.id || "";
@@ -216,6 +219,12 @@ class AudiConnectV3Panel extends HTMLElement {
     if (action.startsWith("step-")) {
       this.step = Number(action.slice(5)); this.render(); return;
     }
+    if (action === "discovery-group") {
+      this.discoveryGroup = button.dataset.group;
+      this.controlAction = ""; this.attribute = "";
+      this.step = this.discoveryGroup === "read_only" ? 1 : 2;
+      this.render(); return;
+    }
     if (action === "open-capability") {
       this.category = button.dataset.capability;
       this.attribute = "";
@@ -244,6 +253,9 @@ class AudiConnectV3Panel extends HTMLElement {
     const readRoute = this.shadowRoot.getElementById("read-route")?.value || this.readChoice;
     const controlRoute = this.shadowRoot.getElementById("control-route")?.value || this.controlChoice;
     const rawReadDefinition = this.shadowRoot.getElementById("read-definition")?.value || "";
+    const controlParameters = this.shadowRoot.getElementById("control-parameters")?.value || "{}";
+    const approved = this.shadowRoot.getElementById("control-approval")?.checked === true;
+    const approvalGroup = this.controlRoutes.find(r=>r.id===controlRoute)?.approval_group;
     const rawControlDefinition = this.shadowRoot.getElementById("control-definition")?.value || "";
     const route = this.shadowRoot.getElementById("route")?.value;
     // Capture edits BEFORE re-render: otherwise the textarea is reset and a
@@ -258,6 +270,7 @@ class AudiConnectV3Panel extends HTMLElement {
       if (action === "test") {
         let parameters = {};
         parameters = JSON.parse(rawParameters);
+        if (this.aspect !== "status") throw new Error("Use the explicit control discovery workflow");
         this.lastResult = await this.api("test", {
           ...this.selection, aspect: this.aspect,
           operation: route, parameters
@@ -286,9 +299,14 @@ class AudiConnectV3Panel extends HTMLElement {
         });
         this.controlChoice = this.lastResult.operation || this.controlChoice;
       } else if (action === "control-test") {
+        if (!approved || !["non_spin","spin"].includes(approvalGroup))
+          throw new Error("Approve this exact vehicle control before sending it");
+        if (approvalGroup === "spin" && !this.spinConfigured)
+          throw new Error("Configure your Audi S-PIN first");
         this.lastResult = await this.api("control_test", {
           ...this.selection, capability: this.controlCapability,
-          action: this.controlAction, operation: controlRoute
+          action: this.controlAction, operation: controlRoute,
+          approval: approvalGroup, parameters: JSON.parse(controlParameters)
         });
       } else if (action === "control-disable") {
         this.lastResult = await this.api("control_disable", {
@@ -412,6 +430,11 @@ class AudiConnectV3Panel extends HTMLElement {
       family === "all" || r.family === family);
     const lastSelectedResult = records.find(r=>r.operation===activeRoute);
     const applicableFamily = family === "all" || family === vehicleFamily;
+    const selectedControl = this.controlRoutes.find(r=>r.id===this.controlChoice);
+    const group = selectedControl?.approval_group;
+    const groupActions = controlActions.filter(r => this.discoveryGroup === "read_only"
+      ? r.capability === this.category
+      : (r.approval_groups || []).includes(this.discoveryGroup));
     const canActivateRead = chosen?.result === "verified" ||
       (chosen?.family === "mbb" && chosen?.result === "readable_but_stale");
     const bg = "var(--primary-background-color, #f8fafc)";
@@ -493,7 +516,7 @@ class AudiConnectV3Panel extends HTMLElement {
         <div class="top">
           <div><div class="eyebrow">Audi Connect / V3 capability workbench</div>
             <h1>Audi V3 — Experimental</h1>
-            <p>Recover historical V2 capabilities across API families. Only verified data and manually confirmed controls become active.</p></div>
+            <p>Recover historical V2 capabilities across API families. Read-only discovery plus explicitly approved control discovery.</p></div>
           <button data-action="refresh" ${this.loading?"disabled":""}>↻ Refresh</button>
         </div>
         <div class="toolbar">
@@ -516,6 +539,15 @@ class AudiConnectV3Panel extends HTMLElement {
           <button data-action="step-3" class="${this.step===3?"current":""}">3 · Configure & test</button>
         </div>
         ${this.error?`<div class="error">${escapeHTML(this.error)}</div>`:""}
+        ${car?`<section class="card" style="margin-bottom:18px">
+          <h2>Discovery mode</h2>
+          <div class="actions">
+            <button data-action="discovery-group" data-group="read_only" class="${this.discoveryGroup==="read_only"?"primary":""}">Read-only · automatic</button>
+            <button data-action="discovery-group" data-group="non_spin" class="${this.discoveryGroup==="non_spin"?"primary":""}">Controls · without S-PIN</button>
+            <button data-action="discovery-group" data-group="spin" class="${this.discoveryGroup==="spin"?"primary":""}">Controls · with S-PIN</button>
+          </div>
+          <p>Choose a group to review candidates. Selecting a group sends no command. Every control needs separate approval for this vehicle and physical review before the next action.</p>
+        </section>`:""}
         ${!car?`<div class="card">No V3 vehicle loaded. Enable V3 and confirm Audi authentication before testing.</div>`: `
           <div class="cards" style="display:${this.step===1?"grid":"none"}">
             <div class="card"><div class="eyebrow">Cloud polling</div>
@@ -610,7 +642,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>`).join("") || '<p>No observed attributes in this domain. Change the filter to show the complete historical catalog.</p>'}
             <h2 style="margin-top:20px">Vehicle controls · physical verification required</h2>
             <p>Wake-up, Climate ON/OFF, Lock/Unlock, charging and other vehicle actions are NEVER automatically tested. Select a control to test one API route while at the car.</p>
-            ${controlActions.filter(r=>r.capability===this.category).map(r=>`<div class="attribute-row">
+            ${groupActions.map(r=>`<div class="attribute-row">
               <div><b>${escapeHTML(r.action.replaceAll("_"," "))}</b>
                 <div class="subline">${escapeHTML(r.api_family)} · ${escapeHTML(r.status)} · ${r.candidate_count} candidate routes</div></div>
               <button data-action="select-control" data-capability="${escapeHTML(r.capability)}"
@@ -659,11 +691,19 @@ class AudiConnectV3Panel extends HTMLElement {
             <label for="control-route" style="margin-top:16px">API-family executor / route</label>
             <select id="control-route">${this.controlRoutes.map(r=>`<option value="${escapeHTML(r.id)}" ${this.controlChoice===r.id?"selected":""}>${escapeHTML(r.family.toUpperCase())} · ${escapeHTML(r.id)} [${escapeHTML(r.status)}]</option>`).join("")}</select>
             <div class="callout" style="margin-top:12px">
-              <b>Enabled only after physical review: ${this.controlRoutes.find(r=>r.active)?"Yes":"No"}</b>
+              <b>Physically verified route: ${this.controlRoutes.find(r=>r.active)?"Yes":"No"}</b>
               <div class="helper"><code>${escapeHTML(this.controlRoutes.find(r=>r.id===this.controlChoice)?.path||"No route available")}</code></div>
             </div>
+            <p><b>Approval group:</b> ${escapeHTML(group==="spin"?"S-PIN protected":group==="non_spin"?"Without S-PIN":"Not available")}</p>
+            ${group==="spin"&&!this.spinConfigured?'<p class="warn">Configure your S-PIN in the Audi account before protected discovery.</p>':""}
+            ${selectedControl?.parameters_required?`<label for="control-parameters">Action parameters (JSON; never enter a PIN)</label>
+              <textarea id="control-parameters" rows="3">{}</textarea>`:""}
+            <label style="display:flex;gap:8px;align-items:center">
+              <input id="control-approval" type="checkbox" style="width:auto">
+              I approve this exact action on the selected car and will verify its effect.
+            </label>
             <div class="actions">
-              <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.pending?"disabled":""}>Send one test command</button>
+              <button data-action="control-test" class="primary" ${!this.controlChoice||this.loading||this.pending||group==="unsupported"||(group==="spin"&&!this.spinConfigured)?"disabled":""}>Send one test command</button>
               <button data-action="control-disable" ${this.loading||this.pending?"disabled":""}>Disable this control</button>
             </div>
             ${this.pending ? `<div class="warn" style="margin-top:18px">

@@ -11,6 +11,7 @@ import time
 from typing import Any
 
 from .auth import V3Auth
+from .action_discovery import approval_group, validate_approval
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .profile_store import V3ProfileStorage
 from .response_preview import safe_response_preview
@@ -609,19 +610,25 @@ class V3Engine:
         routes = [
             {
                 "id": op, "family": profile.registry.operations[op]["family"],
-                "method": "POST", "path": profile.registry.operations[op]["path"],
+                "method": profile.registry.operations[op]["method"],
+                "path": profile.registry.operations[op]["path"],
+                "approval_group": approval_group(capability, action, profile.registry.operations[op]),
+                "parameters_required": profile.registry.operations[op].get("request_mode") in (
+                    "charge_mode", "charging_settings_update", "charging_profile_update",
+                    "climate_settings_update", "climate_start_settings"
+                ),
                 "status": profile.control_results.get(op, "not_tested"),
                 "active": profile.active.get(f"{capability}.{action}") == op,
             }
-            for op in applicable if profile.registry.operations[op]["method"] == "POST"
+            for op in applicable if profile.registry.operations[op]["method"] in ("POST", "PUT")
         ]
         in_progress = profile.discovery._active
         return {
             "capability": capability, "action": action,
             "routes": routes, "active": profile.active.get(f"{capability}.{action}"),
             "pending": in_progress.public() if in_progress else None,
-            "requires": "S-PIN and physical verification" if capability == "access"
-                        else "Physical verification of the car",
+            "requires": "Explicit per-action consent and physical verification",
+            "spin_configured": bool(getattr(self.auth.service, "_spin", None)),
         }
 
     async def disable_control(self, vin: str, capability: str, action: str) -> None:
@@ -682,6 +689,27 @@ class V3Engine:
             raise RuntimeError("Audi wake budget: 30 minutes and four attempts per 24 hours")
         attempts.append(now)
 
+    async def approved_control_discovery(
+        self, vin: str, aspect: str, operation: str, *,
+        approval: str, params: dict[str, Any] | None = None,
+        capability: str = "climate",
+    ) -> dict[str, Any]:
+        """Public discovery boundary: one explicit approval, one vehicle action."""
+        vehicle = self.require_vehicle(vin)
+        profile = self.profiles[vehicle.vin.lower()]
+        op = profile.registry.operations.get(operation)
+        if op is None:
+            raise ValueError("Unknown discovery operation")
+        if operation not in profile.registry.resolve(
+            capability, aspect, vehicle.context
+        )["available_operations"]:
+            raise ValueError("Control not applicable to this car")
+        validate_approval(capability, aspect, op, approval,
+                          has_spin=bool(getattr(self.auth.service, "_spin", None)))
+        return await self.test_action(
+            vin, aspect, operation, params=params, capability=capability
+        )
+
     async def test_action(
         self, vin: str, aspect: str, operation: str,
         *, params: dict[str, Any] | None = None, capability: str = "climate",
@@ -702,6 +730,10 @@ class V3Engine:
         if profile.registry.operations[operation]["method"] not in ("POST", "PUT"):
             raise ValueError("Read-only operation cannot be a control")
         async with self._actions:
+            if profile.discovery._active is not None:
+                raise ValueError("Review the previous action before trying another")
+            if f"{capability}.{aspect}" in profile.discovery.disabled:
+                raise ValueError("This action has been disabled by the user")
             # Reject invalid templates/parameters BEFORE reserving a pending
             # physical action, otherwise a mere validation error locks the car.
             family, method, path, body = await self._command_request(
