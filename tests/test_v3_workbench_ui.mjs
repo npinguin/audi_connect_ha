@@ -124,7 +124,7 @@ test("Wake, lock and climate are independently selectable for guarded physical t
   ]};
   p.render();
   assert.match(p.shadowRoot.innerHTML,/Wake vehicle/);
-  assert.match(p.shadowRoot.innerHTML,/Routes & test/);
+  assert.match(p.shadowRoot.innerHTML,/Inspect & test/);
   p.api=async (name,args) => {
     assert.equal(name,"control_routes");
     assert.equal(args.capability,"remote");
@@ -279,4 +279,19 @@ test("controls filter never leaks another capability and vehicle changes clear s
   assert.doesNotMatch(p.shadowRoot.innerHTML,/data-control="set_target_soc"/);
   p.controlAction="start";p.pending={sequence:1};p.apiHistory=[{}];p._resetVehicleSelection();
   assert.equal(p.controlAction,"");assert.equal(p.pending,null);assert.equal(p.apiHistory.length,0);assert.equal(p.step,1);
+});
+
+test("failed route lookup clears old action and prevents stale dispatch", async () => {
+  const p=new Panel();p.selected="entry";p.vin="VIN1";p.controlChoice="old.route";
+  p.controlRoutes=[{id:"old.route",approval_group:"non_spin"}];
+  p.api=async()=>{throw Error("lookup failed")};
+  await p._click({target:{closest:()=>({dataset:{action:"select-control",capability:"climate",control:"stop"}})}});
+  assert.equal(p.controlChoice,"");assert.equal(p.controlRoutes.length,0);assert.match(p.error,/lookup failed/);
+});
+test("review finding opens only the affected evidence without sending vehicle commands", async()=>{
+  const p=new Panel();p.selected="entry";p.vin="VIN1";
+  p.capabilityStatus={rows:[],findings:[{operation:"cariad.test",reason:"http_error"}]};
+  p.api=async()=>{throw Error("No request expected")};
+  await p._click({target:{closest:()=>({dataset:{action:"inspect-finding",index:"0"}})}});
+  assert.equal(p.step,4);assert.equal(p.focusOperation,"cariad.test");
 });
