@@ -52,15 +52,60 @@ _GRAPHQL_EXTENDED_QUERY = """query vehicleList {
  }
 }"""
 _GRAPHQL_MODERN_QUERY = _GRAPHQL_QUERY.replace("query vehicleList", "query vehicleMetadata")
+# HAR-observed myAudi web query. Test the document against the already
+# authorized native GraphQL endpoint, NOT the browser-cookie web proxy.
+# Fixed document and exact variables only; no browser credential import.
+WEB_ORDERED_OPERATION = "graphql.inventory.webOrdered"
+_WEB_ORDERED_QUERY = """query GET_USER_VEHICLES_ORDERED_BY($orderBy: VehicleSortOrder!) {
+  userVehicles(orderBy: $orderBy) {
+    csid
+    userId
+    vin
+    owner
+    nickname
+    favorite
+    devicePlatform
+    mbbConnect
+    userRole { role __typename }
+    vehicle {
+      brand { name __typename }
+      classification { driveTrain __typename }
+      core { vin modelYear modelCoding __typename }
+      media { exteriorColor interiorColor shortName longName __typename }
+      renderPictures(
+        mediaTypes: ["MYAAN8NB", "MYAPN8NB", "MYAAN3NB", "MYAPN3NB", "MS_MYP3", "MS_MYP4", "MS_MYP5"]
+      ) { mediaType url __typename }
+      pdw { pdwVehicle __typename }
+      __typename
+    }
+    __typename
+  }
+}"""
+
 IDENTITY_QUERIES = {
     INVENTORY_OPERATION: _GRAPHQL_QUERY,
     POST_GARAGE_OPERATION: _GRAPHQL_QUERY,
     "graphql.inventory.extended": _GRAPHQL_EXTENDED_QUERY,
     "graphql.inventory.modern": _GRAPHQL_MODERN_QUERY,
     "graphql.inventory.images": _GRAPHQL_IMAGES_QUERY,
+    WEB_ORDERED_OPERATION: _WEB_ORDERED_QUERY,
 }
 
 IDENTITY_OPERATIONS = frozenset((*IDENTITY_QUERIES, GARAGE_OPERATION))
+
+def identity_request_body(operation: str) -> dict[str, Any]:
+    query = IDENTITY_QUERIES[operation]
+    if operation == WEB_ORDERED_OPERATION:
+        return {"operationName": "GET_USER_VEHICLES_ORDERED_BY",
+                "variables": {"orderBy": "FAVORITE_AND_REGISTRATION"},
+                "query": query}
+    return {"query": query}
+
+
+def is_reviewed_identity_body(body: Any) -> bool:
+    return isinstance(body, dict) and any(
+        body == identity_request_body(op) for op in IDENTITY_QUERIES)
+
 
 def validate_identity_query(query: str) -> None:
     """Bounded field-selection subset: one query, userVehicles, unaliased VIN.
@@ -270,10 +315,10 @@ class V3Transport:
             read_only = method == "GET" or (
                 family == "graphql" and method == "POST"
                 and path == "/vgql/v1/graphql"
-                and isinstance(body, dict) and set(body) == {"query"}
-                and (body["query"] in IDENTITY_QUERIES.values() or explicit_action)
+                and (is_reviewed_identity_body(body) or (
+                    explicit_action and isinstance(body, dict) and set(body) == {"query"}))
             )
-            if family == "graphql" and read_only and body["query"] not in IDENTITY_QUERIES.values():
+            if family == "graphql" and read_only and not is_reviewed_identity_body(body):
                 validate_identity_query(body["query"])
             self.quota.authorize(datetime.now(UTC), read_only=read_only)
             await self.auth.ensure_ready()
@@ -334,7 +379,7 @@ class V3Transport:
         if operation not in IDENTITY_QUERIES:
             raise ValueError("Unknown reviewed GraphQL read operation")
         return await self.request("graphql", "POST", "/vgql/v1/graphql",
-                                  body={"query": IDENTITY_QUERIES[operation]}, explicit_action=True)
+                                  body=identity_request_body(operation), explicit_action=True)
 
     async def experiment_identity_query(self, query: str) -> V3Response:
         validate_identity_query(query)

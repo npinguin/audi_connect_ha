@@ -89,8 +89,12 @@ async def ws_status(hass, connection, msg):
         report["fast_bindings"] = profile.fast_bindings
         from .product_contract import entity_projection_report, entity_key
         report["account_entity_projection"] = entity_projection_report(engine)
-        from .transport import IDENTITY_QUERIES
+        from .transport import IDENTITY_QUERIES, WEB_ORDERED_OPERATION, identity_request_body
         report["identity_templates"] = dict(IDENTITY_QUERIES)
+        report["identity_fixed_parameters"] = {
+            WEB_ORDERED_OPERATION: {k: v for k, v in identity_request_body(WEB_ORDERED_OPERATION).items()
+                                    if k != "query"}
+        }
         # Admin-only actual HA entity IDs for the selected VIN, never in exported diagnostics.
         if hasattr(hass, "states") and hasattr(hass, "data"):
             from homeassistant.helpers import entity_registry as er

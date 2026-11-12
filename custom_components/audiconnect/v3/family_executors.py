@@ -152,12 +152,11 @@ class GraphQLExecutor:
              *, explicit_action: bool = False) -> RequestPlan:
         if method != "POST" or _checked_path(path) != "/vgql/v1/graphql" or "?" in path:
             raise ValueError("GraphQL supports only the fixed Audi vehicle-list endpoint")
-        if not isinstance(body, dict) or set(body) != {"query"} or not isinstance(body["query"], str):
-            raise ValueError("Unexpected vehicle-list GraphQL request")
-        from .transport import IDENTITY_QUERIES, _GRAPHQL_MODERN_QUERY, validate_identity_query
-        if body["query"] not in IDENTITY_QUERIES.values():
-            if not explicit_action:
-                raise ValueError("Unreviewed GraphQL document")
+        from .transport import is_reviewed_identity_body, _GRAPHQL_MODERN_QUERY, validate_identity_query
+        if not is_reviewed_identity_body(body):
+            if (not explicit_action or not isinstance(body, dict)
+                    or set(body) != {"query"} or not isinstance(body["query"], str)):
+                raise ValueError("Unexpected or unreviewed vehicle-list GraphQL request")
             try:
                 validate_identity_query(body["query"])
             except ValueError as err:

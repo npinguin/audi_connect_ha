@@ -324,3 +324,19 @@ test("selected test and historical execution show request and response without a
   assert.match(p.shadowRoot.innerHTML,/15\.5/);
   assert.match(p.shadowRoot.innerHTML,/<details class="record" open>/);
 });
+
+
+test("HAR identity template exposes fixed variables without browser credentials", () => {
+  const p=new Panel();p.step=3;p.selected="entry";p.vin="VIN1";
+  p.entries=[{entry_id:"entry",vehicles:[{vin:"VIN1",name:"Audi",api_family:"cariad"}]}];
+  const op="graphql.inventory.webOrdered";
+  p.apiFamily="all";
+  p.capabilityStatus={counts:{},rows:[],operations:[{operation:op,method:"POST",path:"/vgql/v1/graphql",
+    family:"graphql",read_only:true,capabilities:["vehicle_identity"],mappings:[]}],
+    identity_templates:{[op]:"query GET_USER_VEHICLES_ORDERED_BY"},
+    identity_fixed_parameters:{[op]:{operationName:"GET_USER_VEHICLES_ORDERED_BY",variables:{orderBy:"FAVORITE_AND_REGISTRATION"}}}};
+  p.openIdentityEditor(op);
+  assert.match(p.shadowRoot.innerHTML,/FAVORITE_AND_REGISTRATION/);
+  assert.match(p.shadowRoot.innerHTML,/readonly/);
+  assert.match(p.shadowRoot.innerHTML,/not a web session replay/);
+});

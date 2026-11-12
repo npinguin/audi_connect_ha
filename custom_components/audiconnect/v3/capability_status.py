@@ -39,7 +39,7 @@ IDENTITY_FIELDS = {
     "manufacturer_model": ("data.userVehicles[].vehicle.media.longName", "sensor.model", "Manufacturer model"),
     "model_family": ("data.userVehicles[].vehicle.media.shortName", "sensor.model", "Model family"),
     "model_year": ("data.userVehicles[].vehicle.core.modelYear", "sensor.model", "Model year"),
-    "drive_train": ("data.userVehicles[].vehicle.classification.driveTrain", "sensor.model", "OEM drivetrain"),
+    "drive_train": ("data.userVehicles[].vehicle.classification.driveTrain", "sensor.car_type", "OEM drivetrain"),
     "vehicle_image": ("data.userVehicles[].vehicle.renderPictures[].mediaType", "sensor.model", "Vehicle image"),
 }
 
