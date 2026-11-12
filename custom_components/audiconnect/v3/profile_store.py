@@ -15,7 +15,7 @@ from .operation_revision import operation_revision
 from .development_profiles import DevelopmentProfile, DevelopmentProfileError
 from .registry import CapabilityRegistry, VehicleContext
 from .historical_catalog import ATTRIBUTES, V2_JOBS
-from .api_observations import validate_record, MAX_ROUTES
+from .api_observations import validate_record, save_execution_review, MAX_ROUTES
 from .attribute_routes import validate_custom_read_route, get_read_variant, read_variants
 from .custom_attributes import MAX_CUSTOM_ATTRIBUTES, attributes_for, validate_definition
 
@@ -242,6 +242,11 @@ def restore_profile(
     if not isinstance(excluded, list) or any(not isinstance(key, str) or key not in STANDALONE_READS for key in excluded):
         raise DevelopmentProfileError("Invalid explicit read exclusion")
     profile.unsupported_reads.update(excluded)
+    reviews = saved.get("execution_reviews", [])
+    if not isinstance(reviews, list) or len(reviews) > MAX_ROUTES:
+        raise DevelopmentProfileError("Invalid execution reviews")
+    for review in reviews:
+        save_execution_review(profile, review)
     observations = saved.get("api_observations", {})
     if not isinstance(observations, dict) or len(observations) > MAX_ROUTES:
         raise DevelopmentProfileError("Invalid saved API observations")
