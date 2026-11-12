@@ -14,7 +14,8 @@ from .command_journal import (CommandRecord, check_command_sequence, ENGINEERING
                               unresolved_normal_commands, blocking_normal_command)
 from .operation_revision import operation_revision
 from .command_parameters import map_parameters, runtime_ready, parameter_schema
-from .command_readback import configure_readback, reconcile_readback, observe_command_response, latest_readback_command
+from .command_readback import (configure_readback, configure_discovery_readback, reconcile_readback,
+                               observe_command_response, latest_readback_command)
 from .control_resolution import control_decision, resolve_control
 from .response_preview import safe_response_preview
 from .vehicle import V3Vehicle
@@ -159,12 +160,16 @@ class CommandEngine:
     def reconcile_commands(self) -> None:
         """Correlate fresh scheduled observations without another request."""
         for vin, profile in self.profiles.items():
-            if profile.last_command is None:
-                continue
             try:
                 car = self.require_vehicle(vin)
             except ValueError:
                 continue
+            active = profile.discovery._active
+            if (active is not None and active.result == "awaiting_user_feedback"
+                    and active.sequence != profile.invalidated_attempt_sequence):
+                record = profile.engineering_record(active.sequence)
+                if record and record.state == "accepted_unconfirmed" and reconcile_readback(record, car):
+                    self._confirm_working_readback(profile, active, record)
             # Reconcile independent commands even when a different capability
             # has subsequently been used. Never attribute a newer same-field
             # observation to a superseded accepted action.
@@ -214,11 +219,17 @@ class CommandEngine:
     async def test_action(
         self, vin: str, aspect: str, operation: str,
         *, params: dict[str, Any] | None = None, capability: str = "climate",
+        guided: bool = False, expert: bool = False, approval: str | None = None,
     ) -> dict[str, Any]:
         """One user-triggered control request, never automatic POST discovery."""
         async with self._actions:
             vehicle = self.require_vehicle(vin)
             profile = self.profiles[vin.lower()]
+            if guided:
+                from .read_discovery import user_test_candidates
+                candidate = user_test_candidates(self, vehicle, profile, include_verified=expert).get(f"{capability}.{aspect}")
+                if candidate is None or candidate[3:] != (operation, approval) or params:
+                    raise ValueError("Discovery action changed; refresh status before testing")
             family = profile.registry.operations.get(operation, {}).get("family")
             if family not in ("cariad","mbb") or (family=="mbb" and self.auth.uses_auth0):
                 raise ValueError("Control is not applicable to this authentication family")
@@ -254,11 +265,17 @@ class CommandEngine:
                 record = profile.engineering_record(attempt.sequence)
                 if record is None:
                     raise RuntimeError("Missing durable engineering command record")
+                if guided:
+                    configure_discovery_readback(record, vehicle, params)
                 await self.storage.async_save(self.profiles)
             try:
-                _, _, response = await self._execute_prepared(vehicle, profile, record, prepared, params)
+                family, _, response = await self._execute_prepared(vehicle, profile, record, prepared, params)
             except (TimeoutError, OSError, RuntimeError, ValueError):
                 response = None
+            if guided and response is not None and record.state == "accepted_unconfirmed":
+                observe_command_response(record, vehicle, profile, family, response)
+                if record.state == "verified" and attempt.sequence != profile.invalidated_attempt_sequence:
+                    self._confirm_working_readback(profile, attempt, record)
             await self.storage.async_save(self.profiles)
             return {
                 "sequence": attempt.sequence, "operation": operation,
@@ -270,8 +287,16 @@ class CommandEngine:
                     response.data if response else None,
                     vehicle_vin=vehicle.vin,
                 ),
-                "physical_result": "requires_user_confirmation",
+                "physical_result": "verified" if attempt.result == "worked" else "requires_user_confirmation",
             }
+
+    def _confirm_working_readback(self, profile, attempt, record):
+        profile.confirm(attempt.sequence, worked=True, inspected_vehicle=False,
+                        now=max(time.time(), record.completed_at or record.started_at), readback_verified=True)
+        if (profile.control_results.get(attempt.operation) == "worked"
+                and runtime_ready(profile.custom.get(attempt.operation, {}))):
+            profile.choose_working(attempt.capability, attempt.action, attempt.operation)
+        self._notify_discovery_change()
 
     async def review_action(
         self, vin: str, sequence: int, outcome: str,
