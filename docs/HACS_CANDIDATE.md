@@ -1,17 +1,22 @@
-# Audi Connect 3.0.0b32 — experimental EU Data Act and source consolidation
+# Audi Connect 3.0.0b33 — experimental runtime cleanup and acceptance
 
-Experimental fork prerelease for real-vehicle validation, not a stable or upstream release. V2 remains default and fallback; V3 is opt-in, and the EU Data Act provider is disabled by default.
+Experimental fork HACS prerelease for live acceptance, not stable and not an upstream release. V2 remains default and fallback; V3 is opt-in and EU Data Act remains disabled by default.
 
-- Central family priority, deterministic observation selection including aging, one shared observation writer, passive native discovery, optional authentication isolation and bounded inventory fallback.
-- Optional EU Data Act portal read session via existing integration options. Requires an existing authorized continuous Data Act request; no consent creation. Separate quota, 30-minute initial polling interval, nonblocking native publication and VIN-scoped denial.
-- Nineteen mapped semantic attributes from the actual Q8 dataset schema, preserving existing HA entity IDs, field-level capture time, cloud observation, delivery and family provenance. No fabricated fresh data. Actual owner dataset not committed.
-- Data Act never grants command permission or confirms a physical command. Lower-priority stale reads cannot supersede fresh higher-priority data; invalidation and revocation are family-scoped.
-- Corrected historical alias projection and aggregate capture provenance. Exact-head PR #41 passed Test and Validate (1,189 Python tests), with full package matrix required by this workflow.
+## Changes since B32
+
+- Bound incomplete inventory retries to hourly and remove independent token-renewal trigger. Native status cadence remains unchanged; identity recovery may take longer.
+- Consolidate parking observations into the existing writer, retain last-known coordinates and reject invalid/future or older capture times. Movement is not live telemetry without a reliable capture.
+- Clarify diagnostics: existing poll attempt count, current-runtime request count, native cloud reachability, latest-per-operation evidence and unknown quota.
+- Remove the ignored V2-only startup polling option from V3; retain saved V2 preferences. Complete active V3 options labels and help in EN/NL/DE/FR.
+- Bound Data Act reauthentication after a failed resource; successful intermediate or unrelated VIN reads cannot reset the retry guard.
+- Consolidated user, engineer and maintainer guidance; no new pollers, entity IDs, native requests or command routes.
+
+Exact PR #45 head passed 1,199 Python and 39 Workbench tests, lint/pre-commit, HACS and hassfest. The candidate workflow separately validates the pinned source on HA 2026.7.0 and 2026.11.1 and verifies the archive checksum. B32 product source is offered in existing upstream PR #918.
 
 ## Live acceptance
 
-Enable V3 and then EU Data Act in the integration options only after ensuring your existing portal request works. Leave optional email/password blank to reuse stored myAudi credentials if available; use an independently authorized portal account when necessary. Do not share credentials in diagnostics or GitHub. Check source and actual vehicle capture times, native request counts, registry identity, failure isolation, restart/disable behavior and unchanged command permissions. Report sanitized diagnostics and portal status only.
+Back up HA. Install this experimental beta via HACS, keep the existing integration and select V3 if not already enabled. Verify entity IDs, vehicle capture freshness, parking, native polling and quota, restart and V2 rollback. Do not delete the entity registry. For optional Data Act, first ensure an existing authorized portal request works, then enable it in integration options; leave credentials blank only if stored myAudi credentials are available. Verify real delivery, disable and failure isolation. Do not share credentials, VIN, coordinates or raw payloads.
 
-The portal protocol is not a documented stable consumer API. Actual V3 portal login/ZIP retrieval, all Data Act mappings, right-door metadata, service/timer/charging semantics, GraphQL identity, physical controls and cross-model acceptance remain open. The original 91-field Q8 dataset proved schema and delayed capture, not V3 live authentication. Issue #44 and the audit in docs/V3_FEATURE_CLOSURE.md remain open for complete product acceptance. Stable V3 remains NO GO.
+Physical charging start/stop, charge-mode and timer behavior, manufacturer identity, operational mobility cadence, Data Act authorization/delivery and representative vehicle/market acceptance remain open. No automatic vehicle wake or command retries are introduced. No stable release authorization; audit issue #44 remains open.
 
-B31 product source is offered in upstream PR #918. This B32 package does not alter upstream review or upstream release metadata.
+Source: merged PR #45, e5e826a43e05593fe4519952b467ca27a6499ce8.
