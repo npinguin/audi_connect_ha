@@ -32,7 +32,7 @@ jobs:
           python - <<'PY'
           import json, subprocess
           from pathlib import Path
-          base = "473aff73fbd1f9c497576b5244112d8f1bf379a6"
+          base = "b0d411ce9aaad0b48c34391860d5d49221c368e8"
           folder = "custom_components/audiconnect"
           manifest = folder + "/manifest.json"
           assert subprocess.check_output(
