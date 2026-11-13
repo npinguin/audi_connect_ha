@@ -112,3 +112,9 @@ freshness and no extra native requests are acceptance tasks. The 91-row dataset
 is evidence of actual schema and delivery lag, not a successful V3 login.
 Full stable release remains **NO GO**. Issue #44 remains open for evidence and
 the final product release decision.
+
+## B33 — B32 live follow-up (2026-11-13, issue #44)
+
+Three snapshots of the same B32 runtime show recovery from 0 to 49 verified attributes, 90 to 93 known HA states, and vehicle capture age from 111 to 13 minutes. Registry remains 124 entries, 96 offers, 62 normalized attributes, and 393 trip records. Seven expected 15-minute native cycles plus three inventory reads are consistent with the ten additional requests over 105 minutes; this is not a complete request trace. Climate state and charging-ready recovered without a code change. Do not relax freshness, change native polling, or add a second coordinator to fix these transient differences. Four identical partial GraphQL inventory responses persisted through bearer renewal, with no successful identity recovery. Bound automatic incomplete inventory retries to one hour, complete inventory to 24 hours, and remove the independent routine token-renewal trigger. Initial enumeration and explicit reviewed identity experiments remain unchanged; slower automatic identity recovery is the deliberate tradeoff. Existing quota reserve remains authoritative. No new requests, auth owners, scheduler, or persisted state. Live candidate verification remains required.
+
+Open: quota visibility/scope, movement evidence without capture time, operational mobility versus archive cadence, remaining charging time during active charging, charging commands/timers, real Data Act authorization, identity issue #35, and final audit #44. Preserve truthful unknown states and physical-command verification. No raw owner diagnostics committed.
