@@ -1,12 +1,13 @@
-# Audi Connect 3.0.0b27 — native evidence beta
+# Audi Connect 3.0.0b28 — freshness and diagnostics consolidation
 
 Experimental fork prerelease; V2 remains default and fallback. Not a stable upstream release.
 
-- Consolidated charge-mode normalization: capture provenance, explicit empty options, invalid values and stale replay. No relaxation of write eligibility.
-- Native trip coverage follows existing snapshots, and missing entity reasons reuse source and command evidence.
-- Existing b26 timer, ETA and schema evidence fixes retained.
-- Publication requires the previous published beta's pinned product code, tests and documentation to be included in the upstream delivery branch. No automatic upstream push; release-only metadata stays in the fork.
+- Uniform per-entity capture and cloud-observation metadata across telemetry and relevant state/settings entities, using the existing shared freshness module.
+- Vehicle data age identifies the latest valid vehicle capture, its source and observed coverage. The derived summary is excluded from its own inputs.
+- Access summaries and diagnostics reuse the same freshness logic; private custom source identifiers are not exported.
+- Existing entity IDs and compatibility aliases retained. No extra API calls, sensors, polling timers or runtime modules.
+- Product documentation and regression tests updated. PR #31 passed Test and Validate (1,128 Python tests, 5 warnings).
 
-Source PR #29 passed Test and Validate. The identical source snapshot is already offered in upstream PR #918. Exact-package CI on both Home Assistant versions is required before publication.
+The previous published B27 source is already offered in upstream PR #918. B28 must pass exact-package HACS CI and the upstream lag gate before publication. Upstream review is not automatically changed.
 
-Physical Q8 command verification, vehicle identity, remaining capability/entity reconciliation and V2 parity remain open. No new vehicle API requests, routes or runtime layers.
+Physical Q8 verification, including the previous overnight zero-age observation, remains open. Vehicle capture freshness is distinct from cloud receipt, command projection and historical trip timestamps.
