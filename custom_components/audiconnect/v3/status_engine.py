@@ -95,6 +95,11 @@ class StatusEngine:
     def transport(self):
         return self._transport()
 
+    @property
+    def poll_attempt_count(self) -> int:
+        """Current runtime coordinator attempts, including failed cycles."""
+        return self._poll_cycles
+
     def data_act_poll_status(self):
         """Safe account-level scheduler status; no dataset or session contents."""
         client = getattr(self.auth, "data_act_client", None)
