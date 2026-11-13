@@ -54,3 +54,41 @@ def keep_newest_position(previous: Any, incoming: dict[str, Any]) -> bool:
     except (ValueError, TypeError):
         return False
     return new_at >= old_at
+
+def observe_parking(vehicle, profile, reply, operation):
+    """Use the shared writer; a parking response is not live motion telemetry."""
+    from .attribute_runtime import record_observation
+    from .freshness import timestamp_is_fresh
+
+    if reply.status == 204:
+        samples = (("is_moving", True, None, "parkingposition HTTP 204"),)
+    elif 200 <= reply.status < 300:
+        point = parse_parked_position(reply.data)
+        if not point or not keep_newest_position(vehicle.position, point):
+            return
+        vehicle.position = point
+        stamp = point["timestamp"]
+        samples = (("is_moving", False, None, "parkingposition parked sample"),)
+        if stamp:
+            samples += tuple(
+                (ident, stamp, stamp, "parkingposition.data.carCapturedTimestamp")
+                for ident in ("position_last_updated", "park_time")
+            )
+    else:
+        return
+
+    for ident, value, stamp, path in samples:
+        record_observation(
+            vehicle,
+            profile,
+            ident,
+            value,
+            stamp,
+            reply.observed_at,
+            path,
+            None,
+            "cariad",
+            fresh=timestamp_is_fresh(stamp, reply.observed_at),
+            operation=operation,
+            persist_evidence=False,
+        )
