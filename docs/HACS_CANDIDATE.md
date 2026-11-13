@@ -1,13 +1,11 @@
-# Audi Connect 3.0.0b28 — freshness and diagnostics consolidation
+# Audi Connect 3.0.0b29 — live correctness and control UX
 
 Experimental fork prerelease; V2 remains default and fallback. Not a stable upstream release.
 
-- Uniform per-entity capture and cloud-observation metadata across telemetry and relevant state/settings entities, using the existing shared freshness module.
-- Vehicle data age identifies the latest valid vehicle capture, its source and observed coverage. The derived summary is excluded from its own inputs.
-- Access summaries and diagnostics reuse the same freshness logic; private custom source identifiers are not exported.
-- Existing entity IDs and compatibility aliases retained. No extra API calls, sensors, polling timers or runtime modules.
-- Product documentation and regression tests updated. PR #31 passed Test and Validate (1,128 Python tests, 5 warnings).
+- Global freshness excludes structural envelopes and adds partial freshness for mixed-age usable captures; automations comparing the global enum should account for partial.
+- Correct invalid window evidence, derived timestamp provenance, empty/request-only schemas, and historical versus live mapping evidence.
+- Accepted comfort commands publish immediate effective-state feedback without fabricating telemetry. Lock/unlock remain security-sensitive; native pending state stays visible and a later valid contrary capture closes an accepted attempt as readback_mismatch, without retrying or claiming physical failure.
+- Common per-control metadata for native HA controls, with legacy aliases preserved. Profile-specific target command correlation remains unavailable rather than inferred.
+- PR #32: 1,138 tests passed, five warnings; lint, Hassfest and HACS validation passed. No new entities, API routes, runtime modules or extra polling.
 
-The previous published B27 source is already offered in upstream PR #918. B28 must pass exact-package HACS CI and the upstream lag gate before publication. Upstream review is not automatically changed.
-
-Physical Q8 verification, including the previous overnight zero-age observation, remains open. Vehicle capture freshness is distinct from cloud receipt, command projection and historical trip timestamps.
+Source is also offered in upstream PR #918 (manifest 2.5.2). Exact-package HACS gates remain required. Physical Q8 acceptance, long-run lock recovery and other OEM gaps remain open; stable release remains NO GO.
