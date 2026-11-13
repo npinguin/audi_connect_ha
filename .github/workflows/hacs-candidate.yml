@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: hacs-candidate-publication
+  cancel-in-progress: false
+
 jobs:
   verify:
     if: github.repository == 'npinguin/audi_connect_ha'
@@ -43,7 +47,7 @@ jobs:
           assert re.fullmatch(r"[0-9a-f]{40}", source)
           assert type(pin["source_pr"]) is int and pin["source_pr"] > 0
           assert git("merge-base", source, "HEAD") == source
-          # Experimental releases are fork-only; upstream review is independent.
+          # Upstream promotion is independent; publication checks the previous beta.
           assert git("merge-base", source, "origin/dev") == source
 
           pr = json.loads(subprocess.check_output(
@@ -127,6 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
@@ -143,6 +148,45 @@ jobs:
             echo "Refusing to replace existing tag or release." >&2
             exit 1
           fi
+          # Refresh the offered source immediately before publication.
+          git fetch --no-tags origin refs/heads/feature/v3-upstream-review:refs/remotes/origin/feature/v3-upstream-review
+          python - <<'PY'
+          import json, re, subprocess
+          from pathlib import Path
+
+          def git(*args):
+              return subprocess.check_output(["git", *args], text=True).strip()
+
+          def beta(tag):
+              match = re.fullmatch(r"3\.0\.0b([1-9][0-9]*)", tag)
+              return int(match.group(1)) if match else None
+
+          manifest = json.loads(Path("custom_components/audiconnect/manifest.json").read_text())
+          candidate = beta(manifest["version"])
+          pages = json.loads(subprocess.check_output(
+              ["gh", "api", "--paginate", "--slurp",
+               "repos/npinguin/audi_connect_ha/releases?per_page=100"],
+              text=True,
+          ))
+          published = [
+              (beta(row["tag_name"]), row["tag_name"])
+              for page in pages for row in page
+              if not row["draft"] and row["published_at"] and beta(row["tag_name"]) is not None
+          ]
+          assert candidate is not None and published, "No preceding published beta baseline"
+          previous_number, previous_tag = max(published)
+          assert candidate > previous_number, "Candidate must advance the published beta sequence"
+          previous = json.loads(git("show", previous_tag + ":governance/HACS_CANDIDATE.json"))
+          previous_source = previous["source_commit"]
+          assert re.fullmatch(r"[0-9a-f]{40}", previous_source)
+          current = json.loads(Path("governance/HACS_CANDIDATE.json").read_text())["source_commit"]
+          assert git("merge-base", previous_source, current) == previous_source
+          assert git("merge-base", previous_source, "origin/feature/v3-upstream-review") == previous_source, (
+              "Upstream delivery is more than one published beta behind; "
+              "review and promote the preceding product source before publishing."
+          )
+          print("Upstream lag gate passed: preceding beta source offered:", previous_tag)
+          PY
           gh release create "$version" "$archive" "$checksums" \
             --target "$GITHUB_SHA" \
             --title "Audi Connect $version — experimental beta" \
