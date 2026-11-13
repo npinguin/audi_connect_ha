@@ -1498,3 +1498,24 @@ async def test_identity_image_waits_for_real_model_then_caches_across_restart():
     assert restored_car.identity_restored
     assert restored_car.model == car.model and restored_car.image_url == url
     transport.discover_vehicle_images.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_distinguish_poll_attempts_quota_and_operation_evidence():
+    engine, transport, _ = engine_for(status())
+    transport.remaining_calls = None
+    await engine.poll()
+    snapshot = engine.diagnostics()
+    assert snapshot["poll_attempt_count"] == 1
+    assert snapshot["requests"] == transport.request_count
+    assert snapshot["requests_scope"] == "current_transport_runtime"
+    assert snapshot["last_poll_scope"] == "native_cloud_reachability"
+    assert snapshot["api_evidence_scope"] == (
+        "latest_per_operation_including_restored_evidence"
+    )
+    assert snapshot["quota_remaining"] is None
+    assert snapshot["quota_scope"] == "unknown_no_header"
+    transport.remaining_calls = 40
+    assert (
+        engine.diagnostics()["quota_scope"] == "conservative_estimate_since_last_header"
+    )
