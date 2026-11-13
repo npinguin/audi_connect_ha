@@ -43,15 +43,15 @@ jobs:
           assert re.fullmatch(r"[0-9a-f]{40}", source)
           assert type(pin["source_pr"]) is int and pin["source_pr"] > 0
           assert git("merge-base", source, "HEAD") == source
-          for branch in ("dev", "feature/v3-upstream-review"):
-              assert git("merge-base", source, "origin/" + branch) == source
+          # Experimental releases are fork-only; upstream review is independent.
+          assert git("merge-base", source, "origin/dev") == source
 
           pr = json.loads(subprocess.check_output(
               ["gh", "api", f"repos/npinguin/audi_connect_ha/pulls/{pin['source_pr']}"],
               text=True,
           ))
           assert pr["merged"] and pr["merge_commit_sha"] == source
-          assert pr["base"]["ref"] == "feature/v3-upstream-review"
+          assert pr["base"]["ref"] == "dev"
           assert not git("diff", "--name-only", pr["head"]["sha"], source)
 
           manifest = "custom_components/audiconnect/manifest.json"
