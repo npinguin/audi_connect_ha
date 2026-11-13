@@ -182,3 +182,18 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     assert vehicle.position is position
     assert vehicle.readings["park_time"]["captured"] == stamp
     assert vehicle.readings["is_moving"]["value"] is True
+
+
+@pytest.mark.parametrize("invalid", ["2026-01-01T00:00:00", "2099-01-01T00:00:00Z"])
+def test_parking_invalid_capture_cannot_poison_position_recovery(invalid):
+    now = datetime.now(UTC)
+    stamp = (now - timedelta(minutes=5)).isoformat()
+    point = parse_parked_position(
+        {"data": {"lat": 50, "lon": 4, "carCapturedTimestamp": invalid}}, now
+    )
+    assert point["timestamp"] is None
+    good = parse_parked_position(
+        {"data": {"lat": 51, "lon": 4, "carCapturedTimestamp": stamp}}, now
+    )
+    assert keep_newest_position({"timestamp": invalid}, good, now)
+    assert not keep_newest_position(good, point, now)
