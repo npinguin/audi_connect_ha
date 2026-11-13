@@ -1,13 +1,17 @@
-# Audi Connect 3.0.0b31 — charging, timer and control-evidence closure
+# Audi Connect 3.0.0b32 — experimental EU Data Act and source consolidation
 
-Experimental fork prerelease for real-vehicle validation. V2 remains default and fallback; V3 is opt-in. Not a stable upstream release.
+Experimental fork prerelease for real-vehicle validation, not a stable or upstream release. V2 remains default and fallback; V3 is opt-in, and the EU Data Act provider is disabled by default.
 
-- Verify manual and timer modes individually against the exact built-in operation revision; an empty advertised list is not permission. Native HA select retains only writable options, and exposes the independent reported mode as metadata.
-- Distinguish route availability, physical route evidence and temporal dispatch readiness across diagnostics, Workbench and native HA. Discovery candidates do not become normal dispatchable routes without verification.
-- Do not invent vehicle time or capture timestamps for climate timer schedules. Distinguish absent, incomplete, zero-enabled and undetermined next single timer evidence.
-- Review B30 live diagnostics: access lock/unlock, climate start/stop, wake and flash have stored physical evidence; charging start and window heating start failed physical review. No new polling or API requests.
-- PR #34 exact head passed 1,144 Python tests, Workbench tests, lint and Validate. B31 is an experimental candidate for the outstanding physical acceptance, not evidence of completed physical acceptance.
+- Central family priority, deterministic observation selection including aging, one shared observation writer, passive native discovery, optional authentication isolation and bounded inventory fallback.
+- Optional EU Data Act portal read session via existing integration options. Requires an existing authorized continuous Data Act request; no consent creation. Separate quota, 30-minute initial polling interval, nonblocking native publication and VIN-scoped denial.
+- Nineteen mapped semantic attributes from the actual Q8 dataset schema, preserving existing HA entity IDs, field-level capture time, cloud observation, delivery and family provenance. No fabricated fresh data. Actual owner dataset not committed.
+- Data Act never grants command permission or confirms a physical command. Lower-priority stale reads cannot supersede fresh higher-priority data; invalidation and revocation are family-scoped.
+- Corrected historical alias projection and aggregate capture provenance. Exact-head PR #41 passed Test and Validate (1,189 Python tests), with full package matrix required by this workflow.
 
-Preceding B30 product source is already offered in upstream PR #918. B31 does not automatically update the upstream review branch. Exact-package HACS checks are mandatory.
+## Live acceptance
 
-Open: Q8 physical mode transitions, charging start/stop and alternative route, climate settings and heating, identity GraphQL partial responses/authorization, timer clock semantics and native entity acceptance. Stable V3 remains NO GO.
+Enable V3 and then EU Data Act in the integration options only after ensuring your existing portal request works. Leave optional email/password blank to reuse stored myAudi credentials if available; use an independently authorized portal account when necessary. Do not share credentials in diagnostics or GitHub. Check source and actual vehicle capture times, native request counts, registry identity, failure isolation, restart/disable behavior and unchanged command permissions. Report sanitized diagnostics and portal status only.
+
+The portal protocol is not a documented stable consumer API. Actual V3 portal login/ZIP retrieval, all Data Act mappings, right-door metadata, service/timer/charging semantics, GraphQL identity, physical controls and cross-model acceptance remain open. The original 91-field Q8 dataset proved schema and delayed capture, not V3 live authentication. Issue #44 and the audit in docs/V3_FEATURE_CLOSURE.md remain open for complete product acceptance. Stable V3 remains NO GO.
+
+B31 product source is offered in upstream PR #918. This B32 package does not alter upstream review or upstream release metadata.

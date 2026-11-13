@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 import math
-from .legacy_read_mappings import FIELDS, FIELD_IDS
+from .legacy_read_mappings import FIELDS, FIELD_IDS, variant_for
 from .registry import read_json_path
 from .attribute_runtime import (
-    _accept_observation,
     _capture_in_utc,
     record_invalid_observation,
+    record_observation,
 )
 from .attribute_contracts import semantic_value_issue
 from .historical_catalog import ATTRIBUTES
@@ -43,37 +43,37 @@ def observe_legacy(car, profile, kind, response):
         issue = semantic_value_issue(descriptor.get("entity_key", key), value)
         if issue:
             record_invalid_observation(
-                car, key, stamp, response.observed_at, path or kind, None, issue, "mbb"
+                car,
+                key,
+                stamp,
+                response.observed_at,
+                path or kind,
+                None,
+                issue,
+                "mbb",
+                profile=profile,
             )
             return
-        if not _accept_observation(car.readings.get(key), stamp):
-            return
-        fresh = timestamp_is_fresh(stamp, response.observed_at)
-        status = "verified" if fresh else "readable_but_stale"
-        car.readings[key] = {
-            "value": value,
-            "captured": stamp,
-            "observed": response.observed_at.isoformat(),
-            "status": status,
-            "family": "mbb",
-            "path": path or kind,
-            "job": None,
-            "operation": f"mbb.{kind}.readonly",
-        }
-        # Persist only evidence that the existing route-schema validator can
-        # reconstruct. Derived values remain in memory, like CARIAD derived
-        # readings; do not corrupt the saved profile with raw field IDs.
-        from .legacy_read_mappings import variant_for
-
+        # Only reviewed mappings survive restart; derived legacy readings use
+        # the same observation writer without persisting unmapped evidence.
         variant = variant_for(key)
-        if key in ATTRIBUTES and variant and path in variant["response_paths"]:
-            profile.attribute_evidence[key] = {
-                "status": status,
-                "path": path,
-                "job": ATTRIBUTES[key]["job"],
-                "source": "mbb.legacy",
-                "timestamp_present": bool(stamp),
-            }
+        persist = bool(
+            key in ATTRIBUTES and variant and path in variant["response_paths"]
+        )
+        record_observation(
+            car,
+            profile,
+            key,
+            value,
+            stamp,
+            response.observed_at,
+            path or kind,
+            descriptor.get("job") if persist else None,
+            "mbb",
+            fresh=timestamp_is_fresh(stamp, response.observed_at),
+            operation=f"mbb.{kind}.readonly",
+            persist_evidence=persist,
+        )
 
     numeric = {
         "stateOfCharge",
@@ -131,7 +131,8 @@ def observe_legacy(car, profile, kind, response):
             ("secondary_engine_type", "engineTypeSecondEngine"),
         ):
             row = car.readings.get(source, {})
-            record(ident, row.get("value"), row.get("captured"), row.get("path"))
+            if row.get("family") == "mbb":
+                record(ident, row.get("value"), row.get("captured"), row.get("path"))
     if kind == "preheater":
         path = "statusResponse.climatisationStateReport"
         block = read_json_path(payload, path)
@@ -199,6 +200,7 @@ def observe_legacy(car, profile, kind, response):
                 None,
                 "boolean_oil_level_use_binary",
                 "mbb",
+                profile=profile,
             )
             record("oil_level_binary", not value, stamp, key)
         elif key in numeric_fields:

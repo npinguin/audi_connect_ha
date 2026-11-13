@@ -36,7 +36,7 @@ The machine-readable owner inventory is [OWNERSHIP.json](../governance/OWNERSHIP
 6. Close storage, migrations, diagnostics, tests and documentation drift.
 7. Verify exact-head CI, feature parity, representative ICE/PHEV/BEV and supported market/API contexts, restart/rollback, quota, privacy and physical acceptance.
 
-Every change must state its existing owner, what complexity is removed, remaining validation and regressions. No mock runtime values, speculative command routes, compatibility stubs or accepted debt. Maintainability is not a line-count target. The 80% declarative operation target is a design measure, not a release gate.
+Every change must state its existing owner, what complexity is removed, remaining validation and regressions. A new provider is not a new framework: API owns optional compatible sessions and family transport; Catalog owns one read priority per family and sparse mappings; Status owns observation selection and freshness; Vehicle and HA own stable VIN-scoped data and entity contracts. Provider authorization and market context determine eligibility, never entity identity. A fresh preferred read family cannot be displaced by a lower-priority equivalent observation; stale fallback must not regress a valid vehicle capture. Invalid observations from another family cannot erase a valid sample. Family priority does not select or authorize commands. Retain operation-specific command safety and explicit activation; a read fallback cannot authorize or verify a command. No mock runtime values, speculative command routes, compatibility stubs or accepted debt. Maintainability is not a line-count target. The 80% declarative operation target is a design measure, not a release gate.
 
 ### Release authority
 
@@ -63,3 +63,17 @@ See [V3 review](V3_REVIEW.md) and [V2 parity baseline](V2_V3_PARITY_BASELINE.jso
 ## Feature closure status
 
 See [the feature closure review](V3_FEATURE_CLOSURE.md). It separates source inventory, implementation, automated evidence and real vehicle acceptance. Do not use an entity-count or a passing unit suite as a feature-completeness claim.
+
+### Deterministic observation selection
+
+Use the existing Status writer, not a second resolver. Keep one normalized in-memory sample per known family and semantic field; never persist this cache. Valid fresh observations use family priority, then capture time and a stable tie-break. If no fresh observation exists, use the newest valid captured sample, then family priority; unknown capture ranks below known capture. Older samples never overwrite a newer sample within the same family. Explicit invalidation affects its own family. No separate priority matrix or change to command authorization. The selected projection may legitimately move to a slightly older but still fresh higher-priority family; freshness provenance remains visible.
+
+### Passive discovery in the shared batch
+
+Keep the fixed reviewed CARIAD job list in the existing selective-status request even when a job was previously reported unsupported. This does not increase the number of requests and lets the normal response correct old negative evidence. Explicit negatives still suppress separate targeted probes. Reuse an already fetched identical family/VIN/path response for targeted discovery. Preserve the bounded probe budget and explicit manual scan; do not treat missing data as permanent non-support. Verify the full batch continues to return usable responses on the live vehicle before release.
+
+### Family polling ownership
+
+Keep the existing HA coordinator and Status owner. Family cadence and source priority are independent. Poll only compatible authorized families when due, respecting the family restrictions AND any shared authentication/account quota. Do not split the native VCF budget into artificial independent counters: its scope is conservatively shared until proven otherwise. Data Act uses an isolated authorized portal session and its own existing QuotaBudget implementation, never the native command reserve. Optional absence, no new delivery, or a family failure must not invalidate another family's successful poll. No extra coordinator, consent creation or implicit auth downgrade.
+
+Independent read sessions may run concurrently within one coordinator. Keep the checks at the two existing boundaries: API dispatch (auth, due time, quota, backoff) and normalized observation commit (semantic validity, capture time, family priority). Do not suppress an eligible read merely because another family provides a value. Shared native sessions and quota remain protected by the existing transport lock; no parallel entity writers or independent HA coordinators. Optional Data Act fetch results are merged at the same observation writer before the consolidated snapshot is published.
