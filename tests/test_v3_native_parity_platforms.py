@@ -147,6 +147,7 @@ def test_all_nine_ha_platforms_have_independent_v3_code():
     assert "AudiAccount" not in code
     assert "AudiConnectVehicle" not in code
 
+
 def test_parking_uses_shared_observations_without_inventing_motion_capture():
     from custom_components.audiconnect.v3.parking import observe_parking
 
@@ -166,7 +167,9 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     assert vehicle.readings["is_moving"]["value"] is False
     assert vehicle.readings["is_moving"]["captured"] is None
     assert vehicle.readings["is_moving"]["status"] == "readable_but_stale"
-    assert vehicle.family_readings["park_time"]["cariad"] is vehicle.readings["park_time"]
+    assert (
+        vehicle.family_readings["park_time"]["cariad"] is vehicle.readings["park_time"]
+    )
     position = vehicle.position
     reply.status = 204
     observe_parking(vehicle, profile, reply, operation)
