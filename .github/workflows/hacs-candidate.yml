@@ -1,0 +1,150 @@
+name: HACS experimental candidate
+
+on:
+  push:
+    branches: [release/hacs]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.repository == 'npinguin/audi_connect_ha'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ha: "2026.7.0"
+            package: false
+          - ha: "2026.11.1"
+            package: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Verify pinned source and release-only delta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, re, subprocess
+          from pathlib import Path
+
+          def git(*args):
+              return subprocess.check_output(["git", *args], text=True).strip()
+
+          pin = json.loads(Path("governance/HACS_CANDIDATE.json").read_text())
+          source = pin["source_commit"]
+          assert re.fullmatch(r"[0-9a-f]{40}", source)
+          assert type(pin["source_pr"]) is int and pin["source_pr"] > 0
+          assert git("merge-base", source, "HEAD") == source
+          for branch in ("dev", "feature/v3-upstream-review"):
+              assert git("merge-base", source, "origin/" + branch) == source
+
+          pr = json.loads(subprocess.check_output(
+              ["gh", "api", f"repos/npinguin/audi_connect_ha/pulls/{pin['source_pr']}"],
+              text=True,
+          ))
+          assert pr["merged"] and pr["merge_commit_sha"] == source
+          assert pr["base"]["ref"] == "feature/v3-upstream-review"
+          assert not git("diff", "--name-only", pr["head"]["sha"], source)
+
+          manifest = "custom_components/audiconnect/manifest.json"
+          ledger = "governance/V2_UPSTREAM_DELTA.json"
+          allowed = {
+              manifest, ledger, "governance/HACS_CANDIDATE.json",
+              "docs/HACS_CANDIDATE.md", ".github/workflows/hacs-candidate.yml",
+          }
+          changed = set(git("diff", "--name-only", source, "HEAD").splitlines())
+          assert changed <= allowed, changed
+          actual = json.loads(Path(manifest).read_text())
+          original = json.loads(git("show", source + ":" + manifest))
+          version = actual.pop("version")
+          assert re.fullmatch(r"3\.0\.0b[1-9][0-9]*", version)
+          original.pop("version")
+          assert actual == original
+          expected = json.loads(git("show", source + ":" + ledger))
+          row = next(r for r in expected["files"] if r["path"] == manifest)
+          row["development_blob"] = git("hash-object", manifest)
+          assert json.loads(Path(ledger).read_text()) == expected
+          assert version in Path("docs/HACS_CANDIDATE.md").read_text().splitlines()[0]
+          assert json.loads(Path("hacs.json").read_text())["homeassistant"] == "2026.7.0"
+          PY
+      - name: Install target HA and test dependencies
+        run: |
+          sed 's/^homeassistant==.*/homeassistant==${{ matrix.ha }}/' requirements-test.txt > "$RUNNER_TEMP/audi-test.txt"
+          pip install -r "$RUNNER_TEMP/audi-test.txt"
+      - name: Python regression tests
+        run: pytest -q
+      - name: Workbench regression
+        if: matrix.package
+        run: |
+          node --check custom_components/audiconnect/v3/frontend/panel.js
+          node --test tests/test_v3_workbench_ui.mjs
+      - name: Upstream pre-commit hooks
+        if: matrix.package
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files --show-diff-on-failure
+      - name: Home Assistant hassfest
+        if: matrix.package
+        uses: home-assistant/actions/hassfest@master
+      - name: HACS integration validation
+        if: matrix.package
+        uses: hacs/action@main
+        with:
+          category: integration
+      - name: Package integration
+        if: matrix.package
+        run: |
+          version=$(python -c 'import json; print(json.load(open("custom_components/audiconnect/manifest.json"))["version"])')
+          archive="audi_connect_v3_$version.zip"
+          (cd custom_components && zip -qr "../$archive" audiconnect -x "*/__pycache__/*" "*.pyc")
+          sha256sum "$archive" > "SHA256SUMS_V3_$version.txt"
+      - uses: actions/upload-artifact@v4
+        if: matrix.package
+        with:
+          name: hacs-candidate-validated
+          path: |
+            audi_connect_v3_*.zip
+            SHA256SUMS_V3_*.txt
+          if-no-files-found: error
+
+  publish:
+    if: >-
+      github.repository == 'npinguin/audi_connect_ha' &&
+      github.ref == 'refs/heads/release/hacs' &&
+      github.event.head_commit.message == 'release(test): publish HACS candidate'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: hacs-candidate-validated
+      - name: Publish immutable experimental prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(python -c 'import json; print(json.load(open("custom_components/audiconnect/manifest.json"))["version"])')
+          archive="audi_connect_v3_$version.zip"
+          checksums="SHA256SUMS_V3_$version.txt"
+          sha256sum -c "$checksums"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$version" >/dev/null 2>&1 || gh release view "$version" >/dev/null 2>&1; then
+            echo "Refusing to replace existing tag or release." >&2
+            exit 1
+          fi
+          gh release create "$version" "$archive" "$checksums" \
+            --target "$GITHUB_SHA" \
+            --title "Audi Connect $version — experimental beta" \
+            --notes-file docs/HACS_CANDIDATE.md \
+            --prerelease --latest=false
