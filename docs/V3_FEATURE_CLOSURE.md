@@ -126,3 +126,5 @@ Open: quota visibility/scope, movement evidence without capture time, operationa
 - Maintainer: one focused PR to dev, existing upstream review and immutable HACS candidates. Review the exact final head and the remaining acceptance gates above. No claim of live acceptance or stable release from CI alone.
 
 Movement remains deliberately unavailable without reliable vehicle capture. Operational parking/last-trip cadence is still an optimization candidate, not a completed fix: measure native quota scope and prioritize essential status reads before increasing request volume. The missing vehicle model, charge-mode and charging-control proof, active charging duration, Data Act authorization and representative live lifecycle acceptance remain open.
+
+The V3 options form no longer exposes the V2-only startup update toggle: V3 must enumerate vehicles during setup. The stored V2 preference survives editing and rollback. Active V3 option labels and help now cover English, Dutch, German and French, with schema-driven regression coverage and synchronized upstream-delta blobs. Other locale and discovery-dialog translation coverage is not claimed.
