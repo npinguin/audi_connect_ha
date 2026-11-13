@@ -858,7 +858,7 @@ class StatusEngine:
         """
         if not hasattr(self.hass, "data"):
             return  # synthetic test engines without the HA registry
-        from .parking import parse_parked_position, keep_newest_position
+        from .parking import observe_parking
 
         for car in self.vehicles.values():
             if not car.inventory_present:
@@ -887,45 +887,7 @@ class StatusEngine:
             self._api_record(profile, ident, family, method, reply, car.vin)
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 return
-            if reply.status == 204:
-                # Match historical V2 movement indication, explicitly a
-                # parking endpoint signal, not a live location fix.
-                car.readings["is_moving"] = {
-                    "value": True,
-                    "captured": None,
-                    "observed": reply.observed_at.isoformat(),
-                    "status": "readable_but_stale",
-                    "family": "cariad",
-                    "path": "parkingposition HTTP 204",
-                    "job": None,
-                }
-                continue
-            if not 200 <= reply.status < 300:
-                continue
-            point = parse_parked_position(reply.data)
-            if point and keep_newest_position(car.position, point):
-                car.position = point
-                stamp = point.get("timestamp")
-                car.readings["is_moving"] = {
-                    "value": False,
-                    "captured": None,
-                    "observed": reply.observed_at.isoformat(),
-                    "status": "readable_but_stale",
-                    "family": "cariad",
-                    "path": "parkingposition parked sample",
-                    "job": None,
-                }
-                if stamp:
-                    for ident in ("position_last_updated", "park_time"):
-                        car.readings[ident] = {
-                            "value": stamp,
-                            "captured": stamp,
-                            "observed": reply.observed_at.isoformat(),
-                            "status": "readable_but_stale",
-                            "family": "cariad",
-                            "path": "parkingposition.data.carCapturedTimestamp",
-                            "job": None,
-                        }
+            observe_parking(car, profile, reply, ident)
 
     async def test_attribute_route(self, car, attribute, route) -> dict[str, Any]:
         """Isolated engineering GET; never publish a test reading to HA."""
