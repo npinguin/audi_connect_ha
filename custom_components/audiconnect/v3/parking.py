@@ -55,6 +55,7 @@ def keep_newest_position(previous: Any, incoming: dict[str, Any]) -> bool:
         return False
     return new_at >= old_at
 
+
 def observe_parking(vehicle, profile, reply, operation):
     """Use the shared writer; a parking response is not live motion telemetry."""
     from .attribute_runtime import record_observation
