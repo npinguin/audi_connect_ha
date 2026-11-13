@@ -1428,15 +1428,14 @@ async def test_golden_configure_discover_use_restart_without_workbench():
     assert restarted.profiles[VIN.lower()].last_command.state == "verified"
 
 
-def test_identity_refresh_is_periodic_quota_aware_and_session_aware():
+def test_identity_refresh_is_periodic_and_quota_aware():
     from custom_components.audiconnect.v3.status_engine import identity_refresh_due
 
     car = V3Vehicle(VIN, "Audi", "", "", "DE")
     cars = {VIN.lower(): car}
-    assert not identity_refresh_due(cars, 1799, 100)
-    assert identity_refresh_due(cars, 1800, 100)
-    assert identity_refresh_due(cars, 1, 100, token_renewed=True)
-    assert not identity_refresh_due(cars, 3600, 12, token_renewed=True)
+    assert not identity_refresh_due(cars, 3599, 100)
+    assert identity_refresh_due(cars, 3600, 100)
+    assert not identity_refresh_due(cars, 3600, 12)
     car.model, car.model_family, car.model_year, car.car_type = (
         "Audi Q8",
         "q8",
@@ -1444,10 +1443,10 @@ def test_identity_refresh_is_periodic_quota_aware_and_session_aware():
         "phev",
     )
     car.image_url = "https://mediaservice.audi.com/render/example.png"
-    assert not identity_refresh_due(cars, 86399, 100, token_renewed=True)
+    assert not identity_refresh_due(cars, 86399, 100)
     assert identity_refresh_due(cars, 86400, 100)
     car.identity_restored = True
-    assert identity_refresh_due(cars, 1800, 100)
+    assert identity_refresh_due(cars, 3600, 100)
 
 
 @pytest.mark.asyncio
