@@ -140,8 +140,6 @@ class DataActClient:
                         self.quota.retry_at = datetime.now(UTC) + timedelta(minutes=30)
                     elif response.status == 403:
                         raise DataActVehicleDenied("Data Act vehicle access denied")
-                    elif response.status == 200:
-                        self._renewed = False
                     if response.status == 404 and allow_empty:
                         return None
                     if response.status != 200:
@@ -169,12 +167,16 @@ class DataActClient:
         if vin in self.denied_vins:
             return None
         try:
-            return await self._latest(vin)
+            result = await self._latest(vin)
         except DataActVehicleDenied:
             self.denied_vins.add(vin)
             self._identifiers.pop(vin, None)
             self._last_file.pop(vin, None)
             raise
+        # A successful intermediate metadata/list GET does not prove access to
+        # the whole delivery. Only a completed VIN read resets the login guard.
+        self._renewed = False
+        return result
 
     async def _latest(self, vin):
         if not self._logged_in:
