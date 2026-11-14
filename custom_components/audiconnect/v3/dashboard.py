@@ -206,7 +206,7 @@ async def ws_status(hass, connection, msg):
                         sample.get("path"), vehicle.vin
                     )["payload"]
             if family["auth"] == "eu_data_act" and hasattr(engine, "status"):
-                family["health"] = engine.status.data_act_poll_status()
+                family["health"] = engine.status.data_act_poll_status(vehicle)
             elif hasattr(getattr(engine, "auth", None), "identity_auth_evidence"):
                 family["auth_context"] = engine.auth.identity_auth_evidence(
                     family["id"]
