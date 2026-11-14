@@ -1780,7 +1780,8 @@ class AudiConnectV3Panel extends HTMLElement {
         (!this.capabilityFilter || r.capability === this.capabilityFilter) &&
         (family === "all" ||
           r.api_family === family ||
-          (r.source === "v3_live_evidence" && sourceObservations.has(r.attribute))) &&
+          (r.source === "v3_live_evidence" &&
+            sourceObservations.has(r.attribute))) &&
         (!selectedEntity ||
           entityMatches(r) ||
           (!r.entity_key && selectedEntity.operations.includes(r.operation))),

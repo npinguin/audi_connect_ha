@@ -732,31 +732,19 @@
       },
       "control": {
         "start": {
-          "operations": [
-            "cariad.climate.start.stored",
-            "mbb.climate.start"
-          ]
+          "operations": ["cariad.climate.start.stored", "mbb.climate.start"]
         },
         "stop": {
-          "operations": [
-            "cariad.climate.stop",
-            "mbb.climate.stop"
-          ]
+          "operations": ["cariad.climate.stop", "mbb.climate.stop"]
         },
         "window_heating_start": {
-          "operations": [
-            "cariad.climate.window_heating_start"
-          ]
+          "operations": ["cariad.climate.window_heating_start"]
         },
         "window_heating_stop": {
-          "operations": [
-            "cariad.climate.window_heating_stop"
-          ]
+          "operations": ["cariad.climate.window_heating_stop"]
         },
         "set_settings": {
-          "operations": [
-            "cariad.climate.settings"
-          ]
+          "operations": ["cariad.climate.settings"]
         },
         "start_with_settings": {
           "operations": [
@@ -765,14 +753,10 @@
           ]
         },
         "preheater_start": {
-          "operations": [
-            "cariad.climate.preheater_start"
-          ]
+          "operations": ["cariad.climate.preheater_start"]
         },
         "preheater_stop": {
-          "operations": [
-            "cariad.climate.preheater_stop"
-          ]
+          "operations": ["cariad.climate.preheater_stop"]
         }
       }
     },
@@ -793,29 +777,19 @@
     },
     "service": {
       "status": {
-        "operations": [
-          "cariad.status.vehicleHealthInspection"
-        ]
+        "operations": ["cariad.status.vehicleHealthInspection"]
       }
     },
     "access": {
       "status": {
-        "operations": [
-          "cariad.status.access"
-        ]
+        "operations": ["cariad.status.access"]
       },
       "control": {
         "lock": {
-          "operations": [
-            "cariad.access.lock",
-            "mbb.access.lock"
-          ]
+          "operations": ["cariad.access.lock", "mbb.access.lock"]
         },
         "unlock": {
-          "operations": [
-            "cariad.access.unlock",
-            "mbb.access.unlock"
-          ]
+          "operations": ["cariad.access.unlock", "mbb.access.unlock"]
         }
       }
     },
@@ -847,19 +821,13 @@
           ]
         },
         "set_target_soc": {
-          "operations": [
-            "cariad.charging.settings"
-          ]
+          "operations": ["cariad.charging.settings"]
         },
         "set_charge_mode": {
-          "operations": [
-            "cariad.charging.mode"
-          ]
+          "operations": ["cariad.charging.mode"]
         },
         "set_location_charge_target": {
-          "operations": [
-            "cariad.charging.profiles"
-          ]
+          "operations": ["cariad.charging.profiles"]
         }
       }
     },
@@ -876,35 +844,23 @@
     },
     "remote": {
       "status": {
-        "operations": [
-          "cariad.status.honkAndFlash"
-        ]
+        "operations": ["cariad.status.honkAndFlash"]
       },
       "control": {
         "wake": {
-          "operations": [
-            "cariad.remote.wake"
-          ]
+          "operations": ["cariad.remote.wake"]
         },
         "refresh": {
-          "operations": [
-            "cariad.remote.refresh"
-          ]
+          "operations": ["cariad.remote.refresh"]
         },
         "flash": {
-          "operations": [
-            "cariad.remote.flash"
-          ]
+          "operations": ["cariad.remote.flash"]
         },
         "engine_start": {
-          "operations": [
-            "cariad.remote.engine_start"
-          ]
+          "operations": ["cariad.remote.engine_start"]
         },
         "engine_stop": {
-          "operations": [
-            "cariad.remote.engine_stop"
-          ]
+          "operations": ["cariad.remote.engine_stop"]
         }
       }
     }
@@ -1004,10 +960,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=access",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "access.accessStatus.value.doorLockStatus",
-        "access"
-      ],
+      "response_paths": ["access.accessStatus.value.doorLockStatus", "access"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1017,9 +970,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=activeVentilation",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "activeVentilation"
-      ],
+      "response_paths": ["activeVentilation"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1029,9 +980,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=auxiliaryHeating",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "auxiliaryHeating"
-      ],
+      "response_paths": ["auxiliaryHeating"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1041,9 +990,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=batteryChargingCare",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "batteryChargingCare"
-      ],
+      "response_paths": ["batteryChargingCare"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1053,9 +1000,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=batterySupport",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "batterySupport"
-      ],
+      "response_paths": ["batterySupport"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1157,9 +1102,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=departureProfiles",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "departureProfiles"
-      ],
+      "response_paths": ["departureProfiles"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1169,9 +1112,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=departureTimers",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "departureTimers"
-      ],
+      "response_paths": ["departureTimers"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1201,9 +1142,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=honkAndFlash",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "honkAndFlash"
-      ],
+      "response_paths": ["honkAndFlash"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1213,9 +1152,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=hybridCarAuxiliaryHeating",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "hybridCarAuxiliaryHeating"
-      ],
+      "response_paths": ["hybridCarAuxiliaryHeating"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1225,9 +1162,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=lvBattery",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "lvBattery"
-      ],
+      "response_paths": ["lvBattery"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1252,10 +1187,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=oilLevel",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "oilLevel.oilLevelStatus.value.value",
-        "oilLevel"
-      ],
+      "response_paths": ["oilLevel.oilLevelStatus.value.value", "oilLevel"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1308,9 +1240,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=vehicleHealthWarnings",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "vehicleHealthWarnings"
-      ],
+      "response_paths": ["vehicleHealthWarnings"],
       "notes": "V2 reference job; verify per vehicle before activation",
       "legacy_compatible": true
     },
@@ -1357,10 +1287,7 @@
       "path": "/fs-car/bs/rs/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/status",
       "delivery": "manual",
       "priority": 90,
-      "response_paths": [
-        "status",
-        "data"
-      ],
+      "response_paths": ["status", "data"],
       "notes": "Historical V2 GET route; legacy-auth only"
     },
     "mbb.charging.status.departure_timer": {
@@ -1369,10 +1296,7 @@
       "path": "/fs-car/bs/departuretimer/v1/{TYPE}/{COUNTRY}/vehicles/{VIN}/timer",
       "delivery": "manual",
       "priority": 90,
-      "response_paths": [
-        "timer",
-        "timers"
-      ],
+      "response_paths": ["timer", "timers"],
       "notes": "Historical V2 GET route; legacy-auth only"
     },
     "mbb.vehicle_status.status.vehicle_data": {
@@ -1381,10 +1305,7 @@
       "path": "/fs-car/vehicleMgmt/vehicledata/v2/{TYPE}/{COUNTRY}/vehicles/{VIN}/",
       "delivery": "manual",
       "priority": 90,
-      "response_paths": [
-        "vehicleData",
-        "data"
-      ],
+      "response_paths": ["vehicleData", "data"],
       "notes": "Historical V2 GET route; legacy-auth only"
     },
     "cariad.mobility.status.parkingPosition": {
@@ -1393,10 +1314,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/parkingposition",
       "delivery": "manual",
       "priority": 90,
-      "response_paths": [
-        "data",
-        "parkingPosition"
-      ],
+      "response_paths": ["data", "parkingPosition"],
       "notes": "Sensitive location: normal polling only for an enabled or advertised tracker; explicit full read scan; masked evidence",
       "legacy_compatible": true
     },
@@ -1406,9 +1324,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=tripStatistics",
       "delivery": "manual",
       "priority": 90,
-      "response_paths": [
-        "tripStatistics"
-      ],
+      "response_paths": ["tripStatistics"],
       "notes": "Historical V2 trip statistics: explicitly tested only",
       "legacy_compatible": true
     },
@@ -1544,10 +1460,7 @@
       "input_schema": {
         "value": {
           "type": "string",
-          "enum": [
-            "manual",
-            "timer"
-          ],
+          "enum": ["manual", "timer"],
           "required": true
         }
       },

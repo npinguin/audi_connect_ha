@@ -489,9 +489,18 @@ def data_act_observations(payload, now, registry):
                 continue
             value = True
         elif mapping.get("token"):
-            if not isinstance(raw, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", raw):
+            if not isinstance(raw, str) or not re.fullmatch(
+                r"[A-Za-z0-9_.:-]{1,80}", raw
+            ):
                 continue
-            if raw.lower() in {"unknown", "invalid", "unsupported", "unavailable", "error", "notavailable"}:
+            if raw.lower() in {
+                "unknown",
+                "invalid",
+                "unsupported",
+                "unavailable",
+                "error",
+                "notavailable",
+            }:
                 continue
             value = raw
         else:

@@ -605,8 +605,12 @@ def family_discovery(vehicle, profile, rows, operations):
                 ),
                 "normalized": sum(not row["detail"] for row in observations),
                 "normalized_details": sum(row["detail"] for row in observations),
-                "selected": sum(row["selected"] and not row["detail"] for row in observations),
-                "fresh": sum(row["fresh"] and not row["detail"] for row in observations),
+                "selected": sum(
+                    row["selected"] and not row["detail"] for row in observations
+                ),
+                "fresh": sum(
+                    row["fresh"] and not row["detail"] for row in observations
+                ),
                 "truncated": any(evidence.get("truncated") for _, evidence in schemas),
                 "schema_results": [
                     {
