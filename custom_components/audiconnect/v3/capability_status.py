@@ -169,6 +169,11 @@ def attribute_status(vehicle, profile, definition, now):
                 if timestamp_is_fresh(reading.get("captured"), now)
                 else "readable_but_stale"
             )
+    if ident == "is_moving" and reading:
+        from .freshness import movement_capture_valid
+
+        if not movement_capture_valid(reading, now):
+            status, issue = "not_observed", "parking_hint_not_movement"
     if ident in getattr(profile, "attribute_disabled", ()):
         status = "disabled_by_user"
     return status, issue, contract
