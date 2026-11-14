@@ -60,7 +60,6 @@ For a possible myAudi web identity source, first obtain sanitized evidence of an
 
 The B38 release is a test candidate, not an accepted stable release. After field acceptance, consolidate and remove redundant discovery/projection code, validate source failure/renewal, preserve entity contracts and trip history, and rerun the existing compatibility and upstream gates. No new runtime framework is justified.
 
-
 ## B39 consolidation — B38 live diagnostics and engineering audit
 
 B38 Q8 baseline (HA 2026.11.1): one successful native poll, optional dataset
