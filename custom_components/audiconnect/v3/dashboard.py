@@ -93,7 +93,7 @@ async def ws_list(hass, connection, msg):
 @websocket_api.async_response
 async def ws_status(hass, connection, msg):
     try:
-        from .capability_status import build_status_report
+        from .capability_status import attribute_reading, build_status_report
 
         engine = _engine(hass, msg["entry_id"])
         vehicle = engine.require_vehicle(msg["vin"])
@@ -175,7 +175,7 @@ async def ws_status(hass, connection, msg):
             # Admin-only scalar observation trace; never add private values
             # to the shared capability report or exported diagnostics.
             for row in report["rows"]:
-                reading = vehicle.readings.get(row.get("attribute"), {})
+                reading = attribute_reading(vehicle, row.get("attribute"))
                 value = reading.get("value")
                 if row.get("entity_key") and type(value) in (str, int, float, bool):
                     row["normalized_value"] = engine.redact_evidence(
@@ -196,7 +196,7 @@ async def ws_status(hass, connection, msg):
                     .get(family["id"])
                 )
                 if sample is None and observation["selected"]:
-                    sample = vehicle.readings.get(ident)
+                    sample = attribute_reading(vehicle, ident)
                 if sample and type(sample.get("value")) in (str, int, float, bool):
                     observation["normalized_value"] = engine.redact_evidence(
                         sample["value"], vehicle.vin
