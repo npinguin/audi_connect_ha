@@ -559,7 +559,14 @@ class DevelopmentProfile:
         """One bounded journal for both origins; failed insertion is atomic."""
         latest = record if record.origin == "home_assistant" else self.last_command
         rows = [*self.command_journal, record]
-        # Keep security review and active engineering attempts; routine errors are bounded history.
+        # Preserve the latest outcome per control as well as unresolved security
+        # and engineering evidence. Other history remains bounded.
+        latest_controls = {
+            (row.capability, row.action, row.readback_attribute): row.command_id
+            for row in rows
+            if row.origin == "home_assistant"
+        }
+        protected = set(latest_controls.values())
         while len(rows) > HISTORY_LIMIT:
             active = self.discovery.active_attempt
             index = next(
@@ -573,6 +580,7 @@ class DevelopmentProfile:
                         and row.engineering_sequence == active.sequence
                     )
                     and not (row.is_wake and record.started_at - row.started_at < 86400)
+                    and row.command_id not in protected
                     and row is not latest
                     and row is not record
                 ),

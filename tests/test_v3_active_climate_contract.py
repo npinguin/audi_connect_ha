@@ -34,7 +34,8 @@ def test_stale_climate_readback_is_never_reported_as_current():
         observed_at=now,
         http_status=200,
     )
-    assert entity.hvac_mode is None
+    assert entity.hvac_mode.value == "off"
+    assert entity.hvac_action is None
     car.set_climate(
         "heating", now.isoformat(), route="test", observed_at=now, http_status=200
     )
@@ -126,7 +127,7 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
     entity = climates[0]
     entity.async_write_ha_state = lambda: None
     assert entity.unique_id == VIN.lower() + "_climate_climatisation"
-    assert entity.available and entity.hvac_mode is None
+    assert entity.available and entity.hvac_mode == HVACMode.OFF
     assert entity.supported_features & ClimateEntityFeature.TURN_ON
     assert entity.supported_features & ClimateEntityFeature.TURN_OFF
     asyncio.run(entity.async_set_hvac_mode(HVACMode.HEAT_COOL))
@@ -142,8 +143,8 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
         "climate",
         {"params": {"temp_c": 19.5}},
     )
-    assert entity.hvac_mode is None
-    assert entity.target_temperature is None
+    assert entity.hvac_mode == HVACMode.HEAT_COOL
+    assert entity.target_temperature == 19.5
     assert entity.extra_state_attributes["pending_dispatched_temperature"] == 19.5
     journal[-1].observe_backend("rejected", datetime.now(UTC).timestamp())
     assert entity.extra_state_attributes["pending_dispatched_temperature"] is None

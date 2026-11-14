@@ -297,11 +297,11 @@ def test_lock_remains_visible_while_command_is_accepted():
     co.engine.control_enabled = lambda *args: False
     entity = V3LockEntity(co, car)
     assert entity.available
-    assert entity.is_locking
-    assert entity.is_locked is False
+    assert not entity.is_locking
+    assert entity.is_locked is True
     assert entity.extra_state_attributes["command_status"] == "accepted_unconfirmed"
     assert entity.extra_state_attributes["command_requested_state"] == "locked"
-    assert entity.extra_state_attributes["state_is_optimistic"] is False
+    assert entity.extra_state_attributes["state_is_optimistic"] is True
     assert entity.extra_state_attributes["last_reported_state"] == "unlocked"
     assert entity.extra_state_attributes["lock_enabled"] is False
 

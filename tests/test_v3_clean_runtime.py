@@ -603,13 +603,13 @@ async def test_accepted_climate_start_and_immediate_stop_use_real_command_owner(
     climate.async_write_ha_state = lambda: None
     assert climate.hvac_mode == HVACMode.OFF
     await climate.async_turn_on()
-    assert climate.hvac_mode == HVACMode.OFF
-    assert climate.extra_state_attributes["state_source"] == "vehicle"
+    assert climate.hvac_mode == HVACMode.HEAT_COOL
+    assert climate.extra_state_attributes["state_source"] == "optimistic"
     assert car.climate_state == "off"
     assert profile.last_command.state == "accepted_unconfirmed"
     await climate.async_turn_off()
     assert climate.hvac_mode == HVACMode.OFF
-    assert climate.extra_state_attributes["state_source"] == "vehicle"
+    assert climate.extra_state_attributes["state_source"] == "optimistic"
     assert [call[1] for call in transport.calls if len(call) > 1] == [
         "GET",
         "POST",

@@ -250,8 +250,8 @@ def test_lock_transition_expires_without_fabricating_physical_state():
         is None
     )
     assert projected_state(profile, "doorLockStatus", "locked", OLD, now=NOW) == (
-        "locked",
-        "vehicle",
+        "unlocked",
+        "optimistic",
     )
 
 
@@ -441,3 +441,91 @@ def test_manual_stop_after_failed_remote_stop_is_not_command_success():
     assert other.state == row.state
     assert other.backend_result == row.backend_result
     assert other.readback_observed_at == row.readback_observed_at
+
+
+
+@pytest.mark.parametrize(
+    "cap,action,params,attribute,reported,requested",
+    [
+        ("access", "unlock", {}, "doorLockStatus", "locked", "unlocked"),
+        ("access", "lock", {}, "doorLockStatus", "unlocked", "locked"),
+        ("charging", "stop", {}, "chargingState", "charging", "off"),
+        ("climate", "start", {}, "climate", "off", "on"),
+        ("climate", "preheater_stop", {}, "preheater_active", True, False),
+        ("charging", "set_target_soc", {"value": 80}, "targetstateOfCharge", 70, 80),
+        (
+            "charging", "set_charge_mode", {"value": "timer"},
+            "preferredChargeMode", "manual", "timer",
+        ),
+        (
+            "climate", "set_settings", {"windowHeatingEnabled": True},
+            "climatisationWindowHeatingEnabled", False, True,
+        ),
+    ],
+)
+def test_accepted_control_projection_expires_and_newer_observation_wins(
+    cap, action, params, attribute, reported, requested
+):
+    from custom_components.audiconnect.v3.command_readback import (
+        OPTIMISTIC_TTL_SECONDS,
+        control_projection,
+    )
+
+    command = record(cap, action, params)
+    command.observe_http(200)
+    profile = NS(command_journal=[command])
+    reading = {
+        "value": reported,
+        "captured": OLD.isoformat(),
+        "status": "verified",
+    }
+    assert control_projection(profile, attribute, reading, now=NOW) == (
+        requested, "optimistic"
+    )
+    assert control_projection(
+        profile, attribute, {**reading, "captured": NEW.isoformat()}, now=NEW
+    ) == (reported, "vehicle")
+    expiry = datetime.fromtimestamp(command.started_at + OPTIMISTIC_TTL_SECONDS, UTC)
+    assert control_projection(profile, attribute, reading, now=expiry) == (
+        reported, "vehicle"
+    )
+    command.observe_backend("rejected", NOW.timestamp())
+    assert control_projection(profile, attribute, reading, now=NOW) == (
+        reported, "vehicle"
+    )
+
+
+def test_sleeping_lock_retains_last_observation_and_explicit_reverse_dispatch():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from custom_components.audiconnect.v3.entities import V3LockEntity
+
+    vehicle = NS(
+        vin="test",
+        inventory_present=True,
+        readings={
+            "doorLockStatus": {
+                "value": "locked",
+                "captured": (NOW - timedelta(minutes=142)).isoformat(),
+                "status": "readable_but_stale",
+            }
+        },
+    )
+    command = record("access", "unlock")
+    command.observe_http(200)
+    engine = NS(
+        profiles={"test": NS(command_journal=[command])},
+        control_enabled=lambda *args: True,
+        auth=NS(spin="1234"),
+        send_control=AsyncMock(),
+    )
+    entity = V3LockEntity(NS(engine=engine, last_update_success=True), vehicle)
+    assert entity.is_locked is False
+    entity._send_access = AsyncMock()
+    asyncio.run(entity.async_lock())
+    entity._send_access.assert_awaited_once_with("lock")
+    command.state = "rejected"
+    assert entity.is_locked is True
+    assert entity.extra_state_attributes["state_source"] == "last_known_vehicle"
+    assert entity.extra_state_attributes["last_reported_state"] == "locked"

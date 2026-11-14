@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from .attribute_runtime import _capture_in_utc, _valid_capture, select_reading
+from .attribute_runtime import (
+    _capture_in_utc,
+    _valid_capture,
+    last_known_observation,
+    select_reading,
+)
+from .freshness import timestamp_is_fresh
 from .vehicle import (
     CLIMATE_ON_STATES,
     CLIMATE_OFF_STATES,
@@ -219,7 +225,7 @@ def reconcile_access_mismatch(record, car, now=None, *, registry=None) -> bool:
 
 
 # Command feedback is separate from actual vehicle telemetry.
-LOCK_TRANSITION_TTL_SECONDS = 30 * 60
+OPTIMISTIC_TTL_SECONDS = 5 * 60
 _ACCEPTED = frozenset({"accepted_unconfirmed", "backend_completed"})
 _REQUESTED_STATES = {
     "climate": ("on", "off"),
@@ -236,6 +242,103 @@ def latest_readback_command(profile, attribute):
             and record.readback_attribute == attribute
         ),
         None,
+    )
+
+
+def projection_attributes(record):
+    """Fields affected by a command, not new vehicle observations."""
+    attribute = record.readback_attribute
+    if (
+        record.capability == "climate"
+        and record.action == "start_with_settings"
+        and attribute == "climatisationTargetTemperatureC"
+    ):
+        return ("climate", attribute)
+    return (attribute,) if attribute else ()
+
+
+def latest_projection_command(profile, attribute):
+    # A later attempt supersedes an earlier one even if rejected or uncertain.
+    return next(
+        (
+            record
+            for record in reversed(getattr(profile, "command_journal", ()))
+            if attribute in projection_attributes(record)
+        ),
+        None,
+    )
+
+
+def optimistic_expiry(record):
+    """Original dispatch time; a restart must never extend the expiry."""
+    if (
+        record is None
+        or record.origin != "home_assistant"
+        or record.http_status is None
+        or not 200 <= record.http_status < 300
+        or not projection_attributes(record)
+        or record.backend_result in ("rejected", "transport_uncertain")
+        or not (
+            record.state in _ACCEPTED
+            or (
+                record.state == "uncertain"
+                and record.backend_result == "accepted_unconfirmed"
+            )
+        )
+    ):
+        return None
+    return record.started_at + OPTIMISTIC_TTL_SECONDS
+
+
+def requested_projection(record, attribute):
+    if record is None:
+        return None
+    if attribute in _REQUESTED_STATES:
+        return _REQUESTED_STATES[attribute][1 if record.action == "stop" else 0]
+    values = record.readback_values or []
+    return values[0] if len(values) == 1 else None
+
+
+def control_projection(profile, attribute, reading, *, now=None, fallback=None):
+    """Effective HA control state, never a physical or authorization proof.
+
+    Retain the newest valid observed value across sleep and sentinel data.
+    Only an acknowledged, unsuperseded command may temporarily overlay it.
+    A newer dated observation wins whether or not it matches the request.
+    """
+    now = now or datetime.now(UTC)
+    reading = reading or {}
+    known = last_known_observation(reading)
+    if not known and reading.get("reason") != "conflicting_source_values":
+        known = fallback or {}
+    record = latest_projection_command(profile, attribute)
+    expiry = optimistic_expiry(record)
+    stamp = _valid_capture(known.get("captured"), now)
+    conflict_stamp = (
+        _valid_capture(reading.get("captured"), now)
+        if reading.get("reason") == "conflicting_source_values"
+        else None
+    )
+    if (
+        expiry is not None
+        and record.started_at <= now.timestamp() < expiry
+        and (stamp is None or stamp.timestamp() <= record.started_at)
+        and (
+            conflict_stamp is None
+            or conflict_stamp.timestamp() <= record.started_at
+        )
+        and record.readback_observed_at is None
+        and record.readback_mismatch_at is None
+    ):
+        requested = requested_projection(record, attribute)
+        if requested is not None:
+            return requested, "optimistic"
+    if known.get("value") is None:
+        return None, "unknown"
+    return known["value"], (
+        "vehicle"
+        if known is reading and timestamp_is_fresh(known.get("captured"), now)
+        else "last_known_vehicle"
     )
 
 
@@ -260,15 +363,9 @@ def command_attributes(profile, capability, actions, *, attribute=None):
         ),
         None,
     )
-    requested = None
-    if record is not None:
-        values = record.readback_values or []
-        if record.readback_attribute in _REQUESTED_STATES:
-            requested = _REQUESTED_STATES[record.readback_attribute][
-                1 if record.action == "stop" else 0
-            ]
-        elif len(values) == 1:
-            requested = values[0]
+    requested = requested_projection(
+        record, attribute or (record.readback_attribute if record else None)
+    )
     return {
         "command_status": record.state if record else None,
         "command_requested_state": requested,
@@ -309,20 +406,15 @@ def last_known_climate(profile):
 
 
 def pending_access_action(profile, captured, *, now=None):
-    """A bounded HA lock transition is command feedback, not lock state."""
-    record = latest_readback_command(profile, "doorLockStatus")
-    stamp = _capture_in_utc(captured)
-    if (
-        record is not None
-        and record.state in _ACCEPTED
-        and getattr(record, "readback_observed_at", None) is None
-        and (stamp is None or stamp.timestamp() <= record.started_at)
-        and 0
-        <= (now or datetime.now(UTC)).timestamp() - record.started_at
-        < LOCK_TRANSITION_TTL_SECONDS
-    ):
-        return record.action
-    return None
+    """Compatibility view of the same bounded control projection."""
+    _, source = control_projection(
+        profile,
+        "doorLockStatus",
+        {"captured": captured, "value": "unknown"},
+        now=now,
+    )
+    record = latest_projection_command(profile, "doorLockStatus")
+    return record.action if source == "optimistic" else None
 
 
 def observe_command_response(record, car, profile, family, response):

@@ -93,3 +93,17 @@ Keep the existing HA coordinator and Status owner. Family cadence and source pri
 Independent read sessions may run concurrently within one coordinator. Keep the checks at the two existing boundaries: API dispatch (auth, due time, quota, backoff) and normalized observation commit (semantic validity, capture time, family priority). Do not suppress an eligible read merely because another family provides a value. Shared native sessions and quota remain protected by the existing transport lock; no parallel entity writers or independent HA coordinators. Optional Data Act fetch results are merged at the same observation writer before the consolidated snapshot is published.
 
 Before committing, run the existing pinned pre-commit hooks on changed files and focused tests where the development environment supports them. Batch related fixes; use the complete hook report rather than committing individual formatting corrections. Preserve the exact-head full PR and release validation gates. No new lint workflow or relaxed check.
+
+
+### Control-state continuity (B41)
+
+The existing observation owner and command journal remain authoritative. HA
+control projection retains valid last-known observations independently of age.
+A known HTTP acceptance may overlay a requested control value for five minutes
+from the original dispatch; newer valid vehicle captures (including a
+contradiction), superseding attempts, rejection and expiry take precedence.
+One coordinator-local timer expires the overlay without a vehicle request.
+Read-only telemetry and security/energy decisions must use actual observations,
+not the optimistic control value. A command outcome is never changed by display
+projection or expiry. The latest command outcome per control is protected within
+the existing bounded journal. No automatic replay or new polling owner.

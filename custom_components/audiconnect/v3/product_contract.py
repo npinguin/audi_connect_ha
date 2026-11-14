@@ -545,11 +545,13 @@ def stateful_controls():
 
 def stateful_reading(vehicle, key):
     """Shared operational state normalization, independent of write support."""
+    from .attribute_runtime import last_known_observation
     from .vehicle import charging_active
 
     definition = stateful_controls()[key]
     row = getattr(vehicle, "readings", {}).get(definition["attribute"], {})
-    value = row.get("value")
+    known = last_known_observation(row)
+    value = known.get("value")
     state = (
         charging_active(value)
         if key == "charging"
@@ -557,7 +559,7 @@ def stateful_reading(vehicle, key):
         if type(value) is bool
         else None
     )
-    return row, state if row.get("status") in (
+    return row, state if known.get("status") in (
         "verified",
         "readable_but_stale",
     ) else None

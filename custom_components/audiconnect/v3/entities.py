@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from homeassistant.core import callback
-from homeassistant.helpers.event import async_call_later, async_track_time_interval
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
@@ -56,7 +56,13 @@ from .auth import configured_spin
 from .freshness import movement_capture_valid, reading_freshness_attributes
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
-from .command_readback import command_attributes, last_known_climate
+from .command_readback import (
+    command_attributes,
+    control_projection,
+    last_known_climate,
+    latest_projection_command,
+    optimistic_expiry,
+)
 from .command_policy import supported_charge_modes
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
 from .product_contract import (
@@ -177,11 +183,22 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
             row = (
                 reading if reading is not None else self.vehicle.readings.get(attribute)
             )
+            from .attribute_runtime import last_known_observation
+
+            optimistic = source == "optimistic"
+            record = latest_projection_command(profile, attribute) if optimistic else None
+            expiry = optimistic_expiry(record)
             result.update(
-                reading_freshness_attributes(row, allow_last_known=allow_last_known),
-                last_reported_state=(row or {}).get("value"),
+                reading_freshness_attributes(row, allow_last_known=True),
+                last_reported_state=last_known_observation(row).get("value"),
                 state_source=source or "unknown",
-                state_is_optimistic=False,
+                state_is_current=source == "vehicle",
+                state_is_optimistic=optimistic,
+                optimistic_expires_at=(
+                    datetime.fromtimestamp(expiry, UTC).isoformat()
+                    if expiry is not None
+                    else None
+                ),
             )
         return result
 
@@ -202,18 +219,17 @@ _CLIMATE_OFF = frozenset(CLIMATE_OFF_STATES)
 _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
-def _reading_projection(coordinator, vehicle, attribute, *, allow_last_known=False):
+def _reading_projection(coordinator, vehicle, attribute, *, allow_last_known=True):
+    """Native control projection; read-only entities never use command intent."""
+    profile = getattr(coordinator.engine, "profiles", {}).get(vehicle.vin.lower())
     row = vehicle.readings.get(attribute) or {}
-    if not _reading_available(row, allow_last_known=allow_last_known):
-        return None, "unknown"
-    from .freshness import timestamp_is_fresh
-
-    source = (
-        "vehicle"
-        if timestamp_is_fresh(row.get("captured"), datetime.now(UTC))
-        else "last_known_vehicle"
-    )
-    return row.get("value"), source
+    key = "climate" if attribute == "climatisationState" else attribute
+    fallback = None
+    if key == "climate":
+        value, captured, _ = last_known_climate(profile)
+        if value is not None:
+            fallback = {"value": value, "captured": captured}
+    return control_projection(profile, key, row, fallback=fallback)
 
 
 def _climate_projection(coordinator, vehicle):
@@ -223,7 +239,7 @@ def _climate_projection(coordinator, vehicle):
     return None, "unknown"
 
 
-def _climate_reported_state(coordinator, vehicle):
+def _climate_effective_state(coordinator, vehicle):
     return _climate_projection(coordinator, vehicle)[0]
 
 
@@ -268,45 +284,19 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
 
     @property
     def reported_target_temperature(self):
-        value = self.vehicle.readings.get("climatisationTargetTemperatureC", {}).get(
-            "value"
-        )
+        from .attribute_runtime import last_known_observation
+
+        value = last_known_observation(
+            self.vehicle.readings.get("climatisationTargetTemperatureC")
+        ).get("value")
         return value if type(value) in (int, float) and 15 <= value <= 30 else None
 
     @property
     def pending_dispatched_temperature(self):
-        from .attribute_runtime import _capture_in_utc
-
-        profile = getattr(self.coordinator.engine, "profiles", {}).get(
-            self.vehicle.vin.lower()
+        value, source = _reading_projection(
+            self.coordinator, self.vehicle, "climatisationTargetTemperatureC"
         )
-        record = next(
-            (
-                row
-                for row in reversed(getattr(profile, "command_journal", ()))
-                if row.origin == "home_assistant"
-                and row.capability == "climate"
-                and row.action
-                in ("start", "start_with_settings", "stop", "set_settings")
-            ),
-            None,
-        )
-        if (
-            record is None
-            or record.state not in ("accepted_unconfirmed", "backend_completed")
-            or record.readback_attribute != "climatisationTargetTemperatureC"
-            or not record.readback_values
-            or record.readback_observed_at is not None
-        ):
-            return None
-        stamp = _capture_in_utc(
-            self.vehicle.readings.get("climatisationTargetTemperatureC", {}).get(
-                "captured"
-            )
-        )
-        if stamp is not None and stamp.timestamp() >= record.started_at:
-            return None
-        return record.readback_values[0]
+        return value if source == "optimistic" else None
 
     @property
     def native_target_temperature(self):
@@ -314,7 +304,10 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
             "start_with_settings"
         ):
             return self._requested_temperature
-        return self.reported_target_temperature
+        value, _ = _reading_projection(
+            self.coordinator, self.vehicle, "climatisationTargetTemperatureC"
+        )
+        return value if type(value) in (int, float) and 15 <= value <= 30 else None
 
     @property
     def target_temperature(self):
@@ -340,14 +333,14 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
             getattr(self.vehicle, "inventory_present", True)
             and self.coordinator.last_update_success
             and (
-                _climate_reported_state(self.coordinator, self.vehicle) is not None
+                _climate_effective_state(self.coordinator, self.vehicle) is not None
                 or bool(self.supported_features)
             )
         )
 
     @property
     def hvac_mode(self) -> HVACMode | None:
-        state = _climate_reported_state(self.coordinator, self.vehicle)
+        state = _climate_effective_state(self.coordinator, self.vehicle)
         if state in _CLIMATE_OFF:
             return HVACMode.OFF
         if state in _CLIMATE_ON:
@@ -429,9 +422,9 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
                 "local_pending"
                 if self._requested_temperature is not None
                 and self._enabled("start_with_settings")
-                else "vehicle"
-                if self.reported_target_temperature is not None
-                else "unknown"
+                else _reading_projection(
+                    self.coordinator, self.vehicle, "climatisationTargetTemperatureC"
+                )[1]
             ),
             "last_reported_climate_state": self.vehicle.climate_state,
             "state_source": source,
@@ -1620,7 +1613,7 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool | None:
-        state = _climate_reported_state(self.coordinator, self.vehicle)
+        state = _climate_effective_state(self.coordinator, self.vehicle)
         return (
             True if state in _CLIMATE_ON else False if state in _CLIMATE_OFF else None
         )
@@ -1672,51 +1665,6 @@ class V3LockEntity(V3BaseEntity, LockEntity):
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle):
         super().__init__(coordinator, vehicle)
         self._attr_unique_id = f"{vehicle.vin.lower()}_lock_lock"
-        self._pending_refresh = None
-
-    async def async_added_to_hass(self):
-        await super().async_added_to_hass()
-        self.async_on_remove(self._cancel_pending_refresh)
-        self._schedule_pending_refresh()
-
-    @callback
-    def _cancel_pending_refresh(self):
-        if self._pending_refresh is not None:
-            self._pending_refresh()
-            self._pending_refresh = None
-
-    @callback
-    def _schedule_pending_refresh(self):
-        from .command_readback import (
-            LOCK_TRANSITION_TTL_SECONDS,
-            latest_readback_command,
-        )
-
-        self._cancel_pending_refresh()
-        if self.hass is None or not (self.is_locking or self.is_unlocking):
-            return
-        profile = getattr(self.coordinator.engine, "profiles", {}).get(
-            self.vehicle.vin.lower()
-        )
-        record = latest_readback_command(profile, "doorLockStatus")
-        if record is None:
-            return
-        delay = record.started_at + LOCK_TRANSITION_TTL_SECONDS
-        delay -= datetime.now(UTC).timestamp()
-        if delay > 0:
-            self._pending_refresh = async_call_later(
-                self.hass, delay, self._pending_expired
-            )
-
-    @callback
-    def _pending_expired(self, _now):
-        self._pending_refresh = None
-        self.async_write_ha_state()
-
-    @callback
-    def _handle_coordinator_update(self):
-        super()._handle_coordinator_update()
-        self._schedule_pending_refresh()
 
     @property
     def is_locked(self) -> bool | None:
@@ -1737,16 +1685,13 @@ class V3LockEntity(V3BaseEntity, LockEntity):
             return False
         engine = self.coordinator.engine
         pin = configured_spin(engine.auth)
-        # Do not hide an authorized explicit command just because the car
-        # is sleeping. is_locked still returns None for stale/unknown status.
+        # A sleeping vehicle retains its last observation; dispatch remains gated.
         return (
             self.coordinator.last_update_success
             and bool(pin)
             and (
                 engine.control_enabled(self.vehicle.vin, "lock", "access")
                 or engine.control_enabled(self.vehicle.vin, "unlock", "access")
-                or self.is_locking
-                or self.is_unlocking
                 or self.is_locked is not None
             )
         )
@@ -1765,23 +1710,6 @@ class V3LockEntity(V3BaseEntity, LockEntity):
             "unlock_enabled": attrs["control_actions"]["unlock"],
         }
 
-    def _pending_action(self, action):
-        from .command_readback import pending_access_action
-
-        profile = getattr(
-            getattr(self.coordinator, "engine", None), "profiles", {}
-        ).get(self.vehicle.vin.lower())
-        captured = self.vehicle.readings.get("doorLockStatus", {}).get("captured")
-        return pending_access_action(profile, captured) == action
-
-    @property
-    def is_locking(self):
-        return self._pending_action("lock")
-
-    @property
-    def is_unlocking(self):
-        return self._pending_action("unlock")
-
     async def _send_access(self, action):
         # Dispatch uses the same authoritative guard as Workbench. Do not
         # turn a pending review or cooldown into a false authorization error.
@@ -1798,15 +1726,12 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         except (ValueError, RuntimeError) as err:
             raise HomeAssistantError(str(err)) from err
         self.async_write_ha_state()
-        self._schedule_pending_refresh()
 
     async def async_lock(self, **kwargs) -> None:
-        if self.is_locked is not True:
-            await self._send_access("lock")
+        await self._send_access("lock")
 
     async def async_unlock(self, **kwargs) -> None:
-        if self.is_locked is not False:
-            await self._send_access("unlock")
+        await self._send_access("unlock")
 
 
 class V3ParkedTracker(V3BaseEntity, TrackerEntity):
