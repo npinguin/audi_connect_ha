@@ -77,7 +77,7 @@ def remember_climate(profile, reading, now=None):
 
 
 def _observation_rank(row, registry, now):
-    """One ordering at the write boundary: valid, fresh, family, capture."""
+    """Newest valid capture wins; priority only breaks equivalent timestamps."""
     family = row.get("family", "")
     priority = (
         registry.family_priority(family)
@@ -88,13 +88,65 @@ def _observation_rank(row, registry, now):
     valid = row.get("value") is not None and row.get("status") != "invalid_value"
     stamp = _capture_in_utc(row.get("captured")) if age is not None else None
     captured = stamp.timestamp() if stamp else float("-inf")
-    if valid and age is not None and age <= 60:
-        return (3, -priority, captured, family)
     if valid and age is not None:
         return (2, captured, -priority, family)
     if valid:
         return (1, -priority, captured, family)
     return (0, captured, -priority, family)
+
+
+def select_reading(
+    vehicle, sources, canonical, *, registry=None, now=None, families=None
+):
+    """Select equivalent observations in the existing Status owner.
+
+    A family restriction supplies evidence, not dispatch authorization.
+    """
+    valid = []
+    cache = getattr(vehicle, "family_readings", {})
+    for a in dict.fromkeys(sources):
+        if a not in vehicle.readings:
+            continue
+        row = vehicle.readings[a]
+        candidates = dict(cache.get(a, {})) if registry is not None or families is not None else {}
+        candidates[row.get("family", "")] = row
+        valid.extend(
+            (a, sample)
+            for sample in candidates.values()
+            if (families is None or sample.get("family", "") in families)
+            and (
+                sample.get("value") is not None
+                or sample.get("status") == "invalid_value"
+            )
+        )
+    if not valid:
+        return canonical, None
+
+    def score(item):
+        stamp = _capture_in_utc(item[1].get("captured"))
+        return (stamp.timestamp() if stamp is not None else -1, item[0] == canonical)
+
+    # Resolve historical aliases within each family by capture first, then
+    # apply the same family ranking as the observation writer. An explicit
+    # invalid newer sample must still invalidate its own family.
+    by_family = {}
+    for item in valid:
+        family = item[1].get("family", "")
+        previous = by_family.get(family)
+        if previous is None or score(item) > score(previous):
+            by_family[family] = item
+    if len(by_family) == 1 or (registry is None and families is None):
+        return max(valid, key=score)
+    reference = now or datetime.now(UTC)
+    return max(
+        by_family.values(),
+        key=lambda item: (
+            _observation_rank(item[1], registry, reference),
+            item[0] == canonical,
+            item[0],
+        ),
+    )
+
 
 
 def _current_candidates(vehicle, ident):
