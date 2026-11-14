@@ -666,9 +666,7 @@ class OptionsFlowHandler(OptionsFlow):
             return await self.async_step_discovery_recover()
         if self._discovery_skipped is None:
             self._discovery_skipped = set()
-        candidates = user_test_candidates(
-            engine, car, profile, include_verified=True
-        )
+        candidates = user_test_candidates(engine, car, profile, include_verified=True)
         if user_input is not None:
             choice = user_input.get("action")
             if choice == "finish":
@@ -751,7 +749,9 @@ class OptionsFlowHandler(OptionsFlow):
                 self._discovery_skipped.add(self._discovery_action)
                 self._discovery_candidate = None
                 return await self.async_step_discovery()
-            params = {name: value for name, value in user_input.items() if name != "accept"}
+            params = {
+                name: value for name, value in user_input.items() if name != "accept"
+            }
             self._discovery_candidate = None  # Single-use explicit action approval.
             try:
                 validate_inputs(params, schema)

@@ -363,9 +363,19 @@ def test_charging_request_feedback_is_informational_not_vehicle_capture():
     }
     observe_structured(
         car,
-        {"charging": {"chargingStatus": {"requests": [
-            {"operation": "stop", "status": "failed", "private": "not-retained"}
-        ]}}},
+        {
+            "charging": {
+                "chargingStatus": {
+                    "requests": [
+                        {
+                            "operation": "stop",
+                            "status": "failed",
+                            "private": "not-retained",
+                        }
+                    ]
+                }
+            }
+        },
         now,
         _accept_observation,
     )

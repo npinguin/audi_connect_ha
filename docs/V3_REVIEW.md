@@ -16,12 +16,12 @@ V3 enumerates vehicles during setup; the V2-only startup update preference is re
 
 Audi's cloud can be reachable while a parked vehicle has not sent new data. A cloud refresh is not proof of a new vehicle capture. No automatic wake on every poll.
 
-| State | Meaning |
-| --- | --- |
-| Fresh | Valid measurement with a sufficiently recent vehicle capture. |
-| Last known | Historical observation; check its capture time. Not confirmation of current state. |
-| Unknown | No reliable current value. A historical value may still be available in attributes. |
-| Unavailable | The entity or source cannot currently provide a usable value. Check the reason. |
+| State          | Meaning                                                                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Fresh          | Valid measurement with a sufficiently recent vehicle capture.                                                                           |
+| Last known     | Historical observation; check its capture time. Not confirmation of current state.                                                      |
+| Unknown        | No reliable current value. A historical value may still be available in attributes.                                                     |
+| Unavailable    | The entity or source cannot currently provide a usable value. Check the reason.                                                         |
 | Not applicable | The underlying condition does not apply, e.g. charging ETA when explicitly not charging. Never interpret a missing ETA as zero minutes. |
 
 Latest vehicle data age refers to the newest usable vehicle measurement, not the cloud receipt or oldest measurement. Oldest observed age and per-job ages remain available in attributes and the Workbench. Check the specific entity's capture time for automations. Data Act delivery may be fresh while the underlying capture is old. The tracker shows last parked position, not live GPS; movement without reliable vehicle capture stays unknown.

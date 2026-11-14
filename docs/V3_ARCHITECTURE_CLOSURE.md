@@ -8,31 +8,31 @@ The release objective is 100% agreed functional scope and V2 parity, zero known 
 
 ### Review criteria for every improvement
 
-| Criterion       | Required evidence                                                                       |
-| --------------- | --------------------------------------------------------------------------------------- |
-| Simplification  | Remove duplicate state, paths or decisions; explain any unavoidable added complexity.   |
-| Ownership       | One existing owner per responsibility and authoritative contract; no parallel writer.   |
-| Maintainability | Declarative mappings, bounded state, native HA mechanisms, focused tests and rollback.  |
+| Criterion       | Required evidence                                                                         |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| Simplification  | Remove duplicate state, paths or decisions; explain any unavoidable added complexity.     |
+| Ownership       | One existing owner per responsibility and authoritative contract; no parallel writer.     |
+| Maintainability | Declarative mappings, bounded state, native HA mechanisms, focused tests and rollback.    |
 | Extendability   | Add reviewed variants through existing catalog and contracts; no parallel resolver or UI. |
-| User experience | Ordinary use needs no Workbench, duplicate integration, API knowledge or entity rename. |
+| User experience | Ordinary use needs no Workbench, duplicate integration, API knowledge or entity rename.   |
 
 Use the existing PR review, not an additional workflow or a second governance catalog. Show before/after runtime impact, user-visible outcome and remaining live acceptance. Provider problems must be actionable without exposing credentials or making another channel unavailable. The Workbench remains optional and administrator-only.
 
 ### Authoritative responsibilities
 
-| Owner           | Responsibility                                             |
-| --------------- | ---------------------------------------------------------- |
-| Shared HA entry | Account/device association, config and runtime selection   |
-| API             | Authentication, transport, family protocols and quota      |
+| Owner           | Responsibility                                                                 |
+| --------------- | ------------------------------------------------------------------------------ |
+| Shared HA entry | Account/device association, config and runtime selection                       |
+| API             | Authentication, transport, family protocols and quota                          |
 | Catalog         | Canonical capabilities, operations, attributes and reviewed discovery metadata |
-| Status          | Read discovery, polling, normalization and freshness       |
-| Vehicle         | Canonical vehicle identity and observations                |
-| Command         | Eligibility, execution, durable journal, verification      |
-| Profiles        | Bindings and persistent evidence                           |
-| HA              | Stable native entities, services and registry lifecycle    |
-| Workbench       | Optional administrator analysis, configuration and test UX |
-| Diagnostics     | Read-only reporting and redaction                          |
-| Engine          | Composition and lifecycle orchestration                    |
+| Status          | Read discovery, polling, normalization and freshness                           |
+| Vehicle         | Canonical vehicle identity and observations                                    |
+| Command         | Eligibility, execution, durable journal, verification                          |
+| Profiles        | Bindings and persistent evidence                                               |
+| HA              | Stable native entities, services and registry lifecycle                        |
+| Workbench       | Optional administrator analysis, configuration and test UX                     |
+| Diagnostics     | Read-only reporting and redaction                                              |
+| Engine          | Composition and lifecycle orchestration                                        |
 
 Read: API → status → vehicle → HA. Write: HA owning device → active runtime → command → API → shared status writer → vehicle/HA and verified native readback. Engineering: discover → configure → isolated test → explicit activation. A command must never be routed to an unrelated account by VIN. Ambiguous ownership fails closed.
 

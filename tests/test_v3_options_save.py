@@ -99,7 +99,12 @@ def test_form_can_render_v3_workbench_option_when_mode_is_v3():
     assert "climate_quick_start" not in fields
     assert "experimental_commands" not in fields
     assert "edit_local_dealer" in fields
-    assert next(key for key in schema.schema if key.schema == "run_vehicle_discovery").default() is True
+    assert (
+        next(
+            key for key in schema.schema if key.schema == "run_vehicle_discovery"
+        ).default()
+        is True
+    )
 
 
 @pytest.mark.asyncio
@@ -360,7 +365,9 @@ async def test_native_selective_discovery_accepts_typed_temperature(monkeypatch)
 
     flow = OptionsFlowHandler()
     car = SimpleNamespace(vin="WAUZZZ4M0MD123456", name="Synthetic test car")
-    profile = SimpleNamespace(discovery=SimpleNamespace(_active=None), last_command=None)
+    profile = SimpleNamespace(
+        discovery=SimpleNamespace(_active=None), last_command=None
+    )
     candidate = {
         "label": "Start climate with temperature",
         "instructions": "Stop climate first.",

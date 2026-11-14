@@ -15,13 +15,13 @@ Do not reproduce these inventories in a second editable catalog. A declared row 
 
 The B41 product-code head [3ff5263](https://github.com/npinguin/audi_connect_ha/commit/3ff5263e6388c6db996f05c1ce630abcba867448) passed [Test #1985](https://github.com/npinguin/audi_connect_ha/actions/runs/43622884825) (1,265 Python tests, 43 Workbench tests, lint) and [Validate #1986](https://github.com/npinguin/audi_connect_ha/actions/runs/43622884817). This is automated evidence for that exact head, not field acceptance. The documentation successor must pass its own exact-head checks before integration.
 
-| Area | Implemented in B41 | Remaining evidence |
-| --- | --- | --- |
-| Operational switch state | Charging and window-heating switches no longer project unconfirmed requested On/Off as physical state. Last reported state and capture remain informational. | Q5 real charging STOP and START, stale/unknown UI and actual readback. |
-| Entity continuity | Existing mapped read-only sensor/binary-sensor registry identities re-offered on reload without requiring a new reading; retired identities remain retired. | Q5 upgrade/restart and the five reported missing entities, Q8 regression, user-disabled settings. |
-| Climate discovery | Catalog-driven Guided and Expert selective share reviewed action metadata, typed parameters, resolver and verification; read temperature independent of write support. | Q5 stored start, parameterized start, independent setpoint update and stop; Q8 stored start and read-only/write feature parity. |
-| Extendability | Existing SOC operation can be added to discovery in a regression test through metadata alone; not enabled in the production catalog. | No extra product feature is required for B41. |
-| Freshness | Existing B40 shared observation/readback writer retained; no new polling or command route. | Actual post-dispatch capture, full charge cycle, last-known versus not-applicable ETA and cross-source capture consistency. |
+| Area                     | Implemented in B41                                                                                                                                                     | Remaining evidence                                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Operational switch state | Charging and window-heating switches no longer project unconfirmed requested On/Off as physical state. Last reported state and capture remain informational.           | Q5 real charging STOP and START, stale/unknown UI and actual readback.                                                          |
+| Entity continuity        | Existing mapped read-only sensor/binary-sensor registry identities re-offered on reload without requiring a new reading; retired identities remain retired.            | Q5 upgrade/restart and the five reported missing entities, Q8 regression, user-disabled settings.                               |
+| Climate discovery        | Catalog-driven Guided and Expert selective share reviewed action metadata, typed parameters, resolver and verification; read temperature independent of write support. | Q5 stored start, parameterized start, independent setpoint update and stop; Q8 stored start and read-only/write feature parity. |
+| Extendability            | Existing SOC operation can be added to discovery in a regression test through metadata alone; not enabled in the production catalog.                                   | No extra product feature is required for B41.                                                                                   |
+| Freshness                | Existing B40 shared observation/readback writer retained; no new polling or command route.                                                                             | Actual post-dispatch capture, full charge cycle, last-known versus not-applicable ETA and cross-source capture consistency.     |
 
 ### Q5 field evidence — charging remains open
 
@@ -33,16 +33,16 @@ B41 addresses the false state projection, not the physical STOP root cause. Do n
 
 ### Remaining acceptance and release gates
 
-| Gate | Required evidence |
-| --- | --- |
-| Q5 physical controls | Compare B35/B40 command evidence; B41 START/STOP with actual power, pending/last-known behavior; targeted climate tests. |
-| Q8 physical regression | Stored-settings climate, stop, read target, lock/unlock; charging cycle including ETA expiry; no optimistic charging state. |
-| Registry and trips | Previously mapped entities retained on reload and upgrade; retired Charging ready remains retired; no deletion of user choices or recorder history; 394 Q8 and 1,000 Q5 historical trip baselines remain intact where applicable. |
-| Identity #35 | Actual OEM model/year and drivetrain evidence or explicit accepted limitation; GraphQL partial response is not proof of unsupported vehicle. |
-| Data and lifecycle | Drive, sleep, charging, optional Data Act connect/disconnect/reconnect, restart and V2 rollback; timestamp and quota behavior over a representative period. |
-| Broader scope #44 | Representative ICE/PHEV/BEV, Auth0/legacy and supported markets, legacy reads, services, all native platforms and actual controls; sharing/import, security and multi-account lifecycle. |
-| Candidate packaging | Exact final-head Test/Validate, pinned dev source, both supported HA targets, archive/checksum and preceding published beta present in upstream review. |
-| Upstream stable | Existing [PR #918](https://github.com/audiconnect/audi_connect_ha/pull/918), reviewed scope and maintainer acceptance. CI or a single vehicle does not close the stable gate. |
+| Gate                   | Required evidence                                                                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q5 physical controls   | Compare B35/B40 command evidence; B41 START/STOP with actual power, pending/last-known behavior; targeted climate tests.                                                                                                          |
+| Q8 physical regression | Stored-settings climate, stop, read target, lock/unlock; charging cycle including ETA expiry; no optimistic charging state.                                                                                                       |
+| Registry and trips     | Previously mapped entities retained on reload and upgrade; retired Charging ready remains retired; no deletion of user choices or recorder history; 394 Q8 and 1,000 Q5 historical trip baselines remain intact where applicable. |
+| Identity #35           | Actual OEM model/year and drivetrain evidence or explicit accepted limitation; GraphQL partial response is not proof of unsupported vehicle.                                                                                      |
+| Data and lifecycle     | Drive, sleep, charging, optional Data Act connect/disconnect/reconnect, restart and V2 rollback; timestamp and quota behavior over a representative period.                                                                       |
+| Broader scope #44      | Representative ICE/PHEV/BEV, Auth0/legacy and supported markets, legacy reads, services, all native platforms and actual controls; sharing/import, security and multi-account lifecycle.                                          |
+| Candidate packaging    | Exact final-head Test/Validate, pinned dev source, both supported HA targets, archive/checksum and preceding published beta present in upstream review.                                                                           |
+| Upstream stable        | Existing [PR #918](https://github.com/audiconnect/audi_connect_ha/pull/918), reviewed scope and maintainer acceptance. CI or a single vehicle does not close the stable gate.                                                     |
 
 The original functional scope remains below. Historical behavior and earlier evidence are preserved at the pinned B40 source; the current B41 contract and the user guide take precedence. Feature freeze: only evidence-backed corrections, security fixes and documentation/acceptance closure. No V2/default-runtime change, new polling, speculative routes or release promotion on CI alone.
 
