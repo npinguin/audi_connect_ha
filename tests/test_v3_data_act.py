@@ -895,6 +895,11 @@ async def test_portal_identity_only_enriches_owned_missing_fields():
     assert car.identity_operation == "eu_data_act.identity.vehicles"
     assert capture_identity(car)["operation"] == car.identity_operation
     assert profile.manufacturer_identity["source"] == "eu_data_act_modelName"
+    schema = profile.job_schema["eu_data_act.identity.vehicles"]
+    assert schema["outcome"] == "matched_vehicle"
+    assert any(field["path"] == "modelName" for field in schema["fields"])
+    assert VIN not in str(schema)
+    assert "Audi Q8" not in str(schema)
     assert not await status._enrich_data_act_identity(client)
     client._json.assert_awaited_once()
     storage.async_save.assert_awaited_once()
@@ -1007,3 +1012,22 @@ async def test_missing_subscription_removes_only_optional_readings():
     assert car.readings["stateOfCharge"]["value"] == 80
     assert "eu_data_act" not in car.family_readings["stateOfCharge"]
     assert status.data_act_poll_status()["result"] == "subscription_unavailable"
+
+
+def test_data_act_duration_and_hood_enrichment_rejects_sentinels():
+    from datetime import UTC, datetime
+    from custom_components.audiconnect.v3.attribute_runtime import data_act_observations
+
+    now = datetime.now(UTC)
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    payload = {
+        "Data": [
+            {"key": "cf28f7d9-6201-30b8-82e5-a461968d30dc", "dataFieldName": "remaining_charging_time", "value": "42", "timestampUtc": now.isoformat()},
+            {"key": "1c62bf0a-8088-332c-9399-3b8cb0573099", "dataFieldName": "remaining_climatisation_time", "value": "-1", "timestampUtc": now.isoformat()},
+            {"key": "d48ccd21-a39f-33eb-989b-d81bd23fa766", "dataFieldName": "state_of_hood", "value": "3", "timestampUtc": now.isoformat()},
+        ]
+    }
+    result = data_act_observations(payload, now, registry)
+    assert result["remainingChargingTime"]["value"] == 42
+    assert "remainingClimatisationTime" not in result
+    assert result["hood_open"]["value"] is False

@@ -415,6 +415,7 @@ class StatusEngine:
         before = self.data_act_poll_status()
         changed = discovery_changed = False
         previous_attempt = self._data_act_attempt_at
+        previous_identity_attempt = self._data_act_identity_attempt_at
         try:
             samples = await self._poll_data_act()
             client = getattr(self.auth, "data_act_client", None)
@@ -432,6 +433,7 @@ class StatusEngine:
                     discovery_changed |= bool(
                         self.profiles[key].job_schema.pop(DATA_ACT_DATASET, None)
                     )
+                    self.profiles[key].job_schema.pop("eu_data_act.identity.vehicles", None)
                     changed |= remove_family_observations(
                         car, self.profiles[key], "eu_data_act", datetime.now(UTC)
                     )
@@ -453,6 +455,9 @@ class StatusEngine:
                     client.acknowledge(car.vin, marker)
             if self._data_act_attempt_at != previous_attempt:
                 changed |= await self._enrich_data_act_identity(client)
+                discovery_changed |= (
+                    self._data_act_identity_attempt_at != previous_identity_attempt
+                )
         except Exception:
             # Optional provider errors must not invalidate native data or expose
             # response content and credentials in logs.
@@ -468,6 +473,7 @@ class StatusEngine:
     async def _enrich_data_act_identity(self, client):
         """Bound identity enrichment to the existing optional family task."""
         from .data_act import DataActUnavailable, IDENTITY_OPERATION
+        from .response_preview import merge_schema_evidence
 
         if self._apply_identity is None or client.authorization_required:
             return False
@@ -491,7 +497,27 @@ class StatusEngine:
         try:
             rows = await client.identity_rows(car.vin for car in missing.values())
         except DataActUnavailable:
-            return False
+            rows = []
+            outcome = "authorization_required" if client.authorization_required else "unavailable"
+            http_status = None
+        else:
+            outcome = "no_unique_matching_vehicle"
+            http_status = 200
+        by_vin = {row["vin"].lower(): row for row in rows}
+        for key, car in missing.items():
+            if self.vehicles.get(key) is not car or key not in self.profiles:
+                continue
+            row = by_vin.get(key, {})
+            evidence = merge_schema_evidence(
+                self.profiles[key].job_schema.get(IDENTITY_OPERATION),
+                row.get("schema_fields", []),
+                row.get("schema_truncated", False),
+                status=http_status,
+                source=IDENTITY_OPERATION,
+                at=now.isoformat(),
+            )
+            evidence["outcome"] = "matched_vehicle" if row else outcome
+            self.profiles[key].job_schema[IDENTITY_OPERATION] = evidence
         changed = False
         for row in rows:
             car = missing.get(row["vin"].lower())
