@@ -1491,8 +1491,10 @@ class AudiConnectV3Panel extends HTMLElement {
         .map((source) => {
           const summary = `${escapeHTML(source.label)} · ${source.fields_observed} fields · ${source.fields_mapped} mapped · ${source.normalized} normalized · ${source.normalized_details || 0} details · ${source.selected} selected · ${source.fresh} fresh`;
           const health = source.health || {};
+          const auth = source.auth_context || {};
           return `<details open><summary>${summary}</summary>
           <p>${escapeHTML(friendly(health.result || "source evidence"))} · ${source.tested_operations}/${source.operations} operations tested${source.truncated ? " · Bounded inventory" : ""}</p>
+          <div class="subline">Auth: ${escapeHTML(friendly(auth.role || source.auth || "unknown"))}${auth.present === false ? " · Credential unavailable" : auth.same_as_cariad ? " · Shared CARIAD token" : ""}${auth.claims_verified === false ? " · Claims unverified" : ""}</div>
           ${detailed ? (source.schema_results || []).map((result) => `<div class="subline">${escapeHTML(result.source)} · HTTP ${escapeHTML(result.http_status ?? "—")} · ${escapeHTML(friendly(result.outcome || "observed"))} · ${escapeHTML(this.localTime(result.observed_at))}</div>`).join("") : ""}
           ${
             detailed

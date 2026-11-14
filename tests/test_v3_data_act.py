@@ -1206,6 +1206,19 @@ def test_portal_identity_uses_declared_paths_and_never_role_or_nickname():
     assert car.model == "Audi A6"
     assert car.model_year == "2022"
     assert car.model_source == "eu_data_act_oem.model"
+    from custom_components.audiconnect.v3.identity_cache import (
+        capture_identity,
+        apply_cached_identity,
+        without_optional_identity,
+    )
+
+    car.identity_observed_at = datetime.now(UTC).isoformat()
+    identity = capture_identity(car)
+    assert identity["source"] == "eu_data_act_oem.model"
+    restored = V3Vehicle(VIN, "Audi vehicle", "", "", "BE")
+    apply_cached_identity(restored, identity)
+    assert restored.model == "Audi A6" and restored.identity_restored
+    assert not without_optional_identity(identity)
 
 
 def test_observed_portal_inventory_has_exact_declared_destinations():

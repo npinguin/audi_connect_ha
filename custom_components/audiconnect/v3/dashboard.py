@@ -207,6 +207,10 @@ async def ws_status(hass, connection, msg):
                     )["payload"]
             if family["auth"] == "eu_data_act" and hasattr(engine, "status"):
                 family["health"] = engine.status.data_act_poll_status()
+            elif hasattr(getattr(engine, "auth", None), "identity_auth_evidence"):
+                family["auth_context"] = engine.auth.identity_auth_evidence(
+                    family["id"]
+                )
         report["end_user_progress"] = engine.discovery_progress(vehicle, profile)
         report["data_act_discovery"] = data_act_discovery(
             vehicle, profile, include_fields=True
