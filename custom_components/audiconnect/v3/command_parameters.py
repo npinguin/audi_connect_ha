@@ -111,16 +111,14 @@ def temperature_celsius(params, default):
     return validate_parameter(value, TEMPERATURE["temp_c"])
 
 
-def parameter_schema(operation, route, *, discovery_action=None):
-    """One input contract; discovery exposes only reviewed semantic inputs."""
-    if discovery_action is not None:
+def parameter_schema(operation, route, *, discovery_parameters=None):
+    """One input contract; discovery selects reviewed, required inputs."""
+    if discovery_parameters is not None:
         schema = parameter_schema(operation, route)
-        if (
-            discovery_action in ("climate.start_with_settings", "climate.set_settings")
-            and "temp_c" in schema
-        ):
-            return {"temp_c": {**schema["temp_c"], "required": True}}
-        return {}
+        return {
+            name: {**schema[name], "required": True}
+            for name in discovery_parameters
+        }
     if operation.get("input_schema"):
         return operation["input_schema"]
     variables = operation.get("request_variables", {})
