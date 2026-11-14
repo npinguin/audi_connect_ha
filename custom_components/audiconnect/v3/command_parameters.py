@@ -111,25 +111,15 @@ def temperature_celsius(params, default):
     return validate_parameter(value, TEMPERATURE["temp_c"])
 
 
-def discovery_parameter_schema(capability, action, operation):
-    """Reviewed semantic inputs for both guided and selective discovery."""
-    if capability == "climate" and (
-        (
-            action == "start_with_settings"
-            and operation.get("request_mode")
-            in ("climate_start_settings", "mbb_climate_start")
-        )
-        or (
-            action == "set_settings"
-            and operation.get("request_mode") == "climate_settings_update"
-        )
-    ):
-        return {"temp_c": {**TEMPERATURE["temp_c"], "required": True}}
-    return {}
-
-
-def parameter_schema(operation, route):
-    """Expose the existing input contract; no credentials or vehicle values."""
+def parameter_schema(operation, route, *, discovery_action=None):
+    """One input contract; discovery exposes only reviewed semantic inputs."""
+    if discovery_action is not None:
+        schema = parameter_schema(operation, route)
+        if discovery_action in ("climate.start_with_settings", "climate.set_settings") and (
+            "temp_c" in schema
+        ):
+            return {"temp_c": {**schema["temp_c"], "required": True}}
+        return {}
     if operation.get("input_schema"):
         return operation["input_schema"]
     variables = operation.get("request_variables", {})
