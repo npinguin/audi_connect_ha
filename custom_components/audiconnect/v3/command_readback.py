@@ -162,7 +162,7 @@ def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
             return False
     # Expected state observed is not proof this command caused it.
     stamp = captured.timestamp()
-    if record.readback_observed_at is not None and stamp <= record.readback_observed_at:
+    if getattr(record, "readback_observed_at", None) is not None and stamp <= record.readback_observed_at:
         return False
     record.readback_observed_at = stamp
     return True
@@ -271,7 +271,7 @@ def command_attributes(profile, capability, actions, *, attribute=None):
         ),
         "command_readback_observed_at": (
             datetime.fromtimestamp(record.readback_observed_at, UTC).isoformat()
-            if record and record.readback_observed_at is not None
+            if record and getattr(record, "readback_observed_at", None) is not None
             else None
         ),
         "command_completed_at": (
@@ -306,7 +306,7 @@ def pending_access_action(profile, captured, *, now=None):
     if (
         record is not None
         and record.state in _ACCEPTED
-        and record.readback_observed_at is None
+        and getattr(record, "readback_observed_at", None) is None
         and (stamp is None or stamp.timestamp() <= record.started_at)
         and 0 <= (now or datetime.now(UTC)).timestamp() - record.started_at < OPTIMISTIC_TTL_SECONDS
     ):

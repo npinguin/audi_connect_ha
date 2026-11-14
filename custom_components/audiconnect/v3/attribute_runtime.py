@@ -187,8 +187,12 @@ def _merge_observation(previous, row, now):
     """Compare vehicle time only; equal/unordered conflicts cannot pick a winner."""
     if previous is None:
         return row
-    prior = _valid_capture(previous.get("captured"), now)
-    incoming = _valid_capture(row.get("captured"), now)
+    prior = _valid_capture(
+        previous.get("captured"), _capture_in_utc(previous.get("observed")) or now
+    )
+    incoming = _valid_capture(
+        row.get("captured"), _capture_in_utc(row.get("observed")) or now
+    )
     if prior is not None and (incoming is None or incoming < prior):
         return previous
     if incoming is not None and (prior is None or incoming > prior):

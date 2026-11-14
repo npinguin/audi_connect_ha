@@ -56,7 +56,7 @@ from .auth import configured_spin
 from .freshness import movement_capture_valid, reading_freshness_attributes
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
-from .command_readback import command_attributes, last_known_climate, projected_state
+from .command_readback import command_attributes, last_known_climate
 from .command_policy import supported_charge_modes
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
 from .product_contract import (
@@ -178,15 +178,16 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
             row = (
                 reading if reading is not None else self.vehicle.readings.get(attribute)
             )
+            from .attribute_runtime import last_known_observation
+
+            known = last_known_observation(row)
             result.update(
                 reading_freshness_attributes(row, allow_last_known=allow_last_known),
+                last_known_state=known.get("value"),
+                last_known_captured=known.get("captured"),
                 last_reported_state=(row or {}).get("value"),
                 state_source=source or "unknown",
-                state_is_optimistic=(
-                    source == "command_pending"
-                    and optimistic
-                    and attribute != "doorLockStatus"
-                ),
+                state_is_optimistic=False,
             )
         return result
 
@@ -207,65 +208,21 @@ _CLIMATE_OFF = frozenset(CLIMATE_OFF_STATES)
 _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
-def _command_projection(
-    coordinator, vehicle, attribute, reported, captured, *, optimistic=True
-):
-    profile = getattr(getattr(coordinator, "engine", None), "profiles", {}).get(
-        vehicle.vin.lower()
-    )
-    return projected_state(
-        profile, attribute, reported, captured, optimistic=optimistic
-    )
-
-
 def _reading_projection(
-    coordinator, vehicle, attribute, *, allow_last_known=False, optimistic=True
+    coordinator, vehicle, attribute, *, allow_last_known=False, optimistic=False
 ):
     row = vehicle.readings.get(attribute) or {}
-    reported = (
-        row.get("value")
-        if _reading_available(row, allow_last_known=allow_last_known)
-        else None
-    )
-    return _command_projection(
-        coordinator,
-        vehicle,
-        attribute,
-        reported,
-        row.get("captured"),
-        optimistic=optimistic,
-    )
+    if not _reading_available(row, allow_last_known=allow_last_known):
+        return None, "unknown"
+    source = "vehicle" if _reading_available(row) else "last_known_vehicle"
+    return row.get("value"), source
 
 
 def _climate_projection(coordinator, vehicle):
-    state = vehicle.climate_state
-    age = vehicle.capture_age_minutes
-    legacy = vehicle.context.auth == "legacy" and _reading_available(
-        vehicle.readings.get("climatisationState")
-    )
-    if (
-        state not in _CLIMATE_ON | _CLIMATE_OFF
-        or (age is None and not legacy)
-        or (age is not None and age > 60)
-    ):
-        state = None
-    profile = getattr(getattr(coordinator, "engine", None), "profiles", {}).get(
-        vehicle.vin.lower()
-    )
-    known, stamp, known_source = last_known_climate(profile)
-    if stamp and vehicle.climate_captured:
-        from .attribute_runtime import _capture_in_utc
-
-        if vehicle.climate_captured < _capture_in_utc(stamp):
-            state = None
-    effective, source = _command_projection(
-        coordinator, vehicle, "climate", state, vehicle.climate_captured
-    )
-    if effective is not None:
-        return effective, source
-    # A sentinel is not a new valid state. Preserve the bounded historical
-    # display separately from reported capture/command verification.
-    return known, known_source
+    state, source = _reading_projection(coordinator, vehicle, "climatisationState")
+    if state in _CLIMATE_ON | _CLIMATE_OFF:
+        return state, source
+    return None, "unknown"
 
 
 def _climate_reported_state(coordinator, vehicle):
@@ -341,8 +298,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
             "start_with_settings"
         ):
             return self._requested_temperature
-        pending = self.pending_dispatched_temperature
-        return pending if pending is not None else self.reported_target_temperature
+        return self.reported_target_temperature
 
     @property
     def target_temperature(self):
@@ -402,7 +358,12 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
         from .structured_details import details_for
 
+        from .attribute_runtime import last_known_observation
+
+        row = last_known_observation(self.vehicle.readings.get("climatisationState"))
         known, stamp, known_source = last_known_climate(profile)
+        if row and row.get("captured"):
+            known, stamp, known_source = row["value"], row["captured"], "last_known_vehicle"
         _, source = _climate_projection(self.coordinator, self.vehicle)
         return {
             **details_for(
@@ -1682,7 +1643,7 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
                 "Climate ON/OFF requires available verified controls"
             )
         state, source = _climate_projection(self.coordinator, self.vehicle)
-        if source not in ("vehicle", "command_pending") or state not in _CLIMATE_ON:
+        if source != "vehicle" or state not in _CLIMATE_ON:
             await _send_climate(self.coordinator, self.vehicle, "start")
         self.async_write_ha_state()
 
@@ -1692,7 +1653,7 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
                 "Climate ON/OFF requires available verified controls"
             )
         state, source = _climate_projection(self.coordinator, self.vehicle)
-        if source not in ("vehicle", "command_pending") or state not in _CLIMATE_OFF:
+        if source != "vehicle" or state not in _CLIMATE_OFF:
             await _send_climate(self.coordinator, self.vehicle, "stop")
         self.async_write_ha_state()
 
@@ -1797,16 +1758,13 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         }
 
     def _pending_action(self, action):
-        from .command_readback import latest_readback_command
+        from .command_readback import pending_access_action
 
         profile = getattr(
             getattr(self.coordinator, "engine", None), "profiles", {}
         ).get(self.vehicle.vin.lower())
-        record = latest_readback_command(profile, "doorLockStatus")
-        _, source = _reading_projection(
-            self.coordinator, self.vehicle, "doorLockStatus", optimistic=False
-        )
-        return bool(record and record.action == action and source == "command_pending")
+        captured = self.vehicle.readings.get("doorLockStatus", {}).get("captured")
+        return pending_access_action(profile, captured) == action
 
     @property
     def is_locking(self):

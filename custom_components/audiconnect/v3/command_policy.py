@@ -38,7 +38,14 @@ def locally_verified_charge_modes(profile):
 
 def charge_mode_evidence(car, profile):
     """Safe enum capability evidence; never include the car\'s current setting."""
+    from .attribute_runtime import last_known_observation
+
+    known = last_known_observation(car.readings.get("availableChargeModes"))
+    values = known.get("value")
     return {
+        "last_known_advertised_modes": [
+            mode for mode in ("manual", "timer") if isinstance(values, list) and mode in values
+        ],
         "locally_verified_modes": locally_verified_charge_modes(profile),
         "writable_modes": supported_charge_modes(car, profile),
         "empty_list_fallback": charge_mode_fallback_candidate(car),
