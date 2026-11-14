@@ -143,7 +143,6 @@ The additional channel no longer maintains a separate mutable denied-VIN set or 
 
 The existing ownership policy now makes simplification, ownership, maintainability and user experience explicit review evidence. User guidance explains optional-channel results and the relevant action using the existing Integration status, without requiring Workbench or a second integration. No new enforcement workflow or runtime abstraction.
 
-
 ### B34 audit closure: account, source and lifecycle
 
 The pre-publication audit fixes the account-ownership gate in the existing config flow; orders valid timestamped observations by capture time with family priority as a tie-break; uses the existing Status selector for aliases and native readback; acknowledges Data Act deliveries after processing; publishes status-only changes; retries failed trip polls after the bounded retry interval; and moves health updates to inventory observation. The existing setup lifecycle closes the optional task and session on failure, including platform setup. A successfully enumerated inventory with an enabled Data Act client can remain loaded during a native status outage, without treating native controls as available. Manufacturer identity remains parked.
