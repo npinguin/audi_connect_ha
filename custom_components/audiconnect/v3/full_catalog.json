@@ -3,6 +3,7 @@
   "brand": "audi",
   "api_families": {
     "cariad": {
+      "label": "CARIAD · modern",
       "auth": "auth0",
       "priority": 10,
       "host_owner": "audi_auth_session",
@@ -10,6 +11,7 @@
       "executor": "cariad_v1"
     },
     "graphql": {
+      "label": "GraphQL",
       "auth": "auth0",
       "priority": 10,
       "host_owner": "audi_auth_session",
@@ -17,6 +19,7 @@
       "executor": "graphql_v1"
     },
     "eu_data_act": {
+      "label": "EU Data Act",
       "auth": "eu_data_act",
       "priority": 30,
       "poll_interval_minutes": 30,
@@ -170,6 +173,7 @@
       }
     },
     "mbb": {
+      "label": "MBB · legacy",
       "auth": "legacy",
       "priority": 20,
       "host_owner": "legacy_home_region",

@@ -185,6 +185,9 @@ async def ws_status(hass, connection, msg):
             report["integration_health"] = engine.health.snapshot(engine, vehicle)
         from .read_discovery import data_act_discovery, user_test_candidates
 
+        for family in report["family_discovery"]:
+            if family["auth"] == "eu_data_act" and hasattr(engine, "status"):
+                family["health"] = engine.status.data_act_poll_status()
         report["end_user_progress"] = engine.discovery_progress(vehicle, profile)
         report["data_act_discovery"] = data_act_discovery(
             vehicle, profile, include_fields=True
