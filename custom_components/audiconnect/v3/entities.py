@@ -260,6 +260,8 @@ def _climate_projection(coordinator, vehicle):
     )
     if effective is not None:
         return effective, source
+    # A sentinel is not a new valid state. Preserve the bounded historical
+    # display separately from reported capture/command verification.
     return known, known_source
 
 

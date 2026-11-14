@@ -153,3 +153,11 @@ Use the existing bounded command projection window for lock transitions too,
 independently of command cooldown; never optimistically claim locked/unlocked.
 A newer explicit non-charging observation suppresses a superseded derived ETA,
 while preserving its underlying duration for engineering evidence.
+
+Command responses now use the same normalized observation and capture
+projection as native polling, with the actual operation as provenance.
+Only valid per-envelope vehicle captures newer than the command start are
+eligible; HTTP acceptance, request echoes and undated values never advance
+freshness or confirm physical state. The existing last-update entity updates
+immediately, independent of the cloud poll clock. Regression covers a combined
+access/charging response, stale and missing captures, and request-only echo.

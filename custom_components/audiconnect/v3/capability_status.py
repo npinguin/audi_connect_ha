@@ -602,6 +602,7 @@ def family_discovery(vehicle, profile, rows, operations):
                     if valid
                     else "invalid_value",
                     "reason": sample.get("reason"),
+                    "operation": sample.get("operation"),
                     "fresh": valid and timestamp_is_fresh(sample.get("captured"), now),
                     "delivered_at": sample.get("delivered_at"),
                 }
@@ -1423,6 +1424,11 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
         "capture_evidence": [
             {
                 "family": family["id"],
+                "operation": (
+                    row["operation"]
+                    if row.get("operation") in base_registry.operations
+                    else None
+                ),
                 **{
                     key: row[key]
                     for key in (

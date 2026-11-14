@@ -48,7 +48,10 @@ def project_charging_eta(car, profile, observed_at):
         }
 
 
-def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
+def observe_derived(
+    car, profile, payload: dict, observed_at, accepts,
+    *, operation="cariad.climate.status.batch",
+) -> None:
     from .attribute_runtime import (
         record_observation,
         _valid_capture,
@@ -69,7 +72,7 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 job,
                 "cariad",
                 fresh=timestamp_is_fresh(captured, observed_at),
-                operation="cariad.climate.status.batch",
+                operation=operation,
                 persist_evidence=False,
             )
 
@@ -202,6 +205,7 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 "climatisation",
                 "unknown_window_heating_state",
                 profile=profile,
+                operation=operation,
             )
         else:
             record("windowHeatingActive", active, stamp, "climatisation", path)
@@ -264,6 +268,7 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 "access",
                 "partial_or_unknown_component_state",
                 profile=profile,
+                operation=operation,
             )
 
         def record_component(ident, value):
@@ -418,6 +423,7 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 "vehicleLights",
                 "unknown_parking_light_state",
                 profile=profile,
+                operation=operation,
             )
     oil = read_json_path(payload, "oilLevel.oilLevelStatus.value")
     if isinstance(oil, dict) and type(oil.get("value")) is bool:
@@ -444,6 +450,7 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
             "oilLevel",
             "numeric_oil_level_no_binary_warning",
             profile=profile,
+            operation=operation,
         )
     path = "chargingProfiles.chargingProfilesStatus.value"
     block = read_json_path(payload, path)
@@ -609,6 +616,7 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 job,
                 "incomplete_timer_data",
                 profile=profile,
+                operation=operation,
             )
         if job == "climatisationTimers":
             ident = "next_climatisation_timer_local"

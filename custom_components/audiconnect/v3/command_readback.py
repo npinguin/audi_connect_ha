@@ -352,44 +352,46 @@ def projected_state(
 
 
 def observe_command_response(record, car, profile, family, response):
-    """Consume only reviewed actual telemetry envelopes, never request status."""
-    if family != "cariad" or not isinstance(response.data, dict):
+    """Normalize real post-command captures through the existing observation writer.
+
+    Only reviewed selective-status jobs and their value envelopes are eligible.
+    A request echo, status, receipt clock or HTTP success is not telemetry.
+    """
+    if (
+        family != "cariad"
+        or not 200 <= response.status < 300
+        or not isinstance(response.data, dict)
+    ):
         return
     from .attribute_runtime import observe_read_only
-    from .registry import read_json_path
+    from .freshness import project_vehicle_capture
+    from .historical_catalog import V2_JOBS
 
-    paths = {
-        "climate": ("climatisation", "climatisationStatus"),
-        "climatisationTargetTemperatureC": ("climatisation", "climatisationSettings"),
-        "chargingState": ("charging", "chargingStatus"),
-        "windowHeatingActive": ("climatisation", "windowHeatingStatus"),
-        "doorLockStatus": ("access", "accessStatus"),
-        "targetstateOfCharge": ("charging", "chargingSettings"),
-        "preferredChargeMode": ("charging", "chargeMode"),
-    }
-    if record.readback_attribute in (
-        "climatisationWindowHeatingEnabled",
-        "climatisationAtUnlock",
-        "climatisationZoneFrontLeft",
-        "climatisationZoneFrontRight",
-        "climatisationZoneRearLeft",
-        "climatisationZoneRearRight",
-    ):
-        paths[record.readback_attribute] = ("climatisation", "climatisationSettings")
-    path = paths.get(record.readback_attribute)
-    if not path:
+    payload = {}
+    for job in V2_JOBS:
+        groups = response.data.get(job)
+        if not isinstance(groups, dict):
+            continue
+        for group, envelope in groups.items():
+            if not isinstance(envelope, dict):
+                continue
+            value = envelope.get("value")
+            if not isinstance(value, dict):
+                continue
+            captured = _valid_capture(
+                value.get("carCapturedTimestamp"), response.observed_at
+            )
+            if captured is None or captured.timestamp() <= record.started_at:
+                continue
+            payload.setdefault(job, {})[group] = {"value": value}
+    if not payload:
         return
-    job, group = path
-    envelope = read_json_path(response.data, f"{job}.{group}")
-    if not isinstance(envelope, dict):
-        return
-    value = envelope.get("value")
-    captured = (
-        _capture_in_utc(value.get("carCapturedTimestamp"))
-        if isinstance(value, dict)
-        else None
+    observe_read_only(
+        car, profile, payload, response.observed_at,
+        operation=record.operation, complete_discovery=False,
     )
-    if captured is None or captured.timestamp() <= record.started_at:
-        return
-    observe_read_only(car, profile, {job: {group: envelope}}, response.observed_at)
+    project_vehicle_capture(car, response.observed_at)
     reconcile_readback(record, car, response.observed_at, registry=profile.registry)
+    reconcile_access_mismatch(
+        record, car, response.observed_at, registry=profile.registry
+    )

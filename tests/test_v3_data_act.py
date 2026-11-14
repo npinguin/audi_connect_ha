@@ -1466,9 +1466,7 @@ def test_diagnostics_exposes_capture_sources_without_vehicle_values():
         now,
         now.isoformat(),
     )
-    report = diagnostic_capability_summary(
-        car, profile, registry, NS(uses_auth0=True)
-    )
+    report = diagnostic_capability_summary(car, profile, registry, NS(uses_auth0=True))
     row = next(
         row for row in report["capture_evidence"] if row["attribute"] == "stateOfCharge"
     )
