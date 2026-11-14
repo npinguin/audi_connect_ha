@@ -711,9 +711,12 @@ class AudiConnectV3Panel extends HTMLElement {
       return;
     }
     if (action === "identity-evidence") {
-      this.apiFamily = button.dataset.operation?.startsWith("cariad.")
-        ? "cariad"
-        : "graphql";
+      const family = button.dataset.operation?.split(".")[0];
+      this.apiFamily = (this.capabilityStatus.family_discovery || []).some(
+        (source) => source.id === family,
+      )
+        ? family
+        : "all";
       this.step = 4;
       this.focusOperation = button.dataset.operation || "";
       this.operationFilter = "all";
@@ -1489,10 +1492,11 @@ class AudiConnectV3Panel extends HTMLElement {
           const health = source.health || {};
           return `<details ${family !== "all" ? "open" : ""}><summary>${summary}</summary>
           <p>${escapeHTML(friendly(health.result || "source evidence"))} · ${source.tested_operations}/${source.operations} operations tested${source.truncated ? " · Bounded inventory" : ""}</p>
+          ${detailed ? (source.schema_results || []).map((result) => `<div class="subline">${escapeHTML(result.source)} · HTTP ${escapeHTML(result.http_status ?? "—")} · ${escapeHTML(friendly(result.outcome || "observed"))} · ${escapeHTML(this.localTime(result.observed_at))}</div>`).join("") : ""}
           ${
             detailed
               ? `<div class="coverage-table"><table><thead><tr><th>Operation / field</th><th>Mapping</th><th>Evidence</th></tr></thead><tbody>${(source.fields || []).map((field) => `<tr><td>${escapeHTML(field.path)}<div class="subline">${escapeHTML(field.operation)}</div></td><td>${escapeHTML((field.attributes || []).join(", ") || "—")}</td><td>${escapeHTML(friendly(field.mapping))} · ${escapeHTML(friendly(field.quality || "unknown"))}</td></tr>`).join("")}</tbody></table></div>
-          <div class="coverage-table"><table><thead><tr><th>Canonical attribute</th><th>Capture</th><th>Selection</th></tr></thead><tbody>${(source.observations || []).map((row) => `<tr><td>${escapeHTML(row.attribute)}</td><td>${escapeHTML(this.localTime(row.captured))}</td><td>${escapeHTML(friendly(row.status))}</td></tr>`).join("")}</tbody></table></div>`
+          <div class="coverage-table"><table><thead><tr><th>Canonical attribute</th><th>Capture / delivery</th><th>Selection</th></tr></thead><tbody>${(source.observations || []).map((row) => `<tr><td>${escapeHTML(row.attribute)}</td><td>${escapeHTML(this.localTime(row.captured))}<div class="subline">Received ${escapeHTML(this.localTime(row.observed_at))}${row.delivered_at ? " · Delivered " + escapeHTML(this.localTime(row.delivered_at)) : ""}</div></td><td>${escapeHTML(friendly(row.status))} · ${row.fresh ? "fresh" : "last known"}</td></tr>`).join("")}</tbody></table></div>`
               : ""
           }
           </details>`;

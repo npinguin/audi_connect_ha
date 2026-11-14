@@ -509,12 +509,13 @@ def family_discovery(vehicle, profile, rows, operations):
         for field in dataset["fields"]
     }
     canonical = {row["attribute"]: row for row in rows if row.get("entity_key")}
+    now = datetime.now(UTC)
     result = []
     for family, definition in profile.registry.families.items():
         sources = [op for op in operations if op.get("family") == family]
         schemas = [
             (job, evidence)
-            for job, evidence in profile.job_schema.items()
+            for job, evidence in getattr(profile, "job_schema", {}).items()
             if str(evidence.get("source", "")).partition(".")[0] == family
         ]
         fields = {}
@@ -549,7 +550,11 @@ def family_discovery(vehicle, profile, rows, operations):
             is_selected = bool(selected) and selected.get("family") == family
             if sample is None and is_selected:
                 sample = selected
-            if not sample or sample.get("value") is None or sample.get("status") == "invalid_value":
+            if (
+                not sample
+                or sample.get("value") is None
+                or sample.get("status") == "invalid_value"
+            ):
                 continue
             if is_selected and row["status"] not in ("verified", "readable_but_stale"):
                 continue
@@ -560,10 +565,13 @@ def family_discovery(vehicle, profile, rows, operations):
                     "observed_at": sample.get("observed"),
                     "selected": is_selected,
                     "status": row["status"] if is_selected else "alternative",
-                    "fresh": timestamp_is_fresh(sample.get("captured"), datetime.now(UTC)),
+                    "fresh": timestamp_is_fresh(sample.get("captured"), now),
                     "delivered_at": sample.get("delivered_at"),
                 }
             )
+        operation_ids = {op["operation"] for op in sources}
+        tested_ids = {op["operation"] for op in sources if op["tested"]}
+        schema_ids = {evidence["source"] for _, evidence in schemas}
         result.append(
             {
                 "id": family,
@@ -571,20 +579,27 @@ def family_discovery(vehicle, profile, rows, operations):
                 "auth": definition.get("auth"),
                 "read_scan": bool(definition.get("executor"))
                 and any(op.get("applicability") == "applicable" for op in sources),
-                "operations": len(sources),
-                "tested_operations": sum(bool(op["tested"]) for op in sources),
+                "operations": len(operation_ids | schema_ids),
+                "tested_operations": len(tested_ids | schema_ids),
                 "fields_observed": len(fields),
                 "fields_mapped": sum(
                     bool(field["attributes"]) for field in fields.values()
                 ),
                 "normalized": len(observations),
                 "selected": sum(row["selected"] for row in observations),
-                "fresh": sum(
-                    row["fresh"] for row in observations
-                ),
+                "fresh": sum(row["fresh"] for row in observations),
                 "truncated": any(evidence.get("truncated") for _, evidence in schemas),
                 "schema_results": [
-                    {key: evidence.get(key) for key in ("source", "http_status", "outcome", "observed_at", "latest_field_count")}
+                    {
+                        key: evidence.get(key)
+                        for key in (
+                            "source",
+                            "http_status",
+                            "outcome",
+                            "observed_at",
+                            "latest_field_count",
+                        )
+                    }
                     for _, evidence in schemas
                 ],
                 "fields": list(fields.values()),
@@ -1338,7 +1353,7 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
             {
                 key: value
                 for key, value in family.items()
-                if key not in ("fields", "observations")
+                if key not in ("fields", "observations", "schema_results")
             }
             for family in report["family_discovery"]
             if family["id"] in base_registry.families

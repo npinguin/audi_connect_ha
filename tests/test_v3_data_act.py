@@ -950,6 +950,15 @@ def test_data_act_discovery_reuses_schema_inventory_without_raw_values():
     assert not record_data_act_fields(profile, {"Data": []}, now)
     assert data_act_discovery(car, profile)["fields_observed"] == 2
     assert not profile.attribute_routes and not profile.attribute_evidence
+    from custom_components.audiconnect.v3.capability_status import build_status_report
+
+    sources = build_status_report(car, profile)["family_discovery"]
+    source = next(item for item in sources if item["id"] == "eu_data_act")
+    assert source["fields_observed"] == 2
+    assert source["fields_mapped"] == source["normalized"] == source["selected"] == 1
+    assert source["fresh"] == 1
+    assert not source["read_scan"]
+    assert "private raw data" not in str(source)
 
 
 @pytest.mark.asyncio
