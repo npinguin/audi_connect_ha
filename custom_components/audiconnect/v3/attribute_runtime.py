@@ -174,16 +174,75 @@ def select_reading(
     )
 
 
+def last_known_observation(row):
+    """Return actual historical telemetry, never an inferred command outcome."""
+    if not row:
+        return {}
+    if row.get("status") != "invalid_value" and row.get("value") is not None:
+        return row
+    return row.get("last_known") or {}
+
+
+def _merge_observation(previous, row, now):
+    """Compare vehicle time only; equal/unordered conflicts cannot pick a winner."""
+    if previous is None:
+        return row
+    prior = _valid_capture(previous.get("captured"), now)
+    incoming = _valid_capture(row.get("captured"), now)
+    if prior is not None and (incoming is None or incoming < prior):
+        return previous
+    if incoming is not None and (prior is None or incoming > prior):
+        known = last_known_observation(previous)
+        if row.get("status") == "invalid_value" and known:
+            row["last_known"] = {
+                key: known.get(key)
+                for key in ("value", "captured", "family", "status")
+            }
+        return row
+    # Both captures are equal or absent. An invalid undated report is not
+    # a new vehicle event; two incompatible values are an explicit conflict.
+    old_invalid = previous.get("status") == "invalid_value"
+    new_invalid = row.get("status") == "invalid_value"
+    if incoming is None and old_invalid != new_invalid:
+        if previous.get("reason") == "conflicting_source_values":
+            return previous
+        if row.get("reason") == "conflicting_source_values":
+            return row
+        return row if old_invalid else previous
+    if (
+        old_invalid == new_invalid
+        and type(previous.get("value")) is type(row.get("value"))
+        and previous.get("value") == row.get("value")
+        and previous.get("reason") == row.get("reason")
+    ):
+        return previous
+    # Keep the same capture boundary until a strictly newer event resolves
+    # the conflict. Never retain either conflicting value as last known.
+    if previous.get("reason") == "conflicting_source_values":
+        return previous
+    return {
+        "value": None,
+        "captured": row.get("captured"),
+        "observed": row.get("observed"),
+        "family": row.get("family", ""),
+        "job": row.get("job"),
+        "status": "invalid_value",
+        "reason": "conflicting_source_values",
+        "fresh": False,
+    }
+
+
 def _current_candidates(vehicle, ident, now):
     previous = vehicle.readings.get(ident)
     candidates = vehicle.family_readings.setdefault(ident, {})
     if previous is None:
         candidates.clear()
     else:
-        # Preserve a newer existing direct projection rather than reviving cache.
         source = previous.get("family", "")
-        if _accept_observation(candidates.get(source), previous.get("captured"), now):
-            candidates[source] = previous
+        if previous is not candidates.get(source):
+            candidates[source] = _merge_observation(
+                candidates.get(source), previous, now
+            )
     return candidates
 
 
@@ -194,8 +253,7 @@ def _select_observation(vehicle, ident, candidates, registry, now):
 
 
 def commit_observation(vehicle, ident, row, registry, now):
-    """Keep one sample per family; choose from the same set in either arrival order."""
-    # An implausible capture at receipt must never become valid merely by aging.
+    """Keep one canonical sample per family; never order by polling time."""
     received = _capture_in_utc(row.get("observed")) or now
     if _valid_capture(row.get("captured"), received) is None:
         row["captured"] = None
@@ -205,9 +263,11 @@ def commit_observation(vehicle, ident, row, registry, now):
             row["fresh"] = False
     candidates = _current_candidates(vehicle, ident, now)
     family = row["family"]
-    if not _accept_observation(candidates.get(family), row.get("captured"), now):
+    previous = candidates.get(family)
+    selected = _merge_observation(previous, row, now)
+    if selected is previous:
         return False
-    candidates[family] = row
+    candidates[family] = selected
     _select_observation(vehicle, ident, candidates, registry, now)
     return True
 
@@ -328,12 +388,13 @@ def record_observation(
     ):
         return False
     if ident == "climatisationState":
-        remember_climate(profile, row, observed_at)
+        remember_climate(profile, vehicle.readings[ident], observed_at)
     if persist_evidence:
+        row = vehicle.family_readings[ident][family]
         profile.attribute_evidence[ident] = {
             "status": row["status"],
-            "path": path,
-            "job": job,
+            "path": row.get("path", path),
+            "job": row.get("job", job),
             "source": "mbb.legacy" if family == "mbb" else "cariad.selectivestatus",
             "timestamp_present": bool(row["captured"]),
         }

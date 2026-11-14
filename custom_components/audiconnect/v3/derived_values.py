@@ -103,7 +103,7 @@ def observe_derived(
             )
     from .attribute_runtime import record_invalid_observation
 
-    project_charging_eta(car, profile, observed_at)
+    # ETA is projected once from selected observations at publication.
 
     # Complementary identity fields are present even if manufacturer media is null.
     from .vehicle import normalize_powertrain

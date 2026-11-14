@@ -148,3 +148,48 @@ def test_invalid_climate_capture_does_not_report_current_climate_age():
     }
     assert car.climate_captured == now
     assert car.capture_age_minutes is None
+
+
+def test_vehicle_capture_order_is_independent_of_arrival():
+    from itertools import permutations
+    from types import SimpleNamespace
+
+    from custom_components.audiconnect.v3.attribute_runtime import commit_observation
+
+    now = datetime.now(UTC)
+    for order in permutations((("charging", 3), ("off", 1), ("charging", 2))):
+        car = SimpleNamespace(readings={}, family_readings={})
+        for value, minutes in order:
+            stamp = (now - timedelta(minutes=minutes)).isoformat()
+            commit_observation(car, "chargingState", {
+                "value": value, "captured": stamp, "observed": now.isoformat(),
+                "family": "cariad", "status": "verified",
+            }, None, now)
+        assert car.readings["chargingState"]["value"] == "off"
+
+
+def test_same_capture_conflict_is_not_resolved_by_arrival_order():
+    from types import SimpleNamespace
+
+    from custom_components.audiconnect.v3.attribute_runtime import commit_observation
+
+    now = datetime.now(UTC)
+    for values in (("charging", "off", "charging"), ("off", "charging", "off")):
+        car = SimpleNamespace(readings={}, family_readings={})
+        for value in values:
+            commit_observation(car, "chargingState", {
+                "value": value, "captured": now.isoformat(), "observed": now.isoformat(),
+                "family": "cariad", "status": "verified",
+            }, None, now)
+        assert car.readings["chargingState"]["reason"] == "conflicting_source_values"
+        assert car.readings["chargingState"]["value"] is None
+
+
+def test_charge_mode_does_not_inherit_charging_capture():
+    from custom_components.audiconnect.v3.historical_catalog import capture_time
+
+    payload = {"charging": {
+        "chargingStatus": {"value": {"carCapturedTimestamp": "2026-01-01T12:00:00Z"}},
+        "chargeMode": {"value": {"availableChargeModes": ["manual", "timer"]}},
+    }}
+    assert capture_time(payload, "charging.chargeMode.value.availableChargeModes") is None
