@@ -294,24 +294,32 @@ def test_next_climate_timer_excludes_expired_and_ambiguous_times():
         ],
     }
     payload = {"climatisationTimers": {"climatisationTimersStatus": {"value": block}}}
-    observe_derived(car, profile, payload, now, lambda *_: True)
+    from datetime import timedelta
+
+    def observe():
+        nonlocal now
+        block["carCapturedTimestamp"] = now.isoformat()
+        observe_derived(car, profile, payload, now, lambda *_: True)
+        now += timedelta(seconds=1)
+
+    observe()
     key = "next_climatisation_timer_local"
     assert car.readings[key]["value"] == "2026-11-13T14:00:00"
     assert car.readings["climatisation_timer_enabled_count"]["value"] == 3
     block.pop("timeInCar")
-    observe_derived(car, profile, payload, now, lambda *_: True)
+    observe()
     assert car.readings[key]["value"] is None
     block["timers"] = block["timers"][2:]
-    observe_derived(car, profile, payload, now, lambda *_: True)
+    observe()
     assert car.readings[key]["value"] == "2026-11-15T14:00:00"
     block["timers"].append({"id": 4, "enabled": True, "singleTimer": {}})
-    observe_derived(car, profile, payload, now, lambda *_: True)
+    observe()
     assert car.readings[key]["value"] is None
     block["timers"].pop()
     block["timers"].append(
         {"id": 5, "enabled": True, "recurringTimer": {"startTime": "07:00"}}
     )
-    observe_derived(car, profile, payload, now, lambda *_: True)
+    observe()
     assert car.readings[key]["value"] == "2026-11-15T14:00:00"
     block["timeInCar"] = "2026-11-12T13:00:00+01:00"
     block["timers"].append(
@@ -321,5 +329,5 @@ def test_next_climate_timer_excludes_expired_and_ambiguous_times():
             "singleTimer": {"startDateTimeLocal": "2026-11-13T14:00:00"},
         }
     )
-    observe_derived(car, profile, payload, now, lambda *_: True)
+    observe()
     assert car.readings[key]["value"] is None
