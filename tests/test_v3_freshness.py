@@ -193,3 +193,35 @@ def test_charge_mode_does_not_inherit_charging_capture():
         "chargeMode": {"value": {"availableChargeModes": ["manual", "timer"]}},
     }}
     assert capture_time(payload, "charging.chargeMode.value.availableChargeModes") is None
+
+
+def test_undated_and_older_events_cannot_erase_a_vehicle_capture():
+    from types import SimpleNamespace
+    from custom_components.audiconnect.v3.attribute_runtime import commit_observation, last_known_observation
+
+    now = datetime.now(UTC)
+    car = SimpleNamespace(readings={}, family_readings={})
+    def write(value, captured, status="verified"):
+        return commit_observation(car, "chargingState", {
+            "value": value, "captured": captured, "observed": now.isoformat(),
+            "family": "cariad", "status": status,
+        }, None, now)
+
+    assert write("charging", (now - timedelta(minutes=2)).isoformat())
+    assert not write(None, None, "invalid_value")
+    assert not write("off", (now - timedelta(minutes=3)).isoformat())
+    assert car.readings["chargingState"]["value"] == "charging"
+    assert write(None, now.isoformat(), "invalid_value")
+    assert car.readings["chargingState"]["value"] is None
+    assert last_known_observation(car.readings["chargingState"])["value"] == "charging"
+    assert not write("off", (now - timedelta(minutes=1)).isoformat())
+
+
+def test_charge_mode_does_not_inherit_root_or_job_timestamp():
+    from custom_components.audiconnect.v3.historical_catalog import capture_time
+
+    payload = {"carCapturedTimestamp": "2026-01-01T00:00:00Z", "charging": {
+        "carCapturedTimestamp": "2026-01-01T00:00:01Z",
+        "chargeMode": {"value": {"preferredChargeMode": "manual"}},
+    }}
+    assert capture_time(payload, "charging.chargeMode.value.preferredChargeMode") is None

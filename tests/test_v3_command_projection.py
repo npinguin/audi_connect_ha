@@ -338,7 +338,10 @@ def test_command_response_publishes_real_capture_without_poll_or_request_echo():
     assert car.readings["doorLockStatus"]["value"] == "unlocked"
     assert car.readings["stateOfCharge"]["value"] == 95
     assert "chargingState" not in car.readings
-    assert "climatisationState" not in car.readings
+    # A genuine earlier vehicle capture is still telemetry, not proof of
+    # the just-issued command. The canonical writer rejects older duplicates.
+    assert car.readings["climatisationState"]["captured"] == OLD.isoformat()
+    assert car.readings["climatisationState"]["value"] == "heating"
     assert car.readings["last_update_time"]["value"] == NEW.isoformat()
     assert not car.v2_initial_discovery_completed
     attrs = reading_freshness_attributes(car.readings["stateOfCharge"], now=NEW)
@@ -373,3 +376,11 @@ def test_manual_stop_after_failed_remote_stop_is_not_command_success():
     assert row.backend_result == "rejected"
     assert not reconcile_readback(row, car, NEW)
     assert CommandRecord.restore(row.snapshot()).state == "rejected"
+    # Reversing delivery order preserves the same terminal outcome and evidence.
+    other = record("charging", "stop")
+    other.observe_http(200)
+    other.observe_backend("rejected", NEW.timestamp())
+    assert reconcile_readback(other, car, NEW)
+    assert other.state == row.state
+    assert other.backend_result == row.backend_result
+    assert other.readback_observed_at == row.readback_observed_at

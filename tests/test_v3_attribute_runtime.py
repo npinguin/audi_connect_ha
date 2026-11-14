@@ -657,3 +657,21 @@ def test_future_capture_never_becomes_valid_after_waiting():
         persist_evidence=False,
     )
     assert vehicle.readings["stateOfCharge"]["value"] == 80
+
+
+def test_undated_charge_mode_options_preserve_discovery_without_write_permission():
+    from itertools import permutations
+    from custom_components.audiconnect.v3.command_policy import charge_mode_evidence
+
+    now = datetime.now(UTC)
+    for options in permutations((["manual", "timer"], [])):
+        vehicle, profile = car(), Profile()
+        for values in options:
+            observe_read_only(vehicle, profile, {"charging": {"chargeMode": {"value": {
+                "availableChargeModes": values, "preferredChargeMode": "manual",
+            }}}}, now)
+        assert vehicle.readings["availableChargeModes"]["reason"] == "conflicting_source_values"
+        evidence = charge_mode_evidence(vehicle, None)
+        assert evidence["last_known_advertised_modes"] == ["manual", "timer"]
+        assert evidence["writable_modes"] == []
+        assert vehicle.readings["preferredChargeMode"]["captured"] is None
