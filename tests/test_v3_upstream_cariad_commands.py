@@ -147,7 +147,6 @@ async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outc
     from custom_components.audiconnect.v3.entities import _reading_projection
 
     engine, car = make_engine()
-    profile = engine.profiles[VIN.lower()]
     stamp = datetime.now(UTC) - timedelta(minutes=2)
     car.set_climate(
         "off", stamp.isoformat(), route="test", observed_at=stamp, http_status=200
