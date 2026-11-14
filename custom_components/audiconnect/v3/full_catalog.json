@@ -816,9 +816,7 @@
             "label": "Change climate target temperature",
             "instructions": "With climate off, choose a different target; check the setting changes without starting climate.",
             "order": 40,
-            "parameters": [
-              "temp_c"
-            ]
+            "parameters": ["temp_c"]
           }
         },
         "start_with_settings": {
@@ -830,9 +828,7 @@
             "label": "Start climate with temperature",
             "instructions": "Stop climate first. Choose a temperature different from the stored target; check that climate starts and applies it.",
             "order": 30,
-            "parameters": [
-              "temp_c"
-            ]
+            "parameters": ["temp_c"]
           }
         },
         "preheater_start": {
