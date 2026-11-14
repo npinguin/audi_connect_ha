@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from .attribute_runtime import _capture_in_utc, select_reading
+from .attribute_runtime import _capture_in_utc, _valid_capture, select_reading
 from .vehicle import (
     CLIMATE_ON_STATES,
     CLIMATE_OFF_STATES,
@@ -70,26 +70,32 @@ def configure_readback(record, params):
         record.readback_attribute, record.readback_values = match
 
 
-def _readback_row(car, attribute, now=None):
+def _readback_row(car, attribute, now=None, *, registry=None):
     """Use native evidence, independently of the selected display observation."""
     key = "climatisationState" if attribute == "climate" else attribute
-    _, row = select_reading(car, (key,), key, now=now, families=("cariad", "mbb", ""))
+    _, row = select_reading(
+        car, (key,), key, now=now, registry=registry, families=("cariad", "mbb", "")
+    )
     return row or {}
 
 
-def _readback_value(car, attribute, now=None):
-    row = _readback_row(car, attribute, now)
-    if row.get("status") == "invalid_value":
+def _readback_value(car, attribute, now=None, *, registry=None, started_at=None):
+    row = _readback_row(car, attribute, now, registry=registry)
+    observed = _capture_in_utc(row.get("observed"))
+    if row.get("status") == "invalid_value" or (
+        started_at is not None
+        and (observed is None or observed.timestamp() <= started_at)
+    ):
         return None, None
-    return row.get("value"), _capture_in_utc(row.get("captured"))
+    return row.get("value"), _valid_capture(row.get("captured"), observed or now)
 
 
-def configure_discovery_readback(record, car, params):
+def configure_discovery_readback(record, car, params, *, registry=None):
     """Only auto-confirm an observed change from a known, different pre-test state."""
     configure_readback(record, params)
     if not record.readback_attribute:
         return
-    value, captured = _readback_value(car, record.readback_attribute)
+    value, captured = _readback_value(car, record.readback_attribute, registry=registry)
     if isinstance(value, str):
         value = value.strip().lower()
     now = datetime.now(UTC)
@@ -114,13 +120,19 @@ def configure_discovery_readback(record, car, params):
         record.readback_attribute, record.readback_values = None, None
 
 
-def reconcile_readback(record, car, now=None) -> bool:
+def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
     if record.state not in ("accepted_unconfirmed", "backend_completed", "uncertain"):
         return False
     if not record.readback_attribute or not record.readback_values:
         return False
     now = now or datetime.now(UTC)
-    value, captured = _readback_value(car, record.readback_attribute, now)
+    value, captured = _readback_value(
+        car,
+        record.readback_attribute,
+        now,
+        registry=registry,
+        started_at=record.started_at,
+    )
     if captured is None or captured.timestamp() <= record.started_at:
         return False
     age = (now - captured).total_seconds()
@@ -137,7 +149,9 @@ def reconcile_readback(record, car, now=None) -> bool:
         record.action == "start_with_settings"
         and record.readback_attribute == "climatisationTargetTemperatureC"
     ):
-        climate, climate_stamp = _readback_value(car, "climate", now)
+        climate, climate_stamp = _readback_value(
+            car, "climate", now, registry=registry, started_at=record.started_at
+        )
         if (
             not isinstance(climate, str)
             or climate.strip().lower() not in CLIMATE_ON_STATES
@@ -151,7 +165,7 @@ def reconcile_readback(record, car, now=None) -> bool:
     return True
 
 
-def reconcile_access_mismatch(record, car, now=None) -> bool:
+def reconcile_access_mismatch(record, car, now=None, *, registry=None) -> bool:
     """Close an accepted lock attempt on a later reliable contrary observation.
 
     This is not proof that the command physically failed: the car may have
@@ -171,14 +185,13 @@ def reconcile_access_mismatch(record, car, now=None) -> bool:
     ):
         return False
     now = now or datetime.now(UTC)
-    row = _readback_row(car, "doorLockStatus", now)
-    stamp = _capture_in_utc(row.get("captured"))
-    value = row.get("value")
+    value, stamp = _readback_value(
+        car, "doorLockStatus", now, registry=registry, started_at=record.started_at
+    )
     if (
         stamp is None
         or stamp.timestamp() < record.started_at + TEMPORARY_ERROR_COOLDOWN_SECONDS
         or not 0 <= (now - stamp).total_seconds() <= 3600
-        or row.get("status") == "invalid_value"
         or not isinstance(value, str)
         or value.strip().lower() not in ("locked", "unlocked")
         or not record.readback_values
@@ -376,4 +389,4 @@ def observe_command_response(record, car, profile, family, response):
     if captured is None or captured.timestamp() <= record.started_at:
         return
     observe_read_only(car, profile, {job: {group: envelope}}, response.observed_at)
-    reconcile_readback(record, car, response.observed_at)
+    reconcile_readback(record, car, response.observed_at, registry=profile.registry)

@@ -167,3 +167,15 @@ cannot replace a valid timestamped observation or block recovery with a valid
 capture. Unknown capture is still not fresh evidence. No provider, command,
 entity or scheduler changes; regression coverage is local to Status. Live
 acceptance and the existing release gates remain required.
+
+### B36 — final fix and acceptance candidate
+
+Use the existing observation writer to normalize capture validity at receipt;
+invalid future timestamps cannot age into valid evidence. Historical profile,
+timer and capability paths use the same reference time. Native command readback
+requires both a valid capture and receipt after dispatch; use the profile's
+existing family priorities. Parking response hints no longer project as live
+movement. A missing Data Act subscription is actionable and clears its current
+observations without removing native data. No new entity IDs, configuration,
+requests, persistent state or runtime owners. Remaining physical acceptance and
+issue #44 stay open.

@@ -178,7 +178,11 @@ def test_window_command_readback_rejects_precommand_and_numeric_values():
         "captured": (now - timedelta(seconds=10)).isoformat(),
     }
     assert not reconcile_readback(rec, car, now)
-    car.readings["windowHeatingActive"] = {"value": 0, "captured": now.isoformat()}
+    car.readings["windowHeatingActive"] = {
+        "value": 0,
+        "captured": now.isoformat(),
+        "observed": now.isoformat(),
+    }
     assert not reconcile_readback(rec, car, now)
     car.readings["windowHeatingActive"]["value"] = False
     assert reconcile_readback(rec, car, now)

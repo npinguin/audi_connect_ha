@@ -285,6 +285,7 @@ def test_command_readback_requires_fresh_post_command_observation():
     car.readings["targetstateOfCharge"] = {
         "value": 80,
         "captured": (now - timedelta(minutes=1)).isoformat(),
+        "observed": now.isoformat(),
     }
     assert not reconcile_readback(record, car, now)
     car.readings["targetstateOfCharge"]["captured"] = now.isoformat()
