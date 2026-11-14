@@ -10,7 +10,10 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
     BinarySensorDeviceClass,
 )
-from homeassistant.components.device_tracker import TrackerEntity, TrackerEntityDescription
+from homeassistant.components.device_tracker import (
+    TrackerEntity,
+    TrackerEntityDescription,
+)
 from homeassistant.components.device_tracker.const import SourceType
 from homeassistant.components.number import (
     NumberEntity,
@@ -96,7 +99,9 @@ def _product_description(
     return _DESCRIPTIONS[platform](
         key=ident,
         name=label,
-        translation_key=None if local else canonical_entity_translation_key(key, vehicle),
+        translation_key=None
+        if local
+        else canonical_entity_translation_key(key, vehicle),
         translation_placeholders=placeholders,
     )
 
@@ -565,7 +570,11 @@ class V3HealthSensor(V3BaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        return self._health()
+        data = self._health()
+        status = getattr(self.coordinator.engine, "status", None)
+        if self.kind == "integration_status" and status is not None:
+            data["data_act"] = status.data_act_poll_status()
+        return data
 
 
 class V3IntegrationProblem(V3BaseEntity, BinarySensorEntity):

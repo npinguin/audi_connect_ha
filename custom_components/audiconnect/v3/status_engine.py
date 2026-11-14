@@ -113,12 +113,12 @@ class StatusEngine:
             state = states.get(car.vin.upper())
             if state is not None:
                 deliveries[state] = deliveries.get(state, 0) + 1
-            mapped += sum(
-                "eu_data_act" in families for families in car.family_readings.values()
-            )
-            selected += sum(
-                row.get("family") == "eu_data_act" for row in car.readings.values()
-            )
+            for ident, families in car.family_readings.items():
+                if "eu_data_act" in families:
+                    mapped += 1
+                    selected += (
+                        car.readings.get(ident, {}).get("family") == "eu_data_act"
+                    )
         return {
             "result": self._data_act_result,
             "last_attempt": self._data_act_attempt_at.isoformat()

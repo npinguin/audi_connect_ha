@@ -385,9 +385,9 @@ def test_native_entity_translations_match_product_contract():
         translation = canonical_entity_translation_key(key)
         assert english[platform][translation]["name"] == canonical_entity_name(key)
     for locale in ("en", "de", "nl", "fr"):
-        localized = json.loads(
-            (root / "translations" / f"{locale}.json").read_text()
-        )["entity"]
+        localized = json.loads((root / "translations" / f"{locale}.json").read_text())[
+            "entity"
+        ]
         for platform, descriptions in english.items():
             for translation, description in descriptions.items():
                 name = localized[platform][translation]["name"]

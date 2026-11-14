@@ -555,7 +555,8 @@ def canonical_entity_translation_key(key, vehicle=None):
         return None
     _, _, ident = key.partition(".")
     if vehicle is not None and ident in (
-        "primary_engine_range", "secondary_engine_range"
+        "primary_engine_range",
+        "secondary_engine_range",
     ):
         role = engine_role(vehicle, ident.split("_", 1)[0])
         if role:

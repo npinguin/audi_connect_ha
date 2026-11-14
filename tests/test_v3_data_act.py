@@ -689,7 +689,9 @@ async def test_portal_delivery_states_and_future_delivery_guard():
     )
     client._get = AsyncMock(return_value=archive({"vin": VIN, "Data": [sample("52")]}))
     for expected in (
-        "subscription_unavailable", "no_nonempty_dataset", "no_nonempty_dataset"
+        "subscription_unavailable",
+        "no_nonempty_dataset",
+        "no_nonempty_dataset",
     ):
         assert await client.latest(VIN) is None
         assert client.delivery_states[VIN] == expected
@@ -699,3 +701,34 @@ async def test_portal_delivery_states_and_future_delivery_guard():
     assert await client.latest(VIN) is None
     assert client.delivery_states[VIN] == "no_new_dataset"
     client._get.assert_awaited_once()
+
+
+def test_data_act_status_counts_only_canonical_observations():
+    from types import SimpleNamespace
+
+    from custom_components.audiconnect.v3.status_engine import StatusEngine
+
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    row = {"family": "eu_data_act", "value": 52}
+    car.family_readings["stateOfCharge"] = {"eu_data_act": row}
+    car.readings["stateOfCharge"] = row
+    car.readings["last_update_time"] = row
+    status = StatusEngine(
+        hass=None,
+        entry=None,
+        auth=SimpleNamespace(data_act_client=None),
+        transport=None,
+        storage=None,
+        vehicles={VIN.lower(): car},
+        profiles={},
+        discover=None,
+        known_inventory=None,
+        operation_request=None,
+        api_record=None,
+    )
+    result = status.data_act_poll_status()
+    assert result["mapped_observations"] == result["selected_readings"] == 1
+    car.readings["stateOfCharge"] = {"family": "cariad", "value": 53}
+    result = status.data_act_poll_status()
+    assert result["mapped_observations"] == 1
+    assert result["selected_readings"] == 0
