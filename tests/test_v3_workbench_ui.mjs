@@ -1973,7 +1973,8 @@ test("Guided and selective climate discovery use the same typed parameters", asy
     p.capabilityFilter = "climate";
     const candidate = {
       label: "Start climate with temperature",
-      instructions: "Stop climate first. Check both start and target temperature.",
+      instructions:
+        "Stop climate first. Check both start and target temperature.",
       capability: "climate",
       action: "start_with_settings",
       operation: "cariad.climate.start.vehicle_settings",
