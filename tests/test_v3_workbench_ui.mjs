@@ -1957,7 +1957,6 @@ test("Capability matrix shows actual, missing and invalid source evidence withou
   assert.match(html, /data-action="select-attribute"/);
 });
 
-
 test("Guided and selective climate discovery use the same typed parameters", async () => {
   for (const expert of [false, true]) {
     const p = new Panel();
@@ -2031,7 +2030,7 @@ test("Guided and selective climate discovery use the same typed parameters", asy
     await click();
     const sent = calls.filter(([name]) => name === "control_test");
     assert.equal(sent.length, 1);
-    assert.deepEqual(sent[0][1].parameters, { temp_c: 22 });
+    assert.equal(JSON.stringify(sent[0][1].parameters), '{"temp_c":22}');
     assert.equal(sent[0][1].expert, expert);
     assert.equal(sent[0][1].end_user, true);
   }
