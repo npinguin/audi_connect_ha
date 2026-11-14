@@ -1702,8 +1702,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
 
     @callback
     def _schedule_pending_refresh(self):
-        from .command_journal import TEMPORARY_ERROR_COOLDOWN_SECONDS
-        from .command_readback import latest_readback_command
+        from .command_readback import OPTIMISTIC_TTL_SECONDS, latest_readback_command
 
         self._cancel_pending_refresh()
         if self.hass is None or not (self.is_locking or self.is_unlocking):
@@ -1714,7 +1713,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         record = latest_readback_command(profile, "doorLockStatus")
         if record is None:
             return
-        delay = record.started_at + TEMPORARY_ERROR_COOLDOWN_SECONDS
+        delay = record.started_at + OPTIMISTIC_TTL_SECONDS
         delay -= datetime.now(UTC).timestamp()
         if delay > 0:
             self._pending_refresh = async_call_later(

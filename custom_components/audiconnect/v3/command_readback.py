@@ -335,14 +335,7 @@ def projected_state(
     if record.origin != "home_assistant":
         return reported, "vehicle" if reported is not None else "unknown"
     age = (now or datetime.now(UTC)).timestamp() - record.started_at
-    from .command_journal import TEMPORARY_ERROR_COOLDOWN_SECONDS
-
-    ttl = (
-        TEMPORARY_ERROR_COOLDOWN_SECONDS
-        if attribute == "doorLockStatus"
-        else OPTIMISTIC_TTL_SECONDS
-    )
-    if record.state not in _ACCEPTED or not 0 <= age < ttl:
+    if record.state not in _ACCEPTED or not 0 <= age < OPTIMISTIC_TTL_SECONDS:
         return None, "unknown"
     if not optimistic:
         return None, "command_pending"

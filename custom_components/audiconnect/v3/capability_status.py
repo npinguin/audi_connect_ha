@@ -1439,10 +1439,11 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
             for family in report["family_discovery"]
             if family["id"] in base_registry.families
             for row in family["observations"]
-            if row["attribute"] in (
+            if row["attribute"]
+            in (
                 "stateOfCharge",
                 "chargingState",
-                "plugConnectionState",
+                "plugState",
                 "doorLockStatus",
                 "climatisationState",
             )

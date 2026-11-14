@@ -145,3 +145,11 @@ not climate capture age. Shared diagnostics include bounded per-source capture
 evidence for SoC, charging, plug, lock and climate, without scalar values or
 source paths. This supports comparison against actual charging/locking events
 without claiming the existing data gaps have been resolved.
+
+B39 field evidence (2026-11-14): 48 fresh canonical attributes, latest capture
+16:37 local, last cloud poll 17:06. Lock readback mismatch after accepted unlock
+must remain visible; no assertion of physical failure from HTTP or mismatch.
+Use the existing bounded command projection window for lock transitions too,
+independently of command cooldown; never optimistically claim locked/unlocked.
+A newer explicit non-charging observation suppresses a superseded derived ETA,
+while preserving its underlying duration for engineering evidence.

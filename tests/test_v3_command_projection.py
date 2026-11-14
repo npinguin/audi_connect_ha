@@ -247,6 +247,14 @@ def test_lock_transition_expires_without_fabricating_physical_state():
         OLD,
         now=NOW + timedelta(seconds=31),
         optimistic=False,
+    ) == (None, "command_pending")
+    assert projected_state(
+        profile,
+        "doorLockStatus",
+        "locked",
+        OLD,
+        now=NOW + timedelta(minutes=30),
+        optimistic=False,
     ) == (None, "unknown")
 
 

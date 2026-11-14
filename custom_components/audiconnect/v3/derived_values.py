@@ -22,6 +22,19 @@ def project_charging_eta(car, profile, observed_at):
     stamp = _valid_capture(remaining.get("captured"), observed_at)
     if stamp is None:
         return
+    from .vehicle import charging_active
+
+    charging = car.readings.get("chargingState", {})
+    charging_stamp = _valid_capture(charging.get("captured"), observed_at)
+    # A later explicit non-charging observation supersedes an older ETA.
+    # Retain the source duration for engineering; do not invent a zero.
+    if (
+        charging.get("status") != "invalid_value"
+        and charging_active(charging.get("value")) is False
+        and charging_stamp is not None
+        and charging_stamp >= stamp
+    ):
+        return
     minutes = remaining.get("value")
     if remaining.get("status") == "invalid_value":
         car.readings[ident] = {
