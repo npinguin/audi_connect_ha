@@ -462,11 +462,12 @@ def observe_structured(
             block.get("carCapturedTimestamp"),
             "access.accessStatus.value.overallStatus",
         )
-    # b12 exposed these two fields in the climate status envelope. Its
-    # vehicle capture belongs to the climate reading, not to the requests.
+    # Request metadata has no vehicle capture of its own. It is informational,
+    # never physical readback or proof of a matching command.
     for key, requests_path in (
         ("climate_requests_detail", "climatisation.climatisationStatus.requests"),
         ("access_requests_detail", "access.accessStatus.requests"),
+        ("charging_requests_detail", "charging.chargingStatus.requests"),
     ):
         requests = read_json_path(payload, requests_path)
         if isinstance(requests, list):
