@@ -35,7 +35,7 @@ Use the HA vehicle device page for ordinary actions. Routes and features depend 
 - Charging and window-heating switches in B41 no longer claim physical On/Off from a pending command. While the outcome is unconfirmed and no new valid readback exists, the switch can be Unknown; inspect last reported state and capture time. A newer valid contrary reading remains the actual reported state.
 - Lock/unlock may show a bounded locking/unlocking transition, not a fabricated locked/unlocked state. Other supported comfort controls can expose explicitly marked optimistic feedback. Check requested state, command status, source and actual vehicle readback.
 - HTTP 2xx means the backend accepted a request, not that the vehicle executed it. A timeout or mismatch is not proof of physical success or failure. Never automatically replay an uncertain command.
-- Climate has separate read target, stored-settings start, temperature-bearing start, independent settings update and stop operations. The configured temperature can be readable even when no temperature-write route works. Only an applicable verified write route enables temperature adjustment. There is no model-specific assumption that Q5 or Q8 supports a particular route.
+- Climate has separate read target, stored-settings start, temperature-bearing start, independent settings update and stop operations. The configured temperature can be readable even when no temperature-write route works. Temperature adjustment requires an enabled applicable write route selected by the resolver. A reviewed catalog match is not the same as local physical verification; an alternative route must be verified before activation. There is no model-specific assumption that Q5 or Q8 supports a particular route.
 
 ### Optional EU Data Act
 
@@ -60,7 +60,7 @@ Enable the optional V3 Development Workbench in integration options as an HA adm
 3. Stop climate, then select Start climate with temperature. Enter a different target temperature in °C. Verify both actual start and the requested target.
 4. To test Change climate target temperature independently, start with climate off; choose a different target and verify it changes without starting climate.
 5. Confirm Worked on vehicle or Did not work on vehicle for the actual outcome. If unsure, keep the test pending and inspect the car; do not replay it. Restore the vehicle to a safe state before the next test.
-6. Check the native HA climate entity after validation. A working route is stored for that vehicle; failure on another vehicle does not authorize or disable this one.
+6. Check the native HA climate entity after validation. A successfully verified route is stored for that vehicle; failure on another vehicle does not authorize or disable this one.
 
 The same physical instructions appear in Guided. A reviewed equivalent route may be tried after definitive rejection under the existing consent and quota rules; never auto-send a different semantic action. For a published B40 build, use Capabilities → Climate → Vehicle controls → Inspect & test for parameterized operations instead.
 
