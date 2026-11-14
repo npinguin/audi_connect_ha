@@ -252,6 +252,8 @@ def test_undated_and_older_events_cannot_erase_a_vehicle_capture():
     assert car.readings["chargingState"]["value"] is None
     assert last_known_observation(car.readings["chargingState"])["value"] == "charging"
     assert not write("off", (now - timedelta(minutes=1)).isoformat())
+    assert last_known_observation(car.readings["chargingState"])["value"] == "off"
+    assert car.readings["chargingState"]["value"] is None
 
 
 def test_charge_mode_does_not_inherit_root_or_job_timestamp():

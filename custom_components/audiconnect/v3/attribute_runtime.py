@@ -337,7 +337,11 @@ def commit_observation(vehicle, ident, row, registry, now):
         return False
     candidates[family] = selected
     _select_observation(vehicle, ident, candidates, registry, now)
-    return True
+    # A historical-only enrichment is not a new current observation.
+    return previous is None or any(
+        selected.get(key) != previous.get(key)
+        for key in ("value", "captured", "status", "reason", "discovered_options")
+    )
 
 
 def invalidate_attribute(vehicle, ident):
@@ -393,7 +397,7 @@ def record_invalid_observation(
     """An explicit invalid sample invalidates only the originating family."""
     if ident in getattr(profile, "attribute_disabled", ()):
         return
-    accepted = commit_observation(
+    commit_observation(
         vehicle,
         ident,
         {
@@ -413,7 +417,7 @@ def record_invalid_observation(
         getattr(profile, "registry", None),
         observed_at,
     )
-    if accepted and ident == "climatisationState":
+    if ident == "climatisationState":
         remember_climate(profile, vehicle.readings[ident], observed_at)
 
 
@@ -453,12 +457,13 @@ def record_observation(
         row["delivered_at"] = delivered_at
     if detail:
         row["detail"] = True
-    if not commit_observation(
+    accepted = commit_observation(
         vehicle, ident, row, getattr(profile, "registry", None), observed_at
-    ):
-        return False
+    )
     if ident == "climatisationState":
         remember_climate(profile, vehicle.readings[ident], observed_at)
+    if not accepted:
+        return False
     if persist_evidence:
         row = vehicle.family_readings[ident][family]
         profile.attribute_evidence[ident] = {
