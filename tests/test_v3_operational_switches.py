@@ -148,8 +148,10 @@ def test_switch_projection_and_actions(key, reading, capability, on, off, button
     command.state = "accepted_unconfirmed"
     configure_readback(command, {})
     engine.profiles[VIN.lower()] = NS(command_journal=[command])
-    assert switch.is_on is True
+    assert switch.is_on is None
     assert switch.extra_state_attributes["state_source"] == "command_pending"
+    assert switch.extra_state_attributes["state_is_optimistic"] is False
+    assert switch.extra_state_attributes["last_reported_state"] is False
     enabled.remove(on)
     assert not stateful_control_supported(engine, car, key)
     assert not switch.available
@@ -290,3 +292,47 @@ def test_platform_discovers_switch_after_state_and_both_commands_are_observed():
     )
     assert offered[0].entity_description.name == "Charging"
     assert offered[0].name == "Laden"
+
+
+def test_charging_stop_never_projects_off_before_vehicle_readback():
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+
+    car = V3Vehicle(VIN, "Audi", "", "", "DE")
+    now = datetime.now(UTC)
+    command = CommandRecord.begin(
+        "charging", "stop", "cariad.charging.stop", now.timestamp() - 5
+    )
+    command.observe_http(200)
+    configure_readback(command, {})
+    engine = NS(
+        control_enabled=lambda *args: True,
+        profiles={VIN.lower(): NS(command_journal=[command])},
+    )
+    co = NS(engine=engine, last_update_success=True, async_add_listener=lambda cb: None)
+    row = {
+        "value": "charging",
+        "status": "verified",
+        "family": "cariad",
+        "captured": (now - timedelta(seconds=10)).isoformat(),
+        "observed": now.isoformat(),
+    }
+    car.readings["chargingState"] = row
+    switch = V3OperationalSwitch(co, car, "charging")
+    assert switch.available
+    assert switch.is_on is None
+    attrs = switch.extra_state_attributes
+    assert attrs["last_reported_state"] is True
+    assert attrs["command_status"] == "accepted_unconfirmed"
+    assert attrs["command_requested_state"] == "off"
+    assert attrs["state_source"] == "command_pending"
+    assert attrs["state_is_optimistic"] is False
+    row["captured"] = now.isoformat()
+    assert switch.is_on is True
+    assert not reconcile_readback(command, car, now)
+    row["value"] = "readyForCharging"
+    assert reconcile_readback(command, car, now)
+    assert switch.is_on is False
+    row["captured"] = (now - timedelta(hours=2)).isoformat()
+    row["status"] = "readable_but_stale"
+    assert switch.is_on is None
+    assert switch.extra_state_attributes["last_reported_state"] is False
