@@ -1411,7 +1411,14 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
             {
                 key: value
                 for key, value in family.items()
-                if key not in ("fields", "observations", "schema_results")
+                if key
+                not in (
+                    "fields",
+                    "observations",
+                    "schema_results",
+                    "declared_attributes",
+                    "details",
+                )
             }
             for family in report["family_discovery"]
             if family["id"] in base_registry.families

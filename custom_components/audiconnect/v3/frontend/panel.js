@@ -1504,7 +1504,7 @@ class AudiConnectV3Panel extends HTMLElement {
         .map(
           (
             row,
-          ) => `<tr><td><b>${escapeHTML(row.metadata?.name || friendly(row.entity_key))}</b><div class="subline">${pill(row.status)}</div><div class="subline">${row.detail ? "Read-only detail" + (row.unit ? " · " + escapeHTML(row.unit) : "") : this.entityLinks(row.entity_ids) || "No registered entity"}</div></td>
+          ) => `<tr><td><b>${escapeHTML(row.metadata?.name || friendly(row.entity_key))}</b>${row.detail ? "" : `<div class="subline">${pill(row.status)}</div>`}<div class="subline">${row.detail ? "Read-only detail" + (row.unit ? " · " + escapeHTML(row.unit) : "") : this.entityLinks(row.entity_ids) || "No registered entity"}</div></td>
       ${sources
         .map((source) => {
           const sample = source.samples.get(row.attribute);
@@ -1514,7 +1514,7 @@ class AudiConnectV3Panel extends HTMLElement {
             sample.valid === false
               ? "Invalid value"
               : (sample.normalized_value ?? "Not retained");
-          return `<td><b>${sample.selected ? "✓ " : ""}${escapeHTML(value)}</b><div class="subline">${sample.valid === false ? "Invalid" : sample.fresh ? "Fresh" : "Last known"}${sample.captured ? " · " + escapeHTML(this.localTime(sample.captured)) : ""}</div><details><summary>Source details</summary><code>${escapeHTML(sample.source_field || "—")}</code><div class="subline">Received ${escapeHTML(this.localTime(sample.observed_at))}${sample.delivered_at ? " · Delivered " + escapeHTML(this.localTime(sample.delivered_at)) : ""}</div>${sample.reason ? `<div class="subline">${escapeHTML(friendly(sample.reason))}</div>` : ""}</details></td>`;
+          return `<td><b>${sample.selected && !row.detail ? "✓ " : ""}${escapeHTML(value)}</b><div class="subline">${sample.valid === false ? "Invalid" : sample.fresh ? "Fresh" : sample.captured ? "Last known" : "Capture unknown"}${sample.captured ? " · " + escapeHTML(this.localTime(sample.captured)) : ""}</div><details><summary>Source details</summary><code>${escapeHTML(sample.source_field || "—")}</code><div class="subline">Received ${escapeHTML(this.localTime(sample.observed_at))}${sample.delivered_at ? " · Delivered " + escapeHTML(this.localTime(sample.delivered_at)) : ""}</div>${sample.reason ? `<div class="subline">${escapeHTML(friendly(sample.reason))}</div>` : ""}</details></td>`;
         })
         .join(
           "",

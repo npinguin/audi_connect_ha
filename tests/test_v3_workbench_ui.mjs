@@ -1927,6 +1927,7 @@ test("Capability matrix shows actual, missing and invalid source evidence withou
           selected: true,
           valid: true,
           fresh: false,
+          captured: "2026-11-14T08:00:00Z",
         },
       ],
     },
