@@ -80,11 +80,16 @@ def validate_last_known_climate(row, now=None):
 
 def remember_climate(profile, reading, now=None):
     """Keep the most recent valid sample, including across sentinel responses."""
-    if reading.get("status") not in ("verified", "readable_but_stale"):
+    if profile is None:
         return
-    row = validate_last_known_climate(reading, now)
+    previous = getattr(profile, "last_known_climate", None)
+    if reading.get("reason") == "conflicting_source_values" and previous:
+        if _capture_in_utc(previous["captured"]) == _capture_in_utc(reading.get("captured")):
+            profile.last_known_climate = None
+        return
+    row = validate_last_known_climate(last_known_observation(reading), now)
     if row and _accept_observation(
-        getattr(profile, "last_known_climate", None), row["captured"], now
+        previous, row["captured"], now
     ):
         profile.last_known_climate = row
 
@@ -203,7 +208,7 @@ def _merge_observation(previous, row, now):
         return previous
     if incoming is not None and (prior is None or incoming > prior):
         known = last_known_observation(previous)
-        if row.get("status") == "invalid_value" and known:
+        if known and type(known.get("value")) in (str, int, float, bool):
             row["last_known"] = {
                 key: known.get(key)
                 for key in ("value", "captured", "family", "status")
@@ -239,6 +244,7 @@ def _merge_observation(previous, row, now):
         "status": "invalid_value",
         "reason": "conflicting_source_values",
         "fresh": False,
+        **({"last_known": previous["last_known"]} if previous.get("last_known") else {}),
     }
 
 
@@ -275,6 +281,15 @@ def commit_observation(vehicle, ident, row, registry, now):
     family = row["family"]
     previous = candidates.get(family)
     selected = _merge_observation(previous, row, now)
+    if ident == "availableChargeModes" and family != "eu_data_act":
+        # Historical capability evidence is bounded and is never a write gate.
+        modes = set((previous or {}).get("discovered_options", ()))
+        for sample in (previous or {}, row):
+            values = sample.get("value")
+            if isinstance(values, list) and sample.get("status") != "invalid_value":
+                modes.update(mode for mode in ("manual", "timer") if mode in values)
+        if modes != set(selected.get("discovered_options", ())):
+            selected = {**selected, "discovered_options": sorted(modes)}
     if selected is previous:
         return False
     candidates[family] = selected
@@ -335,7 +350,7 @@ def record_invalid_observation(
     """An explicit invalid sample invalidates only the originating family."""
     if ident in getattr(profile, "attribute_disabled", ()):
         return
-    commit_observation(
+    accepted = commit_observation(
         vehicle,
         ident,
         {
@@ -355,6 +370,8 @@ def record_invalid_observation(
         getattr(profile, "registry", None),
         observed_at,
     )
+    if accepted and ident == "climatisationState":
+        remember_climate(profile, vehicle.readings[ident], observed_at)
 
 
 def record_observation(

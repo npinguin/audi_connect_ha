@@ -1665,7 +1665,10 @@ def capture_time(payload: Any, dotted_path: str) -> str | None:
     """Use a vehicle capture timestamp, never substitute cloud receipt time."""
     pointer = dotted_path.startswith("/")
     parts = dotted_path[1:].split("/") if pointer else dotted_path.split(".")
-    for size in range(len(parts) - 1, -1, -1):
+    # Only the field's own value envelope (or immediate parent for a
+    # non-envelope mapping) can supply its capture; never the root/job clock.
+    boundary = parts.index("value") + 1 if "value" in parts[:-1] else len(parts) - 1
+    for size in range(len(parts) - 1, boundary - 1, -1):
         path = ("/" + "/".join(parts[:size])) if pointer else ".".join(parts[:size])
         node = read_path(payload, path) if size else payload
         if not isinstance(node, dict):

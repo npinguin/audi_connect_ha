@@ -214,7 +214,12 @@ def _reading_projection(
     row = vehicle.readings.get(attribute) or {}
     if not _reading_available(row, allow_last_known=allow_last_known):
         return None, "unknown"
-    source = "vehicle" if _reading_available(row) else "last_known_vehicle"
+    from .freshness import timestamp_is_fresh
+
+    source = (
+        "vehicle" if timestamp_is_fresh(row.get("captured"), datetime.now(UTC))
+        else "last_known_vehicle"
+    )
     return row.get("value"), source
 
 
