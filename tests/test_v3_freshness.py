@@ -274,20 +274,36 @@ def test_charge_mode_does_not_inherit_root_or_job_timestamp():
 def test_late_history_and_conflict_have_same_projection_for_all_permutations():
     from itertools import permutations
     from types import SimpleNamespace
-    from custom_components.audiconnect.v3.attribute_runtime import commit_observation, last_known_observation
+    from custom_components.audiconnect.v3.attribute_runtime import (
+        commit_observation,
+        last_known_observation,
+    )
 
     now = datetime.now(UTC)
     older = (now - timedelta(minutes=3)).isoformat()
     middle = (now - timedelta(minutes=2)).isoformat()
     newest = (now - timedelta(minutes=1)).isoformat()
-    events = [("off", older, "verified"), ("charging", middle, "verified"), (None, newest, "invalid_value")]
+    events = [
+        ("off", older, "verified"),
+        ("charging", middle, "verified"),
+        (None, newest, "invalid_value"),
+    ]
     for order in permutations(events):
         car = SimpleNamespace(readings={}, family_readings={})
         for value, stamp, status in order:
-            commit_observation(car, "chargingState", {
-                "value": value, "captured": stamp, "observed": now.isoformat(),
-                "status": status, "family": "cariad",
-            }, None, now)
+            commit_observation(
+                car,
+                "chargingState",
+                {
+                    "value": value,
+                    "captured": stamp,
+                    "observed": now.isoformat(),
+                    "status": status,
+                    "family": "cariad",
+                },
+                None,
+                now,
+            )
         current = car.readings["chargingState"]
         assert current["captured"] == newest
         assert current["value"] is None

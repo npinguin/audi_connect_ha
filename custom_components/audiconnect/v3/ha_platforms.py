@@ -140,9 +140,13 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
             elif platform == "binary_sensor":
                 add_once(f"{vin}:health:problem", V3IntegrationProblem)
             elif platform == "climate":
-                if retained("climatisation") or car.climate_state is not None or any(
-                    engine.control_enabled(car.vin, action)
-                    for action in ("start", "stop", "start_with_settings")
+                if (
+                    retained("climatisation")
+                    or car.climate_state is not None
+                    or any(
+                        engine.control_enabled(car.vin, action)
+                        for action in ("start", "stop", "start_with_settings")
+                    )
                 ):
                     add_once(f"{vin}:climate", V3ClimateEntity)
             elif platform == "device_tracker":
@@ -154,14 +158,11 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     in (int, float)
                 ):
                     add_once(f"{vin}:target_soc", V3ChargeTargetNumber)
-            elif (
-                platform == "select"
-                and (
-                    retained("charge_mode")
-                    or (
-                        engine.control_enabled(car.vin, "set_charge_mode", "charging")
-                        and supported_charge_modes(car, engine.profiles.get(vin))
-                    )
+            elif platform == "select" and (
+                retained("charge_mode")
+                or (
+                    engine.control_enabled(car.vin, "set_charge_mode", "charging")
+                    and supported_charge_modes(car, engine.profiles.get(vin))
                 )
             ):
                 add_once(f"{vin}:charge_mode", V3ChargeModeSelect)
@@ -250,7 +251,8 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     key, _, _, capability, action = descriptor
                     tag = f"{vin}:{key}"
                     if tag not in seen and (
-                        retained(key) or engine.control_enabled(car.vin, action, capability)
+                        retained(key)
+                        or engine.control_enabled(car.vin, action, capability)
                     ):
                         seen.add(tag)
                         entities.append(V3ControlButton(coordinator, car, descriptor))
@@ -259,20 +261,25 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 prefix = f"{vin}_number_charge_profile_"
                 for uid in registered:
                     if uid.startswith(prefix) and uid.endswith("_target_soc"):
-                        ident = uid[len(prefix):-len("_target_soc")]
+                        ident = uid[len(prefix) : -len("_target_soc")]
                         if ident.isdecimal():
                             profile_ids.add(int(ident))
                 for profile_id in [None, *sorted(profile_ids)]:
                     tag = f"{vin}:profile:{profile_id}"
                     key = (
-                        "active_charging_profile_target_soc" if profile_id is None
+                        "active_charging_profile_target_soc"
+                        if profile_id is None
                         else f"charge_profile_{profile_id}_target_soc"
                     )
                     if tag not in seen and (
-                        retained(key) or (
-                            car.charging_profiles and (
+                        retained(key)
+                        or (
+                            car.charging_profiles
+                            and (
                                 profile_id is None
-                                or any(x["id"] == profile_id for x in car.charging_profiles)
+                                or any(
+                                    x["id"] == profile_id for x in car.charging_profiles
+                                )
                             )
                         )
                     ):
@@ -286,7 +293,8 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                         add_once(f"{vin}:{key}", V3OperationalSwitch, key)
                 preheater = f"{vin}:preheater_active"
                 if preheater not in seen and (
-                    retained("preheater_active") or any(
+                    retained("preheater_active")
+                    or any(
                         engine.control_enabled(car.vin, aspect, "climate")
                         for aspect in ("preheater_start", "preheater_stop")
                     )
@@ -301,13 +309,11 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                         entities.append(
                             V3ClimateSettingSwitch(coordinator, car, descriptor)
                         )
-                if (
-                    vin not in seen
-                    and (
-                        retained("climate_quick_control") or (
-                            engine.control_enabled(car.vin, "start")
-                            and engine.control_enabled(car.vin, "stop")
-                        )
+                if vin not in seen and (
+                    retained("climate_quick_control")
+                    or (
+                        engine.control_enabled(car.vin, "start")
+                        and engine.control_enabled(car.vin, "stop")
                     )
                 ):
                     seen.add(vin)

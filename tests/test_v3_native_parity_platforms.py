@@ -280,19 +280,33 @@ def test_registered_conditionals_survive_reload_without_write_permission(monkeyp
 
     vehicle = car()
     vin = VIN.lower()
-    keys = {"select": "charge_mode", "number": "target_state_of_charge", "climate": "climatisation", "lock": "lock", "switch": "charging"}
+    keys = {
+        "select": "charge_mode",
+        "number": "target_state_of_charge",
+        "climate": "climatisation",
+        "lock": "lock",
+        "switch": "charging",
+    }
     registry = [
-        SimpleNamespace(unique_id=f"{vin}_{platform}_{key}", domain=platform, platform="audiconnect")
+        SimpleNamespace(
+            unique_id=f"{vin}_{platform}_{key}", domain=platform, platform="audiconnect"
+        )
         for platform, key in keys.items()
     ]
     monkeypatch.setattr(ha_platforms.er, "async_get", lambda _: object())
-    monkeypatch.setattr(ha_platforms.er, "async_entries_for_config_entry", lambda *_: registry)
+    monkeypatch.setattr(
+        ha_platforms.er, "async_entries_for_config_entry", lambda *_: registry
+    )
     ctx = coordinator()
     ctx.hass = object()
     ctx.engine.vehicles = {vin: vehicle}
     ctx.engine.profiles = {}
     ctx.engine.auth = SimpleNamespace()
-    entry = SimpleNamespace(entry_id="entry", runtime_data=SimpleNamespace(v3=ctx.engine, coordinator=ctx), async_on_unload=lambda _: None)
+    entry = SimpleNamespace(
+        entry_id="entry",
+        runtime_data=SimpleNamespace(v3=ctx.engine, coordinator=ctx),
+        async_on_unload=lambda _: None,
+    )
     for platform, key in keys.items():
         offered = []
         ha_platforms.setup(platform, entry, offered.extend)

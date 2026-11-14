@@ -72,7 +72,9 @@ def reading_freshness_attributes(row, *, allow_last_known=False, now=None):
     known = last_known_observation(row)
     return {
         "availability_reason": reading_availability_reason(row, now=now),
-        "last_known_state": known.get("value") if type(known.get("value")) in (str, int, float, bool) else None,
+        "last_known_state": known.get("value")
+        if type(known.get("value")) in (str, int, float, bool)
+        else None,
         "last_known_captured": known.get("captured"),
         "vehicle_captured": row.get("captured"),
         "age_minutes": age,

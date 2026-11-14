@@ -700,11 +700,18 @@ def test_inactive_charging_projection_has_explicit_not_applicable_reason():
     vehicle = car()
     now = datetime.now(UTC)
     vehicle.readings["remainingChargingTime"] = {
-        "value": 30, "captured": (now - timedelta(minutes=1)).isoformat(), "status": "verified",
+        "value": 30,
+        "captured": (now - timedelta(minutes=1)).isoformat(),
+        "status": "verified",
     }
     vehicle.readings["chargingState"] = {
-        "value": "readyForCharging", "captured": now.isoformat(), "status": "verified",
-        "last_known": {"value": "charging", "captured": (now - timedelta(minutes=1)).isoformat()},
+        "value": "readyForCharging",
+        "captured": now.isoformat(),
+        "status": "verified",
+        "last_known": {
+            "value": "charging",
+            "captured": (now - timedelta(minutes=1)).isoformat(),
+        },
     }
     for ident in ("remainingChargingTime", "charging_complete_time"):
         _, row = projection_reading(vehicle, ATTRIBUTES[ident], now=now)

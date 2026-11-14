@@ -277,21 +277,33 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     def pending_dispatched_temperature(self):
         from .attribute_runtime import _capture_in_utc
 
-        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
+        profile = getattr(self.coordinator.engine, "profiles", {}).get(
+            self.vehicle.vin.lower()
+        )
         record = next(
-            (row for row in reversed(getattr(profile, "command_journal", ()))
-             if row.origin == "home_assistant" and row.capability == "climate"
-             and row.action in ("start", "start_with_settings", "stop", "set_settings")),
+            (
+                row
+                for row in reversed(getattr(profile, "command_journal", ()))
+                if row.origin == "home_assistant"
+                and row.capability == "climate"
+                and row.action
+                in ("start", "start_with_settings", "stop", "set_settings")
+            ),
             None,
         )
         if (
-            record is None or record.state not in ("accepted_unconfirmed", "backend_completed")
+            record is None
+            or record.state not in ("accepted_unconfirmed", "backend_completed")
             or record.readback_attribute != "climatisationTargetTemperatureC"
             or not record.readback_values
             or record.readback_observed_at is not None
         ):
             return None
-        stamp = _capture_in_utc(self.vehicle.readings.get("climatisationTargetTemperatureC", {}).get("captured"))
+        stamp = _capture_in_utc(
+            self.vehicle.readings.get("climatisationTargetTemperatureC", {}).get(
+                "captured"
+            )
+        )
         if stamp is not None and stamp.timestamp() >= record.started_at:
             return None
         return record.readback_values[0]
@@ -2123,11 +2135,8 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
             return False
-        return (
-            bool(self.options)
-            and self.coordinator.engine.control_enabled(
-                self.vehicle.vin, "set_charge_mode", "charging"
-            )
+        return bool(self.options) and self.coordinator.engine.control_enabled(
+            self.vehicle.vin, "set_charge_mode", "charging"
         )
 
     @property

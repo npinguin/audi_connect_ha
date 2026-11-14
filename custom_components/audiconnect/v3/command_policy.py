@@ -67,9 +67,7 @@ def supported_charge_modes(car, profile=None):
     """Advertised modes first; V2 fallback requires current local route proof."""
     row = car.readings.get("availableChargeModes", {})
     values = row.get("value")
-    if (
-        row.get("family") == "eu_data_act"
-    ):
+    if row.get("family") == "eu_data_act":
         return []
     if row.get("status") != "invalid_value" and isinstance(values, list) and values:
         return [mode for mode in ("manual", "timer") if mode in values]

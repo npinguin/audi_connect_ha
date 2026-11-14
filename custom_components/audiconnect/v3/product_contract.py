@@ -140,7 +140,10 @@ def projection_reading(vehicle, attribute, *, registry=None, now=None):
             and (duration_stamp is None or stamp >= duration_stamp)
         ):
             return canonical, {
-                **{key: charging.get(key) for key in ("captured", "observed", "family", "operation")},
+                **{
+                    key: charging.get(key)
+                    for key in ("captured", "observed", "family", "operation")
+                },
                 "value": None,
                 "status": "invalid_value",
                 "reason": "charging_not_active",

@@ -85,9 +85,12 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
     from custom_components.audiconnect.v3.command_readback import configure_readback
 
     journal = []
+
     async def send(vin, action, capability, **kwargs):
         calls.append((vin, action, capability, kwargs))
-        row = CommandRecord.begin(capability, action, "test", datetime.now(UTC).timestamp())
+        row = CommandRecord.begin(
+            capability, action, "test", datetime.now(UTC).timestamp()
+        )
         configure_readback(row, kwargs.get("params"))
         row.observe_http(200)
         journal.append(row)

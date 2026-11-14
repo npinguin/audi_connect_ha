@@ -343,8 +343,12 @@ def test_conflicting_undated_charge_modes_recover_only_through_explicit_discover
     profile = engine.profiles[VIN.lower()]
     route = "cariad.charging.mode"
     car.readings["availableChargeModes"] = {
-        "value": None, "status": "invalid_value", "reason": "conflicting_source_values",
-        "family": "cariad", "captured": None, "discovered_options": ["manual", "timer"],
+        "value": None,
+        "status": "invalid_value",
+        "reason": "conflicting_source_values",
+        "family": "cariad",
+        "captured": None,
+        "discovered_options": ["manual", "timer"],
     }
     assert not supported_charge_modes(car, profile)
     candidate = user_test_candidates(engine, car, profile)["charging.set_charge_mode"]
