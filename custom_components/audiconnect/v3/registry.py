@@ -271,23 +271,22 @@ class CapabilityRegistry:
                 ):
                     raise RegistryError("Missing or duplicate operation reference")
                 discovery = node.get("discovery")
-                if discovery is not None:
-                    if (
-                        aspect == "status"
-                        or not isinstance(discovery, dict)
-                        or set(discovery) - {"label", "instructions", "order", "parameters"}
-                        or not all(
-                            isinstance(discovery.get(key), str) and discovery[key]
-                            for key in ("label", "instructions")
-                        )
-                        or type(discovery.get("order")) is not int
-                        or not isinstance(discovery.get("parameters", []), list)
-                        or any(
-                            not isinstance(name, str)
-                            for name in discovery.get("parameters", [])
-                        )
-                    ):
-                        raise RegistryError("Invalid control discovery metadata")
+                if discovery is not None and (
+                    aspect == "status"
+                    or not isinstance(discovery, dict)
+                    or set(discovery) - {"label", "instructions", "order", "parameters"}
+                    or not all(
+                        isinstance(discovery.get(key), str) and discovery[key]
+                        for key in ("label", "instructions")
+                    )
+                    or type(discovery.get("order")) is not int
+                    or not isinstance(discovery.get("parameters", []), list)
+                    or any(
+                        not isinstance(name, str)
+                        for name in discovery.get("parameters", [])
+                    )
+                ):
+                    raise RegistryError("Invalid control discovery metadata")
                 for ref in refs:
                     op = self.operations.get(ref)
                     if op is None or (op["method"] == "GET") != (aspect == "status"):
