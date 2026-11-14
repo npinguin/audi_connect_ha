@@ -264,11 +264,13 @@ def command_attributes(profile, capability, actions, *, attribute=None):
         "command_http_status": record.http_status if record else None,
         "command_requested_at": (
             datetime.fromtimestamp(record.started_at, UTC).isoformat()
-            if record else None
+            if record
+            else None
         ),
         "command_completed_at": (
             datetime.fromtimestamp(record.completed_at, UTC).isoformat()
-            if record and record.completed_at is not None else None
+            if record and record.completed_at is not None
+            else None
         ),
     }
 

@@ -176,16 +176,16 @@ Record the installed version, sanitized integration diagnostics and actual
 vehicle outcomes. Acceptance is not a requirement to make every OEM field
 available: unsupported or unproven controls must stay unavailable.
 
-| Check | Acceptance |
-| --- | --- |
-| Upgrade and rollback | IDs, user settings and trip archive retained; V2 still works |
-| Setup and Data Act | Wizard and diagnostic agree; keep/disconnect/reconnect do not affect native auth |
-| Normal driving/charging | Individual captures and global latest/oldest age agree; no old ETA treated as active |
-| Lock/unlock | Actual vehicle outcome compared to accepted, pending, verified or mismatch; no fabricated state |
-| Climate and charging | Native controls, optimistic feedback and real readback agree; unavailable OEM values explicitly marked |
-| Workbench | Source priority, derived values, operation and capture/receipt evidence consistent; no extra requests |
-| Health and registry | Identity warning stays in engineering; native failures remain actionable; Position ordinary, Charging ready retired |
-| Regression and release | Exact-head tests, both HA targets, immutable candidate, upstream review and #44 acceptance |
+| Check                   | Acceptance                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Upgrade and rollback    | IDs, user settings and trip archive retained; V2 still works                                                        |
+| Setup and Data Act      | Wizard and diagnostic agree; keep/disconnect/reconnect do not affect native auth                                    |
+| Normal driving/charging | Individual captures and global latest/oldest age agree; no old ETA treated as active                                |
+| Lock/unlock             | Actual vehicle outcome compared to accepted, pending, verified or mismatch; no fabricated state                     |
+| Climate and charging    | Native controls, optimistic feedback and real readback agree; unavailable OEM values explicitly marked              |
+| Workbench               | Source priority, derived values, operation and capture/receipt evidence consistent; no extra requests               |
+| Health and registry     | Identity warning stays in engineering; native failures remain actionable; Position ordinary, Charging ready retired |
+| Regression and release  | Exact-head tests, both HA targets, immutable candidate, upstream review and #44 acceptance                          |
 
 Keep V3 experimental if any gate is unresolved. After acceptance, freeze feature
 scope and perform maintenance only (security, regressions, OEM breaking changes).
