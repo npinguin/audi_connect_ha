@@ -524,7 +524,7 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
     controls = []
     registry = base_registry or profile.registry
     for capability, definition in registry.capabilities.items():
-        for action in definition.get("control", {}):
+        for action, node in definition.get("control", {}).items():
             available = registry.resolve(capability, action, car.context)[
                 "available_operations"
             ]
@@ -534,6 +534,7 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
                 {
                     "capability": capability,
                     "action": action,
+                    "label": node.get("discovery", {}).get("label"),
                     "catalog_applicable": bool(available),
                     "eligible": bool(decision["operation"]),
                     "route_available": decision["route_available"],
@@ -685,27 +686,16 @@ def user_test_candidates(engine, car, profile, *, include_verified=False):
     from .action_discovery import approval_group
     from .command_parameters import parameter_schema
 
-    labels = {
-        ("climate", "start"): "Start cabin climate",
-        ("climate", "stop"): "Stop cabin climate",
-        ("climate", "start_with_settings"): "Start climate with temperature",
-        ("climate", "set_settings"): "Change climate target temperature",
-        ("climate", "window_heating_start"): "Start window heating",
-        ("climate", "window_heating_stop"): "Stop window heating",
-        ("charging", "start"): "Start charging",
-        ("charging", "stop"): "Stop charging",
-        ("access", "lock"): "Lock vehicle",
-        ("access", "unlock"): "Unlock vehicle",
-        ("remote", "flash"): "Flash vehicle lights",
-        ("remote", "wake"): "Wake vehicle",
-    }
+    definitions = (
+        (capability, action, node["discovery"])
+        for capability, definition in profile.registry.capabilities.items()
+        for action, node in definition.get("control", {}).items()
+        if node.get("discovery")
+    )
     result = {}
-    for (capability, action), label in labels.items():
-        if capability not in profile.registry.capabilities:
-            continue
-        definition = profile.registry.capabilities[capability].get("control", {})
-        if action not in definition:
-            continue
+    for capability, action, discovery in sorted(
+        definitions, key=lambda row: row[2]["order"]
+    ):
         decision = control_decision(
             car, profile, engine.auth, capability, action, for_discovery=True
         )
@@ -722,11 +712,14 @@ def user_test_candidates(engine, car, profile, *, include_verified=False):
             continue
         key = f"{capability}.{action}"
         result[key] = {
-            "label": label,
+            "label": discovery["label"],
+            "instructions": discovery["instructions"],
             "capability": capability,
             "action": action,
             "operation": operation,
             "approval_group": group,
-            "parameter_schema": parameter_schema(op, {}, discovery_action=key),
+            "parameter_schema": parameter_schema(
+                op, {}, discovery_parameters=discovery.get("parameters", [])
+            ),
         }
     return result
