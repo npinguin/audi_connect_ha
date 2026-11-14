@@ -308,13 +308,21 @@ def test_climate_discovery_selects_temperature_route_per_vehicle():
 
     assert stored_route(VIN, "start", "climate") == stored
     assert stored_route(VIN, "start_with_settings", "climate") is None
-    assert not stored_entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    assert (
+        not stored_entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    )
+    # Reading a stored setpoint does not authorize a temperature-bearing start.
+    assert stored_entity.reported_target_temperature == 21
+    assert stored_entity.target_temperature == 21
+    assert stored_entity.extra_state_attributes["reported_target_temperature"] == 21
     asyncio.run(stored_entity.async_turn_on())
     stored_engine.send_control.assert_awaited_once_with(VIN, "start", "climate")
 
     assert temp_route(other_vin, "start", "climate") is None
     assert temp_route(other_vin, "start_with_settings", "climate") == temperature
     assert temp_entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    assert temp_entity.reported_target_temperature == 21
+    assert temp_entity.target_temperature == 21
     asyncio.run(temp_entity.async_turn_on())
     temp_engine.send_control.assert_awaited_once_with(
         other_vin, "start_with_settings", "climate", params={"temp_c": 21}
