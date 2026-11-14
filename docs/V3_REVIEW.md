@@ -101,7 +101,6 @@ config flow simplification, remaining freshness primitive duplication and
 broader extensibility audit remain tracked in #44. Stable release is NO GO.
 An experimental candidate must pass all existing release and upstream gates.
 
-
 ## B40 operational UX — B39 field feedback
 
 Expose the existing Data Act delivery state in both HA options steps and a
