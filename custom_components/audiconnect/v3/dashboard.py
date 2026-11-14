@@ -202,7 +202,9 @@ async def ws_status(hass, connection, msg):
                         sample["value"], vehicle.vin
                     )["payload"]
                 if sample:
-                    observation["source_field"] = sample.get("path")
+                    observation["source_field"] = engine.redact_evidence(
+                        sample.get("path"), vehicle.vin
+                    )["payload"]
             if family["auth"] == "eu_data_act" and hasattr(engine, "status"):
                 family["health"] = engine.status.data_act_poll_status()
         report["end_user_progress"] = engine.discovery_progress(vehicle, profile)

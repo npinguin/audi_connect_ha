@@ -1719,9 +1719,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const rows = coverage.rows || [];
     const vehicleFamily = car?.api_family || "cariad";
     const families = coverage.family_discovery || [];
-    const family = families.some((source) => source.id === this.apiFamily)
-      ? this.apiFamily
-      : "all";
+    const family = this.apiFamily === "vehicle" ? "all" : this.apiFamily;
     const scanFamily = family === "all" ? vehicleFamily : family;
     const selectedSource = families.find((source) => source.id === scanFamily);
     const entityLinks = coverage.entity_links || [];
@@ -1772,9 +1770,9 @@ class AudiConnectV3Panel extends HTMLElement {
     const nextActions = coverage.next_actions || [];
     const identitySummary = coverage.identity_summary || {};
     const projection = coverage.account_entity_projection || {};
-    const familyAttributes = new Set(
+    const sourceObservations = new Map(
       (families.find((source) => source.id === family)?.observations || []).map(
-        (row) => row.attribute,
+        (row) => [row.attribute, row],
       ),
     );
     const filteredRows = rows.filter(
@@ -1782,20 +1780,32 @@ class AudiConnectV3Panel extends HTMLElement {
         (!this.capabilityFilter || r.capability === this.capabilityFilter) &&
         (family === "all" ||
           r.api_family === family ||
-          (r.entity_key && familyAttributes.has(r.attribute))) &&
+          (r.source === "v3_live_evidence" && sourceObservations.has(r.attribute))) &&
         (!selectedEntity ||
           entityMatches(r) ||
           (!r.entity_key && selectedEntity.operations.includes(r.operation))),
     );
-    const attributes = filteredRows.filter(
-      (r) =>
-        r.entity_key &&
-        [
-          "v3_live_evidence",
-          "v2_attribute_reference",
-          "local_attribute_definition",
-        ].includes(r.source),
-    );
+    const attributes = filteredRows
+      .filter(
+        (r) =>
+          r.entity_key &&
+          [
+            "v3_live_evidence",
+            "v2_attribute_reference",
+            "local_attribute_definition",
+          ].includes(r.source),
+      )
+      .map((row) => {
+        const observation = sourceObservations.get(row.attribute);
+        if (family === "all" || !observation) return row;
+        return {
+          ...row,
+          api_family: family,
+          normalized_value: observation.normalized_value,
+          path: observation.source_field,
+          status: observation.fresh ? "verified" : "readable_but_stale",
+        };
+      });
     const controls = filteredRows.filter(
       (r) => r.source === "v2_control_reference",
     );
