@@ -88,7 +88,8 @@
           "filter_vins": "Kommagescheiden lijst van VIN's die niet worden ingesteld of bijgewerkt.",
           "run_vehicle_discovery": "Bekijk automatische detectie en test beschikbare bediening expliciet. Zonder toestemming voor de specifieke actie wordt geen voertuigactie uitgevoerd.",
           "manage_data_act": "Verbind, herstel of verbreek de optionele alleen-lezenbron. De native Audi-login blijft ongewijzigd."
-        }
+        },
+        "description": "{data_act_status}"
       },
       "dealer_vehicle": {
         "title": "Kies het voertuig",
@@ -112,7 +113,7 @@
       },
       "data_act": {
         "title": "EU Data Act",
-        "description": "Kies verbinden of opnieuw verbinden om de portaalgegevens te controleren, of verbreek de verbinding om lokale inloggegevens te verwijderen en Data Act-uitlezing te stoppen. De native Audi-verbinding en portaal-aanvraag blijven ongewijzigd.",
+        "description": "{data_act_status}\n\nKies verbinden of opnieuw verbinden om de portaalgegevens te controleren, of verbreek de verbinding om lokale inloggegevens te verwijderen en Data Act-uitlezing te stoppen. De native Audi-verbinding en portaal-aanvraag blijven ongewijzigd.",
         "data": {
           "action": "Verbinding"
         }
@@ -314,7 +315,7 @@
         "name": "Actualiteit voertuiggegevens"
       },
       "v3_vehicle_data_age": {
-        "name": "Leeftijd voertuiggegevens"
+        "name": "Leeftijd recentste voertuiggegevens"
       },
       "v3_cloud_last_successful_poll": {
         "name": "Laatste succesvolle cloudopvraging"
@@ -407,7 +408,7 @@
         "name": "Ritgeschiedenis"
       },
       "v3_discovery_coverage": {
-        "name": "Detectiedekking"
+        "name": "Discoverybeoordeling"
       },
       "v3_integration_status": {
         "name": "Integratiestatus"
@@ -426,6 +427,21 @@
       },
       "v3_fuel_range": {
         "name": "Rijbereik op brandstof"
+      },
+      "v3_data_act_status": {
+        "name": "EU Data Act",
+        "state": {
+          "not_configured": "Niet geconfigureerd",
+          "credentials_required": "Inloggegevens vereist",
+          "awaiting_data": "Wacht op data",
+          "connected": "Verbonden",
+          "partial": "Gedeeltelijk verbonden",
+          "authorization_required": "Autorisatie vereist",
+          "vehicle_access_denied": "Voertuigtoegang geweigerd",
+          "subscription_unavailable": "Abonnement niet beschikbaar",
+          "rate_limited": "Aanvraaglimiet bereikt",
+          "unavailable": "Tijdelijk niet beschikbaar"
+        }
       }
     },
     "binary_sensor": {
@@ -500,9 +516,6 @@
       },
       "v3_integration_problem": {
         "name": "Integratieprobleem"
-      },
-      "v3_charging_ready": {
-        "name": "Klaar om te laden"
       }
     },
     "button": {
@@ -605,7 +618,8 @@
     "data_act_action": {
       "options": {
         "connect": "Verbinden / opnieuw verbinden",
-        "disconnect": "Verbinding verbreken"
+        "disconnect": "Verbinding verbreken",
+        "keep": "Huidige verbinding behouden"
       }
     }
   }

@@ -39,6 +39,30 @@ from .read_discovery import (
 from .status_planner import status_groups
 
 
+DATA_ACT_CONNECTION_STATES = [
+    "not_configured",
+    "credentials_required",
+    "awaiting_data",
+    "connected",
+    "partial",
+    "authorization_required",
+    "vehicle_access_denied",
+    "subscription_unavailable",
+    "rate_limited",
+    "unavailable",
+]
+
+
+def data_act_connection_state(result, deliveries):
+    """Project the existing delivery evidence without another connection cache."""
+    if result in ("dataset_received", "no_new_dataset"):
+        connected = {"dataset_received", "no_new_dataset"}
+        if connected.intersection(deliveries):
+            return "partial" if set(deliveries) - connected else "connected"
+        return "awaiting_data"
+    return "awaiting_data" if result == "initializing" else result
+
+
 def identity_refresh_due(vehicles, elapsed_seconds, remaining_calls):
     """Bound inventory recovery independently of routine bearer renewal."""
     if remaining_calls is not None and remaining_calls <= 12:
@@ -160,6 +184,7 @@ class StatusEngine:
             result = "no_new_dataset" if self._data_act_attempt_at else "initializing"
         return {
             "result": result,
+            "connection_state": data_act_connection_state(result, deliveries),
             "scope": "vehicle" if vehicle is not None else "account",
             "last_attempt": self._data_act_attempt_at.isoformat()
             if self._data_act_attempt_at
@@ -599,7 +624,7 @@ class StatusEngine:
 
     def _update_capture_projection(self):
         from .attribute_runtime import refresh_family_observations
-        from .freshness import newest_vehicle_reading
+        from .freshness import project_vehicle_capture
         from .derived_values import project_charging_eta
 
         now = datetime.now(UTC)
@@ -610,17 +635,7 @@ class StatusEngine:
             if profile is not None:
                 refresh_family_observations(car, profile, now)
                 project_charging_eta(car, profile, now)
-            newest = newest_vehicle_reading(car, now)
-            if newest is None:
-                car.readings.pop("last_update_time", None)
-            else:
-                stamp, _ident, source = newest
-                car.readings["last_update_time"] = {
-                    **source,
-                    "value": stamp.isoformat(),
-                    "captured": stamp.isoformat(),
-                    "path": "vehicle_capture",
-                }
+            project_vehicle_capture(car, now)
             if not car.model:
                 car.readings.pop("model", None)
             else:

@@ -181,6 +181,9 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
                 reading_freshness_attributes(row, allow_last_known=allow_last_known),
                 last_reported_state=(row or {}).get("value"),
                 state_source=source or "unknown",
+                state_is_optimistic=(
+                    source == "command_pending" and attribute != "doorLockStatus"
+                ),
             )
         return result
 
@@ -257,6 +260,8 @@ def _climate_projection(coordinator, vehicle):
     )
     if effective is not None:
         return effective, source
+    # A sentinel is not a new valid state. Preserve the bounded historical
+    # display separately from reported capture/command verification.
     return known, known_source
 
 
@@ -547,12 +552,20 @@ class V3HealthSensor(V3BaseEntity, SensorEntity):
 
     @property
     def device_class(self):
-        return SensorDeviceClass.ENUM if self.kind == "integration_status" else None
+        return (
+            SensorDeviceClass.ENUM
+            if self.kind in ("integration_status", "data_act_status")
+            else None
+        )
 
     @property
     def options(self):
         from .integration_health import HEALTH_STATES
 
+        from .status_engine import DATA_ACT_CONNECTION_STATES
+
+        if self.kind == "data_act_status":
+            return DATA_ACT_CONNECTION_STATES
         return HEALTH_STATES if self.kind == "integration_status" else None
 
     def _health(self):
@@ -560,20 +573,37 @@ class V3HealthSensor(V3BaseEntity, SensorEntity):
             self.coordinator.engine, self.vehicle
         )
 
+    def _data_act(self):
+        return self.coordinator.engine.status.data_act_poll_status(self.vehicle)
+
     @property
     def native_value(self):
+        if self.kind == "data_act_status":
+            return self._data_act()["connection_state"]
         data = self._health()
         if self.kind == "integration_status":
             return data["status"]
-        return data["poll_error"] or (data["last_error"] or {}).get("code") or "none"
+        return data["operational_error"] or "none"
 
     @property
     def extra_state_attributes(self):
+        if self.kind == "data_act_status":
+            data = self._data_act()
+            return {
+                key: data[key]
+                for key in ("result", "last_attempt", "last_success", "retry_at")
+            }
         data = self._health()
+        attrs = {
+            "cloud_poll_succeeded": data["cloud_poll_succeeded"],
+            "poll_error": data["poll_error"],
+            "operational_error": data["operational_error"],
+        }
         status = getattr(self.coordinator.engine, "status", None)
         if self.kind == "integration_status" and status is not None:
-            data["data_act"] = status.data_act_poll_status(self.vehicle)
-        return data
+            # Preserve the existing source attribute for HA consumers.
+            attrs["data_act"] = status.data_act_poll_status(self.vehicle)
+        return attrs
 
 
 class V3IntegrationProblem(V3BaseEntity, BinarySensorEntity):
@@ -595,43 +625,6 @@ class V3IntegrationProblem(V3BaseEntity, BinarySensorEntity):
         return self.coordinator.engine.health.snapshot(
             self.coordinator.engine, self.vehicle
         )["problem"]
-
-
-class V3ChargingReady(V3BaseEntity, BinarySensorEntity):
-    """Explicit reported readiness, not charging active or authorization."""
-
-    entity_description = _product_description("binary_sensor.charging_ready")
-    _attr_icon = "mdi:ev-plug-type2"
-
-    def __init__(self, coordinator, vehicle):
-        super().__init__(coordinator, vehicle)
-        self._attr_unique_id = f"{vehicle.vin.lower()}_binary_sensor_charging_ready"
-
-    @property
-    def _reading(self):
-        return self.vehicle.readings.get("chargingState", {})
-
-    @property
-    def is_on(self):
-        from .vehicle import charging_ready
-
-        return charging_ready(self._reading.get("value"))
-
-    @property
-    def available(self):
-        return (
-            super().available
-            and _reading_available(self._reading)
-            and self.is_on is not None
-        )
-
-    @property
-    def extra_state_attributes(self):
-        return {
-            "source_attribute": "chargingState",
-            **reading_freshness_attributes(self._reading),
-            "semantics": "explicit_readiness_not_charging_active_or_permission",
-        }
 
 
 class V3AccessSummary(V3BaseEntity, SensorEntity):
@@ -1711,8 +1704,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
 
     @callback
     def _schedule_pending_refresh(self):
-        from .command_journal import TEMPORARY_ERROR_COOLDOWN_SECONDS
-        from .command_readback import latest_readback_command
+        from .command_readback import OPTIMISTIC_TTL_SECONDS, latest_readback_command
 
         self._cancel_pending_refresh()
         if self.hass is None or not (self.is_locking or self.is_unlocking):
@@ -1723,7 +1715,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         record = latest_readback_command(profile, "doorLockStatus")
         if record is None:
             return
-        delay = record.started_at + TEMPORARY_ERROR_COOLDOWN_SECONDS
+        delay = record.started_at + OPTIMISTIC_TTL_SECONDS
         delay -= datetime.now(UTC).timestamp()
         if delay > 0:
             self._pending_refresh = async_call_later(
@@ -1840,6 +1832,8 @@ class V3ParkedTracker(V3BaseEntity, TrackerEntity):
     """V2-compatible GPS entity for the car's last PARKED position, not live GPS."""
 
     entity_description = _product_description("device_tracker.position")
+    # HA 2026.11 BaseTrackerEntity otherwise overrides the description.
+    _attr_entity_category = None
     _attr_icon = "mdi:car"
     _attr_should_poll = False
     _attr_source_type = SourceType.GPS

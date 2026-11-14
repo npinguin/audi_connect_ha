@@ -1414,3 +1414,93 @@ def test_registry_rejects_malformed_source_mappings(change):
     raw["api_families"]["eu_data_act"]["observations"][SOC].update(change)
     with pytest.raises(RegistryError):
         CapabilityRegistry(raw)
+
+
+def test_data_act_connection_state_distinguishes_delivery_from_configuration():
+    from custom_components.audiconnect.v3.status_engine import data_act_connection_state
+
+    cases = (
+        ("not_configured", {}, "not_configured"),
+        ("initializing", {}, "awaiting_data"),
+        ("no_new_dataset", {"no_nonempty_dataset": 1}, "awaiting_data"),
+        ("no_new_dataset", {"empty_dataset": 1}, "awaiting_data"),
+        ("dataset_received", {"dataset_received": 1}, "connected"),
+        ("no_new_dataset", {"no_new_dataset": 1}, "connected"),
+        (
+            "dataset_received",
+            {"dataset_received": 1, "vehicle_access_denied": 1},
+            "partial",
+        ),
+        (
+            "authorization_required",
+            {"dataset_received": 1},
+            "authorization_required",
+        ),
+        ("rate_limited", {"dataset_received": 1}, "rate_limited"),
+        (
+            "subscription_unavailable",
+            {"subscription_unavailable": 1},
+            "subscription_unavailable",
+        ),
+    )
+    for result, deliveries, expected in cases:
+        assert data_act_connection_state(result, deliveries) == expected
+
+
+def test_diagnostics_exposes_capture_sources_without_vehicle_values():
+    from types import SimpleNamespace as NS
+
+    from custom_components.audiconnect.v3.capability_status import (
+        diagnostic_capability_summary,
+    )
+
+    now = datetime.now(UTC)
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    car = V3Vehicle(VIN, "Audi", "", "", "BE")
+    profile = DevelopmentProfile(registry, car.context)
+    captured = (now - timedelta(minutes=20)).isoformat()
+    observe_data_act(
+        car,
+        profile,
+        {"vin": VIN, "Data": [sample("52", captured)]},
+        now,
+        now.isoformat(),
+    )
+    report = diagnostic_capability_summary(car, profile, registry, NS(uses_auth0=True))
+    row = next(
+        row for row in report["capture_evidence"] if row["attribute"] == "stateOfCharge"
+    )
+    assert row["family"] == "eu_data_act"
+    assert row["captured"] == captured
+    assert row["selected"] and row["valid"]
+    assert "value" not in row and "path" not in row
+
+
+def test_newer_stopped_charging_suppresses_older_eta_without_erasing_duration():
+    from custom_components.audiconnect.v3.derived_values import project_charging_eta
+
+    now = datetime.now(UTC)
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    car = V3Vehicle(VIN, "Audi", "", "", "BE")
+    profile = DevelopmentProfile(registry, car.context)
+    duration = {
+        "value": 30,
+        "captured": (now - timedelta(minutes=10)).isoformat(),
+        "family": "eu_data_act",
+    }
+    car.readings["remainingChargingTime"] = duration
+    car.readings["chargingState"] = {
+        "value": "charging",
+        "captured": now.isoformat(),
+    }
+    project_charging_eta(car, profile, now)
+    assert "charging_complete_time" in car.readings
+    car.readings["chargingState"]["value"] = "readyForCharging"
+    project_charging_eta(car, profile, now)
+    assert "charging_complete_time" not in car.readings
+    assert car.readings["remainingChargingTime"] == duration
+    car.readings["chargingState"]["captured"] = (
+        now - timedelta(minutes=20)
+    ).isoformat()
+    project_charging_eta(car, profile, now)
+    assert "charging_complete_time" in car.readings
