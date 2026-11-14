@@ -1,6 +1,6 @@
-# V3 feature closure review
+# V3 feature closure and release acceptance
 
-Review baseline: `a614109746e32edd2e13e7e480b682dc8b14280d` on the ownership closure branch, derived from upstream review #918. This is a gap review, not acceptance evidence.
+**Current decision: B41 development candidate; stable NO GO.** B40 remains the published test baseline. Issue [#44](https://github.com/npinguin/audi_connect_ha/issues/44) owns stable acceptance. This document records evidence and unresolved gates; [V3 review](V3_REVIEW.md) is the current user/engineering guide.
 
 ## Existing authoritative inventories
 
@@ -11,7 +11,44 @@ Review baseline: `a614109746e32edd2e13e7e480b682dc8b14280d` on the ownership clo
 
 Do not reproduce these inventories in a second editable catalog. A declared row is not evidence that its implementation works on a real vehicle.
 
-## Open functional closure
+## B41 implementation and evidence
+
+The B41 product-code head [3ff5263](https://github.com/npinguin/audi_connect_ha/commit/3ff5263e6388c6db996f05c1ce630abcba867448) passed [Test #1985](https://github.com/npinguin/audi_connect_ha/actions/runs/43622884825) (1,265 Python tests, 43 Workbench tests, lint) and [Validate #1986](https://github.com/npinguin/audi_connect_ha/actions/runs/43622884817). This is automated evidence for that exact head, not field acceptance. The documentation successor must pass its own exact-head checks before integration.
+
+| Area | Implemented in B41 | Remaining evidence |
+| --- | --- | --- |
+| Operational switch state | Charging and window-heating switches no longer project unconfirmed requested On/Off as physical state. Last reported state and capture remain informational. | Q5 real charging STOP and START, stale/unknown UI and actual readback. |
+| Entity continuity | Existing mapped read-only sensor/binary-sensor registry identities re-offered on reload without requiring a new reading; retired identities remain retired. | Q5 upgrade/restart and the five reported missing entities, Q8 regression, user-disabled settings. |
+| Climate discovery | Catalog-driven Guided and Expert selective share reviewed action metadata, typed parameters, resolver and verification; read temperature independent of write support. | Q5 stored start, parameterized start, independent setpoint update and stop; Q8 stored start and read-only/write feature parity. |
+| Extendability | Existing SOC operation can be added to discovery in a regression test through metadata alone; not enabled in the production catalog. | No extra product feature is required for B41. |
+| Freshness | Existing B40 shared observation/readback writer retained; no new polling or command route. | Actual post-dispatch capture, full charge cycle, last-known versus not-applicable ETA and cross-source capture consistency. |
+
+### Q5 field evidence — charging remains open
+
+- [B35 physical test](https://github.com/audiconnect/audi_connect_ha/pull/918#issuecomment-6877274976): tester reports successful START and STOP on a 2020 Q5 55 TFSI e, independently confirmed by approximately 2 kW while charging and 4.4 W after STOP. Smart charging was enabled. 1,000 trips were retained.
+- [B39 field report](https://github.com/audiconnect/audi_connect_ha/pull/918#issuecomment-6880663863): STOP accepted (HTTP 200) but the vehicle continued charging; HA sometimes showed Off. Five historical entities were reported as no longer provided. Stale data and missing ETA require explicit interpretation, not fabricated values.
+- [B40 retest, 14 November 2026](https://github.com/audiconnect/audi_connect_ha/pull/918#issuecomment-6881591226): with the timer disabled, STOP at 18:22:08 CET returned HTTP 200/accepted_unconfirmed, but physical power remained approximately 2 kW. myAudi reported timeout E.PA.VCF.18. Last reported charging was true, captured at 18:20:26 CET, before dispatch. HA Off was optimistic. Two diagnostics and an error screenshot are available in the upstream comment.
+
+B41 addresses the false state projection, not the physical STOP root cause. Do not attribute the failure to timers, a changed route or Audi alone without comparing the before/after diagnostics and actual B35/B40 execution evidence. Do not blindly retry or change endpoints. Confirm the physical result separately with vehicle/myAudi/power evidence. The attached diagnostics have not yet been analyzed in this documentation update.
+
+### Remaining acceptance and release gates
+
+| Gate | Required evidence |
+| --- | --- |
+| Q5 physical controls | Compare B35/B40 command evidence; B41 START/STOP with actual power, pending/last-known behavior; targeted climate tests. |
+| Q8 physical regression | Stored-settings climate, stop, read target, lock/unlock; charging cycle including ETA expiry; no optimistic charging state. |
+| Registry and trips | Previously mapped entities retained on reload and upgrade; retired Charging ready remains retired; no deletion of user choices or recorder history; 394 Q8 and 1,000 Q5 historical trip baselines remain intact where applicable. |
+| Identity #35 | Actual OEM model/year and drivetrain evidence or explicit accepted limitation; GraphQL partial response is not proof of unsupported vehicle. |
+| Data and lifecycle | Drive, sleep, charging, optional Data Act connect/disconnect/reconnect, restart and V2 rollback; timestamp and quota behavior over a representative period. |
+| Broader scope #44 | Representative ICE/PHEV/BEV, Auth0/legacy and supported markets, legacy reads, services, all native platforms and actual controls; sharing/import, security and multi-account lifecycle. |
+| Candidate packaging | Exact final-head Test/Validate, pinned dev source, both supported HA targets, archive/checksum and preceding published beta present in upstream review. |
+| Upstream stable | Existing [PR #918](https://github.com/audiconnect/audi_connect_ha/pull/918), reviewed scope and maintainer acceptance. CI or a single vehicle does not close the stable gate. |
+
+The detailed original scope remains below as historical review evidence. Where historical behavior differs, the current B41 contract above and the user guide take precedence. Feature freeze: only evidence-backed corrections, security fixes and documentation/acceptance closure. No V2/default-runtime change, new polling, speculative routes or release promotion on CI alone.
+
+## Historical scope and engineering evidence
+
+### Original functional closure inventory
 
 | Area             | Gap / required evidence                                                                                                    |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -26,11 +63,11 @@ Do not reproduce these inventories in a second editable catalog. A declared row 
 | Workbench        | Definition copy/paste exists; community sharing/import portability, roundtrip and redaction need explicit acceptance       |
 | Operations       | Quota, expiry, partial responses, failed refresh, multi-account ownership, privacy and removal evidence                    |
 
-## Release decision
+### Original release decision (historical baseline)
 
 NO GO. All rows require closure with code/test references and, where relevant, explicit real-vehicle acceptance. Unsupported OEM behavior must be evidenced and distinguished from product implementation gaps; do not silently narrow the agreed scope. No changes to upstream release metadata or stable HACS distribution are authorized by this review.
 
-The latest known full Python pass before the product-contract refactor was 1,087 tests; the subsequent run at the review baseline had 1,070 passes and 20 failures caused by an obsolete diagnostics import. Exact-head CI must be green after correction. This document does not claim a new CI result.
+At the original review baseline, the latest known full Python pass before the product-contract refactor was 1,087 tests; the subsequent run at the review baseline had 1,070 passes and 20 failures caused by an obsolete diagnostics import. Exact-head CI must be green after correction. This document does not claim a new CI result.
 
 ## Sharing implementation increment
 
