@@ -680,13 +680,15 @@ def user_progress(car, profile, auth, *, base_registry=None, parking_allowed=Non
 
 
 def user_test_candidates(engine, car, profile, *, include_verified=False):
-    """Only simple, reviewed, currently eligible native operations."""
+    """Reviewed native actions for guided and selective physical tests."""
     from .control_resolution import control_decision
     from .action_discovery import approval_group
 
     labels = {
         ("climate", "start"): "Start cabin climate",
         ("climate", "stop"): "Stop cabin climate",
+        ("climate", "start_with_settings"): "Start climate with temperature",
+        ("climate", "set_settings"): "Change climate target temperature",
         ("climate", "window_heating_start"): "Start window heating",
         ("climate", "window_heating_stop"): "Stop window heating",
         ("charging", "start"): "Start charging",
