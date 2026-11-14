@@ -560,6 +560,15 @@ def family_discovery(vehicle, profile, rows, operations):
                         else mapping.get("attributes", [])
                     ),
                 }
+        declared = {
+            mapping["attribute"]
+            for op in sources
+            for mapping in op.get("mappings", [])
+            if mapping.get("attribute") in canonical
+        } | {
+            mapping["attribute"]
+            for mapping in definition.get("observations", {}).values()
+        }
         observations = []
         for ident, row in canonical.items():
             selected = attribute_reading(vehicle, ident)
@@ -567,23 +576,23 @@ def family_discovery(vehicle, profile, rows, operations):
             is_selected = bool(selected) and selected.get("family") == family
             if sample is None and is_selected:
                 sample = selected
-            if (
-                not sample
-                or sample.get("value") is None
-                or sample.get("status") == "invalid_value"
-            ):
+            if not sample or row["status"] == "disabled_by_user":
                 continue
+            valid = sample.get("value") is not None and sample.get("status") != "invalid_value"
             if is_selected and row["status"] not in ("verified", "readable_but_stale"):
-                continue
+                valid = False
             observations.append(
                 {
                     "attribute": ident,
                     "detail": ident in detail_attributes,
                     "captured": sample.get("captured"),
                     "observed_at": sample.get("observed"),
-                    "selected": is_selected,
-                    "status": row["status"] if is_selected else "alternative",
-                    "fresh": timestamp_is_fresh(sample.get("captured"), now),
+                    "selected": is_selected and valid,
+                    "valid": valid,
+                    "status": (
+                        row["status"] if is_selected else "alternative"
+                    ) if valid else "invalid_value",
+                    "fresh": valid and timestamp_is_fresh(sample.get("captured"), now),
                     "delivered_at": sample.get("delivered_at"),
                 }
             )
@@ -595,6 +604,8 @@ def family_discovery(vehicle, profile, rows, operations):
                 "id": family,
                 "label": definition.get("label", family.upper()),
                 "auth": definition.get("auth"),
+                "priority": profile.registry.family_priority(family),
+                "declared_attributes": sorted(declared),
                 "read_scan": bool(definition.get("executor"))
                 and any(op.get("applicability") == "applicable" for op in sources),
                 "operations": len(operation_ids | schema_ids),
@@ -603,8 +614,12 @@ def family_discovery(vehicle, profile, rows, operations):
                 "fields_mapped": sum(
                     bool(field["attributes"]) for field in fields.values()
                 ),
-                "normalized": sum(not row["detail"] for row in observations),
-                "normalized_details": sum(row["detail"] for row in observations),
+                "normalized": sum(
+                    row["valid"] and not row["detail"] for row in observations
+                ),
+                "normalized_details": sum(
+                    row["valid"] and row["detail"] for row in observations
+                ),
                 "selected": sum(
                     row["selected"] and not row["detail"] for row in observations
                 ),
