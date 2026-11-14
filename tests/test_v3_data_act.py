@@ -914,3 +914,33 @@ def test_portal_identity_does_not_promote_nickname_or_placeholder(row):
     candidate = V3Vehicle.from_data_act({"vin": VIN, **row}, "BE")
     assert not candidate.model
     assert not candidate.model_family
+
+def test_data_act_discovery_reuses_schema_inventory_without_raw_values():
+    from custom_components.audiconnect.v3.read_discovery import (
+        data_act_discovery,
+        record_data_act_fields,
+    )
+
+    now = datetime.now(UTC)
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    car = V3Vehicle(VIN, "Audi vehicle", "", "", "BE")
+    profile = DevelopmentProfile(registry, car.context)
+    unknown = {
+        "key": "00000000-0000-0000-0000-000000000001",
+        "dataFieldName": "unmapped_signal",
+        "value": "private raw data",
+        "timestampUtc": now.isoformat(),
+    }
+    payload = {"vin": VIN, "Data": [sample("52", now.isoformat()), unknown]}
+    assert record_data_act_fields(profile, payload, now)
+    assert observe_data_act(car, profile, payload, now, now.isoformat())
+    report = data_act_discovery(car, profile, include_fields=True)
+    assert report["fields_observed"] == 2
+    assert report["fields_mapped"] == report["fields_normalized"] == 1
+    assert report["fields_unmapped"] == 1
+    assert report["fields"][1]["status"] == "mapping_missing"
+    assert "private raw data" not in json.dumps(profile.job_schema)
+    assert VIN not in json.dumps(profile.job_schema)
+    assert not record_data_act_fields(profile, {"Data": []}, now)
+    assert data_act_discovery(car, profile)["fields_observed"] == 2
+    assert not profile.attribute_routes and not profile.attribute_evidence

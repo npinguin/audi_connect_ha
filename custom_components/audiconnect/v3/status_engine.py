@@ -32,6 +32,8 @@ from .read_discovery import (
     MAX_EXTRA_INITIAL_REQUESTS,
     MAX_EXTRA_PERIODIC_REQUESTS,
     read_excluded,
+    record_data_act_fields,
+    DATA_ACT_DATASET,
 )
 from .status_planner import status_groups
 
@@ -408,7 +410,7 @@ class StatusEngine:
         from .attribute_runtime import observe_data_act, remove_family_observations
 
         before = self.data_act_poll_status()
-        changed = False
+        changed = discovery_changed = False
         previous_attempt = self._data_act_attempt_at
         try:
             samples = await self._poll_data_act()
@@ -417,6 +419,9 @@ class StatusEngine:
             revoked = getattr(client, "authorization_required", False) is True
             for key, car in self.vehicles.items():
                 if key in self.profiles and (revoked or car.vin.upper() in denied):
+                    discovery_changed |= bool(
+                        self.profiles[key].job_schema.pop(DATA_ACT_DATASET, None)
+                    )
                     changed |= remove_family_observations(
                         car, self.profiles[key], "eu_data_act", datetime.now(UTC)
                     )
@@ -429,6 +434,9 @@ class StatusEngine:
                     and not revoked
                     and car.vin.upper() not in denied
                 ):
+                    discovery_changed |= record_data_act_fields(
+                        profile, payload, observed
+                    )
                     changed |= observe_data_act(
                         car, profile, payload, observed, delivered
                     )
@@ -444,7 +452,7 @@ class StatusEngine:
         if self._notify is not None:
             if changed:
                 self._notify()
-            elif before != self.data_act_poll_status():
+            elif discovery_changed or before != self.data_act_poll_status():
                 self._notify(reconcile_registry=False)
 
     async def _enrich_data_act_identity(self, client):
