@@ -262,6 +262,14 @@ def command_attributes(profile, capability, actions, *, attribute=None):
         "command_action": record.action if record else None,
         "command_backend_result": record.backend_result if record else None,
         "command_http_status": record.http_status if record else None,
+        "command_requested_at": (
+            datetime.fromtimestamp(record.started_at, UTC).isoformat()
+            if record else None
+        ),
+        "command_completed_at": (
+            datetime.fromtimestamp(record.completed_at, UTC).isoformat()
+            if record and record.completed_at is not None else None
+        ),
     }
 
 
@@ -361,8 +369,9 @@ def observe_command_response(record, car, profile, family, response):
         family != "cariad"
         or not 200 <= response.status < 300
         or not isinstance(response.data, dict)
+        or response.observed_at.timestamp() <= record.started_at
     ):
-        return
+        return False
     from .attribute_runtime import observe_read_only
     from .freshness import project_vehicle_capture
     from .historical_catalog import V2_JOBS
@@ -385,7 +394,7 @@ def observe_command_response(record, car, profile, family, response):
                 continue
             payload.setdefault(job, {})[group] = {"value": value}
     if not payload:
-        return
+        return False
     observe_read_only(
         car,
         profile,
@@ -399,3 +408,4 @@ def observe_command_response(record, car, profile, family, response):
     reconcile_access_mismatch(
         record, car, response.observed_at, registry=profile.registry
     )
+    return True

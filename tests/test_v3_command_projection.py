@@ -386,7 +386,7 @@ def test_command_response_publishes_real_capture_without_poll_or_request_echo():
             },
         },
     )
-    observe_command_response(row, car, profile, "cariad", response)
+    assert observe_command_response(row, car, profile, "cariad", response)
     assert row.state == "verified"
     assert car.readings["doorLockStatus"]["value"] == "unlocked"
     assert car.readings["stateOfCharge"]["value"] == 95
@@ -405,5 +405,5 @@ def test_command_response_publishes_real_capture_without_poll_or_request_echo():
         "access": {"accessStatus": {"requests": [{"status": "successful"}]}}
     }
     response.observed_at = NEW + timedelta(minutes=2)
-    observe_command_response(row, car, profile, "cariad", response)
+    assert not observe_command_response(row, car, profile, "cariad", response)
     assert car.readings["last_update_time"]["value"] == NEW.isoformat()
