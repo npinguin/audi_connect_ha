@@ -113,7 +113,7 @@ def test_climate_discovery_requires_typed_temperature_before_dispatch(
     from custom_components.audiconnect.v3.command_engine import CommandEngine
     from custom_components.audiconnect.v3.read_discovery import user_test_candidates
     from custom_components.audiconnect.v3.command_parameters import (
-        discovery_parameter_schema,
+        parameter_schema,
     )
 
     registry = CapabilityRegistry.from_json_file(catalog_path())
@@ -127,10 +127,13 @@ def test_climate_discovery_requires_typed_temperature_before_dispatch(
         auth=NS(uses_auth0=True, service=NS(_spin="")),
         _prepare_command=prepare,
     )
-    assert user_test_candidates(obj, car, profile, include_verified=expert)[
+    candidate = user_test_candidates(obj, car, profile, include_verified=expert)[
         f"climate.{action}"
-    ][3] == route
-    assert discovery_parameter_schema("climate", action, registry.operations[route]) == {
+    ]
+    assert candidate["operation"] == route
+    assert candidate["parameter_schema"] == parameter_schema(
+        registry.operations[route], {}, discovery_action=f"climate.{action}"
+    ) == {
         "temp_c": {"type": "number", "minimum": 15, "maximum": 30, "required": True}
     }
 
