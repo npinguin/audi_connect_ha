@@ -1480,6 +1480,25 @@ class AudiConnectV3Panel extends HTMLElement {
     );
   }
 
+  capabilityMatrix(rows, families) {
+    if (!rows.length) return "<p>No matching attributes. Show all attributes to inspect missing data.</p>";
+    const sources = families.map((source) => ({
+      ...source,
+      samples: new Map((source.observations || []).map((row) => [row.attribute, row])),
+      declared: new Set(source.declared_attributes || []),
+    }));
+    return `<p class="helper">Selected source is marked ✓. Newest valid capture wins; source priority breaks equivalent captures (lower number first). Last known is not live data.</p>
+      <div class="coverage-table"><table><thead><tr><th>Attribute / HA entity</th>${sources.map((source) => `<th>${escapeHTML(source.label)}<div class="subline">Priority ${escapeHTML(source.priority ?? "—")}</div></th>`).join("")}<th>Inspect</th></tr></thead><tbody>
+      ${rows.map((row) => `<tr><td><b>${escapeHTML(row.metadata?.name || friendly(row.entity_key))}</b><div class="subline">${pill(row.status)}</div><div class="subline">${this.entityLinks(row.entity_ids) || "No registered entity"}</div></td>
+      ${sources.map((source) => {
+        const sample = source.samples.get(row.attribute);
+        if (!sample) return `<td class="muted">${source.declared.has(row.attribute) ? "Mapped · no value" : "—"}</td>`;
+        const value = sample.valid === false ? "Invalid value" : sample.normalized_value ?? "Not retained";
+        return `<td><b>${sample.selected ? "✓ " : ""}${escapeHTML(value)}</b><div class="subline">${sample.valid === false ? "Invalid" : sample.fresh ? "Fresh" : "Last known"}${sample.captured ? " · " + escapeHTML(this.localTime(sample.captured)) : ""}</div><details><summary>Source details</summary><code>${escapeHTML(sample.source_field || "—")}</code><div class="subline">Received ${escapeHTML(this.localTime(sample.observed_at))}</div></details></td>`;
+      }).join("")}<td><button data-action="select-attribute" data-capability="${escapeHTML(row.capability)}" data-attribute="${escapeHTML(row.attribute)}">Inspect &amp; test ›</button></td></tr>`).join("")}
+      </tbody></table></div>`;
+  }
+
   sourceDiscovery(families, family, detailed = true) {
     const sources = families.filter(
       (source) => family === "all" || source.id === family,
@@ -1492,7 +1511,7 @@ class AudiConnectV3Panel extends HTMLElement {
           const summary = `${escapeHTML(source.label)} · ${source.fields_observed} fields · ${source.fields_mapped} mapped · ${source.normalized} normalized · ${source.normalized_details || 0} details · ${source.selected} selected · ${source.fresh} fresh`;
           const health = source.health || {};
           const auth = source.auth_context || {};
-          return `<details open><summary>${summary}</summary>
+          return `<details><summary>${summary}</summary>
           <p>${escapeHTML(friendly(health.result || "source evidence"))} · ${source.tested_operations}/${source.operations} operations tested${source.truncated ? " · Bounded inventory" : ""}</p>
           <div class="subline">Auth: ${escapeHTML(friendly(auth.role || source.auth || "unknown"))}${auth.present === false ? " · Credential unavailable" : auth.same_as_cariad ? " · Shared CARIAD token" : ""}${auth.claims_verified === false ? " · Claims unverified" : ""}</div>
           ${detailed ? (source.schema_results || []).map((result) => `<div class="subline">${escapeHTML(result.source)} · HTTP ${escapeHTML(result.http_status ?? "—")} · ${escapeHTML(friendly(result.outcome || "observed"))} · ${escapeHTML(this.localTime(result.observed_at))}</div>`).join("") : ""}
@@ -1543,7 +1562,7 @@ class AudiConnectV3Panel extends HTMLElement {
             `<tr><td><button data-action="open-capability" data-capability="${escapeHTML(cap)}">${escapeHTML(domainName(cap))}</button></td><td>${c.jobs_assessed}/${c.jobs_total}</td><td>${c.attributes_normalized}/${c.attributes_total}</td></tr>`,
         )
         .join("")}</tbody></table></div>
-      ${this.sourceDiscovery(this.capabilityStatus.family_discovery || [], "all")}
+
       <h3>3 · Control discovery &amp; physical verification</h3>
       <div class="actions"><button data-action="discovery-mode" data-mode="guided" class="${!this.expertDiscovery ? "primary" : ""}">Guided</button><button data-action="discovery-mode" data-mode="expert" class="${this.expertDiscovery ? "primary" : ""}">Expert · selective</button></div>
       <p>${escapeHTML(p.controls_route_available ?? rows.filter((c) => c.eligible).length)} routes available · ${escapeHTML(p.controls_dispatch_ready ?? 0)} dispatch ready · ${escapeHTML(p.controls_physically_verified ?? 0)} physically verified / ${escapeHTML(p.controls_catalog_applicable ?? 0)} catalog applicable · ${escapeHTML(p.controls_ineligible ?? 0)} ineligible · ${this.skippedControls.size} skipped · ${candidates.filter((c) => !this.skippedControls.has(c.capability + "." + c.action)).length} ready to test</p>
@@ -1782,8 +1801,8 @@ class AudiConnectV3Panel extends HTMLElement {
         (!this.capabilityFilter || r.capability === this.capabilityFilter) &&
         (family === "all" ||
           r.api_family === family ||
-          (r.source === "v3_live_evidence" &&
-            sourceObservations.has(r.attribute))) &&
+          sourceObservations.has(r.attribute) ||
+          (selectedSource?.id === family && (selectedSource.declared_attributes || []).includes(r.attribute))) &&
         (!selectedEntity ||
           entityMatches(r) ||
           (!r.entity_key && selectedEntity.operations.includes(r.operation))),
@@ -1806,7 +1825,7 @@ class AudiConnectV3Panel extends HTMLElement {
           api_family: family,
           normalized_value: observation.normalized_value,
           path: observation.source_field,
-          status: observation.fresh ? "verified" : "readable_but_stale",
+          status: observation.valid === false ? "invalid_value" : observation.fresh ? "verified" : "readable_but_stale",
         };
       });
     const controls = filteredRows.filter(
@@ -2088,7 +2107,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <div class="card"><div class="eyebrow">Enabled controls</div><div class="stat">${enabledCount}</div><div class="summary">${verifiedCount} locally verified</div></div>
               <div class="card"><div class="eyebrow">Needs review</div><div class="stat">${nextActions.length}</div><div class="summary"><button data-action="step-4">View evidence</button></div></div>
             </div>
-            ${this.sourceDiscovery(families, family, family !== "all")}
+            ${family !== "all" ? this.sourceDiscovery(families, family) : ""}
             <div class="section-head"><h2>Capabilities</h2><button data-action="step-2">Browse functions</button></div>
             <div class="cap-grid">${capabilityNames
               .map((cap) => {
@@ -2256,7 +2275,7 @@ class AudiConnectV3Panel extends HTMLElement {
               <div class="tool"><label>Show functions</label>
                 <select id="inventory-filter">
                   <option value="available" ${this.inventoryFilter === "available" ? "selected" : ""}>Observed on this vehicle</option>
-                  <option value="all" ${this.inventoryFilter === "all" ? "selected" : ""}>All historical and local attributes</option>
+                  <option value="all" ${this.inventoryFilter === "all" ? "selected" : ""}>All mapped and catalog attributes</option>
                   <option value="disabled" ${this.inventoryFilter === "disabled" ? "selected" : ""}>Disabled by user (all capabilities)</option>
                 </select>
               </div>
@@ -2268,19 +2287,7 @@ class AudiConnectV3Panel extends HTMLElement {
               ${this.definitionFields("new-attribute", this.initialNewAttribute, { capture_path: null, conversion: null })}
               <button data-action="read-new" ${this.loading ? "disabled" : ""}>Save local attribute</button>
             </details>
-            ${
-              visibleAttributes
-                .map(
-                  (r) => `<div class="attribute-row">
-              <div><b>${escapeHTML(r.metadata?.name || friendly(r.entity_key))}</b>
-                <div class="subline">${pill(r.status)} ${r.selected ? pill("neutral", "Active") : ""}</div><div class="subline">${this.entityLinks(r.entity_ids) || "No registered entity"}</div></div>
-              <button data-action="select-attribute" data-capability="${escapeHTML(r.capability)}"
-                data-attribute="${escapeHTML(r.attribute)}">Inspect & test ›</button>
-            </div>`,
-                )
-                .join("") ||
-              "<p>No observed attributes in this domain. Change the filter to show the complete historical catalog.</p>"
-            }
+            ${this.capabilityMatrix(visibleAttributes, families)}
             </div>
             <div style="display:${this.functionMode === "data" ? "none" : "block"}">
             <h2 style="margin-top:20px">Vehicle controls <span class="muted" style="font-size:14px">· ${groupActions.length} functions</span></h2>
