@@ -465,8 +465,48 @@ def observe_read_only(
     return {"mapped": mapped, "fresh": fresh_count}
 
 
+def _data_act_value(mapping, raw):
+    """Return a contract-valid scalar, or None for a rejected supplied value."""
+    if type(raw) not in (str, int, float):
+        return None
+    if "values" in mapping:
+        value = mapping["values"].get(str(raw))
+    elif mapping.get("presence"):
+        value = True if isinstance(raw, str) and raw.strip() else None
+    elif mapping.get("token"):
+        value = (
+            raw
+            if isinstance(raw, str)
+            and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", raw)
+            and raw.lower() not in {
+                "unknown", "invalid", "unsupported", "unavailable", "error",
+                "notavailable",
+            }
+            else None
+        )
+    else:
+        try:
+            value = float(raw)
+        except (ValueError, OverflowError):
+            return None
+        if not mapping["min"] <= value <= mapping["max"]:
+            return None
+        if (
+            mapping["attribute"] == "UTC_TIME_AND_KILOMETER_STATUS"
+            and not value.is_integer()
+        ):
+            return None
+        if "scale" in mapping:
+            value = round(value * mapping["scale"] + mapping["offset"], 2)
+    if not mapping.get("detail") and value is not None:
+        value, _ = normalize_attribute_value(
+            ATTRIBUTES[mapping["attribute"]], value, None
+        )
+    return value
+
+
 def data_act_observations(payload, now, registry):
-    """Exact UUID + field-name mappings; one best timestamp per semantic field."""
+    """One latest observation per semantic field, including timed invalid evidence."""
     fields = registry.families["eu_data_act"]["observations"]
     candidates = {}
     for item in payload["Data"]:
@@ -477,60 +517,27 @@ def data_act_observations(payload, now, registry):
         if not mapping or item.get("dataFieldName") != mapping["field"]:
             continue
         raw = item.get("value")
-        if type(raw) not in (str, int, float):
-            continue
-        ident = mapping["attribute"]
-        if "values" in mapping:
-            value = mapping["values"].get(str(raw))
-            if value is None:
-                continue
-        elif mapping.get("presence"):
-            if not isinstance(raw, str) or not raw.strip():
-                continue
-            value = True
-        elif mapping.get("token"):
-            if not isinstance(raw, str) or not re.fullmatch(
-                r"[A-Za-z0-9_.:-]{1,80}", raw
-            ):
-                continue
-            if raw.lower() in {
-                "unknown",
-                "invalid",
-                "unsupported",
-                "unavailable",
-                "error",
-                "notavailable",
-            }:
-                continue
-            value = raw
-        else:
-            try:
-                value = float(raw)
-            except (ValueError, OverflowError):
-                continue
-            if not mapping["min"] <= value <= mapping["max"]:
-                continue
-            # The OEM mileage field is unsignedInt, not a bounded uint16 signal.
-            if ident == "UTC_TIME_AND_KILOMETER_STATUS" and not value.is_integer():
-                continue
-            if "scale" in mapping:
-                value = round(value * mapping["scale"] + mapping["offset"], 2)
-        if not mapping.get("detail"):
-            value, _ = normalize_attribute_value(ATTRIBUTES[ident], value, None)
-            if value is None:
-                continue
+        if raw is None:
+            continue  # Absence is not evidence that a previous value became invalid.
         captured = item.get("timestampUtc")
         if capture_age_minutes(captured, now) is None:
             captured = None
-        candidates.setdefault(ident, []).append((captured, value, key))
+        value = _data_act_value(mapping, raw)
+        if value is None and captured is None:
+            continue  # Undated rejection cannot invalidate a known observation.
+        candidates.setdefault(mapping["attribute"], []).append((captured, value, key))
     result = {}
     for ident, rows in candidates.items():
         latest = max((_capture_in_utc(row[0]) for row in rows if row[0]), default=None)
         matching = [row for row in rows if _capture_in_utc(row[0]) == latest]
-        if len({row[1] for row in matching}) != 1:
-            continue
         captured, value, key = min(matching, key=lambda row: row[2])
-        result[ident] = {"value": value, "captured": captured, "path": key}
+        conflict = len({row[1] for row in matching}) != 1
+        if conflict and latest is None:
+            continue
+        sample = {"value": None if conflict else value, "captured": captured, "path": key}
+        if sample["value"] is None:
+            sample["reason"] = "conflicting_source_values" if conflict else "invalid_source_value"
+        result[ident] = sample
     return result
 
 
@@ -550,6 +557,20 @@ def observe_data_act(vehicle, profile, payload, observed_at, delivered_at):
         if ident in getattr(profile, "attribute_disabled", ()):
             continue
         previous = vehicle.readings.get(ident)
+        if sample["value"] is None:
+            record_invalid_observation(
+                vehicle,
+                ident,
+                sample["captured"],
+                observed_at,
+                sample["path"],
+                ATTRIBUTES[ident]["job"] if ident in ATTRIBUTES else None,
+                sample["reason"],
+                "eu_data_act",
+                profile=profile,
+            )
+            changed |= vehicle.readings.get(ident) is not previous
+            continue
         record_observation(
             vehicle,
             profile,
