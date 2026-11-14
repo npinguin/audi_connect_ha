@@ -509,7 +509,8 @@ class OptionsFlowHandler(OptionsFlow):
     _dealer_vin: str | None = None
     _discovery_vin: str | None = None
     _discovery_action: str | None = None
-    _discovery_candidate: tuple | None = None
+    _discovery_candidate: dict[str, Any] | None = None
+    _discovery_guided: bool = False
     _discovery_sequence: int | None = None
     _discovery_skipped: set[str] | None = None
 
@@ -661,11 +662,9 @@ class OptionsFlowHandler(OptionsFlow):
             return await self.async_step_discovery_recover()
         if self._discovery_skipped is None:
             self._discovery_skipped = set()
-        candidates = {
-            key: value
-            for key, value in user_test_candidates(engine, car, profile).items()
-            if key not in self._discovery_skipped
-        }
+        candidates = user_test_candidates(
+            engine, car, profile, include_verified=True
+        )
         if user_input is not None:
             choice = user_input.get("action")
             if choice == "finish":
@@ -676,11 +675,24 @@ class OptionsFlowHandler(OptionsFlow):
             if choice == "refresh":
                 await engine.resume_read_discovery(car.vin)
                 return await self.async_step_discovery()
-        if candidates:
-            self._discovery_action, self._discovery_candidate = next(
-                iter(candidates.items())
-            )
-            return await self.async_step_discovery_consent()
+            self._discovery_guided = choice == "guided"
+            if not self._discovery_guided and choice in candidates:
+                self._discovery_action = choice
+                self._discovery_candidate = candidates[choice]
+                return await self.async_step_discovery_consent()
+        if self._discovery_guided:
+            guided = user_test_candidates(engine, car, profile)
+            remaining = {
+                key: value
+                for key, value in guided.items()
+                if key not in self._discovery_skipped
+            }
+            if remaining:
+                self._discovery_action, self._discovery_candidate = next(
+                    iter(remaining.items())
+                )
+                return await self.async_step_discovery_consent()
+            self._discovery_guided = False
         progress = engine.discovery_progress(car, profile)
         return self.async_show_form(
             step_id="discovery",
@@ -688,8 +700,10 @@ class OptionsFlowHandler(OptionsFlow):
                 {
                     vol.Required("action", default="finish"): vol.In(
                         {
-                            "finish": "Finish",
+                            "finish": "Finish / skip for now",
+                            "guided": "Guided discovery",
                             "refresh": "Resume unresolved read discovery",
+                            **{key: row["label"] for key, row in candidates.items()},
                         }
                     )
                 }
@@ -709,14 +723,16 @@ class OptionsFlowHandler(OptionsFlow):
         from .v3.read_discovery import user_test_candidates
 
         engine, car, profile = self._discovery_context()
-        candidate = user_test_candidates(engine, car, profile).get(
-            self._discovery_action
-        )
+        candidate = user_test_candidates(
+            engine, car, profile, include_verified=not self._discovery_guided
+        ).get(self._discovery_action)
         if candidate is None or candidate != self._discovery_candidate:
             # Do not reuse a consent when discovery changed the actual route.
             self._discovery_candidate = None
             return await self.async_step_discovery()
-        label, capability, action, operation, group = candidate
+        from .v3.command_parameters import validate_inputs
+
+        schema = candidate["parameter_schema"]
         errors = {}
         if user_input is not None:
             answer = user_input.get("accept")
@@ -731,15 +747,21 @@ class OptionsFlowHandler(OptionsFlow):
                 self._discovery_skipped.add(self._discovery_action)
                 self._discovery_candidate = None
                 return await self.async_step_discovery()
+            params = {
+                name: user_input[name] for name in schema if name in user_input
+            }
             self._discovery_candidate = None  # Single-use explicit action approval.
             try:
+                validate_inputs(params, schema)
                 result = await engine.approved_control_discovery(
                     car.vin,
-                    action,
-                    operation,
-                    approval=group,
-                    capability=capability,
+                    candidate["action"],
+                    candidate["operation"],
+                    approval=candidate["approval_group"],
+                    capability=candidate["capability"],
+                    params=params or None,
                     guided=True,
+                    expert=not self._discovery_guided,
                 )
             except (ValueError, RuntimeError, OSError, TimeoutError):
                 errors["base"] = "discovery_test_failed"
@@ -758,13 +780,24 @@ class OptionsFlowHandler(OptionsFlow):
                 {
                     vol.Required("accept", default="no"): vol.In(
                         {"yes": "Yes", "no": "No / skip", "finish": "Finish"}
-                    )
+                    ),
+                    **{
+                        vol.Optional(name): NumberSelector(
+                            NumberSelectorConfig(
+                                min=contract["minimum"],
+                                max=contract["maximum"],
+                                mode="box",
+                            )
+                        )
+                        for name, contract in schema.items()
+                    },
                 }
             ),
             errors=errors,
             description_placeholders={
                 "vehicle": car.name,
-                "action": label,
+                "action": candidate["label"],
+                "instructions": candidate["instructions"],
                 "verified": str(progress["controls_physically_verified"]),
                 "controls": str(progress["controls_catalog_applicable"]),
                 "skipped": str(len(self._discovery_skipped or ())),
