@@ -18,7 +18,6 @@ from homeassistant.config_entries import ConfigEntryState
 from ..const import DOMAIN
 from .engine import V3Engine
 from .runtime import V3_DEFAULT, V3_ENABLED, V3_RUNTIME_OPTION
-from .command_parameters import discovery_parameter_schema
 
 _PANEL = "audiconnect-v3"
 _READY_KEY = "audiconnect_v3_dashboard_registered"
@@ -220,36 +219,15 @@ async def ws_status(hass, connection, msg):
         report["data_act_discovery"] = data_act_discovery(
             vehicle, profile, include_fields=True
         )
-        report["end_user_candidates"] = [
-            {
-                "label": label,
-                "capability": capability,
-                "action": action,
-                "operation": operation,
-                "approval_group": group,
-                "parameter_schema": discovery_parameter_schema(
-                    capability, action, profile.registry.operations[operation]
-                ),
-            }
-            for label, capability, action, operation, group in user_test_candidates(
-                engine, vehicle, profile
-            ).values()
-        ]
-        report["expert_candidates"] = [
-            {
-                "label": label,
-                "capability": capability,
-                "action": action,
-                "operation": operation,
-                "approval_group": group,
-                "parameter_schema": discovery_parameter_schema(
-                    capability, action, profile.registry.operations[operation]
-                ),
-            }
-            for label, capability, action, operation, group in user_test_candidates(
-                engine, vehicle, profile, include_verified=True
-            ).values()
-        ]
+        for key, include_verified in (
+            ("end_user_candidates", False),
+            ("expert_candidates", True),
+        ):
+            report[key] = list(
+                user_test_candidates(
+                    engine, vehicle, profile, include_verified=include_verified
+                ).values()
+            )
         coordinator = getattr(
             getattr(engine.entry, "runtime_data", None), "coordinator", None
         )
