@@ -411,10 +411,10 @@ class CommandEngine:
             candidate = user_test_candidates(
                 self, car, profile, include_verified=expert
             ).get(f"{capability}.{aspect}")
-            if not candidate or (candidate["operation"], candidate["approval_group"]) != (
-                alternative,
-                approval,
-            ):
+            if not candidate or (
+                candidate["operation"],
+                candidate["approval_group"],
+            ) != (alternative, approval):
                 return {**result, "alternative": "no_eligible_route"}
             try:
                 next_result = await self._test_action_once(
@@ -453,10 +453,10 @@ class CommandEngine:
             candidate = user_test_candidates(
                 self, vehicle, profile, include_verified=expert
             ).get(f"{capability}.{aspect}")
-            if not candidate or (candidate["operation"], candidate["approval_group"]) != (
-                operation,
-                approval,
-            ):
+            if not candidate or (
+                candidate["operation"],
+                candidate["approval_group"],
+            ) != (operation, approval):
                 raise ValueError(
                     "Discovery action changed; refresh status before testing"
                 )
