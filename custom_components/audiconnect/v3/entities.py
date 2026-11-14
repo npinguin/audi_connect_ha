@@ -1151,6 +1151,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
                 "ventilation_timers_detail",
             ),
             "charging_state": (
+                "charging_requests_detail",
                 "charging_timers_detail",
                 "departure_charging_timers_detail",
                 "battery_care_detail",
@@ -1523,8 +1524,13 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
 
     @property
     def extra_state_attributes(self):
+        from .structured_details import details_for
+
         row, state = stateful_reading(self.vehicle, self.key)
         return {
+            **details_for(
+                self.vehicle, *("charging_requests_detail",) if self.key == "charging" else ()
+            ),
             **self._control_attributes(
                 self.definition["capability"],
                 (self.definition["on"], self.definition["off"]),
