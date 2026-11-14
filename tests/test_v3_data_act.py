@@ -1055,3 +1055,45 @@ def test_data_act_duration_and_hood_enrichment_rejects_sentinels():
     assert result["remainingChargingTime"]["value"] == 42
     assert "remainingClimatisationTime" not in result
     assert result["hood_open"]["value"] is False
+
+
+def test_optional_identity_withdrawal_preserves_native_telemetry_and_history():
+    from custom_components.audiconnect.v3.identity_cache import (
+        capture_identity,
+        withdraw_optional_identity,
+        without_optional_identity,
+    )
+
+    now = datetime.now(UTC)
+    car = V3Vehicle.from_data_act(
+        {"vin": VIN, "modelName": "Audi Q8", "modelYear": 2021}, "BE"
+    )
+    car.identity_observed_at = now.isoformat()
+    profile = DevelopmentProfile(
+        CapabilityRegistry.from_json_file(catalog_path()), car.context
+    )
+    profile.manufacturer_identity = capture_identity(car)
+    assert profile.manufacturer_identity
+    assert not without_optional_identity(profile.manufacturer_identity)
+    car.readings["stateOfCharge"] = {"value": 80, "family": "cariad"}
+    car.trip_history.append({"startMileage": 1, "overallMileage": 2})
+    assert withdraw_optional_identity(car, profile)
+    assert not car.model and not car.model_year and not profile.manufacturer_identity
+    assert car.readings["stateOfCharge"]["value"] == 80
+    assert len(car.trip_history) == 1
+    assert not withdraw_optional_identity(car, profile)
+
+    car = V3Vehicle(VIN, "Audi Q8", "Audi Q8", "q8", "BE")
+    car.model_source = "audi_long_name"
+    car.identity_operation = "graphql.inventory.vehicleList"
+    car.identity_observed_at = now.isoformat()
+    car.model_year = "2021"
+    car.year_operation = "eu_data_act.identity.vehicles"
+    profile = DevelopmentProfile(
+        CapabilityRegistry.from_json_file(catalog_path()), car.context
+    )
+    profile.manufacturer_identity = capture_identity(car)
+    assert withdraw_optional_identity(car, profile)
+    assert car.model == "Audi Q8" and not car.model_year
+    assert profile.manufacturer_identity["model"] == "Audi Q8"
+    assert not profile.manufacturer_identity["year"]

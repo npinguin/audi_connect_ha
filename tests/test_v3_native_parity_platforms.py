@@ -154,7 +154,7 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
 
     vehicle = car()
-    profile = SimpleNamespace(registry=None)
+    profile = SimpleNamespace(registry=None, attribute_evidence={}, job_discovery={})
     now = datetime.now(UTC)
     stamp = (now - timedelta(minutes=10)).isoformat()
     reply = SimpleNamespace(

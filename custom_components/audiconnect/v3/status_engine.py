@@ -410,7 +410,7 @@ class StatusEngine:
             self._data_act_task = asyncio.create_task(self._collect_data_act())
 
     async def _collect_data_act(self):
-        from .attribute_runtime import observe_data_act, remove_family_observations
+        from .attribute_runtime import observe_data_act
 
         before = self.data_act_poll_status()
         changed = discovery_changed = False
@@ -419,26 +419,11 @@ class StatusEngine:
         try:
             samples = await self._poll_data_act()
             client = getattr(self.auth, "data_act_client", None)
+            changed, discovery_changed = self._withdraw_data_act(client)
+            if changed and self.storage is not None:
+                await self.storage.async_save(self.profiles)
             denied = getattr(client, "denied_vins", ())
-            missing = {
-                vin
-                for vin, state in getattr(client, "delivery_states", {}).items()
-                if state == "subscription_unavailable"
-            }
             revoked = getattr(client, "authorization_required", False) is True
-            for key, car in self.vehicles.items():
-                if key in self.profiles and (
-                    revoked or car.vin.upper() in denied or car.vin.upper() in missing
-                ):
-                    discovery_changed |= bool(
-                        self.profiles[key].job_schema.pop(DATA_ACT_DATASET, None)
-                    )
-                    self.profiles[key].job_schema.pop(
-                        "eu_data_act.identity.vehicles", None
-                    )
-                    changed |= remove_family_observations(
-                        car, self.profiles[key], "eu_data_act", datetime.now(UTC)
-                    )
             for car, profile, payload, observed, delivered, marker in samples:
                 key = car.vin.lower()
                 if (
@@ -447,6 +432,7 @@ class StatusEngine:
                     and car.inventory_present
                     and not revoked
                     and car.vin.upper() not in denied
+                    and getattr(client, "delivery_states", {}).get(car.vin.upper()) != "subscription_unavailable"
                 ):
                     discovery_changed |= record_data_act_fields(
                         profile, payload, observed
@@ -460,6 +446,12 @@ class StatusEngine:
                 discovery_changed |= (
                     self._data_act_identity_attempt_at != previous_identity_attempt
                 )
+            # The later identity call can itself discover terminal auth loss.
+            withdrawn, schema_changed = self._withdraw_data_act(client)
+            changed |= withdrawn
+            discovery_changed |= schema_changed
+            if withdrawn and self.storage is not None:
+                await self.storage.async_save(self.profiles)
         except Exception:
             # Optional provider errors must not invalidate native data or expose
             # response content and credentials in logs.
@@ -472,12 +464,35 @@ class StatusEngine:
             elif discovery_changed or before != self.data_act_poll_status():
                 self._notify(reconcile_registry=False)
 
+    def _withdraw_data_act(self, client):
+        from .attribute_runtime import remove_family_observations
+        from .data_act import IDENTITY_OPERATION
+        from .identity_cache import withdraw_optional_identity
+
+        changed = discovery_changed = False
+        denied = getattr(client, "denied_vins", ())
+        states = getattr(client, "delivery_states", {})
+        revoked = client is None or getattr(client, "authorization_required", False) is True
+        now = datetime.now(UTC)
+        for key, car in self.vehicles.items():
+            profile = self.profiles.get(key)
+            if profile is None:
+                continue
+            lost_access = revoked or car.vin.upper() in denied
+            if lost_access or states.get(car.vin.upper()) == "subscription_unavailable":
+                discovery_changed |= bool(profile.job_schema.pop(DATA_ACT_DATASET, None))
+                changed |= remove_family_observations(car, profile, "eu_data_act", now)
+            if lost_access:
+                discovery_changed |= bool(profile.job_schema.pop(IDENTITY_OPERATION, None))
+                changed |= withdraw_optional_identity(car, profile)
+        return changed, discovery_changed
+
     async def _enrich_data_act_identity(self, client):
         """Bound identity enrichment to the existing optional family task."""
         from .data_act import DataActUnavailable, IDENTITY_OPERATION
         from .response_preview import merge_schema_evidence
 
-        if self._apply_identity is None or client.authorization_required:
+        if self._apply_identity is None or client is None or client.authorization_required:
             return False
         now = datetime.now(UTC)
         if client.quota.retry_at and now < client.quota.retry_at:
@@ -576,7 +591,9 @@ class StatusEngine:
                     "captured": stamp.isoformat(),
                     "path": "vehicle_capture",
                 }
-            if car.model:
+            if not car.model:
+                car.readings.pop("model", None)
+            else:
                 car.readings["model"] = {
                     "value": car.model,
                     "captured": None,

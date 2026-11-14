@@ -209,6 +209,12 @@ def commit_observation(vehicle, ident, row, registry, now):
     return True
 
 
+def invalidate_attribute(vehicle, ident):
+    """A route/enablement change invalidates both current and competing samples."""
+    vehicle.readings.pop(ident, None)
+    vehicle.family_readings.pop(ident, None)
+
+
 def refresh_family_observations(vehicle, profile, now):
     """Re-evaluate cached competing observations at the existing publish boundary."""
     for ident in vehicle.family_readings:
