@@ -184,6 +184,7 @@ def test_guided_readback_only_uses_known_changed_comfort_state(value, expected):
             "climatisationState": {
                 "value": value,
                 "captured": NOW.isoformat(),
+                "observed": NOW.isoformat(),
                 "family": "cariad",
             }
         }
@@ -207,6 +208,7 @@ def test_access_mismatch_releases_only_accepted_command_with_new_evidence():
             "doorLockStatus": {
                 "value": "unlocked",
                 "captured": (NOW - timedelta(minutes=4)).isoformat(),
+                "observed": NOW.isoformat(),
             }
         }
     )
@@ -267,6 +269,7 @@ def test_data_act_never_verifies_command_even_with_fresh_capture(
             attribute: {
                 "value": value,
                 "captured": NOW.isoformat(),
+                "observed": NOW.isoformat(),
                 "family": "eu_data_act",
             }
         },
@@ -287,6 +290,7 @@ def test_display_source_does_not_hide_native_command_evidence():
         "value": "charging",
         "family": "cariad",
         "captured": NOW.isoformat(),
+        "observed": NOW.isoformat(),
     }
     display = {
         "value": "off",
@@ -299,3 +303,23 @@ def test_display_source_does_not_hide_native_command_evidence():
     )
     assert reconcile_readback(row, car, NOW)
     assert car.readings["chargingState"] is display
+
+
+@pytest.mark.parametrize("receipt", [None, OLD.isoformat()])
+def test_command_requires_post_dispatch_receipt(receipt):
+    from custom_components.audiconnect.v3.command_readback import reconcile_readback
+
+    row = record("access", "lock")
+    car = NS(
+        readings={
+            "doorLockStatus": {
+                "value": "locked",
+                "family": "cariad",
+                "captured": NOW.isoformat(),
+                "observed": receipt,
+            }
+        }
+    )
+    assert not reconcile_readback(row, car, NOW)
+    car.readings["doorLockStatus"]["observed"] = NOW.isoformat()
+    assert reconcile_readback(row, car, NOW)

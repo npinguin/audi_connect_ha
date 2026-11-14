@@ -226,6 +226,7 @@ def test_climate_start_readback_requires_requested_temperature_not_only_on():
     vehicle.readings["climatisationTargetTemperatureC"] = {
         "value": 20,
         "captured": now.isoformat(),
+        "observed": now.isoformat(),
     }
     assert not reconcile_readback(record, vehicle, now)
     vehicle.readings["climatisationTargetTemperatureC"]["value"] = 22.5

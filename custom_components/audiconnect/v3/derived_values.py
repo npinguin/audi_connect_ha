@@ -11,7 +11,7 @@ from .freshness import timestamp_is_fresh
 
 
 def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
-    from .attribute_runtime import record_observation
+    from .attribute_runtime import record_observation, _valid_capture
 
     def record(ident, value, captured, job, path):
         if value is not None:
@@ -40,15 +40,15 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         ("max_charge_current", "chargingCurrentLimitA"),
     ):
         row = car.readings.get(source)
-        if row and accepts(car.readings.get(ident), row.get("captured")):
+        if row and accepts(car.readings.get(ident), row.get("captured"), observed_at):
             car.readings[ident] = dict(row)
     remaining = car.readings.get("remainingChargingTime", {})
-    from .attribute_runtime import _capture_in_utc, record_invalid_observation
+    from .attribute_runtime import record_invalid_observation
 
-    stamp = _capture_in_utc(remaining.get("captured"))
+    stamp = _valid_capture(remaining.get("captured"), observed_at)
     minutes = remaining.get("value")
     if stamp and accepts(
-        car.readings.get("charging_complete_time"), remaining["captured"]
+        car.readings.get("charging_complete_time"), remaining["captured"], observed_at
     ):
         if remaining.get("status") == "invalid_value":
             car.readings["charging_complete_time"] = {
@@ -418,11 +418,14 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
     block = read_json_path(payload, path)
     if isinstance(block, dict) and isinstance(block.get("profiles"), list):
         captured = block.get("carCapturedTimestamp")
+        if _valid_capture(captured, observed_at) is None:
+            captured = None
         if accepts(
             {"captured": car.charging_profiles_captured}
             if car.charging_profiles_captured
             else None,
             captured,
+            observed_at,
         ):
             from .structured_details import (
                 _clock,
@@ -554,7 +557,7 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         captured = block.get("carCapturedTimestamp")
         # The count retains the capture boundary even if the next single
         # timer disappears. Older responses must not resurrect removed timers.
-        if not accepts(car.readings.get(count), captured):
+        if not accepts(car.readings.get(count), captured, observed_at):
             continue
         from .structured_details import _array, _timer
 
@@ -640,5 +643,5 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                     job,
                     path,
                 )
-            elif accepts(car.readings.get(ident), captured):
+            elif accepts(car.readings.get(ident), captured, observed_at):
                 car.readings.pop(ident, None)

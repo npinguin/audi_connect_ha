@@ -771,7 +771,7 @@ def test_data_act_account_status_is_derived_from_channel_state():
     for delivery, expected in (
         ("dataset_received", "dataset_received"),
         ("vehicle_access_denied", "vehicle_access_denied"),
-        ("subscription_unavailable", "no_new_dataset"),
+        ("subscription_unavailable", "subscription_unavailable"),
         ("unavailable", "unavailable"),
     ):
         client.delivery_states[VIN] = delivery
@@ -945,3 +945,65 @@ def test_data_act_discovery_reuses_schema_inventory_without_raw_values():
     assert not record_data_act_fields(profile, {"Data": []}, now)
     assert data_act_discovery(car, profile)["fields_observed"] == 2
     assert not profile.attribute_routes and not profile.attribute_evidence
+
+
+@pytest.mark.asyncio
+async def test_missing_subscription_removes_only_optional_readings():
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from custom_components.audiconnect.v3.data_act import DataActClient
+    from custom_components.audiconnect.v3.status_engine import StatusEngine
+
+    now = datetime.now(UTC)
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    profile = DevelopmentProfile(
+        CapabilityRegistry.from_json_file(catalog_path()), car.context
+    )
+    earlier = now - timedelta(minutes=10)
+    record_observation(
+        car,
+        profile,
+        "stateOfCharge",
+        80,
+        earlier.isoformat(),
+        now,
+        "native",
+        "charging",
+        "cariad",
+        fresh=True,
+        operation="cariad.climate.status.batch",
+        persist_evidence=False,
+    )
+    observe_data_act(
+        car,
+        profile,
+        {"vin": VIN, "Data": [sample("52", now.isoformat())]},
+        now,
+        now.isoformat(),
+    )
+    client = DataActClient(None)
+    status = StatusEngine(
+        hass=None,
+        entry=None,
+        auth=SimpleNamespace(data_act_client=client),
+        transport=None,
+        storage=None,
+        vehicles={VIN.lower(): car},
+        profiles={VIN.lower(): profile},
+        discover=None,
+        known_inventory=None,
+        operation_request=None,
+        api_record=None,
+        notify=Mock(),
+    )
+
+    async def poll():
+        client.delivery_states[VIN] = "subscription_unavailable"
+        return []
+
+    status._poll_data_act = poll
+    await status._collect_data_act()
+    assert car.readings["stateOfCharge"]["value"] == 80
+    assert "eu_data_act" not in car.family_readings["stateOfCharge"]
+    assert status.data_act_poll_status()["result"] == "subscription_unavailable"

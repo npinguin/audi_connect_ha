@@ -39,7 +39,7 @@ def _capture_in_utc(value: Any) -> datetime | None:
 
 def _valid_capture(value: Any, now: datetime | None = None) -> datetime | None:
     """Use the shared capture validity policy for chronological ordering."""
-    if now is not None and capture_age_minutes(value, now) is None:
+    if capture_age_minutes(value, now) is None:
         return None
     return _capture_in_utc(value)
 
@@ -50,7 +50,9 @@ def _accept_observation(
     """Never replace a newer car reading with an older cached API value."""
     if previous is None:
         return True
-    prior = _valid_capture(previous.get("captured"), now)
+    prior = _valid_capture(
+        previous.get("captured"), _capture_in_utc(previous.get("observed")) or now
+    )
     incoming = _valid_capture(captured, now)
     if prior is None:
         return True
@@ -94,7 +96,9 @@ def _observation_rank(row, registry, now):
         else 100
     )
     valid = row.get("value") is not None and row.get("status") != "invalid_value"
-    stamp = _valid_capture(row.get("captured"), now)
+    stamp = _valid_capture(
+        row.get("captured"), _capture_in_utc(row.get("observed")) or now
+    )
     captured = stamp.timestamp() if stamp else float("-inf")
     if valid and stamp is not None:
         return (2, captured, -priority, family)
@@ -137,7 +141,10 @@ def select_reading(
     reference = now or datetime.now(UTC)
 
     def score(item):
-        stamp = _valid_capture(item[1].get("captured"), reference)
+        row = item[1]
+        stamp = _valid_capture(
+            row.get("captured"), _capture_in_utc(row.get("observed")) or reference
+        )
         return (
             stamp.timestamp() if stamp is not None else float("-inf"),
             item[0] == canonical,
@@ -186,6 +193,13 @@ def _select_observation(vehicle, ident, candidates, registry, now):
 
 def commit_observation(vehicle, ident, row, registry, now):
     """Keep one sample per family; choose from the same set in either arrival order."""
+    # An implausible capture at receipt must never become valid merely by aging.
+    if _valid_capture(row.get("captured"), now) is None:
+        row["captured"] = None
+        if row.get("status") == "verified":
+            row["status"] = "readable_but_stale"
+        if "fresh" in row:
+            row["fresh"] = False
     candidates = _current_candidates(vehicle, ident, now)
     family = row["family"]
     if not _accept_observation(candidates.get(family), row.get("captured"), now):
@@ -295,11 +309,11 @@ def record_observation(
         remember_climate(profile, row, observed_at)
     if persist_evidence:
         profile.attribute_evidence[ident] = {
-            "status": status,
+            "status": row["status"],
             "path": path,
             "job": job,
             "source": "mbb.legacy" if family == "mbb" else "cariad.selectivestatus",
-            "timestamp_present": bool(captured),
+            "timestamp_present": bool(row["captured"]),
         }
     return True
 
