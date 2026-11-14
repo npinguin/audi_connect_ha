@@ -577,7 +577,9 @@ def observe_data_act(vehicle, profile, payload, observed_at, delivered_at):
         if ident in getattr(profile, "attribute_disabled", ()):
             continue
         previous = vehicle.readings.get(ident)
-        mapping = profile.registry.families["eu_data_act"]["observations"][sample["path"]]
+        mapping = profile.registry.families["eu_data_act"]["observations"][
+            sample["path"]
+        ]
         detail = bool(mapping.get("detail"))
         if sample["value"] is None:
             record_invalid_observation(
