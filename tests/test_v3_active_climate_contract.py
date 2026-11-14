@@ -246,3 +246,76 @@ def test_native_q8_setpoint_does_not_start_climate_or_claim_unread_temperature()
     )
     assert entity.target_temperature == 20
     assert entity.hvac_mode is None
+
+
+def test_climate_discovery_selects_temperature_route_per_vehicle():
+    import asyncio
+    from unittest.mock import AsyncMock
+
+    from homeassistant.components.climate import ClimateEntityFeature
+
+    from custom_components.audiconnect.v3.control_resolution import control_decision
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.runtime import catalog_path
+
+    catalog = CapabilityRegistry.from_json_file(catalog_path())
+    auth = NS(uses_auth0=True, service=NS(_spin=""))
+    stored = "cariad.climate.start.stored"
+    temperature = "cariad.climate.start.vehicle_settings"
+
+    def discovered(vin, temperature_works):
+        # Same advertised capability, no manufacturer model needed.
+        car = V3Vehicle(vin, "Audi", "", "", "DE", auth_family="auth0")
+        car.advertised_capabilities.add("climatisation")
+        car.readings["climatisationTargetTemperatureC"] = {"value": 21}
+        profile = DevelopmentProfile(catalog, car.context, cooldown_seconds=0)
+        assert temperature in {
+            row["operation"]
+            for row in profile.discovery.candidates("climate", "start_with_settings")
+        }
+        for index, (action, route, worked) in enumerate(
+            (
+                ("start", stored, not temperature_works),
+                ("start_with_settings", temperature, temperature_works),
+                ("set_settings", "cariad.climate.settings", False),
+            )
+        ):
+            stamp = 100 + index * 10
+            attempt = profile.begin_test("climate", action, route, now=stamp)
+            profile.observe_http(attempt.sequence, 200)
+            profile.confirm(
+                attempt.sequence, worked=worked, inspected_vehicle=True, now=stamp + 1
+            )
+            if worked:
+                profile.choose_working("climate", action, route)
+
+        def resolve(vin, action, capability):
+            return control_decision(car, profile, auth, capability, action)["operation"]
+
+        engine = NS(
+            profiles={vin.lower(): profile},
+            control_enabled=lambda *args: resolve(*args) is not None,
+            send_control=AsyncMock(),
+        )
+        entity = V3ClimateEntity(NS(engine=engine), car)
+        entity.async_write_ha_state = lambda: None
+        return entity, engine, resolve
+
+    stored_entity, stored_engine, stored_route = discovered(VIN, False)
+    other_vin = "WAUZZZ4M0MD123457"
+    temp_entity, temp_engine, temp_route = discovered(other_vin, True)
+
+    assert stored_route(VIN, "start", "climate") == stored
+    assert stored_route(VIN, "start_with_settings", "climate") is None
+    assert not stored_entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    asyncio.run(stored_entity.async_turn_on())
+    stored_engine.send_control.assert_awaited_once_with(VIN, "start", "climate")
+
+    assert temp_route(other_vin, "start", "climate") is None
+    assert temp_route(other_vin, "start_with_settings", "climate") == temperature
+    assert temp_entity.supported_features & ClimateEntityFeature.TARGET_TEMPERATURE
+    asyncio.run(temp_entity.async_turn_on())
+    temp_engine.send_control.assert_awaited_once_with(
+        other_vin, "start_with_settings", "climate", params={"temp_c": 21}
+    )
