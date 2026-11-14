@@ -6,6 +6,17 @@ Preserve V2 as the default and independent fallback. V3 must remain opt-in until
 
 The release objective is 100% agreed functional scope and V2 parity, zero known defects and zero known technical debt. This is a release gate, not a claim about current completeness. Unsupported OEM functionality is not a verified product feature; missing OEM evidence remains explicit and is not a reason to invent values or silently remove scope.
 
+### Four review criteria for every improvement
+
+| Criterion       | Required evidence                                                                   |
+| --------------- | ----------------------------------------------------------------------------------- |
+| Simplification  | Remove duplicate state, paths or decisions; explain any unavoidable added complexity. |
+| Ownership       | One existing owner per responsibility and authoritative contract; no parallel writer. |
+| Maintainability | Declarative mappings, bounded state, native HA mechanisms, focused tests and rollback. |
+| User experience | Ordinary use needs no Workbench, duplicate integration, API knowledge or entity rename. |
+
+Use the existing PR review, not an additional workflow or a second governance catalog. Show before/after runtime impact, user-visible outcome and remaining live acceptance. Provider problems must be actionable without exposing credentials or making another channel unavailable. The Workbench remains optional and administrator-only.
+
 ### Authoritative responsibilities
 
 | Owner           | Responsibility                                             |
