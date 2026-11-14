@@ -6,13 +6,14 @@ Preserve V2 as the default and independent fallback. V3 must remain opt-in until
 
 The release objective is 100% agreed functional scope and V2 parity, zero known defects and zero known technical debt. This is a release gate, not a claim about current completeness. Unsupported OEM functionality is not a verified product feature; missing OEM evidence remains explicit and is not a reason to invent values or silently remove scope.
 
-### Four review criteria for every improvement
+### Review criteria for every improvement
 
 | Criterion       | Required evidence                                                                       |
 | --------------- | --------------------------------------------------------------------------------------- |
 | Simplification  | Remove duplicate state, paths or decisions; explain any unavoidable added complexity.   |
 | Ownership       | One existing owner per responsibility and authoritative contract; no parallel writer.   |
 | Maintainability | Declarative mappings, bounded state, native HA mechanisms, focused tests and rollback.  |
+| Extendability   | Add reviewed variants through existing catalog and contracts; no parallel resolver or UI. |
 | User experience | Ordinary use needs no Workbench, duplicate integration, API knowledge or entity rename. |
 
 Use the existing PR review, not an additional workflow or a second governance catalog. Show before/after runtime impact, user-visible outcome and remaining live acceptance. Provider problems must be actionable without exposing credentials or making another channel unavailable. The Workbench remains optional and administrator-only.
@@ -23,7 +24,7 @@ Use the existing PR review, not an additional workflow or a second governance ca
 | --------------- | ---------------------------------------------------------- |
 | Shared HA entry | Account/device association, config and runtime selection   |
 | API             | Authentication, transport, family protocols and quota      |
-| Catalog         | Canonical capability, operation and attribute definitions  |
+| Catalog         | Canonical capabilities, operations, attributes and reviewed discovery metadata |
 | Status          | Read discovery, polling, normalization and freshness       |
 | Vehicle         | Canonical vehicle identity and observations                |
 | Command         | Eligibility, execution, durable journal, verification      |
@@ -34,6 +35,8 @@ Use the existing PR review, not an additional workflow or a second governance ca
 | Engine          | Composition and lifecycle orchestration                    |
 
 Read: API → status → vehicle → HA. Write: HA owning device → active runtime → command → API → shared status writer → vehicle/HA and verified native readback. Engineering: discover → configure → isolated test → explicit activation. A command must never be routed to an unrelated account by VIN. Ambiguous ownership fails closed.
+
+Discovery metadata belongs on the existing capability control. The catalog declares the reviewed actions, order, instructions and allowed parameter names; the shared parameter contract owns validation and the command owner owns dispatch, consent and physical evidence. Guided and selective use identical candidates. The Workbench renders them without its own capability policy. A catalog entry never authorizes a command by itself. New semantics require reviewed implementation and tests; no new state or framework for an existing operation.
 
 The machine-readable owner inventory is [OWNERSHIP.json](../governance/OWNERSHIP.json). Its current path coverage is not evidence that all functional boundaries are closed.
 
