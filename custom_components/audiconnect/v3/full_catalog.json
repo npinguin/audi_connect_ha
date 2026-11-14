@@ -923,7 +923,13 @@
           "operations": ["cariad.charging.settings"]
         },
         "set_charge_mode": {
-          "operations": ["cariad.charging.mode"]
+          "operations": ["cariad.charging.mode"],
+          "discovery": {
+            "label": "Verify preferred charging mode",
+            "instructions": "Choose Manual or Timer. Check the actual preferred mode in myAudi or the vehicle before confirming. Test each desired mode separately.",
+            "order": 85,
+            "parameters": ["value"]
+          }
         },
         "set_location_charge_target": {
           "operations": ["cariad.charging.profiles"]

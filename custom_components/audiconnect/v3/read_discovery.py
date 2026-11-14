@@ -708,7 +708,9 @@ def user_test_candidates(engine, car, profile, *, include_verified=False):
             continue
         op = profile.registry.operations[operation]
         group = approval_group(capability, action, op)
-        if group not in ("non_spin", "spin") or op.get("request_variables"):
+        if group not in ("non_spin", "spin") or (
+            op.get("request_variables") and not op.get("input_schema")
+        ):
             continue
         key = f"{capability}.{action}"
         result[key] = {

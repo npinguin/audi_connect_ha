@@ -784,11 +784,17 @@ class OptionsFlowHandler(OptionsFlow):
                         {"yes": "Yes", "no": "No / skip", "finish": "Finish"}
                     ),
                     **{
-                        vol.Optional(name): NumberSelector(
-                            NumberSelectorConfig(
-                                min=contract["minimum"],
-                                max=contract["maximum"],
-                                mode="box",
+                        vol.Optional(name): (
+                            SelectSelector(SelectSelectorConfig(
+                                options=contract["enum"],
+                                mode=SelectSelectorMode.DROPDOWN,
+                            ))
+                            if "enum" in contract else NumberSelector(
+                                NumberSelectorConfig(
+                                    min=contract["minimum"],
+                                    max=contract["maximum"],
+                                    mode="box",
+                                )
                             )
                         )
                         for name, contract in schema.items()

@@ -265,8 +265,6 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         super().__init__(coordinator, vehicle)
         self._attr_unique_id = f"{vehicle.vin.lower()}_climate_climatisation"
         self._requested_temperature = None
-        self._dispatched_temperature = None
-        self._dispatched_at = None
 
     def _enabled(self, action):
         return self.coordinator.engine.control_enabled(
@@ -284,16 +282,24 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
     def pending_dispatched_temperature(self):
         from .attribute_runtime import _capture_in_utc
 
-        row = self.vehicle.readings.get("climatisationTargetTemperatureC", {})
-        stamp = _capture_in_utc(row.get("captured"))
+        profile = getattr(self.coordinator.engine, "profiles", {}).get(self.vehicle.vin.lower())
+        record = next(
+            (row for row in reversed(getattr(profile, "command_journal", ()))
+             if row.origin == "home_assistant" and row.capability == "climate"
+             and row.action in ("start", "start_with_settings", "stop", "set_settings")),
+            None,
+        )
         if (
-            self._dispatched_at is not None
-            and self.reported_target_temperature is not None
-            and stamp is not None
-            and stamp >= self._dispatched_at
+            record is None or record.state not in ("accepted_unconfirmed", "backend_completed")
+            or record.readback_attribute != "climatisationTargetTemperatureC"
+            or not record.readback_values
+            or record.readback_observed_at is not None
         ):
             return None
-        return self._dispatched_temperature
+        stamp = _capture_in_utc(self.vehicle.readings.get("climatisationTargetTemperatureC", {}).get("captured"))
+        if stamp is not None and stamp.timestamp() >= record.started_at:
+            return None
+        return record.readback_values[0]
 
     @property
     def native_target_temperature(self):
@@ -416,8 +422,6 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
                 "local_pending"
                 if self._requested_temperature is not None
                 and self._enabled("start_with_settings")
-                else "command_pending_readback"
-                if self.pending_dispatched_temperature is not None
                 else "vehicle"
                 if self.reported_target_temperature is not None
                 else "unknown"
@@ -449,8 +453,6 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
                 self.coordinator, self.vehicle, "set_settings", {"temp_c": value}
             )
             self._requested_temperature = None
-            self._dispatched_temperature = None
-            self._dispatched_at = None
             self.async_write_ha_state()
             return
         if not self._enabled("start_with_settings"):
@@ -470,13 +472,10 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         self.async_write_ha_state()
 
     async def _send_target(self, value):
-        started = datetime.now(UTC)
         await _send_climate(
             self.coordinator, self.vehicle, "start_with_settings", {"temp_c": value}
         )
         self._requested_temperature = None
-        self._dispatched_temperature = value
-        self._dispatched_at = started
 
     async def async_set_hvac_mode(self, mode: HVACMode) -> None:
         if mode == HVACMode.OFF:
@@ -2130,12 +2129,7 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
         if not getattr(self.vehicle, "inventory_present", True):
             return False
         return (
-            _reading_available(
-                self.vehicle.readings.get("preferredChargeMode"), allow_last_known=True
-            )
-            and bool(self.options)
-            and self.vehicle.readings["preferredChargeMode"]["value"]
-            in ("manual", "timer")
+            bool(self.options)
             and self.coordinator.engine.control_enabled(
                 self.vehicle.vin, "set_charge_mode", "charging"
             )

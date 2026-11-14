@@ -19,6 +19,17 @@ def charge_mode_fallback_candidate(car):
     )
 
 
+def charge_mode_recovery_candidate(car):
+    """Undated discovery evidence may invite a physical test, never authorize one."""
+    row = car.readings.get("availableChargeModes", {})
+    return charge_mode_fallback_candidate(car) or (
+        row.get("family") == "cariad"
+        and row.get("captured") is None
+        and row.get("reason") == "conflicting_source_values"
+        and bool(row.get("discovered_options"))
+    )
+
+
 def locally_verified_charge_modes(profile):
     """Current built-in route revision proof, not a claim about OEM options."""
     if profile is None:
@@ -58,13 +69,11 @@ def supported_charge_modes(car, profile=None):
     values = row.get("value")
     if (
         row.get("family") == "eu_data_act"
-        or row.get("status") == "invalid_value"
-        or not isinstance(values, list)
     ):
         return []
-    if values:
+    if row.get("status") != "invalid_value" and isinstance(values, list) and values:
         return [mode for mode in ("manual", "timer") if mode in values]
-    if profile is None or not charge_mode_fallback_candidate(car):
+    if profile is None or not charge_mode_recovery_candidate(car):
         return []
     from .operation_revision import operation_revision
 

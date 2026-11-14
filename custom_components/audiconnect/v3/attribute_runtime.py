@@ -88,7 +88,7 @@ def remember_climate(profile, reading, now=None):
             reading.get("captured")
         ):
             profile.last_known_climate = None
-        return
+            previous = None
     row = validate_last_known_climate(last_known_observation(reading), now)
     if row and _accept_observation(previous, row["captured"], now):
         profile.last_known_climate = row
@@ -185,7 +185,51 @@ def last_known_observation(row):
         return {}
     if row.get("status") != "invalid_value" and row.get("value") is not None:
         return row
-    return row.get("last_known") or {}
+    known = row.get("last_known") or {}
+    return known if known.get("status") != "invalid_value" else {}
+
+
+def _retain_history(selected, previous, incoming, now):
+    """Keep the newest strictly older dated scalar, even if delivered late."""
+    boundary = _valid_capture(selected.get("captured"), now)
+    if boundary is None:
+        return selected
+    candidates = []
+    for sample in (previous, incoming):
+        for candidate in (sample, sample.get("last_known") or {}):
+            stamp = _valid_capture(candidate.get("captured"), now)
+            if stamp is None or stamp >= boundary:
+                continue
+            if (
+                candidate.get("status") == "invalid_value"
+                and candidate.get("reason") == "conflicting_source_values"
+            ) or type(candidate.get("value")) in (str, int, float, bool):
+                candidates.append((stamp, candidate))
+    if not candidates:
+        return selected
+    newest = max(stamp for stamp, _ in candidates)
+    rows = [candidate for stamp, candidate in candidates if stamp == newest]
+    first = rows[0]
+    if any(
+        row.get("status") == "invalid_value"
+        or type(row.get("value")) is not type(first.get("value"))
+        or row.get("value") != first.get("value")
+        for row in rows
+    ):
+        known = {
+            "value": None,
+            "captured": newest.isoformat(),
+            "family": selected.get("family"),
+            "status": "invalid_value",
+            "reason": "conflicting_source_values",
+        }
+    else:
+        known = {
+            key: first.get(key) for key in ("value", "captured", "family", "status")
+        }
+    if selected.get("last_known") == known:
+        return selected
+    return {**selected, "last_known": known}
 
 
 def _merge_observation(previous, row, now):
@@ -209,14 +253,9 @@ def _merge_observation(previous, row, now):
         row.get("captured"), _capture_in_utc(row.get("observed")) or now
     )
     if prior is not None and (incoming is None or incoming < prior):
-        return previous
+        return _retain_history(previous, previous, row, now)
     if incoming is not None and (prior is None or incoming > prior):
-        known = last_known_observation(previous)
-        if known and type(known.get("value")) in (str, int, float, bool):
-            row["last_known"] = {
-                key: known.get(key) for key in ("value", "captured", "family", "status")
-            }
-        return row
+        return _retain_history(row, previous, row, now)
     # Both captures are equal or absent. An invalid undated report is not
     # a new vehicle event; two incompatible values are an explicit conflict.
     old_invalid = previous.get("status") == "invalid_value"
@@ -237,8 +276,8 @@ def _merge_observation(previous, row, now):
     # Keep the same capture boundary until a strictly newer event resolves
     # the conflict. Never retain either conflicting value as last known.
     if previous.get("reason") == "conflicting_source_values":
-        return previous
-    return {
+        return _retain_history(previous, previous, row, now)
+    conflict = {
         "value": None,
         "captured": row.get("captured"),
         "observed": row.get("observed"),
@@ -247,10 +286,8 @@ def _merge_observation(previous, row, now):
         "status": "invalid_value",
         "reason": "conflicting_source_values",
         "fresh": False,
-        **(
-            {"last_known": previous["last_known"]} if previous.get("last_known") else {}
-        ),
     }
+    return _retain_history(conflict, previous, row, now)
 
 
 def _current_candidates(vehicle, ident, now):

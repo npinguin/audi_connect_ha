@@ -283,7 +283,7 @@ def entity_availability_reason(engine, uid, key, status, state_present):
         return "trip_snapshot_missing"
     if metric and trip_metric_value(car, key.removeprefix("sensor.")) is None:
         return "trip_metric_missing"
-    from .freshness import reading_freshness_attributes
+    from .freshness import reading_availability_reason
 
     sources = definition.get("source_attributes", ())
     found = False
@@ -295,21 +295,10 @@ def entity_availability_reason(engine, uid, key, status, state_present):
         if not reading:
             continue
         found = True
-        if reading.get("status") == "invalid_value":
-            reason = reading.get("reason")
-            if not_offered and reason in (
-                "boolean_oil_level_use_binary",
-                "negative_duration",
-                "incomplete_timer_data",
-            ):
-                return reason
-            return "invalid_vehicle_value"
-        freshness = reading_freshness_attributes(reading)["vehicle_freshness"]
-        if freshness == "stale":
-            return "vehicle_capture_stale"
-        if freshness == "unknown":
-            return "vehicle_capture_unknown"
-    if not_offered and sources and not found:
+        reason = reading_availability_reason(reading)
+        if reason != "available":
+            return reason
+    if sources and not found:
         if key == "sensor.next_climatisation_timer_local":
             count = car.readings.get("climatisation_timer_enabled_count", {})
             if count.get("status") == "invalid_value":
