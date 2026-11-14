@@ -176,14 +176,14 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 attributes = attributes_for(profile)
                 # Canonical entities can be backed by declared alternative sources.
                 candidates = set(car.readings)
-                for ident, descriptor in attributes.items():
+                for descriptor in attributes.values():
                     if descriptor["platform"] != platform:
                         continue
                     canonical = projection_descriptor(descriptor)
                     if canonical and (
                         f"{vin}_{platform}_{canonical['entity_key']}" in registered
                     ):
-                        candidates.add(ident)
+                        candidates.add(canonical["id"])
                 if platform == "sensor":
                     candidates.update(
                         (
