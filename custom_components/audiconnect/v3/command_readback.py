@@ -95,9 +95,7 @@ def configure_discovery_readback(record, car, params, *, registry=None):
     configure_readback(record, params)
     if not record.readback_attribute:
         return
-    value, captured = _readback_value(
-        car, record.readback_attribute, registry=registry
-    )
+    value, captured = _readback_value(car, record.readback_attribute, registry=registry)
     if isinstance(value, str):
         value = value.strip().lower()
     now = datetime.now(UTC)
@@ -129,7 +127,10 @@ def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
         return False
     now = now or datetime.now(UTC)
     value, captured = _readback_value(
-        car, record.readback_attribute, now, registry=registry,
+        car,
+        record.readback_attribute,
+        now,
+        registry=registry,
         started_at=record.started_at,
     )
     if captured is None or captured.timestamp() <= record.started_at:

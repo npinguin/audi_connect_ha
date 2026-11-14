@@ -734,12 +734,16 @@ class StatusEngine:
                             valid = False
                         elif isinstance(value, (str, int, float, bool)):
                             previous = vehicle.capability_readings.get(capability)
-                            if _accept_observation(previous, captured, response.observed_at):
+                            if _accept_observation(
+                                previous, captured, response.observed_at
+                            ):
                                 vehicle.capability_readings[capability] = {
                                     "value": value,
                                     "captured": (
                                         captured
-                                        if _valid_capture(captured, response.observed_at)
+                                        if _valid_capture(
+                                            captured, response.observed_at
+                                        )
                                         else None
                                     ),
                                     "observed": response.observed_at.isoformat(),

@@ -1381,7 +1381,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
         if not reading:
             return None
         if self.attribute["id"] == "is_moving" and (
-            reading.get("path") in ("parkingposition HTTP 204", "parkingposition parked sample")
+            reading.get("path")
+            in ("parkingposition HTTP 204", "parkingposition parked sample")
             or _reading_age_minutes(reading.get("captured")) is None
         ):
             return None

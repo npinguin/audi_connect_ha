@@ -627,14 +627,32 @@ def test_future_capture_never_becomes_valid_after_waiting():
     vehicle, profile, now = car(), Profile(), datetime.now(UTC)
     future = now + timedelta(hours=1)
     assert record_observation(
-        vehicle, profile, "stateOfCharge", 50, future.isoformat(), now,
-        "test", "charging", "cariad", fresh=False, operation="cariad.test",
+        vehicle,
+        profile,
+        "stateOfCharge",
+        50,
+        future.isoformat(),
+        now,
+        "test",
+        "charging",
+        "cariad",
+        fresh=False,
+        operation="cariad.test",
         persist_evidence=False,
     )
     assert vehicle.readings["stateOfCharge"]["captured"] is None
     assert record_observation(
-        vehicle, profile, "stateOfCharge", 80, now.isoformat(), future,
-        "test", "charging", "cariad", fresh=True, operation="cariad.test",
+        vehicle,
+        profile,
+        "stateOfCharge",
+        80,
+        now.isoformat(),
+        future,
+        "test",
+        "charging",
+        "cariad",
+        fresh=True,
+        operation="cariad.test",
         persist_evidence=False,
     )
     assert vehicle.readings["stateOfCharge"]["value"] == 80

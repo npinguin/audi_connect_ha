@@ -290,7 +290,7 @@ def test_display_source_does_not_hide_native_command_evidence():
         "value": "charging",
         "family": "cariad",
         "captured": NOW.isoformat(),
-                "observed": NOW.isoformat(),
+        "observed": NOW.isoformat(),
     }
     display = {
         "value": "off",
@@ -310,10 +310,16 @@ def test_command_requires_post_dispatch_receipt(receipt):
     from custom_components.audiconnect.v3.command_readback import reconcile_readback
 
     row = record("access", "lock")
-    car = NS(readings={"doorLockStatus": {
-        "value": "locked", "family": "cariad", "captured": NOW.isoformat(),
-        "observed": receipt,
-    }})
+    car = NS(
+        readings={
+            "doorLockStatus": {
+                "value": "locked",
+                "family": "cariad",
+                "captured": NOW.isoformat(),
+                "observed": receipt,
+            }
+        }
+    )
     assert not reconcile_readback(row, car, NOW)
     car.readings["doorLockStatus"]["observed"] = NOW.isoformat()
     assert reconcile_readback(row, car, NOW)

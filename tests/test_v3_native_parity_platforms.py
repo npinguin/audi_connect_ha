@@ -150,6 +150,8 @@ def test_all_nine_ha_platforms_have_independent_v3_code():
 
 def test_parking_uses_shared_observations_without_inventing_motion_capture():
     from custom_components.audiconnect.v3.parking import observe_parking
+    from custom_components.audiconnect.v3.entities import V3ReadOnlyBinarySensor
+    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
 
     vehicle = car()
     profile = SimpleNamespace(registry=None)
@@ -167,6 +169,9 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     assert vehicle.readings["is_moving"]["value"] is False
     assert vehicle.readings["is_moving"]["captured"] is None
     assert vehicle.readings["is_moving"]["status"] == "readable_but_stale"
+    moving = V3ReadOnlyBinarySensor(coordinator(), vehicle, ATTRIBUTES["is_moving"])
+    assert moving.is_on is None
+    assert not moving.available
     assert (
         vehicle.family_readings["park_time"]["cariad"] is vehicle.readings["park_time"]
     )
@@ -176,6 +181,8 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     assert vehicle.position is position
     assert vehicle.readings["is_moving"]["value"] is True
     assert vehicle.readings["is_moving"]["captured"] is None
+    assert moving.is_on is None
+    assert not moving.available
     reply.status = 200
     reply.data["data"]["carCapturedTimestamp"] = (now - timedelta(hours=2)).isoformat()
     observe_parking(vehicle, profile, reply, operation)
