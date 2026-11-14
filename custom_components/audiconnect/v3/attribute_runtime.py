@@ -37,12 +37,21 @@ def _capture_in_utc(value: Any) -> datetime | None:
     return stamp.astimezone(UTC) if stamp.tzinfo is not None else None
 
 
-def _accept_observation(previous: dict[str, Any] | None, captured: Any) -> bool:
+def _valid_capture(value: Any, now: datetime | None = None) -> datetime | None:
+    """Use the shared capture validity policy for chronological ordering."""
+    if now is not None and capture_age_minutes(value, now) is None:
+        return None
+    return _capture_in_utc(value)
+
+
+def _accept_observation(
+    previous: dict[str, Any] | None, captured: Any, now: datetime | None = None
+) -> bool:
     """Never replace a newer car reading with an older cached API value."""
     if previous is None:
         return True
-    prior = _capture_in_utc(previous.get("captured"))
-    incoming = _capture_in_utc(captured)
+    prior = _valid_capture(previous.get("captured"), now)
+    incoming = _valid_capture(captured, now)
     if prior is None:
         return True
     return incoming is not None and incoming >= prior
@@ -71,7 +80,7 @@ def remember_climate(profile, reading, now=None):
         return
     row = validate_last_known_climate(reading, now)
     if row and _accept_observation(
-        getattr(profile, "last_known_climate", None), row["captured"]
+        getattr(profile, "last_known_climate", None), row["captured"], now
     ):
         profile.last_known_climate = row
 
@@ -84,11 +93,10 @@ def _observation_rank(row, registry, now):
         if registry is not None and family in registry.families
         else 100
     )
-    age = capture_age_minutes(row.get("captured"), now)
     valid = row.get("value") is not None and row.get("status") != "invalid_value"
-    stamp = _capture_in_utc(row.get("captured")) if age is not None else None
+    stamp = _valid_capture(row.get("captured"), now)
     captured = stamp.timestamp() if stamp else float("-inf")
-    if valid and age is not None:
+    if valid and stamp is not None:
         return (2, captured, -priority, family)
     if valid:
         return (1, -priority, captured, family)
@@ -126,9 +134,15 @@ def select_reading(
     if not valid:
         return canonical, None
 
+    reference = now or datetime.now(UTC)
+
     def score(item):
-        stamp = _capture_in_utc(item[1].get("captured"))
-        return (stamp.timestamp() if stamp is not None else -1, item[0] == canonical)
+        stamp = _valid_capture(item[1].get("captured"), reference)
+        return (
+            stamp.timestamp() if stamp is not None else float("-inf"),
+            item[0] == canonical,
+            item[0],
+        )
 
     # Resolve historical aliases within each family by capture first, then
     # apply the same family ranking as the observation writer. An explicit
@@ -141,7 +155,6 @@ def select_reading(
             by_family[family] = item
     if len(by_family) == 1 or (registry is None and families is None):
         return max(valid, key=score)
-    reference = now or datetime.now(UTC)
     return max(
         by_family.values(),
         key=lambda item: (
@@ -152,7 +165,7 @@ def select_reading(
     )
 
 
-def _current_candidates(vehicle, ident):
+def _current_candidates(vehicle, ident, now):
     previous = vehicle.readings.get(ident)
     candidates = vehicle.family_readings.setdefault(ident, {})
     if previous is None:
@@ -160,7 +173,7 @@ def _current_candidates(vehicle, ident):
     else:
         # Preserve a newer existing direct projection rather than reviving cache.
         source = previous.get("family", "")
-        if _accept_observation(candidates.get(source), previous.get("captured")):
+        if _accept_observation(candidates.get(source), previous.get("captured"), now):
             candidates[source] = previous
     return candidates
 
@@ -173,9 +186,9 @@ def _select_observation(vehicle, ident, candidates, registry, now):
 
 def commit_observation(vehicle, ident, row, registry, now):
     """Keep one sample per family; choose from the same set in either arrival order."""
-    candidates = _current_candidates(vehicle, ident)
+    candidates = _current_candidates(vehicle, ident, now)
     family = row["family"]
-    if not _accept_observation(candidates.get(family), row.get("captured")):
+    if not _accept_observation(candidates.get(family), row.get("captured"), now):
         return False
     candidates[family] = row
     _select_observation(vehicle, ident, candidates, registry, now)
@@ -185,7 +198,7 @@ def commit_observation(vehicle, ident, row, registry, now):
 def refresh_family_observations(vehicle, profile, now):
     """Re-evaluate cached competing observations at the existing publish boundary."""
     for ident in vehicle.family_readings:
-        candidates = _current_candidates(vehicle, ident)
+        candidates = _current_candidates(vehicle, ident, now)
         if len(candidates) > 1:
             _select_observation(vehicle, ident, candidates, profile.registry, now)
 
@@ -199,7 +212,7 @@ def remove_family_observations(vehicle, profile, family, now):
             vehicle.family_readings.get(ident, {})
         ):
             continue
-        candidates = _current_candidates(vehicle, ident)
+        candidates = _current_candidates(vehicle, ident, now)
         candidates.pop(family, None)
         if current is None or current.get("family") != family:
             continue
