@@ -838,3 +838,79 @@ async def test_optional_status_only_update_is_published_without_registry_migrati
     notify.assert_called_once_with(reconcile_registry=False)
     await status._collect_data_act()
     notify.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_portal_identity_only_enriches_owned_missing_fields():
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from custom_components.audiconnect.v3.data_act import DataActClient
+    from custom_components.audiconnect.v3.engine import V3Engine
+    from custom_components.audiconnect.v3.identity_cache import capture_identity
+    from custom_components.audiconnect.v3.status_engine import StatusEngine
+
+    car = V3Vehicle(VIN, "Audi vehicle", "", "", "BE")
+    profile = DevelopmentProfile(
+        CapabilityRegistry.from_json_file(catalog_path()), car.context
+    )
+    client = DataActClient(None)
+    client._json = AsyncMock(
+        return_value={
+            "vehicles": [
+                {
+                    "vin": VIN,
+                    "modelName": "Audi Q8",
+                    "modelYear": 2021,
+                    "vehicleNickname": "Not the model",
+                },
+                {"vin": "WAUZZZ4M0MD123457", "modelName": "Audi A8"},
+            ]
+        }
+    )
+    engine = SimpleNamespace(
+        _rebind_identity_context=Mock(),
+        health=SimpleNamespace(observe_inventory=Mock()),
+    )
+    storage = SimpleNamespace(async_save=AsyncMock())
+    status = StatusEngine(
+        hass=None,
+        entry=None,
+        auth=SimpleNamespace(data_act_client=client),
+        transport=None,
+        storage=storage,
+        vehicles={VIN.lower(): car},
+        profiles={VIN.lower(): profile},
+        discover=None,
+        known_inventory=None,
+        operation_request=None,
+        api_record=None,
+        apply_identity=lambda *args, **kwargs: V3Engine._apply_identity_candidate(
+            engine, *args, **kwargs
+        ),
+    )
+    assert await status._enrich_data_act_identity(client)
+    assert car.model == "Audi Q8"
+    assert car.model_year == "2021"
+    assert car.identity_operation == "eu_data_act.identity.vehicles"
+    assert capture_identity(car)["operation"] == car.identity_operation
+    assert profile.manufacturer_identity["source"] == "eu_data_act_modelName"
+    assert not await status._enrich_data_act_identity(client)
+    client._json.assert_awaited_once()
+    storage.async_save.assert_awaited_once()
+    status._update_capture_projection()
+    assert car.readings["model"]["family"] == "eu_data_act"
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"vehicleNickname": "Audi Q8"},
+        {"modelName": "vehicle"},
+        {"modelName": "unknown"},
+    ],
+)
+def test_portal_identity_does_not_promote_nickname_or_placeholder(row):
+    candidate = V3Vehicle.from_data_act({"vin": VIN, **row}, "BE")
+    assert not candidate.model
+    assert not candidate.model_family

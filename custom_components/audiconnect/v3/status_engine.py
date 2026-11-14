@@ -66,6 +66,7 @@ class StatusEngine:
         operation_request,
         api_record,
         notify=None,
+        apply_identity=None,
     ):
         self.hass = hass
         self.entry = entry
@@ -79,6 +80,8 @@ class StatusEngine:
         self._operation_request = operation_request
         self._api_record = api_record
         self._notify = notify
+        self._apply_identity = apply_identity
+        self._data_act_identity_attempt_at = None
         self._data_act_task = None
         self.last_cloud_poll_success = None
         self.last_cloud_poll_attempt = None
@@ -406,6 +409,7 @@ class StatusEngine:
 
         before = self.data_act_poll_status()
         changed = False
+        previous_attempt = self._data_act_attempt_at
         try:
             samples = await self._poll_data_act()
             client = getattr(self.auth, "data_act_client", None)
@@ -429,6 +433,8 @@ class StatusEngine:
                         car, profile, payload, observed, delivered
                     )
                     client.acknowledge(car.vin, marker)
+            if self._data_act_attempt_at != previous_attempt:
+                changed |= await self._enrich_data_act_identity(client)
         except Exception:
             # Optional provider errors must not invalidate native data or expose
             # response content and credentials in logs.
@@ -440,6 +446,56 @@ class StatusEngine:
                 self._notify()
             elif before != self.data_act_poll_status():
                 self._notify(reconcile_registry=False)
+
+    async def _enrich_data_act_identity(self, client):
+        """Bound identity enrichment to the existing optional family task."""
+        from .data_act import DataActUnavailable, IDENTITY_OPERATION
+
+        if self._apply_identity is None or client.authorization_required:
+            return False
+        now = datetime.now(UTC)
+        if client.quota.retry_at and now < client.quota.retry_at:
+            return False
+        missing = {
+            key: car
+            for key, car in self.vehicles.items()
+            if car.inventory_present
+            and key in self.profiles
+            and (not car.model or not car.model_year)
+            and car.vin.upper() not in client.denied_vins
+        }
+        if not missing or (
+            self._data_act_identity_attempt_at
+            and now - self._data_act_identity_attempt_at < timedelta(hours=1)
+        ):
+            return False
+        self._data_act_identity_attempt_at = now
+        try:
+            rows = await client.identity_rows(car.vin for car in missing.values())
+        except DataActUnavailable:
+            return False
+        changed = False
+        for row in rows:
+            car = missing.get(row["vin"].lower())
+            if (
+                car is None
+                or self.vehicles.get(car.vin.lower()) is not car
+                or not car.inventory_present
+                or car.vin.lower() not in self.profiles
+            ):
+                continue
+            candidate = V3Vehicle.from_data_act(row, car.country)
+            changed |= self._apply_identity(
+                car,
+                self.profiles[car.vin.lower()],
+                candidate,
+                IDENTITY_OPERATION,
+                now,
+                fill_missing=True,
+            )
+        if changed and self.storage is not None:
+            await self.storage.async_save(self.profiles)
+        return changed
 
     async def async_stop_data_act(self):
         task = self._data_act_task
@@ -474,10 +530,10 @@ class StatusEngine:
                 car.readings["model"] = {
                     "value": car.model,
                     "captured": None,
-                    "observed": now.isoformat(),
+                    "observed": car.identity_observed_at or now.isoformat(),
                     "status": "readable_but_stale",
-                    "family": "cariad",
-                    "path": "graphql.vehicle.media",
+                    "family": (car.identity_operation or "graphql").split(".")[0],
+                    "path": car.identity_operation or "graphql.vehicle.media",
                     "job": None,
                 }
 

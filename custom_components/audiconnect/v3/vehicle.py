@@ -10,6 +10,7 @@ import re
 from .registry import VehicleContext
 
 _INVALID = frozenset({"", "invalid", "unsupported", "unknown", "error", "unavailable"})
+_INVALID_MODEL = _INVALID | {"audi", "audi vehicle", "vehicle"}
 CLIMATE_OFF_STATES = ("off", "stopped", "inactive")
 CLIMATE_ON_STATES = ("heating", "cooling", "ventilation", "on", "active")
 CHARGING_ON_STATES = ("charging",)
@@ -245,7 +246,7 @@ class V3Vehicle:
                 if (
                     isinstance(value, str)
                     and 0 < len(value.strip()) <= 120
-                    and value.strip().lower() not in _INVALID | {"audi", "audi vehicle"}
+                    and value.strip().lower() not in _INVALID_MODEL
                     and vin.lower() not in value.lower()
                 )
                 else ""
@@ -287,6 +288,37 @@ class V3Vehicle:
         )
 
     @classmethod
+    def from_data_act(cls, item: dict[str, Any], country: str) -> V3Vehicle:
+        """Portal metadata, never user nickname or inferred VIN decoding."""
+        from .data_act import IDENTITY_OPERATION
+
+        vin = item.get("vin")
+        if not isinstance(vin, str) or len(vin) != 17 or not vin.isalnum():
+            raise ValueError("Invalid Audi vehicle identifier")
+        model = item.get("modelName")
+        model = model.strip() if isinstance(model, str) else ""
+        family = model_family_from_name(model)
+        if not family or len(model) > 120 or vin.lower() in model.lower():
+            model, family = "", ""
+        year = str(item.get("modelYear") or "")
+        year = (
+            year
+            if len(year) == 4 and year.isdigit() and 1980 <= int(year) <= 2100
+            else ""
+        )
+        return cls(
+            vin.upper(),
+            model or "Audi vehicle",
+            model,
+            family,
+            country,
+            model_year=year,
+            model_source="eu_data_act_modelName" if model else "",
+            identity_operation=IDENTITY_OPERATION if model else None,
+            year_operation=IDENTITY_OPERATION if year else None,
+        )
+
+    @classmethod
     def from_garage(cls, item: dict[str, Any], country: str) -> V3Vehicle:
         """CARIAD account garage, independent of vgql. Never use nickname as model."""
         from .transport import GARAGE_OPERATION
@@ -300,7 +332,7 @@ class V3Vehicle:
             if (
                 isinstance(value, str)
                 and 0 < len(value.strip()) <= 120
-                and value.strip().lower() not in _INVALID | {"audi", "audi vehicle"}
+                and value.strip().lower() not in _INVALID_MODEL
                 and vin.lower() not in value.lower()
             ):
                 model, source = value.strip(), "cariad_" + key
