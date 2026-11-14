@@ -158,3 +158,12 @@ Initial Q8 scope: retain the existing 20 exact field mappings to 19 canonical at
 ### B34 broad Data Act discovery
 
 The initial 20 exact UUID/name mappings cover 19 canonical Q8 attributes, without Q8-specific routing. Every received dataset also feeds the existing bounded, session-scoped read-discovery schema inventory, including unmapped fields. The Workbench exposes the field identity, canonical mapping and current normalization evidence; unknown or disabled mappings do not create entities or authorize controls. Existing Integration status remains the ordinary-user surface. Extend the existing declarative catalog only after real field semantics are reviewed, not by adding another provider, scheduler, or vehicle-specific code. The identity lookup is one use of this broader channel; the actual Q8 portal response remains a live acceptance gate. No raw field values are retained in discovery evidence, and sensitive field paths are excluded.
+
+### B35 — capture ordering stability
+
+The existing Status owner uses its shared capture validity policy for family
+ordering, cached candidates and alias selection. Implausible future captures
+cannot replace a valid timestamped observation or block recovery with a valid
+capture. Unknown capture is still not fresh evidence. No provider, command,
+entity or scheduler changes; regression coverage is local to Status. Live
+acceptance and the existing release gates remain required.
