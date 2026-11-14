@@ -1,22 +1,21 @@
-# Audi Connect 3.0.0b41 — owner field-test candidate
+# Audi Connect 3.0.0b42 — owner self-test candidate
 
-Experimental HACS prerelease for initial local testing. V2 remains the default and rollback; V3 is opt-in. No stable promotion or general field-test announcement yet.
+Experimental HACS prerelease. V2 remains the default and rollback; V3 is opt-in. This is a targeted correction to B41, not a stable promotion or general field-test announcement.
 
 ## What changed
 
-- Retain selected last-known native vehicle readings during sleep and restart; restored data is historical, not a fresh vehicle observation.
-- Controls use a shared, explicitly marked optimistic state for up to five minutes. Newer vehicle observations and rejected or superseding commands take precedence. Restart never restores optimistic intent.
-- Retain existing entity identities and command history. Delayed responses no longer silently overwrite newer captures.
-- Shared guided discovery for climate, charging and other supported controls, including temperature parameters and selective retest. Open Vehicle Setup & Discovery after upgrading.
-- Consolidated ownership of status, command evidence and HA projection. No extra API calls or automatic wake/retry.
+- Previously verified controls no longer become permanently blocked by old routine command outcomes, including B41 legacy lock/unlock records without per-command HTTP status.
+- Keep discovery bindings and historical outcomes separate. A failed or uncertain routine command does not revoke a proven binding. A new explicit request may be made after the existing bounded cooldown.
+- Restore accepted historical outcomes without inventing HTTP evidence or replaying commands. Interrupted, unacknowledged operations remain uncertain.
+- Preserve authorization, route applicability/revision, parameter validation, active discovery review and wake quota/cadence guards.
+- B41 state continuity, entity identities, canonical last-known status and bounded optimistic projection remain intact. No new polling, automatic retries or state layer.
 
 ## Local acceptance
 
-1. Back up Home Assistant, update to B41 and restart without deleting the integration or devices.
-2. Run Vehicle Setup & Discovery from the V3 integration options. Test the discovered climate, locking and charging controls.
-3. Verify physical charging START and STOP against actual power, not only the switch. The reported physical STOP issue remains open.
-4. Verify sleeping and restarted vehicle states, preserved entity IDs and history, and charge mode selection.
-5. Verify EU Data Act separately after native controls; enable it only if authorized. Existing connections may be kept.
-6. Export diagnostics after testing. Do not include credentials or raw private vehicle data in public reports.
+1. Update via HACS and restart without deleting the integration or existing history.
+2. Before running discovery, verify that previously proven lock and unlock are both usable. Inspect actual vehicle response and export diagnostics.
+3. Run Vehicle Setup & Discovery for unresolved controls; test climate, charging and charge mode.
+4. Confirm that sleep, restart and temporary command failure do not erase previously proven bindings. Verify physical charging against measured power.
+5. Keep EU Data Act separate from native command validation; check it after native controls.
 
-Source: merged PR #57, e856caa1f8c4dd698a6f758716d7bc4975da80bb. Exact product head eb451a1 passed 1,297 Python tests, 43 Workbench tests, lint, formatting, HACS and hassfest. The candidate workflow independently checks both supported HA targets and packaging. Physical Q8/Q5 acceptance and stable gate #44 remain open. No claim that OEM STOP is fixed.
+Source: merged PR #58, 8d1dbbb677c0c2ba3290c995718703b89ffd03f5. Exact reviewed head 1cb911f1cdc3c5d94858f86313994e8fed6912ac passed 1,298 Python tests, 43 Workbench tests, lint/format, HACS and hassfest. The candidate workflow independently checks both supported HA targets and packages the release. Physical Q8/Q5 acceptance, charging START/STOP behavior and stable gate #44 remain open.
