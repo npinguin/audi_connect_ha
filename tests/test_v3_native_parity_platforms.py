@@ -291,6 +291,7 @@ def test_registered_conditionals_survive_reload_without_write_permission(monkeyp
     ctx.hass = object()
     ctx.engine.vehicles = {vin: vehicle}
     ctx.engine.profiles = {}
+    ctx.engine.auth = SimpleNamespace()
     entry = SimpleNamespace(entry_id="entry", runtime_data=SimpleNamespace(v3=ctx.engine, coordinator=ctx), async_on_unload=lambda _: None)
     for platform, key in keys.items():
         offered = []

@@ -83,10 +83,10 @@ def remember_climate(profile, reading, now=None):
     if profile is None:
         return
     previous = getattr(profile, "last_known_climate", None)
-    if (
-        reading.get("reason") == "conflicting_source_values"
-        and previous
-        and _capture_in_utc(previous["captured"]) == _capture_in_utc(reading.get("captured"))
+    if previous and any(
+        sample.get("reason") == "conflicting_source_values"
+        and _capture_in_utc(previous["captured"]) == _capture_in_utc(sample.get("captured"))
+        for sample in (reading, reading.get("last_known") or {})
     ):
         profile.last_known_climate = None
         previous = None

@@ -707,6 +707,8 @@ def observe_derived(
                     path,
                     job,
                     "no_enabled_climatisation_timer"
+                    if complete and not any(t.get("enabled") is True for t in entries)
+                    else "next_single_timer_not_determined"
                     if complete
                     else "incomplete_timer_data",
                     profile=profile,
