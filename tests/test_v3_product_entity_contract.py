@@ -368,3 +368,30 @@ def test_native_product_description_uses_ha_translation_and_english_fallback():
     )
     assert local.name == "My field"
     assert local.translation_key is None
+
+
+def test_native_entity_translations_match_product_contract():
+    from pathlib import Path
+    from custom_components.audiconnect.v3.product_contract import (
+        canonical_entity_name,
+        canonical_entity_translation_key,
+    )
+
+    root = Path(__file__).parents[1] / "custom_components" / "audiconnect"
+    keys = product_inventory()["entities"]
+    english = json.loads((root / "strings.json").read_text())["entity"]
+    for key in keys:
+        platform = key.split(".")[0]
+        translation = canonical_entity_translation_key(key)
+        assert english[platform][translation]["name"] == canonical_entity_name(key)
+    for locale in ("en", "de", "nl", "fr"):
+        localized = json.loads(
+            (root / "translations" / f"{locale}.json").read_text()
+        )["entity"]
+        for platform, descriptions in english.items():
+            for translation, description in descriptions.items():
+                name = localized[platform][translation]["name"]
+                assert name
+                assert ("{profile_id}" in name) == (
+                    "{profile_id}" in description["name"]
+                )
