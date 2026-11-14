@@ -132,7 +132,7 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
         {"params": {"temp_c": 19.5}},
     )
     assert entity.hvac_mode is None
-    assert entity.target_temperature == 19.5
+    assert entity.target_temperature is None
     assert entity.extra_state_attributes["pending_dispatched_temperature"] == 19.5
     car.readings["climatisationTargetTemperatureC"] = {
         "value": 20,
@@ -171,9 +171,10 @@ def test_old_capture_does_not_claim_command_confirmation():
         )
     )
     entity = V3ClimateEntity(coordinator, car)
-    assert entity.hvac_mode == HVACMode.HEAT_COOL
-    assert entity.hvac_action is None
-    assert entity.extra_state_attributes["state_source"] == "command_pending"
+    assert entity.hvac_mode == HVACMode.OFF
+    assert entity.hvac_action.value == "off"
+    assert entity.extra_state_attributes["state_source"] == "vehicle"
+    assert entity.extra_state_attributes["command_status"] == "accepted_unconfirmed"
     car.set_climate(
         "heating", now.isoformat(), route="test", observed_at=now, http_status=200
     )

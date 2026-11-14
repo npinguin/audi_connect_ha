@@ -301,6 +301,7 @@ def test_charge_mode_has_one_capture_aware_normalization_path():
                 },
                 "chargeMode": {
                     "value": {
+                        "carCapturedTimestamp": stamp.isoformat(),
                         "preferredChargeMode": preferred,
                         "availableChargeModes": options,
                     }
@@ -355,7 +356,7 @@ def test_family_selection_prefers_newest_capture_then_priority():
     later = now + timedelta(hours=2)
     assert not sample("mbb", 70, now - timedelta(hours=1), later)
     assert not sample("mbb", 70, None, later)
-    assert sample("mbb", 81, newer, later)
+    assert not sample("mbb", 81, newer, later)
     assert vehicle.readings["stateOfCharge"]["family"] == "mbb"
     assert sample("cariad", 79, now, later)
     assert vehicle.readings["stateOfCharge"]["family"] == "mbb"

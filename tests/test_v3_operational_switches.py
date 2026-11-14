@@ -148,8 +148,8 @@ def test_switch_projection_and_actions(key, reading, capability, on, off, button
     command.state = "accepted_unconfirmed"
     configure_readback(command, {})
     engine.profiles[VIN.lower()] = NS(command_journal=[command])
-    assert switch.is_on is None
-    assert switch.extra_state_attributes["state_source"] == "command_pending"
+    assert switch.is_on is False
+    assert switch.extra_state_attributes["state_source"] == "vehicle"
     assert switch.extra_state_attributes["state_is_optimistic"] is False
     assert switch.extra_state_attributes["last_reported_state"] is False
     enabled.remove(on)
@@ -319,18 +319,20 @@ def test_charging_stop_never_projects_off_before_vehicle_readback():
     car.readings["chargingState"] = row
     switch = V3OperationalSwitch(co, car, "charging")
     assert switch.available
-    assert switch.is_on is None
+    assert switch.is_on is True
     attrs = switch.extra_state_attributes
     assert attrs["last_reported_state"] is True
     assert attrs["command_status"] == "accepted_unconfirmed"
     assert attrs["command_requested_state"] == "off"
-    assert attrs["state_source"] == "command_pending"
+    assert attrs["state_source"] == "vehicle"
     assert attrs["state_is_optimistic"] is False
     row["captured"] = now.isoformat()
     assert switch.is_on is True
     assert not reconcile_readback(command, car, now)
     row["value"] = "readyForCharging"
     assert reconcile_readback(command, car, now)
+    assert command.state == "accepted_unconfirmed"
+    assert command.readback_observed_at == now.timestamp()
     assert switch.is_on is False
     row["captured"] = (now - timedelta(hours=2)).isoformat()
     row["status"] = "readable_but_stale"
@@ -384,5 +386,5 @@ def test_charging_request_feedback_is_informational_not_vehicle_capture():
     assert detail["data"]["items"] == [{"operation": "stop", "status": "failed"}]
     assert car.readings["charging_requests_detail"]["captured"] is None
     assert command.state == "accepted_unconfirmed"
-    assert switch.is_on is None
+    assert switch.is_on is True
     assert not reconcile_readback(command, car, now)

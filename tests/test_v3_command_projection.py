@@ -24,70 +24,29 @@ def record(cap, action, params=None, state="accepted_unconfirmed"):
 
 
 @pytest.mark.parametrize(
-    "cap,action,params,attribute,reported,expected",
+    "cap,action,params,attribute,reported",
     [
-        ("climate", "start", {}, "climate", "off", "on"),
-        ("climate", "stop", {}, "climate", "heating", "off"),
-        ("charging", "start", {}, "chargingState", "off", "charging"),
-        ("climate", "window_heating_start", {}, "windowHeatingActive", False, True),
-        ("climate", "preheater_stop", {}, "preheater_active", True, False),
-        (
-            "climate",
-            "set_settings",
-            {"windowHeatingEnabled": True},
-            "climatisationWindowHeatingEnabled",
-            False,
-            True,
-        ),
-        ("charging", "set_target_soc", {"value": 80}, "targetstateOfCharge", 70, 80),
-        (
-            "charging",
-            "set_charge_mode",
-            {"value": "timer"},
-            "preferredChargeMode",
-            "manual",
-            "timer",
-        ),
+        ("climate", "start", {}, "climate", "off"),
+        ("climate", "stop", {}, "climate", "heating"),
+        ("charging", "start", {}, "chargingState", "off"),
+        ("climate", "window_heating_start", {}, "windowHeatingActive", False),
+        ("climate", "preheater_stop", {}, "preheater_active", True),
+        ("climate", "set_settings", {"windowHeatingEnabled": True}, "climatisationWindowHeatingEnabled", False),
+        ("charging", "set_target_soc", {"value": 80}, "targetstateOfCharge", 70),
+        ("charging", "set_charge_mode", {"value": "timer"}, "preferredChargeMode", "manual"),
+        ("access", "lock", {}, "doorLockStatus", "unlocked"),
     ],
 )
-def test_accepted_projection_reconciles_even_contradictory_new_data(
-    cap, action, params, attribute, reported, expected
+def test_command_outcome_never_changes_vehicle_projection(
+    cap, action, params, attribute, reported
 ):
     row = record(cap, action, params)
     profile = NS(command_journal=[row])
-    assert projected_state(profile, attribute, reported, OLD, now=NOW) == (
-        expected,
-        "command_pending",
-    )
-    assert projected_state(profile, attribute, reported, NEW, now=NEW) == (
-        reported,
-        "vehicle",
-    )
-    assert row.state == "accepted_unconfirmed"
-    assert projected_state(
-        profile, attribute, reported, OLD, now=NOW + timedelta(minutes=31)
-    ) == (None, "unknown")
-    row.state = "uncertain"
-    assert projected_state(profile, attribute, reported, OLD, now=NOW) == (
-        None,
-        "unknown",
-    )
-    row.state = "rejected"
-    assert projected_state(profile, attribute, reported, OLD, now=NOW) == (
-        reported,
-        "vehicle",
-    )
-
-
-def test_security_sensitive_lock_does_not_claim_locked():
-    row = record("access", "lock")
-    profile = NS(command_journal=[row])
-    assert projected_state(
-        profile, "doorLockStatus", "unlocked", OLD, now=NOW, optimistic=False
-    ) == (None, "command_pending")
-    assert projected_state(
-        profile, "doorLockStatus", "unlocked", NEW, now=NEW, optimistic=False
-    ) == ("unlocked", "vehicle")
+    for outcome in ("pending", "accepted_unconfirmed", "backend_completed", "uncertain", "rejected", "verified"):
+        row.state = outcome
+        for stamp in (OLD, NEW):
+            assert projected_state(profile, attribute, reported, stamp, now=NOW) == (reported, "vehicle")
+        assert projected_state(profile, attribute, None, OLD, now=NOW) == (None, "unknown")
 
 
 def test_stop_supersedes_start_but_other_cooldowns_remain():
@@ -107,8 +66,8 @@ def test_stop_supersedes_start_but_other_cooldowns_remain():
     stop = record("climate", "stop")
     profile = NS(command_journal=[start, stop])
     assert projected_state(profile, "climate", "heating", OLD, now=NOW) == (
-        "off",
-        "command_pending",
+        "heating",
+        "vehicle",
     )
     with pytest.raises(RuntimeError, match="cooldown"):
         stop.check_next(NOW.timestamp(), capability="climate", action="start")
@@ -119,19 +78,19 @@ def test_restart_and_unrelated_commands_never_replay_or_replace_projection():
     charge = record("charging", "start")
     assert projected_state(
         NS(command_journal=[start, charge]), "climate", "off", OLD, now=NOW
-    ) == ("on", "command_pending")
+    ) == ("off", "vehicle")
     restored = CommandRecord.restore(start.snapshot())
     assert projected_state(
         NS(command_journal=[restored]), "climate", "off", OLD, now=NOW
-    ) == (None, "unknown")
+    ) == ("off", "vehicle")
 
 
-def test_rejected_stop_preserves_preceding_accepted_start():
+def test_rejected_stop_does_not_revive_preceding_accepted_start():
     start = record("climate", "start")
     stop = record("climate", "stop", state="rejected")
     assert projected_state(
         NS(command_journal=[start, stop]), "climate", "off", OLD, now=NOW
-    ) == ("on", "command_pending")
+    ) == ("off", "vehicle")
 
 
 @pytest.mark.parametrize(
@@ -153,7 +112,7 @@ def test_normal_command_cooldown_expires_after_ten_seconds(cap, action):
     check_command_sequence(profile, 1100, capability=cap, action=action)
 
 
-def test_readback_selection_ignores_workbench_and_rejected_actions():
+def test_readback_selection_does_not_revive_rejected_predecessor():
     from custom_components.audiconnect.v3.command_readback import (
         latest_readback_command,
     )
@@ -163,10 +122,10 @@ def test_readback_selection_ignores_workbench_and_rejected_actions():
     engineering.origin = "workbench"
     rejected = record("climate", "stop", state="rejected")
     profile = NS(command_journal=[start, engineering, rejected])
-    assert latest_readback_command(profile, "climate") is start
+    assert latest_readback_command(profile, "climate") is rejected
     assert projected_state(profile, "climate", "off", OLD, now=NOW) == (
-        "on",
-        "command_pending",
+        "off",
+        "vehicle",
     )
 
 
@@ -237,25 +196,12 @@ def test_lock_transition_expires_without_fabricating_physical_state():
     row = record("access", "unlock")
     row.observe_http(200)
     profile = NS(command_journal=[row])
-    assert projected_state(
-        profile, "doorLockStatus", "locked", OLD, now=NOW, optimistic=False
-    ) == (None, "command_pending")
-    assert projected_state(
-        profile,
-        "doorLockStatus",
-        "locked",
-        OLD,
-        now=NOW + timedelta(seconds=31),
-        optimistic=False,
-    ) == (None, "command_pending")
-    assert projected_state(
-        profile,
-        "doorLockStatus",
-        "locked",
-        OLD,
-        now=NOW + timedelta(minutes=30),
-        optimistic=False,
-    ) == (None, "unknown")
+    from custom_components.audiconnect.v3.command_readback import pending_access_action
+
+    assert pending_access_action(profile, OLD.isoformat(), now=NOW) == "unlock"
+    assert pending_access_action(profile, NEW.isoformat(), now=NEW) is None
+    assert pending_access_action(profile, OLD.isoformat(), now=NOW + timedelta(minutes=30)) is None
+    assert projected_state(profile, "doorLockStatus", "locked", OLD, now=NOW) == ("locked", "vehicle")
 
 
 @pytest.mark.parametrize(
@@ -387,7 +333,8 @@ def test_command_response_publishes_real_capture_without_poll_or_request_echo():
         },
     )
     assert observe_command_response(row, car, profile, "cariad", response)
-    assert row.state == "verified"
+    assert row.state == "accepted_unconfirmed"
+    assert row.readback_observed_at == NEW.timestamp()
     assert car.readings["doorLockStatus"]["value"] == "unlocked"
     assert car.readings["stateOfCharge"]["value"] == 95
     assert "chargingState" not in car.readings
@@ -407,3 +354,22 @@ def test_command_response_publishes_real_capture_without_poll_or_request_echo():
     response.observed_at = NEW + timedelta(minutes=2)
     assert not observe_command_response(row, car, profile, "cariad", response)
     assert car.readings["last_update_time"]["value"] == NEW.isoformat()
+
+
+def test_manual_stop_after_failed_remote_stop_is_not_command_success():
+    from custom_components.audiconnect.v3.command_readback import reconcile_readback
+
+    row = record("charging", "stop")
+    row.observe_http(200)
+    car = NS(readings={"chargingState": {
+        "value": "readyForCharging", "captured": NEW.isoformat(),
+        "observed": NEW.isoformat(), "family": "cariad",
+    }})
+    assert reconcile_readback(row, car, NEW)
+    assert row.state == "accepted_unconfirmed"
+    assert row.readback_observed_at == NEW.timestamp()
+    row.observe_backend("rejected", NEW.timestamp())
+    assert row.state == "rejected"
+    assert row.backend_result == "rejected"
+    assert not reconcile_readback(row, car, NEW)
+    assert CommandRecord.restore(row.snapshot()).state == "rejected"
