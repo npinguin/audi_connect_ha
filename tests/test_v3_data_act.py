@@ -915,6 +915,7 @@ def test_portal_identity_does_not_promote_nickname_or_placeholder(row):
     assert not candidate.model
     assert not candidate.model_family
 
+
 def test_data_act_discovery_reuses_schema_inventory_without_raw_values():
     from custom_components.audiconnect.v3.read_discovery import (
         data_act_discovery,

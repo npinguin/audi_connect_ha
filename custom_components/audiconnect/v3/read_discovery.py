@@ -137,7 +137,9 @@ def data_act_discovery(car, profile, *, include_fields=False):
         "fields_observed": len(rows),
         "fields_mapped": sum(row["attribute"] is not None for row in rows.values()),
         "fields_unmapped": sum(row["attribute"] is None for row in rows.values()),
-        "fields_normalized": sum(row["status"] == "normalized" for row in rows.values()),
+        "fields_normalized": sum(
+            row["status"] == "normalized" for row in rows.values()
+        ),
         "truncated": bool(schema.get("truncated")),
         "scope": "session_structural_evidence_not_vehicle_support",
     }
