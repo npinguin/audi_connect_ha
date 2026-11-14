@@ -1419,6 +1419,34 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
             ident: attribute_status(vehicle, profile, definition, datetime.now(UTC))[0]
             for ident, definition in CANONICAL_ATTRIBUTES.items()
         },
+        # Reuse the family projection for bounded, value-free freshness evidence.
+        "capture_evidence": [
+            {
+                "family": family["id"],
+                **{
+                    key: row[key]
+                    for key in (
+                        "attribute",
+                        "captured",
+                        "observed_at",
+                        "delivered_at",
+                        "selected",
+                        "valid",
+                        "status",
+                    )
+                },
+            }
+            for family in report["family_discovery"]
+            if family["id"] in base_registry.families
+            for row in family["observations"]
+            if row["attribute"] in (
+                "stateOfCharge",
+                "chargingState",
+                "plugConnectionState",
+                "doorLockStatus",
+                "climatisationState",
+            )
+        ],
         "historically_normalized_without_current_reading": sorted(
             ident
             for ident in CANONICAL_ATTRIBUTES

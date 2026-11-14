@@ -139,3 +139,9 @@ projection and traceability alias. Retire the exact registry identity through
 the existing pilot retirement mechanism, preserving history and user-owned
 settings. The OEM chargingState remains normalized and visible; readiness is
 not a separate permission or actionable control. V2 remains unchanged.
+
+Workbench list age now uses the same global capture summary as native HA,
+not climate capture age. Shared diagnostics include bounded per-source capture
+evidence for SoC, charging, plug, lock and climate, without scalar values or
+source paths. This supports comparison against actual charging/locking events
+without claiming the existing data gaps have been resolved.
