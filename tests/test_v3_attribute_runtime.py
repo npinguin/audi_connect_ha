@@ -567,3 +567,55 @@ def test_native_evidence_is_kept_when_other_read_channel_is_newer():
         == "cariad.selectivestatus"
     )
     assert vehicle.family_readings["stateOfCharge"]["cariad"]["value"] == 69
+
+
+def test_implausible_capture_cannot_block_recovery_or_replace_valid_sample():
+    from custom_components.audiconnect.v3.attribute_runtime import record_observation
+
+    vehicle, profile, now = car(), Profile(), datetime.now(UTC)
+    future = now + timedelta(days=1)
+
+    def sample(value, stamp):
+        return record_observation(
+            vehicle,
+            profile,
+            "stateOfCharge",
+            value,
+            stamp.isoformat(),
+            now,
+            "test",
+            "charging",
+            "cariad",
+            fresh=False,
+            operation="cariad.test",
+            persist_evidence=False,
+        )
+
+    assert sample(1, future)
+    assert sample(80, now)
+    assert not sample(2, future)
+    assert vehicle.readings["stateOfCharge"]["value"] == 80
+
+
+def test_alias_selection_ignores_implausible_capture_for_ordering():
+    from custom_components.audiconnect.v3.attribute_runtime import select_reading
+
+    vehicle, now = car(), datetime.now(UTC)
+    vehicle.readings.update(
+        canonical={
+            "value": 80,
+            "family": "cariad",
+            "captured": now.isoformat(),
+        },
+        alias={
+            "value": 1,
+            "family": "cariad",
+            "captured": (now + timedelta(days=1)).isoformat(),
+        },
+    )
+    for sources in (("alias", "canonical"), ("canonical", "alias")):
+        name, reading = select_reading(
+            vehicle, sources, "canonical", now=now, families=("cariad",)
+        )
+        assert name == "canonical"
+        assert reading["value"] == 80
