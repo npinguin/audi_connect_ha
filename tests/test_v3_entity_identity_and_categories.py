@@ -515,7 +515,9 @@ def test_registry_notifications_coalesce_and_keep_final_change(monkeypatch):
         monkeypatch.setattr(lifecycle, "async_apply_v3_entity_visibility", apply)
         engine = V3Engine.__new__(V3Engine)
         engine.hass = NS(async_create_task=lambda coro, **_: asyncio.create_task(coro))
-        engine.entry = NS(runtime_data=NS(coordinator=NS(async_update_listeners=lambda: None)))
+        engine.entry = NS(
+            runtime_data=NS(coordinator=NS(async_update_listeners=lambda: None))
+        )
         engine._registry_task = None
         engine._registry_dirty = False
         for _ in range(10):

@@ -1144,12 +1144,15 @@ def test_portal_duration_projects_eta_only_from_selected_source():
     }
     observe_data_act(car, profile, payload, now, now.isoformat())
     project_charging_eta(car, profile, now)
-    assert car.readings["charging_complete_time"]["value"] == (
-        now + timedelta(minutes=30)
-    ).isoformat()
+    assert (
+        car.readings["charging_complete_time"]["value"]
+        == (now + timedelta(minutes=30)).isoformat()
+    )
     assert car.readings["charging_complete_time"]["family"] == "eu_data_act"
     assert "charging_complete_time" not in car.family_readings
-    from custom_components.audiconnect.v3.attribute_runtime import remove_family_observations
+    from custom_components.audiconnect.v3.attribute_runtime import (
+        remove_family_observations,
+    )
 
     remove_family_observations(car, profile, "eu_data_act", now)
     project_charging_eta(car, profile, now)
