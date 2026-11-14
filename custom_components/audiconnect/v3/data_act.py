@@ -259,8 +259,11 @@ class DataActClient:
             headers={"filename": name, "type": "partial"},
         )
         payload = await asyncio.to_thread(decode_dataset, raw, vin)
-        self._last_file[vin] = (delivered, name)
         self.delivery_states[vin] = (
             "dataset_received" if payload["Data"] else "empty_dataset"
         )
-        return payload, delivered.isoformat()
+        return payload, delivered.isoformat(), (delivered, name)
+
+    def acknowledge(self, vin, marker):
+        """Advance deduplication only after the existing Status owner commits."""
+        self._last_file[vin.upper()] = marker

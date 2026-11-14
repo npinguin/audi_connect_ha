@@ -318,6 +318,8 @@ class V3Engine:
                 self.profiles[key].manufacturer_identity = identity
         self.vehicles.update(known)
         self._known_vehicle_inventory = True
+        for car in known.values():
+            self.health.observe_inventory(self, car)
         metadata = getattr(self.transport, "last_inventory_metadata", None)
         if metadata is not None:
             for vin, item in inventory_items.items():
@@ -1366,14 +1368,18 @@ class V3Engine:
         profile.attribute_drafts[attribute] = route
         await self.storage.async_save(self.profiles)
 
-    def _notify_discovery_change(self) -> None:
+    def _notify_discovery_change(self, *, reconcile_registry=True) -> None:
         coordinator = getattr(
             getattr(self.entry, "runtime_data", None), "coordinator", None
         )
         if coordinator is not None and hasattr(coordinator, "async_update_listeners"):
             # Local evidence changes are not a successful cloud update.
             coordinator.async_update_listeners()
-        if coordinator is not None and hasattr(self.hass, "async_create_task"):
+        if (
+            reconcile_registry
+            and coordinator is not None
+            and hasattr(self.hass, "async_create_task")
+        ):
             from .registry_lifecycle import async_apply_v3_entity_visibility
 
             self.hass.async_create_task(

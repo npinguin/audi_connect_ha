@@ -193,8 +193,10 @@ class StatusEngine:
                 continue
             self._data_act_success_at = now
             if result is not None:
-                payload, delivered = result
-                samples.append((car, profile, payload, datetime.now(UTC), delivered))
+                payload, delivered, marker = result
+                samples.append(
+                    (car, profile, payload, datetime.now(UTC), delivered, marker)
+                )
         return samples
 
     def invalidate_trip_poll(self, vin: str) -> None:
@@ -256,7 +258,7 @@ class StatusEngine:
             return
         now = time.monotonic()
         key = car.vin.lower()
-        last = self._trip_poll_at.get(key)
+        due = self._trip_poll_at.get(key)
         profile = self.profiles[key]
         # Retry missing scopes at the ordinary poll cadence, not a 3-hour
         # penalty after a quota/transport/partial-response failure.
@@ -269,10 +271,12 @@ class StatusEngine:
             if car.context.auth != "legacy"
             else ["shortterm_current", "longterm_current"]
         )
-        interval = 10800 if all(car.trips.get(scope) for scope in expected) else 900
-        if last is not None and now - last < interval:
+        if due is not None and now < due:
             return
-        self._trip_poll_at[key] = now
+        # Reserve the bounded retry before I/O. Only a complete successful
+        # cycle extends it; cached trip scopes alone never prove success.
+        self._trip_poll_at[key] = now + 900
+        complete = True
         if car.context.auth == "legacy":
             from .trips import normalize_mbb_trips
             from datetime import timedelta
@@ -304,8 +308,11 @@ class StatusEngine:
                 if reply.status in (401, 403, 429) or reply.status >= 500:
                     break
                 if not 200 <= reply.status < 300:
+                    complete = False
                     continue
-                for suffix, trip in normalize_mbb_trips(reply.data).items():
+                trips = normalize_mbb_trips(reply.data)
+                complete &= bool(trips)
+                for suffix, trip in trips.items():
                     state_key = kind.lower() + "_" + suffix
                     previous = _capture_in_utc(
                         car.trips.get(state_key, {}).get("timestamp")
@@ -313,6 +320,9 @@ class StatusEngine:
                     incoming = _capture_in_utc(trip.get("timestamp"))
                     if incoming and (not previous or incoming >= previous):
                         car.trips[state_key] = trip
+            else:
+                if complete and all(car.trips.get(scope) for scope in expected):
+                    self._trip_poll_at[key] = now + 10800
             return
         profile = self.profiles[car.vin.lower()]
         available = (
@@ -337,11 +347,19 @@ class StatusEngine:
             self._api_record(profile, ident, family, method, reply, car.vin)
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 break
-            if 200 <= reply.status < 300:
-                if ident == "cariad.mobility.status.tripStatistics":
-                    observe_read_only(car, profile, reply.data, reply.observed_at)
-                else:
-                    observe_cariad_trip(car, ident, reply.data)
+            if not 200 <= reply.status < 300:
+                complete = False
+                continue
+            if ident == "cariad.mobility.status.tripStatistics":
+                observe_read_only(car, profile, reply.data, reply.observed_at)
+            elif not observe_cariad_trip(car, ident, reply.data):
+                # An unchanged/older valid snapshot is still a successful read.
+                from .trips import normalize_cariad_trip
+
+                complete &= normalize_cariad_trip(reply.data)[0] is not None
+        else:
+            if complete and all(car.trips.get(scope) for scope in expected):
+                self._trip_poll_at[key] = now + 10800
 
     async def poll(self) -> list[V3Vehicle]:
         self.last_cloud_poll_attempt = datetime.now(UTC)
@@ -386,9 +404,10 @@ class StatusEngine:
     async def _collect_data_act(self):
         from .attribute_runtime import observe_data_act, remove_family_observations
 
+        before = self.data_act_poll_status()
+        changed = False
         try:
             samples = await self._poll_data_act()
-            changed = False
             client = getattr(self.auth, "data_act_client", None)
             denied = getattr(client, "denied_vins", ())
             revoked = getattr(client, "authorization_required", False) is True
@@ -397,7 +416,7 @@ class StatusEngine:
                     changed |= remove_family_observations(
                         car, self.profiles[key], "eu_data_act", datetime.now(UTC)
                     )
-            for car, profile, payload, observed, delivered in samples:
+            for car, profile, payload, observed, delivered, marker in samples:
                 key = car.vin.lower()
                 if (
                     self.vehicles.get(key) is car
@@ -409,14 +428,18 @@ class StatusEngine:
                     changed |= observe_data_act(
                         car, profile, payload, observed, delivered
                     )
-            if changed:
-                self._update_capture_projection()
-                if self._notify is not None:
-                    self._notify()
+                    client.acknowledge(car.vin, marker)
         except Exception:
             # Optional provider errors must not invalidate native data or expose
             # response content and credentials in logs.
             self._data_act_processing_failed = True
+        if changed:
+            self._update_capture_projection()
+        if self._notify is not None:
+            if changed:
+                self._notify()
+            elif before != self.data_act_poll_status():
+                self._notify(reconcile_registry=False)
 
     async def async_stop_data_act(self):
         task = self._data_act_task
