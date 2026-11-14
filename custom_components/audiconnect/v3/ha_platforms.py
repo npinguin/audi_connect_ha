@@ -176,14 +176,6 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 attributes = attributes_for(profile)
                 # Canonical entities can be backed by declared alternative sources.
                 candidates = set(car.readings)
-                for descriptor in attributes.values():
-                    if descriptor["platform"] != platform:
-                        continue
-                    canonical = projection_descriptor(descriptor)
-                    if canonical and (
-                        f"{vin}_{platform}_{canonical['entity_key']}" in registered
-                    ):
-                        candidates.add(canonical["id"])
                 if platform == "sensor":
                     candidates.update(
                         (
@@ -193,20 +185,24 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                             "carType",
                         )
                     )
-                for ident in sorted(candidates):
-                    descriptor = attributes.get(ident)
+                for ident, descriptor in sorted(attributes.items()):
+                    if descriptor["platform"] != platform:
+                        continue
                     if profile and ident in getattr(profile, "attribute_disabled", ()):
                         continue
                     if (
-                        descriptor
-                        and descriptor.get("local")
+                        descriptor.get("local")
                         and ident not in profile.attribute_routes
                     ):
                         continue
-                    if not descriptor or descriptor["platform"] != platform:
-                        continue
                     descriptor = projection_descriptor(descriptor)
                     if descriptor is None:
+                        continue
+                    key = descriptor["entity_key"]
+                    previously_offered = f"{vin}_{platform}_{key}" in registered
+                    if ident not in candidates and (
+                        ident != descriptor["id"] or not previously_offered
+                    ):
                         continue
                     _source, reading = projection_reading(
                         car, descriptor, registry=getattr(profile, "registry", None)
@@ -218,12 +214,12 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                     ):
                         from .vehicle import powertrain_identity
 
-                        if powertrain_identity(car)["value"] is not None:
+                        if (
+                            previously_offered
+                            or powertrain_identity(car)["value"] is not None
+                        ):
                             add_once(f"{vin}:car_type", V3ReadOnlySensor, descriptor)
                         continue
-                    previously_offered = (
-                        f"{vin}_{platform}_{descriptor['entity_key']}" in registered
-                    )
                     if not previously_offered:
                         if not reading or not isinstance(
                             reading.get("value"), (str, int, float, bool)
@@ -235,16 +231,12 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                             descriptor.get("contract"),
                         ):
                             continue
-                    tag = f"{vin}:{descriptor['entity_key']}"
-                    if tag in seen:
-                        continue
-                    seen.add(tag)
                     entity_type = (
                         V3ReadOnlySensor
                         if platform == "sensor"
                         else V3ReadOnlyBinarySensor
                     )
-                    entities.append(entity_type(coordinator, car, descriptor))
+                    add_once(f"{vin}:{key}", entity_type, descriptor)
             elif platform == "button":
                 for descriptor in control_buttons():
                     key, _, _, capability, action = descriptor
