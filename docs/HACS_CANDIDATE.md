@@ -1,18 +1,19 @@
-# Audi Connect 3.0.0b37 — multi-source engineering closure
+# Audi Connect 3.0.0b38 — field-test correction candidate
 
-Experimental fork HACS prerelease for live acceptance. V2 remains default and fallback, V3 opt-in, and Data Act disabled by default. Not a stable or upstream release.
+Experimental HACS prerelease. V2 remains the default and rollback, V3 opt-in, Data Act disabled by default. Not an accepted stable release.
 
-## Changes since B36
+## Changes since B37
 
-- Consolidated, registry-driven source discovery and Workbench coverage, including selected versus alternative source evidence, timestamps, and privacy-safe identity outcomes. Parking hints no longer count as normalized movement.
-- Separate optional portal connect/reconnect/disconnect options; credentials validated before replacement. Existing native login unaffected.
-- Withdraw source-specific readings and identity on terminal loss of portal access. Missing subscription is distinct. Preserve native measurements, trips and registry IDs.
-- Invalidate current and cached observations on mapping changes; reject late disabled-route responses. Charging ETA follows the selected duration. Coalesce registry notifications.
-- Share bounded response-body reading; use private HA storage for profiles and registry migration. Three exact read-only candidate mappings for charging/climate duration and hood status. No new controls, polling engine, scheduler or entity IDs.
-- Exact PR #51 source passed 1,237 Python regression tests and pre-commit / Validate. Both supported HA versions and archive verification are required by the candidate workflow.
+- Source discovery and coverage visible per API family, including actual normalized scalar values, alternative sources, capture/receipt/delivery, source paths and coarse authentication context. No raw dataset or credentials in exported diagnostics.
+- All 84 observed Data Act UUID/name pairs have explicit mapping destinations: 35 existing canonical attribute mappings and 49 bounded read-only details. Mapping coverage is not physical support or 84 valid measurements. No new entity IDs or command routes.
+- Dedicated localized HA source form with connect/reconnect/disconnect and validation before replacing working credentials; remove blank menu and empty confirmation.
+- Declarative model/year field paths and retained identity provenance; preserve source withdrawal, native account, registry and trip history. Real OEM metadata is still missing from the observed Data Act consent response. Do not substitute nickname or infer from VIN.
+- Q5 field evidence: 1,000 persistent trips, physical charge start/stop on B35, German translations improved, numeric quota. V2 opt-in remains intentional. Existing HACS master/beta behavior remains upstream review concern.
+- No new host, web authentication method, scheduler or country-specific core branch. Future myAudi web inventory requires a reviewed, authorized source contract.
+- Exact PR #53 passed 1,241 Python regression tests and lint/Validate. Candidate workflow verifies both HA compatibility versions and archive.
 
-## Live acceptance
+## Acceptance
 
-Back up HA, install over B36 without deleting the entry or devices, restart, retain V3 mode and existing portal credentials. Check source discovery, vehicle freshness, optional source delivery, identity and entity registry/trip history. Validate after a normal ride and while charging, then test physical controls with explicit consent. Check reconnect/disconnect only if needed; rollback to V2 remains available. No claim of fresh OEM telemetry, solved manufacturer identity, verified charging control or complete market coverage. Issue #44 remains the stable release gate. Share redacted diagnostics only.
+Back up Home Assistant. Upgrade over B37 without deleting the integration or devices. Restart, retain V3 and Data Act credentials. Inspect Workbench per-family coverage and values, verify the source options form, reconnect with correct credentials and test failure recovery separately if desired. Check new capture after driving and active charging; preserve entity IDs and trip history. Model, model year and OEM drivetrain remain explicit acceptance blockers. Confirm actual source field evidence before adding another identity route or release. No stable promotion or declaration of full normalization/live coverage. Issue #44 remains stable gate.
 
-Source: merged PR #51, adce2dd09f93ab8aced6be1f8ddf9a884f6f5938.
+Source: merged PR #53, 8436733652dda108b851d8934ca03e2a7934f121.
