@@ -1828,15 +1828,7 @@ class AudiConnectV3Panel extends HTMLElement {
           (!r.entity_key && selectedEntity.operations.includes(r.operation))),
     );
     const attributes = filteredRows
-      .filter(
-        (r) =>
-          r.entity_key &&
-          [
-            "v3_live_evidence",
-            "v2_attribute_reference",
-            "local_attribute_definition",
-          ].includes(r.source),
-      )
+      .filter((r) => r.entity_key)
       .map((row) => {
         const observation = sourceObservations.get(row.attribute);
         if (family === "all" || !observation) return row;

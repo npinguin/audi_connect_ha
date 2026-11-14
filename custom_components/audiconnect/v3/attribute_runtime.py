@@ -258,6 +258,9 @@ def record_invalid_observation(
     family: str = "cariad",
     *,
     profile=None,
+    detail=False,
+    operation=None,
+    delivered_at=None,
 ) -> None:
     """An explicit invalid sample invalidates only the originating family."""
     if ident in getattr(profile, "attribute_disabled", ()):
@@ -275,6 +278,9 @@ def record_invalid_observation(
             "status": "invalid_value",
             "family": family,
             "reason": reason,
+            **({"detail": True} if detail else {}),
+            **({"operation": operation} if operation else {}),
+            **({"delivered_at": delivered_at} if delivered_at else {}),
         },
         getattr(profile, "registry", None),
         observed_at,
@@ -296,6 +302,7 @@ def record_observation(
     operation,
     persist_evidence=True,
     delivered_at=None,
+    detail=False,
 ):
     """Return whether the family accepted the sample, not whether it won selection."""
     if ident in getattr(profile, "attribute_disabled", ()):
@@ -314,6 +321,8 @@ def record_observation(
     }
     if delivered_at is not None:
         row["delivered_at"] = delivered_at
+    if detail:
+        row["detail"] = True
     if not commit_observation(
         vehicle, ident, row, getattr(profile, "registry", None), observed_at
     ):
@@ -568,6 +577,8 @@ def observe_data_act(vehicle, profile, payload, observed_at, delivered_at):
         if ident in getattr(profile, "attribute_disabled", ()):
             continue
         previous = vehicle.readings.get(ident)
+        mapping = profile.registry.families["eu_data_act"]["observations"][sample["path"]]
+        detail = bool(mapping.get("detail"))
         if sample["value"] is None:
             record_invalid_observation(
                 vehicle,
@@ -579,6 +590,9 @@ def observe_data_act(vehicle, profile, payload, observed_at, delivered_at):
                 sample["reason"],
                 "eu_data_act",
                 profile=profile,
+                detail=detail,
+                operation="eu_data_act.dataset",
+                delivered_at=delivered_at,
             )
             changed |= vehicle.readings.get(ident) is not previous
             continue
@@ -596,6 +610,7 @@ def observe_data_act(vehicle, profile, payload, observed_at, delivered_at):
             operation="eu_data_act.dataset",
             persist_evidence=False,
             delivered_at=delivered_at,
+            detail=detail,
         )
         changed |= vehicle.readings.get(ident) is not previous
     return changed

@@ -348,7 +348,11 @@ def test_sparse_q8_shape_maps_known_information_only():
     car = V3Vehicle(VIN, "Audi", "", "", "BE")
     profile = DevelopmentProfile(registry, car.context)
     assert observe_data_act(car, profile, payload, now, now.isoformat())
-    assert {key: row["value"] for key, row in car.readings.items()} == {
+    assert {
+        key: row["value"]
+        for key, row in car.readings.items()
+        if row["value"] is not None
+    } == {
         "stateOfCharge": 64,
         "UTC_TIME_AND_KILOMETER_STATUS": 12345,
         "TANK_LEVEL_IN_PERCENTAGE": 80,
@@ -359,6 +363,9 @@ def test_sparse_q8_shape_maps_known_information_only():
         "plugLockState": "unlocked",
     }
     assert all(row["captured"] == stamp for row in car.readings.values())
+    for ident in ("remainingChargingTime", "remainingClimatisationTime"):
+        assert car.readings[ident]["status"] == "invalid_value"
+        assert car.readings[ident]["value"] is None
     assert not profile.attribute_evidence and not profile.attribute_routes
     payload["Data"][1]["value"] = "65535"
     assert (
@@ -1285,6 +1292,7 @@ def test_portal_read_only_details_use_existing_observation_lifecycle():
     }
     observe_data_act(car, profile, payload, now, now.isoformat())
     assert car.readings["parking_brake_detail"]["value"] is True
+    assert car.readings["parking_brake_detail"]["detail"] is True
     assert car.readings["tyre_pressure_actual_front_left_detail"]["value"] == 2.8
     assert car.readings["echo_detail"]["value"] is True
     source = next(

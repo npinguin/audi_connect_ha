@@ -182,6 +182,8 @@ def attribute_status(vehicle, profile, definition, now):
 def build_status_report(
     vehicle: V3Vehicle,
     profile: DevelopmentProfile,
+    *,
+    fast_bindings=None,
 ) -> dict[str, Any]:
     """Produce independently understandable API/attribute/control coverage.
 
@@ -441,7 +443,9 @@ def build_status_report(
                     "requires_manual_test": True,
                 }
             )
-    cockpit = _cockpit(vehicle, profile, rows, controls_for_vehicle)
+    cockpit = _cockpit(
+        vehicle, profile, rows, controls_for_vehicle, fast_bindings=fast_bindings
+    )
     counts = {
         **scan,
         "observed_attributes": sum(
@@ -592,9 +596,12 @@ def family_discovery(vehicle, profile, rows, operations):
                     "observed_at": sample.get("observed"),
                     "selected": is_selected and valid,
                     "valid": valid,
-                    "status": (row["status"] if is_selected else "alternative")
+                    "status": row["status"]
+                    if is_selected
+                    else "alternative"
                     if valid
                     else "invalid_value",
+                    "reason": sample.get("reason"),
                     "fresh": valid and timestamp_is_fresh(sample.get("captured"), now),
                     "delivered_at": sample.get("delivered_at"),
                 }
@@ -650,14 +657,14 @@ def family_discovery(vehicle, profile, rows, operations):
     return result
 
 
-def _cockpit(vehicle, profile, rows, controls):
+def _cockpit(vehicle, profile, rows, controls, *, fast_bindings=None):
     """Read-only projection of existing evidence; no network or state writes."""
     now = datetime.now(UTC)
     findings = []
     attributes = []
     catalog = profile.registry.operations
     records = profile.api_observations
-    fast = profile.fast_bindings
+    fast = profile.fast_bindings if fast_bindings is None else fast_bindings
     definitions = attributes_for(profile)
     mapped_paths = {}
     for descriptor in definitions.values():

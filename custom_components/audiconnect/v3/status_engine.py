@@ -124,7 +124,7 @@ class StatusEngine:
             for ident, families in car.family_readings.items():
                 sample = families.get("eu_data_act", {})
                 if (
-                    ident in ATTRIBUTES
+                    not sample.get("detail")
                     and sample.get("value") is not None
                     and sample.get("status") != "invalid_value"
                 ):

@@ -98,8 +98,8 @@ async def ws_status(hass, connection, msg):
         engine = _engine(hass, msg["entry_id"])
         vehicle = engine.require_vehicle(msg["vin"])
         profile = engine.profiles[vehicle.vin.lower()]
-        engine.commands.refresh_bindings()
-        report = build_status_report(vehicle, profile)
+        bindings = engine.commands.binding_snapshot(vehicle, profile)
+        report = build_status_report(vehicle, profile, fast_bindings=bindings)
         report["normal_command"] = (
             profile.last_command.snapshot() if profile.last_command else None
         )
@@ -119,7 +119,7 @@ async def ws_status(hass, connection, msg):
             or latest_by_capability.get(row.capability, row) is row
         ]
         report["command_journal"] = [row.snapshot() for row in profile.command_journal]
-        report["fast_bindings"] = profile.fast_bindings
+        report["fast_bindings"] = bindings
         from .product_contract import entity_projection_report, entity_key
 
         report["account_entity_projection"] = entity_projection_report(engine)
