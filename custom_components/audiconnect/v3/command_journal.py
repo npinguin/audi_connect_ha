@@ -58,6 +58,7 @@ class CommandRecord:
     backend_result: str | None = None
     completed_at: float | None = None
     readback_observed_at: float | None = None
+    readback_mismatch_at: float | None = None
     parent_command_id: str | None = None
     http_status: int | None = None
     requested_charge_mode: str | None = None
@@ -301,6 +302,14 @@ class CommandRecord:
                 )
             )
             or (
+                record.readback_mismatch_at is not None
+                and (
+                    type(record.readback_mismatch_at) not in (int, float)
+                    or not math.isfinite(record.readback_mismatch_at)
+                    or record.readback_mismatch_at <= record.started_at
+                )
+            )
+            or (
                 record.request_id is not None
                 and (
                     not isinstance(record.request_id, str)
@@ -334,7 +343,7 @@ class CommandRecord:
             raise ValueError("Invalid stored command context")
         # Pre-B41 normal commands used verified for a matching observation,
         # not causal proof. Keep their backend evidence; do not invent capture.
-        if record.origin == "home_assistant" and record.state == "verified":
+        if record.origin == "home_assistant" and record.state in ("verified", "readback_mismatch"):
             record.state = (
                 "backend_completed" if record.backend_result == "backend_completed"
                 else "rejected" if record.backend_result == "rejected"

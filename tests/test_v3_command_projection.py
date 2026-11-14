@@ -6,12 +6,24 @@ import pytest
 from custom_components.audiconnect.v3.command_journal import CommandRecord
 from custom_components.audiconnect.v3.command_readback import (
     configure_readback,
-    projected_state,
 )
+from custom_components.audiconnect.v3.entities import _reading_projection
 
 NOW = datetime.now(UTC)
 OLD = NOW - timedelta(minutes=2)
 NEW = NOW + timedelta(seconds=1)
+
+
+def projected_state(profile, attribute, reported, captured, **_):
+    key = "climatisationState" if attribute == "climate" else attribute
+    vin = "test"
+    vehicle = NS(vin=vin, readings={key: {
+        "value": reported,
+        "captured": captured.isoformat(),
+        "status": "verified",
+        "family": "cariad",
+    }})
+    return _reading_projection(NS(engine=NS(profiles={vin: profile})), vehicle, key)
 
 
 def record(cap, action, params=None, state="accepted_unconfirmed"):
@@ -179,9 +191,12 @@ def test_access_mismatch_releases_only_accepted_command_with_new_evidence():
     assert not reconcile_access_mismatch(row, car, NOW)
     row.backend_result = "accepted_unconfirmed"
     assert reconcile_access_mismatch(row, car, NOW)
-    assert row.state == "readback_mismatch"
+    assert row.state == "accepted_unconfirmed"
+    assert row.readback_mismatch_at == NOW.timestamp()
     assert not row.requires_review
-    assert CommandRecord.restore(row.snapshot()).state == "readback_mismatch"
+    restored = CommandRecord.restore(row.snapshot())
+    assert restored.state == "accepted_unconfirmed"
+    assert restored.readback_mismatch_at == NOW.timestamp()
     assert projected_state(
         NS(command_journal=[row]),
         "doorLockStatus",

@@ -144,7 +144,7 @@ async def test_charge_mode_service_rejects_unadvertised_mode_before_dispatch():
 async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outcome):
     from datetime import timedelta
     from custom_components.audiconnect.v3 import request_status
-    from custom_components.audiconnect.v3.command_readback import projected_state
+    from custom_components.audiconnect.v3.entities import _reading_projection
 
     engine, car = make_engine()
     profile = engine.profiles[VIN.lower()]
@@ -156,7 +156,7 @@ async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outc
 
     def notify():
         notifications.append(
-            projected_state(profile, "climate", car.climate_state, car.climate_captured)
+            _reading_projection(NS(engine=engine), car, "climatisationState")
         )
 
     async def confirm(*args):
@@ -301,13 +301,13 @@ def test_next_climate_timer_excludes_expired_and_ambiguous_times():
     assert car.readings["climatisation_timer_enabled_count"]["value"] == 3
     block.pop("timeInCar")
     observe_derived(car, profile, payload, now, lambda *_: True)
-    assert key not in car.readings
+    assert car.readings[key]["value"] is None
     block["timers"] = block["timers"][2:]
     observe_derived(car, profile, payload, now, lambda *_: True)
     assert car.readings[key]["value"] == "2026-11-15T14:00:00"
     block["timers"].append({"id": 4, "enabled": True, "singleTimer": {}})
     observe_derived(car, profile, payload, now, lambda *_: True)
-    assert key not in car.readings
+    assert car.readings[key]["value"] is None
     block["timers"].pop()
     block["timers"].append(
         {"id": 5, "enabled": True, "recurringTimer": {"startTime": "07:00"}}
@@ -323,4 +323,4 @@ def test_next_climate_timer_excludes_expired_and_ambiguous_times():
         }
     )
     observe_derived(car, profile, payload, now, lambda *_: True)
-    assert key not in car.readings
+    assert car.readings[key]["value"] is None

@@ -136,7 +136,6 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
         source=None,
         allow_last_known=False,
         correlate=True,
-        optimistic=True,
     ):
         """One metadata contract for all native vehicle controls."""
         engine = self.coordinator.engine
@@ -209,7 +208,7 @@ _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
 def _reading_projection(
-    coordinator, vehicle, attribute, *, allow_last_known=False, optimistic=False
+    coordinator, vehicle, attribute, *, allow_last_known=False
 ):
     row = vehicle.readings.get(attribute) or {}
     if not _reading_available(row, allow_last_known=allow_last_known):
@@ -1473,7 +1472,6 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
             self.coordinator,
             self.vehicle,
             self.definition["attribute"],
-            optimistic=False,
         )
         state = (
             charging_active(value)
@@ -1505,8 +1503,7 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
                 attribute=self.definition["attribute"],
                 reading=row or {},
                 source=self._projection()[1],
-                optimistic=False,
-            ),
+                ),
             "last_reported_state": state,
             "on_enabled": self._enabled("on"),
             "off_enabled": self._enabled("off"),
@@ -1681,7 +1678,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
 
     @callback
     def _schedule_pending_refresh(self):
-        from .command_readback import OPTIMISTIC_TTL_SECONDS, latest_readback_command
+        from .command_readback import LOCK_TRANSITION_TTL_SECONDS, latest_readback_command
 
         self._cancel_pending_refresh()
         if self.hass is None or not (self.is_locking or self.is_unlocking):
@@ -1692,7 +1689,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
         record = latest_readback_command(profile, "doorLockStatus")
         if record is None:
             return
-        delay = record.started_at + OPTIMISTIC_TTL_SECONDS
+        delay = record.started_at + LOCK_TRANSITION_TTL_SECONDS
         delay -= datetime.now(UTC).timestamp()
         if delay > 0:
             self._pending_refresh = async_call_later(
@@ -1713,7 +1710,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
     def is_locked(self) -> bool | None:
         # No silent assumption that an unavailable lock status means unlocked.
         raw, _ = _reading_projection(
-            self.coordinator, self.vehicle, "doorLockStatus", optimistic=False
+            self.coordinator, self.vehicle, "doorLockStatus"
         )
         if not isinstance(raw, str):
             return None
@@ -1747,7 +1744,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
     @property
     def extra_state_attributes(self):
         _, source = _reading_projection(
-            self.coordinator, self.vehicle, "doorLockStatus", optimistic=False
+            self.coordinator, self.vehicle, "doorLockStatus"
         )
         attrs = self._control_attributes(
             "access", ("lock", "unlock"), attribute="doorLockStatus", source=source

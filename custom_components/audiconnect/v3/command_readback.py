@@ -171,11 +171,7 @@ def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
 
 
 def reconcile_access_mismatch(record, car, now=None, *, registry=None) -> bool:
-    """Close an accepted lock attempt on a later reliable contrary observation.
-
-    This is not proof that the command physically failed: the car may have
-    been operated externally. Never close a transport-uncertain mutation this way.
-    """
+    """Record contrary lock telemetry without changing the command outcome."""
     from .command_journal import TEMPORARY_ERROR_COOLDOWN_SECONDS
 
     if (
@@ -183,7 +179,7 @@ def reconcile_access_mismatch(record, car, now=None, *, registry=None) -> bool:
         or record.capability != "access"
         or record.readback_attribute != "doorLockStatus"
         or record.state
-        not in ("accepted_unconfirmed", "backend_completed", "uncertain")
+        not in ("accepted_unconfirmed", "backend_completed", "uncertain", "rejected")
         or record.http_status is None
         or not 200 <= record.http_status < 300
         or record.backend_result == "transport_uncertain"
@@ -203,16 +199,17 @@ def reconcile_access_mismatch(record, car, now=None, *, registry=None) -> bool:
         or value.strip().lower() in record.readback_values
     ):
         return False
-    record.state = "readback_mismatch"
-    record.completed_at = max(record.started_at, now.timestamp())
+    captured = stamp.timestamp()
+    if getattr(record, "readback_mismatch_at", None) is not None and captured <= record.readback_mismatch_at:
+        return False
+    record.readback_mismatch_at = captured
     return True
 
 
-# UI projection is separate from actual telemetry and physical evidence.
-# Only explicit, successfully accepted HA actions are eligible.
-OPTIMISTIC_TTL_SECONDS = 30 * 60
+# Command feedback is separate from actual vehicle telemetry.
+LOCK_TRANSITION_TTL_SECONDS = 30 * 60
 _ACCEPTED = frozenset({"accepted_unconfirmed", "backend_completed"})
-_OPTIMISTIC = {
+_REQUESTED_STATES = {
     "climate": ("on", "off"),
     "chargingState": ("charging", "off"),
 }
@@ -254,8 +251,8 @@ def command_attributes(profile, capability, actions, *, attribute=None):
     requested = None
     if record is not None:
         values = record.readback_values or []
-        if record.readback_attribute in _OPTIMISTIC:
-            requested = _OPTIMISTIC[record.readback_attribute][
+        if record.readback_attribute in _REQUESTED_STATES:
+            requested = _REQUESTED_STATES[record.readback_attribute][
                 1 if record.action == "stop" else 0
             ]
         elif len(values) == 1:
@@ -276,6 +273,11 @@ def command_attributes(profile, capability, actions, *, attribute=None):
             if record and getattr(record, "readback_observed_at", None) is not None
             else None
         ),
+        "command_readback_mismatch_at": (
+            datetime.fromtimestamp(record.readback_mismatch_at, UTC).isoformat()
+            if record and getattr(record, "readback_mismatch_at", None) is not None
+            else None
+        ),
         "command_completed_at": (
             datetime.fromtimestamp(record.completed_at, UTC).isoformat()
             if record and record.completed_at is not None
@@ -294,13 +296,6 @@ def last_known_climate(profile):
     return None, None, "unknown"
 
 
-def projected_state(
-    profile, attribute, reported, captured, *, now=None, optimistic=False
-):
-    """Vehicle state is independent of command acceptance or execution."""
-    return reported, "vehicle" if reported is not None else "unknown"
-
-
 def pending_access_action(profile, captured, *, now=None):
     """A bounded HA lock transition is command feedback, not lock state."""
     record = latest_readback_command(profile, "doorLockStatus")
@@ -310,7 +305,7 @@ def pending_access_action(profile, captured, *, now=None):
         and record.state in _ACCEPTED
         and getattr(record, "readback_observed_at", None) is None
         and (stamp is None or stamp.timestamp() <= record.started_at)
-        and 0 <= (now or datetime.now(UTC)).timestamp() - record.started_at < OPTIMISTIC_TTL_SECONDS
+        and 0 <= (now or datetime.now(UTC)).timestamp() - record.started_at < LOCK_TRANSITION_TTL_SECONDS
     ):
         return record.action
     return None
