@@ -115,8 +115,9 @@ def parameter_schema(operation, route, *, discovery_action=None):
     """One input contract; discovery exposes only reviewed semantic inputs."""
     if discovery_action is not None:
         schema = parameter_schema(operation, route)
-        if discovery_action in ("climate.start_with_settings", "climate.set_settings") and (
-            "temp_c" in schema
+        if (
+            discovery_action in ("climate.start_with_settings", "climate.set_settings")
+            and "temp_c" in schema
         ):
             return {"temp_c": {**schema["temp_c"], "required": True}}
         return {}
