@@ -478,7 +478,9 @@ def build_status_report(
             "authentication": vehicle.context.auth,
         },
         "counts": counts,
-        "family_discovery": family_discovery(vehicle, profile, rows, cockpit["operations"]),
+        "family_discovery": family_discovery(
+            vehicle, profile, rows, cockpit["operations"]
+        ),
         "control_actions": controls_for_vehicle,
         "pending_control": profile.discovery.active_attempt.public()
         if profile.discovery.active_attempt
@@ -506,16 +508,10 @@ def family_discovery(vehicle, profile, rows, operations):
         "id_" + field["key"].replace("-", "_") + "." + field["field"]: field
         for field in dataset["fields"]
     }
-    canonical = {
-        row["attribute"]: row
-        for row in rows
-        if row.get("entity_key")
-    }
+    canonical = {row["attribute"]: row for row in rows if row.get("entity_key")}
     result = []
     for family, definition in profile.registry.families.items():
-        sources = [
-            op for op in operations if op.get("family") == family
-        ]
+        sources = [op for op in operations if op.get("family") == family]
         schemas = [
             (job, evidence)
             for job, evidence in profile.job_schema.items()
@@ -527,7 +523,9 @@ def family_discovery(vehicle, profile, rows, operations):
             for field in evidence.get("fields", []):
                 path = field["path"]
                 mapping = mapped_fields.get((operation, path), {})
-                dataset_field = dataset_fields.get(path) if job == DATA_ACT_DATASET else None
+                dataset_field = (
+                    dataset_fields.get(path) if job == DATA_ACT_DATASET else None
+                )
                 fields[(job, path)] = {
                     "operation": operation,
                     "path": path,
@@ -553,31 +551,39 @@ def family_discovery(vehicle, profile, rows, operations):
                 sample = selected
             if not sample:
                 continue
-            observations.append({
-                "attribute": ident,
-                "captured": sample.get("captured"),
-                "observed_at": sample.get("observed"),
-                "selected": is_selected,
-                "status": row["status"] if is_selected else "alternative",
-            })
-        result.append({
-            "id": family,
-            "label": definition.get("label", family.upper()),
-            "auth": definition.get("auth"),
-            "read_scan": bool(definition.get("executor")) and any(
-                op.get("applicability") == "applicable" for op in sources
-            ),
-            "operations": len(sources),
-            "tested_operations": sum(bool(op["tested"]) for op in sources),
-            "fields_observed": len(fields),
-            "fields_mapped": sum(bool(field["attributes"]) for field in fields.values()),
-            "normalized": len(observations),
-            "selected": sum(row["selected"] for row in observations),
-            "fresh": sum(row["selected"] and row["status"] == "verified" for row in observations),
-            "truncated": any(evidence.get("truncated") for _, evidence in schemas),
-            "fields": list(fields.values()),
-            "observations": observations,
-        })
+            observations.append(
+                {
+                    "attribute": ident,
+                    "captured": sample.get("captured"),
+                    "observed_at": sample.get("observed"),
+                    "selected": is_selected,
+                    "status": row["status"] if is_selected else "alternative",
+                }
+            )
+        result.append(
+            {
+                "id": family,
+                "label": definition.get("label", family.upper()),
+                "auth": definition.get("auth"),
+                "read_scan": bool(definition.get("executor"))
+                and any(op.get("applicability") == "applicable" for op in sources),
+                "operations": len(sources),
+                "tested_operations": sum(bool(op["tested"]) for op in sources),
+                "fields_observed": len(fields),
+                "fields_mapped": sum(
+                    bool(field["attributes"]) for field in fields.values()
+                ),
+                "normalized": len(observations),
+                "selected": sum(row["selected"] for row in observations),
+                "fresh": sum(
+                    row["selected"] and row["status"] == "verified"
+                    for row in observations
+                ),
+                "truncated": any(evidence.get("truncated") for _, evidence in schemas),
+                "fields": list(fields.values()),
+                "observations": observations,
+            }
+        )
     return result
 
 
@@ -1322,7 +1328,11 @@ def diagnostic_capability_summary(vehicle, profile, base_registry, auth):
         "unresolved_normal_commands": unresolved,
         "capabilities": summaries,
         "family_discovery": [
-            {key: value for key, value in family.items() if key not in ("fields", "observations")}
+            {
+                key: value
+                for key, value in family.items()
+                if key not in ("fields", "observations")
+            }
             for family in report["family_discovery"]
             if family["id"] in base_registry.families
         ],

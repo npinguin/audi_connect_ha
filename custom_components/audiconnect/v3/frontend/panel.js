@@ -1478,18 +1478,26 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   sourceDiscovery(families, family, detailed = true) {
-    const sources = families.filter((source) => family === "all" || source.id === family);
+    const sources = families.filter(
+      (source) => family === "all" || source.id === family,
+    );
     if (!sources.length) return "";
     return `<div class="section-head"><h3>Data sources · discovery &amp; coverage</h3></div>
-      ${sources.map((source) => {
-        const summary = `${escapeHTML(source.label)} · ${source.fields_observed} fields · ${source.fields_mapped} mapped · ${source.normalized} normalized · ${source.selected} selected · ${source.fresh} fresh`;
-        const health = source.health || {};
-        return `<details ${family !== "all" ? "open" : ""}><summary>${summary}</summary>
+      ${sources
+        .map((source) => {
+          const summary = `${escapeHTML(source.label)} · ${source.fields_observed} fields · ${source.fields_mapped} mapped · ${source.normalized} normalized · ${source.selected} selected · ${source.fresh} fresh`;
+          const health = source.health || {};
+          return `<details ${family !== "all" ? "open" : ""}><summary>${summary}</summary>
           <p>${escapeHTML(friendly(health.result || "source evidence"))} · ${source.tested_operations}/${source.operations} operations tested${source.truncated ? " · Bounded inventory" : ""}</p>
-          ${detailed ? `<div class="coverage-table"><table><thead><tr><th>Operation / field</th><th>Mapping</th><th>Evidence</th></tr></thead><tbody>${(source.fields || []).map((field) => `<tr><td>${escapeHTML(field.path)}<div class="subline">${escapeHTML(field.operation)}</div></td><td>${escapeHTML((field.attributes || []).join(", ") || "—")}</td><td>${escapeHTML(friendly(field.mapping))} · ${escapeHTML(friendly(field.quality || "unknown"))}</td></tr>`).join("")}</tbody></table></div>
-          <div class="coverage-table"><table><thead><tr><th>Canonical attribute</th><th>Capture</th><th>Selection</th></tr></thead><tbody>${(source.observations || []).map((row) => `<tr><td>${escapeHTML(row.attribute)}</td><td>${escapeHTML(this.localTime(row.captured))}</td><td>${escapeHTML(friendly(row.status))}</td></tr>`).join("")}</tbody></table></div>` : ""}
+          ${
+            detailed
+              ? `<div class="coverage-table"><table><thead><tr><th>Operation / field</th><th>Mapping</th><th>Evidence</th></tr></thead><tbody>${(source.fields || []).map((field) => `<tr><td>${escapeHTML(field.path)}<div class="subline">${escapeHTML(field.operation)}</div></td><td>${escapeHTML((field.attributes || []).join(", ") || "—")}</td><td>${escapeHTML(friendly(field.mapping))} · ${escapeHTML(friendly(field.quality || "unknown"))}</td></tr>`).join("")}</tbody></table></div>
+          <div class="coverage-table"><table><thead><tr><th>Canonical attribute</th><th>Capture</th><th>Selection</th></tr></thead><tbody>${(source.observations || []).map((row) => `<tr><td>${escapeHTML(row.attribute)}</td><td>${escapeHTML(this.localTime(row.captured))}</td><td>${escapeHTML(friendly(row.status))}</td></tr>`).join("")}</tbody></table></div>`
+              : ""
+          }
           </details>`;
-      }).join("")}`;
+        })
+        .join("")}`;
   }
 
   endUserValidation() {

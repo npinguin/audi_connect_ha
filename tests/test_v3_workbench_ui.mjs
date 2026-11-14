@@ -1816,15 +1816,35 @@ test("pending engineering review retains disabled Test buttons and identifies th
   assert.match(html, /Edit API/);
 });
 
-
 test("Source selector and discovery are driven by backend registry, including future families", () => {
   const p = new Panel();
   p.selected = "entry";
   p.vin = "VIN1";
-  p.entries = [{ entry_id: "entry", vehicles: [{ vin: "VIN1", api_family: "cariad" }] }];
+  p.entries = [
+    { entry_id: "entry", vehicles: [{ vin: "VIN1", api_family: "cariad" }] },
+  ];
   p.capabilityStatus = {
     rows: [],
-    family_discovery: [{ id: "future_source", label: "Future source", fields_observed: 1, fields_mapped: 0, normalized: 0, selected: 0, fresh: 0, operations: 0, tested_operations: 0, fields: [{path: "test_field", operation: "future_source.read", mapping: "not_assessed"}] }],
+    family_discovery: [
+      {
+        id: "future_source",
+        label: "Future source",
+        fields_observed: 1,
+        fields_mapped: 0,
+        normalized: 0,
+        selected: 0,
+        fresh: 0,
+        operations: 0,
+        tested_operations: 0,
+        fields: [
+          {
+            path: "test_field",
+            operation: "future_source.read",
+            mapping: "not_assessed",
+          },
+        ],
+      },
+    ],
   };
   p.step = 4;
   p.render();
