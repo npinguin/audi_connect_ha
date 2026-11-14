@@ -1557,6 +1557,7 @@ class AudiConnectV3Panel extends HTMLElement {
       return '<section class="card"><h2>End-user validation</h2><p>No discovery status loaded.</p></section>';
     const health = this.capabilityStatus.integration_health || {};
     const timing = this.capabilityStatus.end_user_timing || {};
+    const capture = this.capabilityStatus.vehicle_capture || {};
     const candidates = this.capabilityStatus.end_user_candidates || [];
     const candidate = this.nextEndUserCandidate();
     const rows = p.controls || [];
@@ -1636,6 +1637,7 @@ class AudiConnectV3Panel extends HTMLElement {
       ${this.entityFilter ? this.entityInspector(this.selectedEntityLink()) : ""}
       <h3>5 · Recovery &amp; timing</h3>
       <button data-action="resume-discovery" ${this.loading ? "disabled" : ""}>Resume unresolved reads</button>
+      <p>Latest vehicle data age: ${escapeHTML(capture.vehicle_age_minutes ?? "unknown")} min · Oldest vehicle data age: ${escapeHTML(capture.oldest_observed_age_minutes ?? "unknown")} min · Based on usable vehicle measurements, not cloud receipt.</p>
       <p>Last poll: ${escapeHTML(this.localTime(timing.last_poll_attempt))} · Last success: ${escapeHTML(this.localTime(timing.last_poll_success))} · Poll interval: ${timing.poll_interval_seconds == null ? "unknown" : escapeHTML(timing.poll_interval_seconds / 60) + " min"} · Quota: ${escapeHTML(health.quota_remaining ?? "unknown")}</p>
       ${(health.active_findings || []).map((f) => `<div class="subline">${escapeHTML(friendly(f.code))} · ${escapeHTML(f.source)} ${f.http_status ? "· HTTP " + escapeHTML(f.http_status) : ""}</div>`).join("")}
       <p>Uncertain commands are never replayed automatically. Use the existing review above when needed. <button data-action="step-4">Inspect API evidence</button></p>

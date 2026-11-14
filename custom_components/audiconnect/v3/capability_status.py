@@ -1063,15 +1063,6 @@ def _cockpit(vehicle, profile, rows, controls, *, fast_bindings=None):
                             "active": row["selected"],
                         }
                     )
-            for link in list(links):
-                if link["attribute"] == "chargingState":
-                    links.append(
-                        {
-                            **link,
-                            "entity_key": "binary_sensor.charging_ready",
-                            "attribute": "charging_ready",
-                        }
-                    )
             operation["mappings"] = links
             operation["capabilities"] = sorted(
                 set(operation["capabilities"]) | {m["capability"] for m in links}
@@ -1249,11 +1240,12 @@ def _cockpit(vehicle, profile, rows, controls, *, fast_bindings=None):
                 "attention": sum(r.get("capability") == name for r in next_actions),
             }
         )
-    from .freshness import capture_coverage
+    from .freshness import capture_coverage, vehicle_capture_summary
 
     return {
         "operations": operations,
         "capability_summary": summaries,
+        "vehicle_capture": vehicle_capture_summary(vehicle),
         "job_capture_coverage": capture_coverage(vehicle),
         "findings": findings,
         "next_actions": next_actions,

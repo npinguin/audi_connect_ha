@@ -126,3 +126,16 @@ status is unknown, a command acceptance is a bounded locking/unlocking
 transition, and only vehicle readback can confirm the physical state.
 No extra command requests or automatic retry. Real HA restart, device-page,
 wizard and lock/comfort action acceptance remain required.
+
+### B40 follow-up — measurement age and redundant readiness
+
+The existing vehicle age entity measures the latest usable scalar vehicle
+capture; preserve its ID, units and semantics. Name it Latest vehicle data age.
+Keep oldest observed age and individual job ages in existing attributes and
+show both ages in Engineering. No new freshness sensor or polling.
+
+Remove the redundant V3-only Charging ready binary sensor, its special
+projection and traceability alias. Retire the exact registry identity through
+the existing pilot retirement mechanism, preserving history and user-owned
+settings. The OEM chargingState remains normalized and visible; readiness is
+not a separate permission or actionable control. V2 remains unchanged.
