@@ -2118,6 +2118,7 @@ class AudiConnectV3Panel extends HTMLElement {
             : `
           ${this.step === 5 ? this.endUserValidation() : ""}
           <section style="display:${this.step === 1 ? "block" : "none"}" data-view="overview">
+            ${(this.capabilityStatus.end_user_candidates || []).length ? `<div class="card"><b>Verify your vehicle controls</b><p>Automatic discovery does not prove physical execution. Test all eligible functions or choose one; no test runs without your consent.</p><button data-action="step-5">Open vehicle discovery</button></div>` : ""}
             <div class="metrics">
               <div class="card"><div class="eyebrow">Cloud connection</div><div class="stat">${item.poll_success ? "Connected" : "Unknown"}</div><div class="summary">${escapeHTML(item.poll_success ? new Date(item.poll_success).toLocaleString() : "No successful poll")}</div></div>
               <div class="card"><div class="eyebrow">Readable data</div><div class="stat">${family === "all" ? readable.length : (families.find((source) => source.id === family)?.normalized ?? 0)}</div><div class="summary">${family === "all" ? freshCount + " fresh · " + staleCount + " last known" : "Source observations · includes alternatives"}</div></div>
