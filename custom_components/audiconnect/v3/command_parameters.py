@@ -14,8 +14,18 @@ import math
 SOC = {"type": "integer", "minimum": 20, "maximum": 100, "step": 5, "required": True}
 DURATION = {"type": "integer", "minimum": 10, "maximum": 60, "step": 10, "default": 30}
 TEMPERATURE = {
-    "temp_c": {"type": "number", "minimum": 15, "maximum": 30},
-    "temp_f": {"type": "number", "minimum": 59, "maximum": 86},
+    "temp_c": {
+        "type": "number",
+        "minimum": 15,
+        "maximum": 30,
+        "label": "Target temperature (°C)",
+    },
+    "temp_f": {
+        "type": "number",
+        "minimum": 59,
+        "maximum": 86,
+        "label": "Target temperature (°F)",
+    },
 }
 # Only these semantic parameters may bind to a raw template. Settings PUTs
 # retain their reviewed read-modify-write handlers.
