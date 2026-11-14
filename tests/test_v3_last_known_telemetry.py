@@ -193,9 +193,11 @@ def test_climate_last_known_survives_sentinel_and_profile_reboot(initial):
         last_update_success=True,
     )
     entity = V3ClimateEntity(coordinator, rebooted)
-    assert entity.hvac_mode.value == ("off" if initial == "off" else "heat_cool")
+    assert entity.hvac_mode is None
     assert entity.hvac_action is None
-    assert entity.extra_state_attributes["state_source"] == "last_known_vehicle"
+    assert entity.extra_state_attributes["last_known_climate_state"] == initial
+    assert entity.extra_state_attributes["last_known_climate_source"] == "last_known_vehicle"
+    assert entity.extra_state_attributes["state_source"] == "unknown"
     assert not entity.extra_state_attributes["state_is_current"]
     assert not rebooted.readings
     assert not restored.command_journal
@@ -228,5 +230,4 @@ def test_accepted_command_is_not_restored_as_verified_climate_state():
     assert last_known_climate(profile) == (None, None, "unknown")
     command.state = "verified"
     command.completed_at = command.started_at + 30
-    value, _, source = last_known_climate(profile)
-    assert value == "on" and source == "last_verified_command"
+    assert last_known_climate(profile) == (None, None, "unknown")

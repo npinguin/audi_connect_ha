@@ -160,7 +160,7 @@ async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outc
         )
 
     async def confirm(*args):
-        assert notifications == [("on", "command_pending")]
+        assert notifications == [("off", "vehicle")]
         assert car.climate_state == "off"
         return outcome
 
@@ -185,7 +185,7 @@ async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outc
         record = await engine.commands.send_control(VIN, "start", "climate")
         assert record.state == "accepted_unconfirmed"
         assert record.backend_result == outcome
-        assert notifications[-1] == ("on", "command_pending")
+        assert notifications[-1] == ("off", "vehicle")
     assert car.climate_state == "off"
     assert car.climate_captured == stamp
 
@@ -213,6 +213,7 @@ def test_empty_charge_modes_require_local_route_verification():
     profile.choose_working("charging", "set_charge_mode", route)
     assert supported_charge_modes(car, profile) == []
     assert charge_mode_evidence(car, profile) == {
+        "last_known_advertised_modes": [],
         "locally_verified_modes": [],
         "writable_modes": [],
         "empty_list_fallback": True,
