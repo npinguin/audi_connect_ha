@@ -549,7 +549,9 @@ def family_discovery(vehicle, profile, rows, operations):
             is_selected = bool(selected) and selected.get("family") == family
             if sample is None and is_selected:
                 sample = selected
-            if not sample:
+            if not sample or sample.get("value") is None or sample.get("status") == "invalid_value":
+                continue
+            if is_selected and row["status"] not in ("verified", "readable_but_stale"):
                 continue
             observations.append(
                 {
@@ -558,6 +560,8 @@ def family_discovery(vehicle, profile, rows, operations):
                     "observed_at": sample.get("observed"),
                     "selected": is_selected,
                     "status": row["status"] if is_selected else "alternative",
+                    "fresh": timestamp_is_fresh(sample.get("captured"), datetime.now(UTC)),
+                    "delivered_at": sample.get("delivered_at"),
                 }
             )
         result.append(
@@ -576,10 +580,13 @@ def family_discovery(vehicle, profile, rows, operations):
                 "normalized": len(observations),
                 "selected": sum(row["selected"] for row in observations),
                 "fresh": sum(
-                    row["selected"] and row["status"] == "verified"
-                    for row in observations
+                    row["fresh"] for row in observations
                 ),
                 "truncated": any(evidence.get("truncated") for _, evidence in schemas),
+                "schema_results": [
+                    {key: evidence.get(key) for key in ("source", "http_status", "outcome", "observed_at", "latest_field_count")}
+                    for _, evidence in schemas
+                ],
                 "fields": list(fields.values()),
                 "observations": observations,
             }

@@ -209,6 +209,8 @@ class DataActClient:
 
     async def identity_rows(self, vins):
         """Read explicit identity fields of already owned, consented VINs."""
+        from .response_preview import safe_schema_inventory
+
         await self._ensure_login()
         payload = await self._json(
             "/proxy_api/consent/me/vehicles?viewPosition=FRONT_LEFT"
@@ -229,7 +231,10 @@ class DataActClient:
             if vin in selected:
                 duplicates.add(vin)
                 continue
+            fields, truncated = safe_schema_inventory(row, vehicle_vin=vin)
             selected[vin] = {
+                "schema_fields": fields,
+                "schema_truncated": truncated,
                 "vin": vin,
                 "modelName": row.get("modelName"),
                 "modelYear": row.get("modelYear"),
