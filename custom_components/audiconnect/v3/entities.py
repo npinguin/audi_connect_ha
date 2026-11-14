@@ -535,7 +535,6 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
 
 
 class V3HealthSensor(V3BaseEntity, SensorEntity):
-
     def __init__(self, coordinator, vehicle, kind):
         super().__init__(coordinator, vehicle)
         self.kind = kind
@@ -664,7 +663,6 @@ class V3AccessSummary(V3BaseEntity, SensorEntity):
 
 
 class V3StatusSensor(V3BaseEntity, SensorEntity):
-
     def __init__(self, coordinator: V3CleanCoordinator, vehicle: V3Vehicle, kind: str):
         super().__init__(coordinator, vehicle)
         self.kind = kind
@@ -2105,7 +2103,6 @@ class V3PreheaterSwitch(V3BaseEntity, SwitchEntity):
 
 
 class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
-
     def __init__(self, coordinator, vehicle, descriptor):
         super().__init__(coordinator, vehicle)
         key, self.reading, self.field = descriptor
