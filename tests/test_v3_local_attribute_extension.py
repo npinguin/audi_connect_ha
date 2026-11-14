@@ -96,6 +96,11 @@ async def test_new_local_sensor_needs_evidence_and_survives_restart():
         in restore_profile(catalog, car.context, profile.snapshot()).attribute_disabled
     )
     await engine.activate_attribute_route(car.vin, IDENT, ROUTE)
+    assert not sensor.available
+    assert IDENT not in car.readings and IDENT not in car.family_readings
+    engine.status.record_attribute_response(
+        car, profile, IDENT, ROUTE, [CANDIDATE["response_path"]], request.return_value
+    )
     assert sensor.available
     profile.attribute_route_evidence[IDENT][ROUTE]["outcome"] = "api_error"
     assert (

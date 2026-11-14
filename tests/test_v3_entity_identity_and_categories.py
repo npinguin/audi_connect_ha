@@ -22,7 +22,8 @@ from custom_components.audiconnect.v3 import registry_lifecycle as lifecycle
 class MemoryStore:
     state = {}
 
-    def __init__(self, _hass, _version, key):
+    def __init__(self, _hass, _version, key, *, private=False):
+        assert private
         self.key = key
 
     async def async_load(self):

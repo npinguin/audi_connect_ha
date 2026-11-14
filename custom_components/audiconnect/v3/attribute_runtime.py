@@ -257,6 +257,8 @@ def record_invalid_observation(
     profile=None,
 ) -> None:
     """An explicit invalid sample invalidates only the originating family."""
+    if ident in getattr(profile, "attribute_disabled", ()):
+        return
     commit_observation(
         vehicle,
         ident,
@@ -293,6 +295,8 @@ def record_observation(
     delivered_at=None,
 ):
     """Return whether the family accepted the sample, not whether it won selection."""
+    if ident in getattr(profile, "attribute_disabled", ()):
+        return False
     status = "verified" if fresh else "readable_but_stale"
     row = {
         "value": value,
@@ -401,6 +405,8 @@ def observe_read_only(
     mapped = fresh_count = 0
     for row in extract_attributes(payload):
         ident = row["id"]
+        if ident in getattr(profile, "attribute_disabled", ()):
+            continue
         selected = profile.attribute_routes.get(ident)
         if selected and selected != "cariad.selectivestatus.batch":
             continue

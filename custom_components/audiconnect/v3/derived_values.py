@@ -11,7 +11,12 @@ from .freshness import timestamp_is_fresh
 
 
 def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
-    from .attribute_runtime import record_observation, _valid_capture
+    from .attribute_runtime import (
+        record_observation,
+        _valid_capture,
+        commit_observation,
+        invalidate_attribute,
+    )
 
     def record(ident, value, captured, job, path):
         if value is not None:
@@ -40,8 +45,8 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
         ("max_charge_current", "chargingCurrentLimitA"),
     ):
         row = car.readings.get(source)
-        if row and accepts(car.readings.get(ident), row.get("captured"), observed_at):
-            car.readings[ident] = dict(row)
+        if row and ident not in getattr(profile, "attribute_disabled", ()):
+            commit_observation(car, ident, dict(row), profile.registry, observed_at)
     remaining = car.readings.get("remainingChargingTime", {})
     from .attribute_runtime import record_invalid_observation
 
@@ -50,19 +55,23 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
     if stamp and accepts(
         car.readings.get("charging_complete_time"), remaining["captured"], observed_at
     ):
-        if remaining.get("status") == "invalid_value":
-            car.readings["charging_complete_time"] = {
-                **remaining,
-                "reason": remaining.get("reason") or "invalid_remaining_charging_time",
-            }
+        if "charging_complete_time" in getattr(profile, "attribute_disabled", ()):
+            invalidate_attribute(car, "charging_complete_time")
+        elif remaining.get("status") == "invalid_value":
+            commit_observation(
+                car, "charging_complete_time",
+                {**remaining, "reason": remaining.get("reason") or "invalid_remaining_charging_time"},
+                profile.registry, observed_at,
+            )
         elif type(minutes) in (int, float) and 0 < minutes <= 10080:
-            car.readings["charging_complete_time"] = {
-                **remaining,
-                "value": (stamp + timedelta(minutes=minutes)).isoformat(),
-            }
+            commit_observation(
+                car, "charging_complete_time",
+                {**remaining, "value": (stamp + timedelta(minutes=minutes)).isoformat()},
+                profile.registry, observed_at,
+            )
         elif type(minutes) in (int, float):
             # A zero duration has no future ETA; clear an outdated estimate.
-            car.readings.pop("charging_complete_time", None)
+            invalidate_attribute(car, "charging_complete_time")
 
     # Complementary identity fields are present even if manufacturer media is null.
     from .vehicle import normalize_powertrain
@@ -519,14 +528,14 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                 "active_charging_profile_min_soc": "minSOC_pct",
             }
             for ident, key in keys.items():
-                car.readings.pop(ident, None)
+                invalidate_attribute(car, ident)
                 if active:
                     record(ident, active.get(key), captured, "chargingProfiles", path)
             for ident in (
                 "preferred_charging_time_start",
                 "preferred_charging_time_end",
             ):
-                car.readings.pop(ident, None)
+                invalidate_attribute(car, ident)
             if active and active["preferredChargingTimes"]:
                 times = active["preferredChargingTimes"]
                 window = next((x for x in times if x.get("enabled") is True), None)
@@ -644,4 +653,4 @@ def observe_derived(car, profile, payload: dict, observed_at, accepts) -> None:
                     path,
                 )
             elif accepts(car.readings.get(ident), captured, observed_at):
-                car.readings.pop(ident, None)
+                invalidate_attribute(car, ident)

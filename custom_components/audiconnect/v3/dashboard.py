@@ -592,9 +592,7 @@ async def ws_control_disable(hass, connection, msg):
         vol.Required("type"): "audiconnect/v3/api_results",
         vol.Required("entry_id"): str,
         vol.Required("vin"): str,
-        vol.Optional("family", default="all"): vol.In(
-            ("all", "cariad", "mbb", "graphql")
-        ),
+        vol.Optional("family", default="all"): str,
         vol.Optional("include_engineering", default=False): bool,
     }
 )

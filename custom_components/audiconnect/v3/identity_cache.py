@@ -77,7 +77,10 @@ def without_optional_identity(row):
     """Keep native manufacturer metadata; optional fields require portal access."""
     from .data_act import IDENTITY_OPERATION
 
-    if row.get("operation") == IDENTITY_OPERATION or row.get("source") == "eu_data_act_modelName":
+    if (
+        row.get("operation") == IDENTITY_OPERATION
+        or row.get("source") == "eu_data_act_modelName"
+    ):
         return {}
     if row.get("year_operation") == IDENTITY_OPERATION:
         return {**row, "year": "", "year_operation": None}
@@ -90,7 +93,10 @@ def withdraw_optional_identity(car, profile):
 
     before = car.context
     changed = False
-    if car.identity_operation == IDENTITY_OPERATION or car.model_source == "eu_data_act_modelName":
+    if (
+        car.identity_operation == IDENTITY_OPERATION
+        or car.model_source == "eu_data_act_modelName"
+    ):
         if car.name == car.model:
             car.name = "Audi vehicle"
         car.model = car.model_family = car.model_source = ""

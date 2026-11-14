@@ -1038,9 +1038,9 @@ class V3Engine:
 
     def api_results_for(self, vin: str, family: str = "all") -> list[dict[str, Any]]:
         car = self.require_vehicle(vin)
-        if family not in ("all", "cariad", "mbb", "graphql"):
-            raise ValueError("Unknown API family")
         profile = self.profiles[car.vin.lower()]
+        if family != "all" and family not in profile.registry.families:
+            raise ValueError("Unknown API family")
         return [
             {"operation": ident, **record}
             for ident, record in reversed(list(profile.api_observations.items()))
@@ -1449,7 +1449,11 @@ class V3Engine:
             raise ValueError(
                 "Test the route and verify fresh vehicle data before activation"
             )
-        invalidate_attribute(car, attribute)
+        if (
+            attribute in profile.attribute_disabled
+            or profile.attribute_routes.get(attribute) != route
+        ):
+            invalidate_attribute(car, attribute)
         profile.attribute_disabled.discard(attribute)
         profile.attribute_routes[attribute] = route
         profile.attribute_drafts[attribute] = route

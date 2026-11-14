@@ -432,7 +432,8 @@ class StatusEngine:
                     and car.inventory_present
                     and not revoked
                     and car.vin.upper() not in denied
-                    and getattr(client, "delivery_states", {}).get(car.vin.upper()) != "subscription_unavailable"
+                    and getattr(client, "delivery_states", {}).get(car.vin.upper())
+                    != "subscription_unavailable"
                 ):
                     discovery_changed |= record_data_act_fields(
                         profile, payload, observed
@@ -472,7 +473,9 @@ class StatusEngine:
         changed = discovery_changed = False
         denied = getattr(client, "denied_vins", ())
         states = getattr(client, "delivery_states", {})
-        revoked = client is None or getattr(client, "authorization_required", False) is True
+        revoked = (
+            client is None or getattr(client, "authorization_required", False) is True
+        )
         now = datetime.now(UTC)
         for key, car in self.vehicles.items():
             profile = self.profiles.get(key)
@@ -480,10 +483,14 @@ class StatusEngine:
                 continue
             lost_access = revoked or car.vin.upper() in denied
             if lost_access or states.get(car.vin.upper()) == "subscription_unavailable":
-                discovery_changed |= bool(profile.job_schema.pop(DATA_ACT_DATASET, None))
+                discovery_changed |= bool(
+                    profile.job_schema.pop(DATA_ACT_DATASET, None)
+                )
                 changed |= remove_family_observations(car, profile, "eu_data_act", now)
             if lost_access:
-                discovery_changed |= bool(profile.job_schema.pop(IDENTITY_OPERATION, None))
+                discovery_changed |= bool(
+                    profile.job_schema.pop(IDENTITY_OPERATION, None)
+                )
                 changed |= withdraw_optional_identity(car, profile)
         return changed, discovery_changed
 
@@ -492,7 +499,11 @@ class StatusEngine:
         from .data_act import DataActUnavailable, IDENTITY_OPERATION
         from .response_preview import merge_schema_evidence
 
-        if self._apply_identity is None or client is None or client.authorization_required:
+        if (
+            self._apply_identity is None
+            or client is None
+            or client.authorization_required
+        ):
             return False
         now = datetime.now(UTC)
         if client.quota.retry_at and now < client.quota.retry_at:
@@ -745,6 +756,7 @@ class StatusEngine:
                             valid
                             and ident not in (batch, "mbb.climate.status")
                             and chosen == ident
+                            and "climatisationState" not in profile.attribute_disabled
                             and profile.attribute_routes.get("climatisationState")
                             in (None, "cariad.selectivestatus.batch")
                             and vehicle.set_climate(
@@ -1115,9 +1127,10 @@ class StatusEngine:
         *,
         publish: bool = True,
     ) -> dict[str, Any]:
-        publish = publish and profile.attribute_routes.get(attribute) in (
-            None,
-            operation,
+        publish = (
+            publish
+            and attribute not in profile.attribute_disabled
+            and profile.attribute_routes.get(attribute) in (None, operation)
         )
         raw, matched_path = extract_first(response.data, mappings)
         field = matched_path or mappings[0]
