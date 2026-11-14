@@ -282,6 +282,7 @@ def observe_structured(
                     "observed": observed_at.isoformat(),
                     "path": path,
                     "family": "cariad",
+                    **({"informational": True, "detail": True} if path.endswith(".requests") else {}),
                     "operation": operation,
                     "job": path.split(".", 1)[0],
                     "status": "invalid_value"

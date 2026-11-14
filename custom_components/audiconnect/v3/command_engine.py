@@ -686,8 +686,9 @@ class CommandEngine:
                     car.last_command_result = f"request_failed_{response.status}"
                 else:
                     car.last_command_result = record.state
-                    # Persist acceptance before publishing the effective control
-                    # state. Do not wait for the optional read-only confirmation.
+                    # A response's actual telemetry is independent of its command
+                    # outcome. Publish it before waiting for backend confirmation.
+                    observe_command_response(record, car, p, family, response)
                     await self.storage.async_save(self.profiles)
                     self._notify_discovery_change()
                     outcome = record.backend_result
@@ -706,10 +707,11 @@ class CommandEngine:
                         record.observe_backend(outcome, time.time())
                     car.last_command_result = record.state
             except asyncio.CancelledError:
-                # The pre-dispatch journal is already durable; restart restores uncertainty.
-                record.state = "uncertain"
-                record.backend_result = "transport_uncertain"
-                car.last_command_result = "transport_uncertain"
+                # Never discard known HTTP acceptance on interrupted status checks.
+                if record.http_status is None:
+                    record.state = "uncertain"
+                    record.backend_result = "transport_uncertain"
+                    car.last_command_result = "transport_uncertain"
                 raise
             except (TimeoutError, OSError, RuntimeError, ValueError) as err:
                 record.state = "uncertain"
@@ -726,10 +728,6 @@ class CommandEngine:
                 raise RuntimeError(
                     f"Audi {capability}.{aspect}: connection error or timeout; outcome uncertain. {advice}."
                 ) from err
-            if record.state in ("accepted_unconfirmed", "backend_completed"):
-                if observe_command_response(record, car, p, family, response):
-                    self.reconcile_commands()
-                car.last_command_result = record.state
             if record.state in ("rejected", "uncertain"):
                 record.completed_at = max(record.started_at, time.time())
             await self.storage.async_save(self.profiles)

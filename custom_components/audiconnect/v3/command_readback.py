@@ -121,7 +121,9 @@ def configure_discovery_readback(record, car, params, *, registry=None):
 
 
 def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
-    if record.state not in ("accepted_unconfirmed", "backend_completed", "uncertain"):
+    if record.state not in ("accepted_unconfirmed", "backend_completed", "uncertain") and not (
+        record.state == "rejected" and record.http_status is not None and 200 <= record.http_status < 300
+    ):
         return False
     if not record.readback_attribute or not record.readback_values:
         return False
@@ -317,7 +319,7 @@ def pending_access_action(profile, captured, *, now=None):
 def observe_command_response(record, car, profile, family, response):
     """Normalize real post-command captures through the existing observation writer.
 
-    Only reviewed selective-status jobs and their value envelopes are eligible.
+    Only reviewed selective-status jobs and their dated value envelopes are eligible. Older observations are handled by the same writer.
     A request echo, status, receipt clock or HTTP success is not telemetry.
     """
     if (
@@ -345,7 +347,7 @@ def observe_command_response(record, car, profile, family, response):
             captured = _valid_capture(
                 value.get("carCapturedTimestamp"), response.observed_at
             )
-            if captured is None or captured.timestamp() <= record.started_at:
+            if captured is None:
                 continue
             payload.setdefault(job, {})[group] = {"value": value}
     if not payload:

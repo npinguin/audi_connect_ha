@@ -187,6 +187,12 @@ def _merge_observation(previous, row, now):
     """Compare vehicle time only; equal/unordered conflicts cannot pick a winner."""
     if previous is None:
         return row
+    if row.get("informational") and previous.get("informational"):
+        # Undated OEM request metadata is diagnostic receipt evidence only.
+        # It must not participate in vehicle state, capability or command proof.
+        old_receipt = _capture_in_utc(previous.get("observed"))
+        new_receipt = _capture_in_utc(row.get("observed"))
+        return row if new_receipt and (not old_receipt or new_receipt > old_receipt) else previous
     prior = _valid_capture(
         previous.get("captured"), _capture_in_utc(previous.get("observed")) or now
     )
