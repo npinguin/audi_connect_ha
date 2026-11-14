@@ -511,6 +511,8 @@ class OptionsFlowHandler(OptionsFlow):
     _discovery_action: str | None = None
     _discovery_candidate: dict[str, Any] | None = None
     _discovery_guided: bool = False
+    _run_discovery_after_options: bool = False
+    _edit_dealer_after_options: bool = False
     _discovery_sequence: int | None = None
     _discovery_skipped: set[str] | None = None
 
@@ -595,7 +597,7 @@ class OptionsFlowHandler(OptionsFlow):
             except ValueError:
                 errors["base"] = "invalid_dealer"
             else:
-                return self.async_create_entry(title="", data=options)
+                return await self._finish_options(options)
         existing = get_local_dealer(pending, vin)
         data_schema = vol.Schema(
             {
@@ -638,7 +640,9 @@ class OptionsFlowHandler(OptionsFlow):
             if car.inventory_present
         ]
         if not vehicles:
-            return self.async_abort(reason="no_vehicle_available")
+            return self.async_create_entry(
+                title="", data=self._pending_options or dict(self.config_entry.options)
+            )
         if len(vehicles) == 1:
             self._discovery_vin = vehicles[0][0]
             return await self.async_step_discovery()
@@ -747,9 +751,7 @@ class OptionsFlowHandler(OptionsFlow):
                 self._discovery_skipped.add(self._discovery_action)
                 self._discovery_candidate = None
                 return await self.async_step_discovery()
-            params = {
-                name: user_input[name] for name in schema if name in user_input
-            }
+            params = {name: value for name, value in user_input.items() if name != "accept"}
             self._discovery_candidate = None  # Single-use explicit action approval.
             try:
                 validate_inputs(params, schema)
@@ -894,7 +896,7 @@ class OptionsFlowHandler(OptionsFlow):
             else:
                 user_input.setdefault("v3_development_workbench", False)
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
-            run_discovery = bool(user_input.pop("run_vehicle_discovery", False))
+            run_discovery = bool(user_input.pop("run_vehicle_discovery", True))
             # On runtime switch, some HA clients submit only the changed
             # fields. Never let an absent interval prevent saving the choice.
             interval = user_input.get(
@@ -922,20 +924,15 @@ class OptionsFlowHandler(OptionsFlow):
             # OptionsFlow replaces all options; preserve per-vehicle metadata.
             if "local_dealers" in self.config_entry.options:
                 user_input["local_dealers"] = self.config_entry.options["local_dealers"]
-            if manage_data_act and user_input["runtime_version"] == "v3_climate":
+            is_v3 = user_input["runtime_version"] == "v3_climate"
+            self._run_discovery_after_options = (
+                is_v3 and run_discovery and self._discovery_engine() is not None
+            )
+            self._edit_dealer_after_options = edit_dealer
+            if manage_data_act and is_v3:
                 self._pending_options = user_input
                 return await self.async_step_data_act()
-            if (
-                run_discovery
-                and user_input["runtime_version"] == "v3_climate"
-                and self._discovery_engine() is not None
-            ):
-                self._pending_options = user_input
-                return await self.async_step_discovery_vehicle()
-            if edit_dealer:
-                self._pending_options = user_input
-                return await self.async_step_dealer_vehicle()
-            return self.async_create_entry(title="", data=user_input)
+            return await self._finish_options(user_input)
 
         # V3 owns API routes and experimental actions in its development
         # dashboard, never inside this account configuration wizard.
@@ -946,6 +943,17 @@ class OptionsFlowHandler(OptionsFlow):
                 self.config_entry.options
             ),
         )
+
+    async def _finish_options(self, options):
+        """Complete selected optional steps once; never dispatch a command here."""
+        self._pending_options = options
+        if self._edit_dealer_after_options:
+            self._edit_dealer_after_options = False
+            return await self.async_step_dealer_vehicle()
+        if self._run_discovery_after_options:
+            self._run_discovery_after_options = False
+            return await self.async_step_discovery_vehicle()
+        return self.async_create_entry(title="", data=options)
 
     async def _data_act_placeholders(self, values):
         """Read the existing scheduler status; opening options never calls Audi."""
@@ -994,12 +1002,12 @@ class OptionsFlowHandler(OptionsFlow):
         options = dict(self._pending_options or self.config_entry.options)
         if user_input is not None:
             if user_input["action"] == "keep":
-                return self.async_create_entry(title="", data=options)
+                return await self._finish_options(options)
             if user_input["action"] == "disconnect":
                 for key in ("v3_data_act_email", "v3_data_act_password"):
                     options.pop(key, None)
                 options["v3_data_act_enabled"] = False
-                return self.async_create_entry(title="", data=options)
+                return await self._finish_options(options)
             return await self.async_step_data_act_credentials()
         configured = bool(options.get("v3_data_act_enabled"))
         return self.async_show_form(
@@ -1063,7 +1071,7 @@ class OptionsFlowHandler(OptionsFlow):
                         v3_data_act_email=email,
                         v3_data_act_password=password,
                     )
-                    return self.async_create_entry(title="", data=options)
+                    return await self._finish_options(options)
         return self.async_show_form(
             step_id="data_act_credentials",
             data_schema=vol.Schema(
@@ -1107,7 +1115,7 @@ class OptionsFlowHandler(OptionsFlow):
         if values.get("runtime_version", "v2") == "v3_climate":
             schema[vol.Optional("edit_local_dealer", default=False)] = bool
             schema[vol.Optional("manage_data_act", default=False)] = bool
-            schema[vol.Optional("run_vehicle_discovery", default=False)] = bool
+            schema[vol.Optional("run_vehicle_discovery", default=True)] = bool
             schema[
                 vol.Required(
                     "v3_development_workbench",

@@ -123,6 +123,12 @@ async def ws_status(hass, connection, msg):
             or latest_by_capability.get(row.capability, row) is row
         ]
         report["command_journal"] = [row.snapshot() for row in profile.command_journal]
+        from .structured_details import details_for
+
+        report["charging_requests"] = engine.redact_evidence(
+            details_for(vehicle, "charging_requests_detail").get("charging_requests"),
+            vehicle.vin,
+        )["payload"]
         report["fast_bindings"] = bindings
         from .product_contract import entity_projection_report, entity_key
 

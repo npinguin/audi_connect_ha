@@ -8,7 +8,7 @@ This guide describes the B41 development candidate. B40 is the preceding publish
 
 ### Installation and rollback
 
-Follow the [main README](../readme.md) for installation and sign-in. Use a published, pinned HACS candidate containing V3; a GitHub review branch is not a published release. Back up Home Assistant before upgrading. In **Settings → Devices & services → Audi Connect → Configure**, select the experimental V3 runtime if available. Keep the normal scan interval (minimum 15 minutes). Leave the optional engineering Workbench and EU Data Act disabled unless needed.
+Follow the [main README](../readme.md) for installation and sign-in. Use a published, pinned HACS candidate containing V3; a GitHub review branch is not a published release. Back up Home Assistant before upgrading. In **Settings → Devices & services → Audi Connect → Configure**, select the experimental V3 runtime if available. Keep the normal scan interval (minimum 15 minutes). Leave the optional engineering Workbench and EU Data Act disabled unless needed. After switching from V2, save and reopen Configure once the V3 runtime is loaded. Vehicle setup & discovery is checked by default whenever V3 options are opened. Finish or uncheck it to save without testing. It is always available for guided discovery or one specific function, including retests, without enabling the Workbench. If EU Data Act or dealer details are also selected, their configuration completes first; discovery then opens using the currently loaded vehicle profile. No vehicle command is sent by saving options.
 
 V3 enumerates vehicles during setup; the V2-only startup update preference is retained for rollback. To revert, select V2 in the same entry and reload. Do not delete the integration or the registry to resolve a temporary data problem. Retain device IDs, entity IDs, user preferences and trip history. Verify automations after any runtime change.
 
@@ -55,6 +55,8 @@ Enable the optional V3 Development Workbench in integration options as an HA adm
 
 ### Test a specific climate function
 
+For ordinary users: Configure → Vehicle setup & discovery → select a specific function (or Guided). Both native setup and the Workbench use the same typed inputs and physical consent. The optional Workbench offers deeper evidence:
+
 1. Safely park the vehicle, select it in the Workbench and open **End-user validation → Expert selective**. Filter by Climate.
 2. To test stored settings, start with climate off; select Start cabin climate and confirm whether it really starts.
 3. Stop climate, then select Start climate with temperature. Enter a different target temperature in °C. Verify both actual start and the requested target.
@@ -76,7 +78,7 @@ Diagnostics are read-only and do not wake the vehicle. They distinguish transpor
 
 Use the [architecture and ownership contract](V3_ARCHITECTURE_CLOSURE.md), [feature closure](V3_FEATURE_CLOSURE.md) and the existing catalog. The capability control in `full_catalog.json` owns reviewed discovery metadata: order, label, physical instructions and allowed parameter names. The shared `parameter_schema` supplies types and limits; the resolver and command lifecycle enforce vehicle applicability, consent and verification. Frontend and backend consume the same candidates. Extend a reviewed existing operation through catalog metadata plus regression tests; new semantics still require reviewed execution and verification support. Do not add a second catalog, poller, auth owner, entity store or command framework.
 
-New native command-response observations use the same status writer as polling only when their own valid capture is newer than dispatch; HTTP acceptance, echoes and undated fields never advance freshness. Read fallback, including Data Act, cannot confirm or authorize a native command. Preserve last-known evidence, source timestamps and stable registry IDs.
+New native command-response observations use the same status writer as polling only when their own valid capture is newer than dispatch; HTTP acceptance, echoes and undated fields never advance freshness. Read fallback, including Data Act, cannot confirm or authorize a native command. Charging request feedback is exposed alongside charging state and in the admin API Log using the existing climate/access parser. It is informational, has no vehicle capture of its own, and cannot confirm, reject or replay a command without independent correlation. Preserve last-known evidence, source timestamps and stable registry IDs.
 
 Review exact-head Test and Validate, both supported HA targets, archive/packaging gates, upstream review and live acceptance separately. [Release authority](V3_ARCHITECTURE_CLOSURE.md#release-authority) governs promotion. Issue [#44](https://github.com/npinguin/audi_connect_ha/issues/44) remains the stable gate; [#35](https://github.com/npinguin/audi_connect_ha/issues/35) tracks missing manufacturer identity. The upstream maintainer owns the upstream default and stable release.
 

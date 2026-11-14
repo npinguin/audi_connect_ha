@@ -1528,8 +1528,10 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
 
         row, state = stateful_reading(self.vehicle, self.key)
         return {
-            **details_for(
-                self.vehicle, *("charging_requests_detail",) if self.key == "charging" else ()
+            **(
+                details_for(self.vehicle, "charging_requests_detail")
+                if self.key == "charging"
+                else {}
             ),
             **self._control_attributes(
                 self.definition["capability"],

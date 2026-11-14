@@ -2181,6 +2181,7 @@ class AudiConnectV3Panel extends HTMLElement {
             <h2>API operations · validation matrix</h2>
             ${this.focusOperation ? `<div class="callout">Focused on ${escapeHTML(this.focusOperation)} <button data-action="clear-operation">Show all operations</button></div>` : ""}
             <p>Tested, active, schema validity and physical confirmation are independent. HTTP 2xx/207 alone is not proof of a working command or complete mapping.</p>
+            ${this.capabilityStatus.charging_requests ? `<details><summary>OEM charging request feedback</summary><p>Informational only; no command correlation or vehicle capture is implied.</p><pre>${escapeHTML(JSON.stringify(this.capabilityStatus.charging_requests, null, 2))}</pre></details>` : ""}
             <div class="line">
               <label>Operation <select id="operation-focus"><option value="">All operations</option>${matchingOperations.map((o) => `<option value="${escapeHTML(o.operation)}" ${this.focusOperation === o.operation ? "selected" : ""}>${escapeHTML(o.operation)}</option>`).join("")}</select></label>
               <label>Evidence <select id="operation-filter">${["all", "tested", "untested", "active", "attention", "historical"].map((v) => `<option value="${v}" ${this.operationFilter === v ? "selected" : ""}>${v}</option>`).join("")}</select></label>
