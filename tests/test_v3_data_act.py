@@ -1192,7 +1192,9 @@ def test_data_act_observed_charging_and_parking_fields_use_shared_contract():
 
 def test_portal_identity_uses_declared_paths_and_never_role_or_nickname():
     registry = CapabilityRegistry.from_json_file(catalog_path())
-    registry.families["eu_data_act"]["identity_mappings"]["eu_data_act.identity.vehicles"] = {
+    registry.families["eu_data_act"]["identity_mappings"][
+        "eu_data_act.identity.vehicles"
+    ] = {
         "model": "oem.model",
         "model_year": "oem.year",
     }

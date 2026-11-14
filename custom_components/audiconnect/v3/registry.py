@@ -192,9 +192,7 @@ class CapabilityRegistry:
                     or not isinstance(fields, dict)
                     or set(fields) - {"model", "model_year"}
                     or any(
-                        not isinstance(path, str)
-                        or not path
-                        or len(path) > 220
+                        not isinstance(path, str) or not path or len(path) > 220
                         for path in fields.values()
                     )
                 ):

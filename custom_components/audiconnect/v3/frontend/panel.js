@@ -1484,7 +1484,8 @@ class AudiConnectV3Panel extends HTMLElement {
     const sources = families.filter(
       (source) => family === "all" || source.id === family,
     );
-    if (!sources.length) return '<p class="warn">No source discovery loaded. Refresh the Workbench and check the integration status.</p>';
+    if (!sources.length)
+      return '<p class="warn">No source discovery loaded. Refresh the Workbench and check the integration status.</p>';
     return `<div class="section-head"><h3>Data sources · discovery &amp; coverage</h3></div>
       ${sources
         .map((source) => {
@@ -1718,7 +1719,9 @@ class AudiConnectV3Panel extends HTMLElement {
     const rows = coverage.rows || [];
     const vehicleFamily = car?.api_family || "cariad";
     const families = coverage.family_discovery || [];
-    const family = families.some((source) => source.id === this.apiFamily) ? this.apiFamily : "all";
+    const family = families.some((source) => source.id === this.apiFamily)
+      ? this.apiFamily
+      : "all";
     const scanFamily = family === "all" ? vehicleFamily : family;
     const selectedSource = families.find((source) => source.id === scanFamily);
     const entityLinks = coverage.entity_links || [];
@@ -1777,7 +1780,9 @@ class AudiConnectV3Panel extends HTMLElement {
     const filteredRows = rows.filter(
       (r) =>
         (!this.capabilityFilter || r.capability === this.capabilityFilter) &&
-        (family === "all" || r.api_family === family || (r.entity_key && familyAttributes.has(r.attribute))) &&
+        (family === "all" ||
+          r.api_family === family ||
+          (r.entity_key && familyAttributes.has(r.attribute))) &&
         (!selectedEntity ||
           entityMatches(r) ||
           (!r.entity_key && selectedEntity.operations.includes(r.operation))),

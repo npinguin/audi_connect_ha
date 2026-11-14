@@ -190,8 +190,10 @@ async def ws_status(hass, connection, msg):
             # adds masked scalar values from the same in-memory observations.
             for observation in family["observations"]:
                 ident = observation["attribute"]
-                sample = getattr(vehicle, "family_readings", {}).get(ident, {}).get(
-                    family["id"]
+                sample = (
+                    getattr(vehicle, "family_readings", {})
+                    .get(ident, {})
+                    .get(family["id"])
                 )
                 if sample is None and observation["selected"]:
                     sample = vehicle.readings.get(ident)
