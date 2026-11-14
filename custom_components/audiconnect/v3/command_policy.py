@@ -42,7 +42,9 @@ def charge_mode_evidence(car, profile):
     values = row.get("discovered_options", row.get("value"))
     return {
         "last_known_advertised_modes": [
-            mode for mode in ("manual", "timer") if isinstance(values, list) and mode in values
+            mode
+            for mode in ("manual", "timer")
+            if isinstance(values, list) and mode in values
         ],
         "locally_verified_modes": locally_verified_charge_modes(profile),
         "writable_modes": supported_charge_modes(car, profile),

@@ -558,7 +558,12 @@ def observe_derived(
             car.charging_profiles_captured = selected.get("captured")
             car.active_charging_profile_id = snapshot.get("active_profile_id")
             active = next(
-                (x for x in car.charging_profiles if x["id"] == car.active_charging_profile_id), None
+                (
+                    x
+                    for x in car.charging_profiles
+                    if x["id"] == car.active_charging_profile_id
+                ),
+                None,
             )
             captured = car.charging_profiles_captured
             keys = {
@@ -567,7 +572,11 @@ def observe_derived(
                 "active_charging_profile_min_soc": "minSOC_pct",
             }
             window = next(
-                (x for x in (active or {}).get("preferredChargingTimes", []) if x.get("enabled") is True),
+                (
+                    x
+                    for x in (active or {}).get("preferredChargingTimes", [])
+                    if x.get("enabled") is True
+                ),
                 {},
             )
             values = {
@@ -580,9 +589,15 @@ def observe_derived(
                     record(ident, value, captured, "chargingProfiles", path)
                 else:
                     record_invalid_observation(
-                        car, ident, captured, observed_at, path, "chargingProfiles",
+                        car,
+                        ident,
+                        captured,
+                        observed_at,
+                        path,
+                        "chargingProfiles",
                         selected.get("reason", "no_active_profile_value"),
-                        profile=profile, operation=operation,
+                        profile=profile,
+                        operation=operation,
                     )
 
     for job, count in (
@@ -685,7 +700,15 @@ def observe_derived(
                 )
             else:
                 record_invalid_observation(
-                    car, ident, captured, observed_at, path, job,
-                    "no_enabled_climatisation_timer" if complete else "incomplete_timer_data",
-                    profile=profile, operation=operation,
+                    car,
+                    ident,
+                    captured,
+                    observed_at,
+                    path,
+                    job,
+                    "no_enabled_climatisation_timer"
+                    if complete
+                    else "incomplete_timer_data",
+                    profile=profile,
+                    operation=operation,
                 )

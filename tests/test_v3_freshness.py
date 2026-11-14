@@ -161,10 +161,19 @@ def test_vehicle_capture_order_is_independent_of_arrival():
         car = SimpleNamespace(readings={}, family_readings={})
         for value, minutes in order:
             stamp = (now - timedelta(minutes=minutes)).isoformat()
-            commit_observation(car, "chargingState", {
-                "value": value, "captured": stamp, "observed": now.isoformat(),
-                "family": "cariad", "status": "verified",
-            }, None, now)
+            commit_observation(
+                car,
+                "chargingState",
+                {
+                    "value": value,
+                    "captured": stamp,
+                    "observed": now.isoformat(),
+                    "family": "cariad",
+                    "status": "verified",
+                },
+                None,
+                now,
+            )
         assert car.readings["chargingState"]["value"] == "off"
 
 
@@ -177,10 +186,19 @@ def test_same_capture_conflict_is_not_resolved_by_arrival_order():
     for values in (("charging", "off", "charging"), ("off", "charging", "off")):
         car = SimpleNamespace(readings={}, family_readings={})
         for value in values:
-            commit_observation(car, "chargingState", {
-                "value": value, "captured": now.isoformat(), "observed": now.isoformat(),
-                "family": "cariad", "status": "verified",
-            }, None, now)
+            commit_observation(
+                car,
+                "chargingState",
+                {
+                    "value": value,
+                    "captured": now.isoformat(),
+                    "observed": now.isoformat(),
+                    "family": "cariad",
+                    "status": "verified",
+                },
+                None,
+                now,
+            )
         assert car.readings["chargingState"]["reason"] == "conflicting_source_values"
         assert car.readings["chargingState"]["value"] is None
 
@@ -188,24 +206,43 @@ def test_same_capture_conflict_is_not_resolved_by_arrival_order():
 def test_charge_mode_does_not_inherit_charging_capture():
     from custom_components.audiconnect.v3.historical_catalog import capture_time
 
-    payload = {"charging": {
-        "chargingStatus": {"value": {"carCapturedTimestamp": "2026-01-01T12:00:00Z"}},
-        "chargeMode": {"value": {"availableChargeModes": ["manual", "timer"]}},
-    }}
-    assert capture_time(payload, "charging.chargeMode.value.availableChargeModes") is None
+    payload = {
+        "charging": {
+            "chargingStatus": {
+                "value": {"carCapturedTimestamp": "2026-01-01T12:00:00Z"}
+            },
+            "chargeMode": {"value": {"availableChargeModes": ["manual", "timer"]}},
+        }
+    }
+    assert (
+        capture_time(payload, "charging.chargeMode.value.availableChargeModes") is None
+    )
 
 
 def test_undated_and_older_events_cannot_erase_a_vehicle_capture():
     from types import SimpleNamespace
-    from custom_components.audiconnect.v3.attribute_runtime import commit_observation, last_known_observation
+    from custom_components.audiconnect.v3.attribute_runtime import (
+        commit_observation,
+        last_known_observation,
+    )
 
     now = datetime.now(UTC)
     car = SimpleNamespace(readings={}, family_readings={})
+
     def write(value, captured, status="verified"):
-        return commit_observation(car, "chargingState", {
-            "value": value, "captured": captured, "observed": now.isoformat(),
-            "family": "cariad", "status": status,
-        }, None, now)
+        return commit_observation(
+            car,
+            "chargingState",
+            {
+                "value": value,
+                "captured": captured,
+                "observed": now.isoformat(),
+                "family": "cariad",
+                "status": status,
+            },
+            None,
+            now,
+        )
 
     assert write("charging", (now - timedelta(minutes=2)).isoformat())
     assert not write(None, None, "invalid_value")
@@ -220,8 +257,13 @@ def test_undated_and_older_events_cannot_erase_a_vehicle_capture():
 def test_charge_mode_does_not_inherit_root_or_job_timestamp():
     from custom_components.audiconnect.v3.historical_catalog import capture_time
 
-    payload = {"carCapturedTimestamp": "2026-01-01T00:00:00Z", "charging": {
-        "carCapturedTimestamp": "2026-01-01T00:00:01Z",
-        "chargeMode": {"value": {"preferredChargeMode": "manual"}},
-    }}
-    assert capture_time(payload, "charging.chargeMode.value.preferredChargeMode") is None
+    payload = {
+        "carCapturedTimestamp": "2026-01-01T00:00:00Z",
+        "charging": {
+            "carCapturedTimestamp": "2026-01-01T00:00:01Z",
+            "chargeMode": {"value": {"preferredChargeMode": "manual"}},
+        },
+    }
+    assert (
+        capture_time(payload, "charging.chargeMode.value.preferredChargeMode") is None
+    )

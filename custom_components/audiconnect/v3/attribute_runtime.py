@@ -84,13 +84,13 @@ def remember_climate(profile, reading, now=None):
         return
     previous = getattr(profile, "last_known_climate", None)
     if reading.get("reason") == "conflicting_source_values" and previous:
-        if _capture_in_utc(previous["captured"]) == _capture_in_utc(reading.get("captured")):
+        if _capture_in_utc(previous["captured"]) == _capture_in_utc(
+            reading.get("captured")
+        ):
             profile.last_known_climate = None
         return
     row = validate_last_known_climate(last_known_observation(reading), now)
-    if row and _accept_observation(
-        previous, row["captured"], now
-    ):
+    if row and _accept_observation(previous, row["captured"], now):
         profile.last_known_climate = row
 
 
@@ -197,7 +197,11 @@ def _merge_observation(previous, row, now):
         # It must not participate in vehicle state, capability or command proof.
         old_receipt = _capture_in_utc(previous.get("observed"))
         new_receipt = _capture_in_utc(row.get("observed"))
-        return row if new_receipt and (not old_receipt or new_receipt > old_receipt) else previous
+        return (
+            row
+            if new_receipt and (not old_receipt or new_receipt > old_receipt)
+            else previous
+        )
     prior = _valid_capture(
         previous.get("captured"), _capture_in_utc(previous.get("observed")) or now
     )
@@ -210,8 +214,7 @@ def _merge_observation(previous, row, now):
         known = last_known_observation(previous)
         if known and type(known.get("value")) in (str, int, float, bool):
             row["last_known"] = {
-                key: known.get(key)
-                for key in ("value", "captured", "family", "status")
+                key: known.get(key) for key in ("value", "captured", "family", "status")
             }
         return row
     # Both captures are equal or absent. An invalid undated report is not
@@ -244,7 +247,9 @@ def _merge_observation(previous, row, now):
         "status": "invalid_value",
         "reason": "conflicting_source_values",
         "fresh": False,
-        **({"last_known": previous["last_known"]} if previous.get("last_known") else {}),
+        **(
+            {"last_known": previous["last_known"]} if previous.get("last_known") else {}
+        ),
     }
 
 

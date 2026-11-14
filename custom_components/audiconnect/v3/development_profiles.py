@@ -709,7 +709,9 @@ class DevelopmentProfile:
     ) -> None:
         record = self.engineering_record(sequence)
         if readback_verified:
-            raise DevelopmentProfileError("Observed state does not prove physical execution")
+            raise DevelopmentProfileError(
+                "Observed state does not prove physical execution"
+            )
         attempted = self.discovery.review(
             sequence,
             result="uncertain" if worked is None else "worked" if worked else "failed",

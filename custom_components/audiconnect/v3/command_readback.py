@@ -121,8 +121,14 @@ def configure_discovery_readback(record, car, params, *, registry=None):
 
 
 def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
-    if record.state not in ("accepted_unconfirmed", "backend_completed", "uncertain") and not (
-        record.state == "rejected" and record.http_status is not None and 200 <= record.http_status < 300
+    if record.state not in (
+        "accepted_unconfirmed",
+        "backend_completed",
+        "uncertain",
+    ) and not (
+        record.state == "rejected"
+        and record.http_status is not None
+        and 200 <= record.http_status < 300
     ):
         return False
     if not record.readback_attribute or not record.readback_values:
@@ -164,7 +170,10 @@ def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
             return False
     # Expected state observed is not proof this command caused it.
     stamp = captured.timestamp()
-    if getattr(record, "readback_observed_at", None) is not None and stamp <= record.readback_observed_at:
+    if (
+        getattr(record, "readback_observed_at", None) is not None
+        and stamp <= record.readback_observed_at
+    ):
         return False
     record.readback_observed_at = stamp
     return True
@@ -200,7 +209,10 @@ def reconcile_access_mismatch(record, car, now=None, *, registry=None) -> bool:
     ):
         return False
     captured = stamp.timestamp()
-    if getattr(record, "readback_mismatch_at", None) is not None and captured <= record.readback_mismatch_at:
+    if (
+        getattr(record, "readback_mismatch_at", None) is not None
+        and captured <= record.readback_mismatch_at
+    ):
         return False
     record.readback_mismatch_at = captured
     return True
@@ -305,7 +317,9 @@ def pending_access_action(profile, captured, *, now=None):
         and record.state in _ACCEPTED
         and getattr(record, "readback_observed_at", None) is None
         and (stamp is None or stamp.timestamp() <= record.started_at)
-        and 0 <= (now or datetime.now(UTC)).timestamp() - record.started_at < LOCK_TRANSITION_TTL_SECONDS
+        and 0
+        <= (now or datetime.now(UTC)).timestamp() - record.started_at
+        < LOCK_TRANSITION_TTL_SECONDS
     ):
         return record.action
     return None

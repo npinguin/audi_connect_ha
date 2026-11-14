@@ -17,12 +17,17 @@ NEW = NOW + timedelta(seconds=1)
 def projected_state(profile, attribute, reported, captured, **_):
     key = "climatisationState" if attribute == "climate" else attribute
     vin = "test"
-    vehicle = NS(vin=vin, readings={key: {
-        "value": reported,
-        "captured": captured.isoformat(),
-        "status": "verified",
-        "family": "cariad",
-    }})
+    vehicle = NS(
+        vin=vin,
+        readings={
+            key: {
+                "value": reported,
+                "captured": captured.isoformat(),
+                "status": "verified",
+                "family": "cariad",
+            }
+        },
+    )
     return _reading_projection(NS(engine=NS(profiles={vin: profile})), vehicle, key)
 
 
@@ -43,9 +48,21 @@ def record(cap, action, params=None, state="accepted_unconfirmed"):
         ("charging", "start", {}, "chargingState", "off"),
         ("climate", "window_heating_start", {}, "windowHeatingActive", False),
         ("climate", "preheater_stop", {}, "preheater_active", True),
-        ("climate", "set_settings", {"windowHeatingEnabled": True}, "climatisationWindowHeatingEnabled", False),
+        (
+            "climate",
+            "set_settings",
+            {"windowHeatingEnabled": True},
+            "climatisationWindowHeatingEnabled",
+            False,
+        ),
         ("charging", "set_target_soc", {"value": 80}, "targetstateOfCharge", 70),
-        ("charging", "set_charge_mode", {"value": "timer"}, "preferredChargeMode", "manual"),
+        (
+            "charging",
+            "set_charge_mode",
+            {"value": "timer"},
+            "preferredChargeMode",
+            "manual",
+        ),
         ("access", "lock", {}, "doorLockStatus", "unlocked"),
     ],
 )
@@ -54,11 +71,24 @@ def test_command_outcome_never_changes_vehicle_projection(
 ):
     row = record(cap, action, params)
     profile = NS(command_journal=[row])
-    for outcome in ("pending", "accepted_unconfirmed", "backend_completed", "uncertain", "rejected", "verified"):
+    for outcome in (
+        "pending",
+        "accepted_unconfirmed",
+        "backend_completed",
+        "uncertain",
+        "rejected",
+        "verified",
+    ):
         row.state = outcome
         for stamp in (OLD, NEW):
-            assert projected_state(profile, attribute, reported, stamp, now=NOW) == (reported, "vehicle")
-        assert projected_state(profile, attribute, None, OLD, now=NOW) == (None, "unknown")
+            assert projected_state(profile, attribute, reported, stamp, now=NOW) == (
+                reported,
+                "vehicle",
+            )
+        assert projected_state(profile, attribute, None, OLD, now=NOW) == (
+            None,
+            "unknown",
+        )
 
 
 def test_stop_supersedes_start_but_other_cooldowns_remain():
@@ -215,8 +245,14 @@ def test_lock_transition_expires_without_fabricating_physical_state():
 
     assert pending_access_action(profile, OLD.isoformat(), now=NOW) == "unlock"
     assert pending_access_action(profile, NEW.isoformat(), now=NEW) is None
-    assert pending_access_action(profile, OLD.isoformat(), now=NOW + timedelta(minutes=30)) is None
-    assert projected_state(profile, "doorLockStatus", "locked", OLD, now=NOW) == ("locked", "vehicle")
+    assert (
+        pending_access_action(profile, OLD.isoformat(), now=NOW + timedelta(minutes=30))
+        is None
+    )
+    assert projected_state(profile, "doorLockStatus", "locked", OLD, now=NOW) == (
+        "locked",
+        "vehicle",
+    )
 
 
 @pytest.mark.parametrize(
@@ -379,10 +415,16 @@ def test_manual_stop_after_failed_remote_stop_is_not_command_success():
 
     row = record("charging", "stop")
     row.observe_http(200)
-    car = NS(readings={"chargingState": {
-        "value": "readyForCharging", "captured": NEW.isoformat(),
-        "observed": NEW.isoformat(), "family": "cariad",
-    }})
+    car = NS(
+        readings={
+            "chargingState": {
+                "value": "readyForCharging",
+                "captured": NEW.isoformat(),
+                "observed": NEW.isoformat(),
+                "family": "cariad",
+            }
+        }
+    )
     assert reconcile_readback(row, car, NEW)
     assert row.state == "accepted_unconfirmed"
     assert row.readback_observed_at == NEW.timestamp()

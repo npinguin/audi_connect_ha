@@ -94,12 +94,19 @@ class CommandRecord:
             self.state = "rejected"
             self.completed_at = max(self.started_at, now)
         elif outcome == "backend_completed":
-            if self.state not in ("verified", "physical_failed", "reviewed", "readback_mismatch"):
+            if self.state not in (
+                "verified",
+                "physical_failed",
+                "reviewed",
+                "readback_mismatch",
+            ):
                 self.state = "backend_completed"
                 self.completed_at = max(self.started_at, now)
-        elif outcome in ("unknown", "quota_limited", "pending") and self.capability not in (
-            "climate", "charging", "access"
-        ):
+        elif outcome in (
+            "unknown",
+            "quota_limited",
+            "pending",
+        ) and self.capability not in ("climate", "charging", "access"):
             self.state = "uncertain"
 
     @property
@@ -343,10 +350,15 @@ class CommandRecord:
             raise ValueError("Invalid stored command context")
         # Pre-B41 normal commands used verified for a matching observation,
         # not causal proof. Keep their backend evidence; do not invent capture.
-        if record.origin == "home_assistant" and record.state in ("verified", "readback_mismatch"):
+        if record.origin == "home_assistant" and record.state in (
+            "verified",
+            "readback_mismatch",
+        ):
             record.state = (
-                "backend_completed" if record.backend_result == "backend_completed"
-                else "rejected" if record.backend_result == "rejected"
+                "backend_completed"
+                if record.backend_result == "backend_completed"
+                else "rejected"
+                if record.backend_result == "rejected"
                 else "accepted_unconfirmed"
             )
         if record.state == "uncertain" and record.known_access_acceptance:

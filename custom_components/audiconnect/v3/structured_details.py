@@ -282,7 +282,11 @@ def observe_structured(
                     "observed": observed_at.isoformat(),
                     "path": path,
                     "family": "cariad",
-                    **({"informational": True, "detail": True} if path.endswith(".requests") else {}),
+                    **(
+                        {"informational": True, "detail": True}
+                        if path.endswith(".requests")
+                        else {}
+                    ),
                     "operation": operation,
                     "job": path.split(".", 1)[0],
                     "status": "invalid_value"
@@ -492,7 +496,11 @@ def details_for(vehicle, *keys):
             data = row.get("value")
             if key == "charging_profile_context_detail" and isinstance(data, dict):
                 # Profiles already have their own existing local HA attributes.
-                data = {k: v for k, v in data.items() if k not in ("profiles", "active_profile_id")}
+                data = {
+                    k: v
+                    for k, v in data.items()
+                    if k not in ("profiles", "active_profile_id")
+                }
             result[key.removesuffix("_detail")] = {
                 "data": data,
                 **reading_freshness_attributes(row),

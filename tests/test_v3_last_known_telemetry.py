@@ -196,7 +196,10 @@ def test_climate_last_known_survives_sentinel_and_profile_reboot(initial):
     assert entity.hvac_mode is None
     assert entity.hvac_action is None
     assert entity.extra_state_attributes["last_known_climate_state"] == initial
-    assert entity.extra_state_attributes["last_known_climate_source"] == "last_known_vehicle"
+    assert (
+        entity.extra_state_attributes["last_known_climate_source"]
+        == "last_known_vehicle"
+    )
     assert entity.extra_state_attributes["state_source"] == "unknown"
     assert not entity.extra_state_attributes["state_is_current"]
     assert not rebooted.readings

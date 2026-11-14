@@ -667,10 +667,25 @@ def test_undated_charge_mode_options_preserve_discovery_without_write_permission
     for options in permutations((["manual", "timer"], [])):
         vehicle, profile = car(), Profile()
         for values in options:
-            observe_read_only(vehicle, profile, {"charging": {"chargeMode": {"value": {
-                "availableChargeModes": values, "preferredChargeMode": "manual",
-            }}}}, now)
-        assert vehicle.readings["availableChargeModes"]["reason"] == "conflicting_source_values"
+            observe_read_only(
+                vehicle,
+                profile,
+                {
+                    "charging": {
+                        "chargeMode": {
+                            "value": {
+                                "availableChargeModes": values,
+                                "preferredChargeMode": "manual",
+                            }
+                        }
+                    }
+                },
+                now,
+            )
+        assert (
+            vehicle.readings["availableChargeModes"]["reason"]
+            == "conflicting_source_values"
+        )
         evidence = charge_mode_evidence(vehicle, None)
         assert evidence["last_known_advertised_modes"] == ["manual", "timer"]
         assert evidence["writable_modes"] == []

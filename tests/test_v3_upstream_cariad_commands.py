@@ -155,7 +155,9 @@ async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outc
 
     def notify():
         notifications.append(
-            _reading_projection(SimpleNamespace(engine=engine), car, "climatisationState")
+            _reading_projection(
+                SimpleNamespace(engine=engine), car, "climatisationState"
+            )
         )
 
     async def confirm(*args):

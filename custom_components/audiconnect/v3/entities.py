@@ -207,16 +207,15 @@ _CLIMATE_OFF = frozenset(CLIMATE_OFF_STATES)
 _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
-def _reading_projection(
-    coordinator, vehicle, attribute, *, allow_last_known=False
-):
+def _reading_projection(coordinator, vehicle, attribute, *, allow_last_known=False):
     row = vehicle.readings.get(attribute) or {}
     if not _reading_available(row, allow_last_known=allow_last_known):
         return None, "unknown"
     from .freshness import timestamp_is_fresh
 
     source = (
-        "vehicle" if timestamp_is_fresh(row.get("captured"), datetime.now(UTC))
+        "vehicle"
+        if timestamp_is_fresh(row.get("captured"), datetime.now(UTC))
         else "last_known_vehicle"
     )
     return row.get("value"), source
@@ -367,7 +366,11 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         row = last_known_observation(self.vehicle.readings.get("climatisationState"))
         known, stamp, known_source = last_known_climate(profile)
         if row and row.get("captured"):
-            known, stamp, known_source = row["value"], row["captured"], "last_known_vehicle"
+            known, stamp, known_source = (
+                row["value"],
+                row["captured"],
+                "last_known_vehicle",
+            )
         _, source = _climate_projection(self.coordinator, self.vehicle)
         return {
             **details_for(
@@ -1503,7 +1506,7 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
                 attribute=self.definition["attribute"],
                 reading=row or {},
                 source=self._projection()[1],
-                ),
+            ),
             "last_reported_state": state,
             "on_enabled": self._enabled("on"),
             "off_enabled": self._enabled("off"),
@@ -1678,7 +1681,10 @@ class V3LockEntity(V3BaseEntity, LockEntity):
 
     @callback
     def _schedule_pending_refresh(self):
-        from .command_readback import LOCK_TRANSITION_TTL_SECONDS, latest_readback_command
+        from .command_readback import (
+            LOCK_TRANSITION_TTL_SECONDS,
+            latest_readback_command,
+        )
 
         self._cancel_pending_refresh()
         if self.hass is None or not (self.is_locking or self.is_unlocking):
@@ -1709,9 +1715,7 @@ class V3LockEntity(V3BaseEntity, LockEntity):
     @property
     def is_locked(self) -> bool | None:
         # No silent assumption that an unavailable lock status means unlocked.
-        raw, _ = _reading_projection(
-            self.coordinator, self.vehicle, "doorLockStatus"
-        )
+        raw, _ = _reading_projection(self.coordinator, self.vehicle, "doorLockStatus")
         if not isinstance(raw, str):
             return None
         value = raw.strip().lower()
