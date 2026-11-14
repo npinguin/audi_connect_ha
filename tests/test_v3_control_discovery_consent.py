@@ -172,3 +172,38 @@ def test_climate_discovery_requires_typed_temperature_before_dispatch(
     with pytest.raises(RuntimeError, match="prepared"):
         execute({"temp_c": 22})
     prepare.assert_awaited_once_with(car, route, {"temp_c": 22})
+
+
+def test_discovery_can_extend_existing_command_by_catalog_metadata_only():
+    import json
+
+    from custom_components.audiconnect.v3.read_discovery import user_test_candidates
+    from custom_components.audiconnect.v3.registry import RegistryError
+
+    raw = json.loads(catalog_path().read_text())
+    node = raw["capabilities"]["charging"]["control"]["set_target_soc"]
+    node["discovery"] = {
+        "label": "Set charge target",
+        "instructions": "Check the selected target changed.",
+        "order": 85,
+        "parameters": ["value"],
+    }
+    registry = CapabilityRegistry(raw)
+    car = V3Vehicle(VIN, "Audi", "", "", "DE", auth_family="auth0")
+    car.advertised_capabilities.add("charging")
+    car.readings["targetstateOfCharge"] = {"value": 80}
+    engine = NS(auth=NS(uses_auth0=True, service=NS(_spin="")))
+    profile = DevelopmentProfile(registry, car.context)
+    for expert in (False, True):
+        candidate = user_test_candidates(
+            engine, car, profile, include_verified=expert
+        )["charging.set_target_soc"]
+        assert candidate["operation"] == "cariad.charging.settings"
+        assert candidate["label"] == node["discovery"]["label"]
+        assert candidate["instructions"] == node["discovery"]["instructions"]
+        assert candidate["parameter_schema"]["value"]["required"]
+        assert candidate["parameter_schema"]["value"]["maximum"] == 100
+
+    node["discovery"]["parameters"] = ["unknown_parameter"]
+    with pytest.raises(RegistryError, match="Unknown discovery parameter"):
+        CapabilityRegistry(raw)
