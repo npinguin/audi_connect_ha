@@ -563,7 +563,9 @@ async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> b
             from .v3.registry_lifecycle import async_apply_v3_entity_visibility
 
             await async_apply_v3_entity_visibility(hass, config_entry, False)
-            await hass.config_entries.async_forward_entry_setups(config_entry, PLATFORMS)
+            await hass.config_entries.async_forward_entry_setups(
+                config_entry, PLATFORMS
+            )
     except BaseException:
         if selected_v3:
             await engine.status.async_stop_data_act()
