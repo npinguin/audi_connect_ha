@@ -1642,9 +1642,7 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
             raise HomeAssistantError(
                 "Climate ON/OFF requires available verified controls"
             )
-        state, source = _climate_projection(self.coordinator, self.vehicle)
-        if source != "vehicle" or state not in _CLIMATE_ON:
-            await _send_climate(self.coordinator, self.vehicle, "start")
+        await _send_climate(self.coordinator, self.vehicle, "start")
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
@@ -1652,9 +1650,7 @@ class V3ClimateQuickSwitch(V3BaseEntity, SwitchEntity):
             raise HomeAssistantError(
                 "Climate ON/OFF requires available verified controls"
             )
-        state, source = _climate_projection(self.coordinator, self.vehicle)
-        if source != "vehicle" or state not in _CLIMATE_OFF:
-            await _send_climate(self.coordinator, self.vehicle, "stop")
+        await _send_climate(self.coordinator, self.vehicle, "stop")
         self.async_write_ha_state()
 
 

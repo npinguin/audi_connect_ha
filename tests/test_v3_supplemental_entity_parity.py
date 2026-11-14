@@ -298,7 +298,7 @@ def test_lock_remains_visible_while_command_is_accepted():
     entity = V3LockEntity(co, car)
     assert entity.available
     assert entity.is_locking
-    assert entity.is_locked is None
+    assert entity.is_locked is False
     assert entity.extra_state_attributes["command_status"] == "accepted_unconfirmed"
     assert entity.extra_state_attributes["command_requested_state"] == "locked"
     assert entity.extra_state_attributes["state_is_optimistic"] is False

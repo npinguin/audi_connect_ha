@@ -23,6 +23,8 @@ def test_parking_light_never_uses_other_light_types():
     now = datetime.now(UTC)
 
     def observe(lights):
+        nonlocal now
+        now += timedelta(seconds=1)
         observe_derived(
             car,
             SimpleNamespace(),

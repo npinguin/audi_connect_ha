@@ -185,7 +185,7 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     reply.status = 204
     observe_parking(vehicle, profile, reply, operation)
     assert vehicle.position is position
-    assert vehicle.readings["is_moving"]["value"] is True
+    assert vehicle.readings["is_moving"]["value"] is None
     assert vehicle.readings["is_moving"]["captured"] is None
     assert moving.is_on is None
     assert not moving.available
@@ -194,7 +194,7 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     observe_parking(vehicle, profile, reply, operation)
     assert vehicle.position is position
     assert vehicle.readings["park_time"]["captured"] == stamp
-    assert vehicle.readings["is_moving"]["value"] is True
+    assert vehicle.readings["is_moving"]["value"] is None
 
 
 @pytest.mark.parametrize("invalid", ["2026-01-01T00:00:00", "2099-01-01T00:00:00Z"])
