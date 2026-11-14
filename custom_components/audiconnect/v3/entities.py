@@ -59,13 +59,13 @@ from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
 from .command_readback import (
     command_attributes,
-    control_projection,
     latest_projection_command,
     optimistic_expiry,
 )
 from .command_policy import supported_charge_modes
 from .attribute_contracts import contract_for, binary_contract_for, semantic_value_issue
 from .product_contract import (
+    control_projection,
     projection_reading,
     compatibility_hidden,
     canonical_entity_category,
@@ -135,10 +135,13 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
     @property
     def assumed_state(self) -> bool:
         """Use HA's native indicator for estimated control state."""
-        if not isinstance(self, (ClimateEntity, SwitchEntity, LockEntity, NumberEntity, SelectEntity)):
+        if not isinstance(
+            self, (ClimateEntity, SwitchEntity, LockEntity, NumberEntity, SelectEntity)
+        ):
             return False
         return (self.extra_state_attributes or {}).get("state_source") in (
-            "optimistic", "last_known_vehicle"
+            "optimistic",
+            "last_known_vehicle",
         )
 
     def _control_attributes(
@@ -193,7 +196,9 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
                 reading if reading is not None else self.vehicle.readings.get(attribute)
             )
             optimistic = source == "optimistic"
-            record = latest_projection_command(profile, attribute) if optimistic else None
+            record = (
+                latest_projection_command(profile, attribute) if optimistic else None
+            )
             expiry = optimistic_expiry(record)
             result.update(
                 reading_freshness_attributes(row, allow_last_known=True),
@@ -228,9 +233,9 @@ _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 def _reading_projection(coordinator, vehicle, attribute, *, allow_last_known=True):
     """Native control projection directly from status and command owners."""
-    profile = getattr(
-        getattr(coordinator, "engine", None), "profiles", {}
-    ).get(vehicle.vin.lower())
+    profile = getattr(getattr(coordinator, "engine", None), "profiles", {}).get(
+        vehicle.vin.lower()
+    )
     key = "climate" if attribute == "climatisationState" else attribute
     return control_projection(profile, key, vehicle.readings.get(attribute))
 
@@ -1035,11 +1040,15 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         ):
             return False
         reading = _sensor_projection(self)[1] or {}
-        value_row = last_known_observation(reading) if self._allow_last_known else reading
+        value_row = (
+            last_known_observation(reading) if self._allow_last_known else reading
+        )
         return _reading_available(
             reading, allow_last_known=self._allow_last_known
         ) and not semantic_value_issue(
-            self.attribute["entity_key"], value_row.get("value"), self._semantic_contract
+            self.attribute["entity_key"],
+            value_row.get("value"),
+            self._semantic_contract,
         )
 
     @property
@@ -1824,8 +1833,11 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
             return False
-        return self.native_value is not None and self.coordinator.engine.control_enabled(
-            self.vehicle.vin, "set_target_soc", "charging"
+        return (
+            self.native_value is not None
+            and self.coordinator.engine.control_enabled(
+                self.vehicle.vin, "set_target_soc", "charging"
+            )
         )
 
     @property

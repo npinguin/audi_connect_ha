@@ -96,6 +96,50 @@ def projection_descriptor(attribute):
     return canonical if key in product_inventory()["entities"] else None
 
 
+def control_projection(profile, attribute, reading, *, now=None):
+    """Effective HA control state, never a physical or authorization proof.
+
+    Retain the newest valid observed value across sleep and sentinel data.
+    Only an acknowledged, unsuperseded command may temporarily overlay it.
+    A newer dated observation wins whether or not it matches the request.
+    """
+    from datetime import UTC, datetime
+
+    from .attribute_runtime import _valid_capture, last_known_observation
+    from .command_readback import (
+        latest_projection_command,
+        optimistic_expiry,
+        requested_projection,
+    )
+    from .freshness import timestamp_is_fresh
+
+    now = now or datetime.now(UTC)
+    reading = reading or {}
+    known = last_known_observation(reading)
+    record = latest_projection_command(profile, attribute)
+    expiry = optimistic_expiry(record)
+    stamp = _valid_capture(known.get("captured"), now)
+    observed_stamp = _valid_capture(reading.get("captured"), now)
+    if (
+        expiry is not None
+        and record.started_at <= now.timestamp() < expiry
+        and (stamp is None or stamp.timestamp() <= record.started_at)
+        and (observed_stamp is None or observed_stamp.timestamp() <= record.started_at)
+        and record.readback_observed_at is None
+        and record.readback_mismatch_at is None
+    ):
+        requested = requested_projection(record, attribute)
+        if requested is not None:
+            return requested, "optimistic"
+    if known.get("value") is None:
+        return None, "unknown"
+    return known["value"], (
+        "vehicle"
+        if known is reading and timestamp_is_fresh(known.get("captured"), now)
+        else "last_known_vehicle"
+    )
+
+
 def projection_reading(vehicle, attribute, *, registry=None, now=None):
     """Resolve only declared same-semantic historical aliases, never by order."""
     from .attribute_runtime import select_reading

@@ -12,10 +12,8 @@ from datetime import UTC, datetime
 from .attribute_runtime import (
     _capture_in_utc,
     _valid_capture,
-    last_known_observation,
     select_reading,
 )
-from .freshness import timestamp_is_fresh
 from .vehicle import (
     CLIMATE_ON_STATES,
     CLIMATE_OFF_STATES,
@@ -294,43 +292,6 @@ def requested_projection(record, attribute):
     return values[0] if len(values) == 1 else None
 
 
-def control_projection(profile, attribute, reading, *, now=None):
-    """Effective HA control state, never a physical or authorization proof.
-
-    Retain the newest valid observed value across sleep and sentinel data.
-    Only an acknowledged, unsuperseded command may temporarily overlay it.
-    A newer dated observation wins whether or not it matches the request.
-    """
-    now = now or datetime.now(UTC)
-    reading = reading or {}
-    known = last_known_observation(reading)
-    record = latest_projection_command(profile, attribute)
-    expiry = optimistic_expiry(record)
-    stamp = _valid_capture(known.get("captured"), now)
-    observed_stamp = _valid_capture(reading.get("captured"), now)
-    if (
-        expiry is not None
-        and record.started_at <= now.timestamp() < expiry
-        and (stamp is None or stamp.timestamp() <= record.started_at)
-        and (
-            observed_stamp is None
-            or observed_stamp.timestamp() <= record.started_at
-        )
-        and record.readback_observed_at is None
-        and record.readback_mismatch_at is None
-    ):
-        requested = requested_projection(record, attribute)
-        if requested is not None:
-            return requested, "optimistic"
-    if known.get("value") is None:
-        return None, "unknown"
-    return known["value"], (
-        "vehicle"
-        if known is reading and timestamp_is_fresh(known.get("captured"), now)
-        else "last_known_vehicle"
-    )
-
-
 def command_attributes(profile, capability, actions, *, attribute=None):
     """Shared command evidence, including rejection, scoped to this control."""
     record = next(
@@ -382,18 +343,6 @@ def command_attributes(profile, capability, actions, *, attribute=None):
             else None
         ),
     }
-
-
-def pending_access_action(profile, captured, *, now=None):
-    """Compatibility view of the same bounded control projection."""
-    _, source = control_projection(
-        profile,
-        "doorLockStatus",
-        {"captured": captured, "value": "unknown"},
-        now=now,
-    )
-    record = latest_projection_command(profile, "doorLockStatus")
-    return record.action if source == "optimistic" else None
 
 
 def observe_command_response(record, car, profile, family, response):

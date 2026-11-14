@@ -241,14 +241,19 @@ def test_lock_transition_expires_without_fabricating_physical_state():
     row = record("access", "unlock")
     row.observe_http(200)
     profile = NS(command_journal=[row])
-    from custom_components.audiconnect.v3.command_readback import pending_access_action
+    from custom_components.audiconnect.v3.product_contract import control_projection
 
-    assert pending_access_action(profile, OLD.isoformat(), now=NOW) == "unlock"
-    assert pending_access_action(profile, NEW.isoformat(), now=NEW) is None
-    assert (
-        pending_access_action(profile, OLD.isoformat(), now=NOW + timedelta(minutes=30))
-        is None
+    reading = {"value": "locked", "captured": OLD.isoformat()}
+    assert control_projection(profile, "doorLockStatus", reading, now=NOW) == (
+        "unlocked",
+        "optimistic",
     )
+    assert control_projection(
+        profile, "doorLockStatus", {**reading, "captured": NEW.isoformat()}, now=NEW
+    ) == ("locked", "vehicle")
+    assert control_projection(
+        profile, "doorLockStatus", reading, now=NOW + timedelta(minutes=30)
+    ) == ("locked", "vehicle")
     assert projected_state(profile, "doorLockStatus", "locked", OLD, now=NOW) == (
         "unlocked",
         "optimistic",
@@ -443,7 +448,6 @@ def test_manual_stop_after_failed_remote_stop_is_not_command_success():
     assert other.readback_observed_at == row.readback_observed_at
 
 
-
 @pytest.mark.parametrize(
     "cap,action,params,attribute,reported,requested",
     [
@@ -454,22 +458,28 @@ def test_manual_stop_after_failed_remote_stop_is_not_command_success():
         ("climate", "preheater_stop", {}, "preheater_active", True, False),
         ("charging", "set_target_soc", {"value": 80}, "targetstateOfCharge", 70, 80),
         (
-            "charging", "set_charge_mode", {"value": "timer"},
-            "preferredChargeMode", "manual", "timer",
+            "charging",
+            "set_charge_mode",
+            {"value": "timer"},
+            "preferredChargeMode",
+            "manual",
+            "timer",
         ),
         (
-            "climate", "set_settings", {"windowHeatingEnabled": True},
-            "climatisationWindowHeatingEnabled", False, True,
+            "climate",
+            "set_settings",
+            {"windowHeatingEnabled": True},
+            "climatisationWindowHeatingEnabled",
+            False,
+            True,
         ),
     ],
 )
 def test_accepted_control_projection_expires_and_newer_observation_wins(
     cap, action, params, attribute, reported, requested
 ):
-    from custom_components.audiconnect.v3.command_readback import (
-        OPTIMISTIC_TTL_SECONDS,
-        control_projection,
-    )
+    from custom_components.audiconnect.v3.command_readback import OPTIMISTIC_TTL_SECONDS
+    from custom_components.audiconnect.v3.product_contract import control_projection
 
     command = record(cap, action, params)
     command.observe_http(200)
@@ -480,18 +490,21 @@ def test_accepted_control_projection_expires_and_newer_observation_wins(
         "status": "verified",
     }
     assert control_projection(profile, attribute, reading, now=NOW) == (
-        requested, "optimistic"
+        requested,
+        "optimistic",
     )
     assert control_projection(
         profile, attribute, {**reading, "captured": NEW.isoformat()}, now=NEW
     ) == (reported, "vehicle")
     expiry = datetime.fromtimestamp(command.started_at + OPTIMISTIC_TTL_SECONDS, UTC)
     assert control_projection(profile, attribute, reading, now=expiry) == (
-        reported, "vehicle"
+        reported,
+        "vehicle",
     )
     command.observe_backend("rejected", NOW.timestamp())
     assert control_projection(profile, attribute, reading, now=NOW) == (
-        reported, "vehicle"
+        reported,
+        "vehicle",
     )
 
 
@@ -531,9 +544,8 @@ def test_sleeping_lock_retains_last_observation_and_explicit_reverse_dispatch():
     assert entity.extra_state_attributes["last_reported_state"] == "locked"
 
 
-
 def test_restart_never_reactivates_optimistic_state():
-    from custom_components.audiconnect.v3.command_readback import control_projection
+    from custom_components.audiconnect.v3.product_contract import control_projection
 
     command = record("access", "unlock")
     command.observe_http(200)

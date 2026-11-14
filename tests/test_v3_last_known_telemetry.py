@@ -222,10 +222,8 @@ def test_climate_last_known_survives_sentinel_and_profile_reboot(initial):
 
 def test_accepted_command_is_not_restored_as_verified_climate_state():
     from custom_components.audiconnect.v3.command_journal import CommandRecord
-    from custom_components.audiconnect.v3.command_readback import (
-        configure_readback,
-        control_projection,
-    )
+    from custom_components.audiconnect.v3.command_readback import configure_readback
+    from custom_components.audiconnect.v3.product_contract import control_projection
 
     command = CommandRecord.begin(
         "climate",
@@ -240,7 +238,6 @@ def test_accepted_command_is_not_restored_as_verified_climate_state():
     command.state = "verified"
     command.completed_at = command.started_at + 30
     assert control_projection(profile, "climate", {}) == (None, "unknown")
-
 
 
 @pytest.mark.parametrize(

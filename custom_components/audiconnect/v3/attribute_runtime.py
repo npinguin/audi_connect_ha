@@ -88,7 +88,9 @@ def retained_status_field(ident):
         return True
     descriptor = ATTRIBUTES.get(ident, {})
     key = descriptor.get("entity_key", "")
-    if not key or any(word in key for word in ("position", "park_time", "profile_name")):
+    if not key or any(
+        word in key for word in ("position", "park_time", "profile_name")
+    ):
         return False
     contract = (
         binary_contract_for(key)
@@ -132,9 +134,16 @@ def restore_status(saved, legacy_climate=None):
     if (
         "climatisationState" not in saved
         and isinstance(legacy_climate, dict)
-        and legacy_climate.get("value") in (
-            "off", "stopped", "inactive", "heating", "cooling",
-            "ventilation", "on", "active",
+        and legacy_climate.get("value")
+        in (
+            "off",
+            "stopped",
+            "inactive",
+            "heating",
+            "cooling",
+            "ventilation",
+            "on",
+            "active",
         )
     ):
         saved = {
