@@ -267,7 +267,7 @@ class CommandEngine:
                 if (
                     record
                     and record.state == "accepted_unconfirmed"
-                    and reconcile_readback(record, car)
+                    and reconcile_readback(record, car, registry=profile.registry)
                 ):
                     self._confirm_working_readback(profile, active, record)
             # Reconcile independent commands even when a different capability
@@ -283,8 +283,8 @@ class CommandEngine:
                 if (
                     record
                     and (
-                        reconcile_readback(record, car)
-                        or reconcile_access_mismatch(record, car)
+                        reconcile_readback(record, car, registry=profile.registry)
+                        or reconcile_access_mismatch(record, car, registry=profile.registry)
                     )
                     and record is profile.last_command
                 ):
@@ -504,7 +504,7 @@ class CommandEngine:
             ):
                 record.requested_charge_mode = (params or {}).get("value")
             if guided:
-                configure_discovery_readback(record, vehicle, params)
+                configure_discovery_readback(record, vehicle, params, registry=profile.registry)
             await self.storage.async_save(self.profiles)
         try:
             family, _, response = await self._execute_prepared(

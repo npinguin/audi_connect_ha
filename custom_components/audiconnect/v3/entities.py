@@ -1373,22 +1373,17 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
         reading = self.vehicle.readings.get(self.attribute["id"])
         if self.is_on is None:
             return False
-        if self.attribute["id"] == "is_moving" and reading:
-            # Historical parking endpoint indication, not a live GPS fix.
-            age = _reading_age_minutes(reading.get("observed"))
-            return (
-                reading.get("path")
-                in ("parkingposition HTTP 204", "parkingposition parked sample")
-                and type(reading.get("value")) is bool
-                and age is not None
-                and age <= 60
-            )
         return _reading_available(reading, allow_last_known=self._allow_last_known)
 
     @property
     def is_on(self) -> bool | None:
         reading = self.vehicle.readings.get(self.attribute["id"])
         if not reading:
+            return None
+        if self.attribute["id"] == "is_moving" and (
+            reading.get("path") in ("parkingposition HTTP 204", "parkingposition parked sample")
+            or _reading_age_minutes(reading.get("captured")) is None
+        ):
             return None
         value = reading.get("value")
         if isinstance(value, bool):

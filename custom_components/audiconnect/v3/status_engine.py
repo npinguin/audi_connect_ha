@@ -15,6 +15,7 @@ from .attribute_runtime import (
     planned_jobs,
     observe_read_only,
     _accept_observation,
+    _valid_capture,
     record_invalid_observation,
     record_observation,
     remember_climate,
@@ -141,6 +142,8 @@ class StatusEngine:
             result = "dataset_received"
         elif set(deliveries) == {"vehicle_access_denied"}:
             result = "vehicle_access_denied"
+        elif "subscription_unavailable" in deliveries:
+            result = "subscription_unavailable"
         else:
             result = "no_new_dataset" if self._data_act_attempt_at else "initializing"
         return {
@@ -416,9 +419,16 @@ class StatusEngine:
             samples = await self._poll_data_act()
             client = getattr(self.auth, "data_act_client", None)
             denied = getattr(client, "denied_vins", ())
+            missing = {
+                vin
+                for vin, state in getattr(client, "delivery_states", {}).items()
+                if state == "subscription_unavailable"
+            }
             revoked = getattr(client, "authorization_required", False) is True
             for key, car in self.vehicles.items():
-                if key in self.profiles and (revoked or car.vin.upper() in denied):
+                if key in self.profiles and (
+                    revoked or car.vin.upper() in denied or car.vin.upper() in missing
+                ):
                     discovery_changed |= bool(
                         self.profiles[key].job_schema.pop(DATA_ACT_DATASET, None)
                     )
@@ -724,10 +734,14 @@ class StatusEngine:
                             valid = False
                         elif isinstance(value, (str, int, float, bool)):
                             previous = vehicle.capability_readings.get(capability)
-                            if _accept_observation(previous, captured):
+                            if _accept_observation(previous, captured, response.observed_at):
                                 vehicle.capability_readings[capability] = {
                                     "value": value,
-                                    "captured": captured,
+                                    "captured": (
+                                        captured
+                                        if _valid_capture(captured, response.observed_at)
+                                        else None
+                                    ),
                                     "observed": response.observed_at.isoformat(),
                                     "operation": ident,
                                     "path": field,

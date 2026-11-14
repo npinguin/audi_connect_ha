@@ -771,7 +771,7 @@ def test_data_act_account_status_is_derived_from_channel_state():
     for delivery, expected in (
         ("dataset_received", "dataset_received"),
         ("vehicle_access_denied", "vehicle_access_denied"),
-        ("subscription_unavailable", "no_new_dataset"),
+        ("subscription_unavailable", "subscription_unavailable"),
         ("unavailable", "unavailable"),
     ):
         client.delivery_states[VIN] = delivery
