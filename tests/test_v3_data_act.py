@@ -1097,3 +1097,60 @@ def test_optional_identity_withdrawal_preserves_native_telemetry_and_history():
     assert car.model == "Audi Q8" and not car.model_year
     assert profile.manufacturer_identity["model"] == "Audi Q8"
     assert not profile.manufacturer_identity["year"]
+
+
+@pytest.mark.asyncio
+async def test_native_and_portal_share_a_bounded_response_reader():
+    from types import SimpleNamespace
+
+    from custom_components.audiconnect.v3.data_act import read_bounded
+    from custom_components.audiconnect.v3.transport import read_bounded_body
+
+    async def chunks(_size):
+        yield b"ab"
+        yield b"cd"
+
+    response = SimpleNamespace(
+        content_length=None, content=SimpleNamespace(iter_chunked=chunks)
+    )
+    assert await read_bounded_body(response, 4) == b"abcd"
+    with pytest.raises(ValueError, match="size limit"):
+        await read_bounded_body(response, 3)
+    with pytest.raises(DataActUnavailable, match="too large"):
+        await read_bounded(response, 3)
+    response.content_length = 10
+    with pytest.raises(ValueError, match="size limit"):
+        await read_bounded_body(response, 4)
+
+
+def test_portal_duration_projects_eta_only_from_selected_source():
+    from custom_components.audiconnect.v3.derived_values import project_charging_eta
+
+    now = datetime.now(UTC)
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "BE")
+    profile = DevelopmentProfile(
+        CapabilityRegistry.from_json_file(catalog_path()), car.context
+    )
+    payload = {
+        "vin": VIN,
+        "Data": [
+            {
+                "key": "cf28f7d9-6201-30b8-82e5-a461968d30dc",
+                "dataFieldName": "remaining_charging_time",
+                "value": "30",
+                "timestampUtc": now.isoformat(),
+            }
+        ],
+    }
+    observe_data_act(car, profile, payload, now, now.isoformat())
+    project_charging_eta(car, profile, now)
+    assert car.readings["charging_complete_time"]["value"] == (
+        now + timedelta(minutes=30)
+    ).isoformat()
+    assert car.readings["charging_complete_time"]["family"] == "eu_data_act"
+    assert "charging_complete_time" not in car.family_readings
+    from custom_components.audiconnect.v3.attribute_runtime import remove_family_observations
+
+    remove_family_observations(car, profile, "eu_data_act", now)
+    project_charging_eta(car, profile, now)
+    assert "charging_complete_time" not in car.readings

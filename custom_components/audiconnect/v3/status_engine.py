@@ -583,6 +583,7 @@ class StatusEngine:
     def _update_capture_projection(self):
         from .attribute_runtime import refresh_family_observations
         from .freshness import newest_vehicle_reading
+        from .derived_values import project_charging_eta
 
         now = datetime.now(UTC)
         for car in self.vehicles.values():
@@ -591,6 +592,7 @@ class StatusEngine:
             profile = self.profiles.get(car.vin.lower())
             if profile is not None:
                 refresh_family_observations(car, profile, now)
+                project_charging_eta(car, profile, now)
             newest = newest_vehicle_reading(car, now)
             if newest is None:
                 car.readings.pop("last_update_time", None)

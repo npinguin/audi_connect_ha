@@ -194,7 +194,8 @@ def _select_observation(vehicle, ident, candidates, registry, now):
 def commit_observation(vehicle, ident, row, registry, now):
     """Keep one sample per family; choose from the same set in either arrival order."""
     # An implausible capture at receipt must never become valid merely by aging.
-    if _valid_capture(row.get("captured"), now) is None:
+    received = _capture_in_utc(row.get("observed")) or now
+    if _valid_capture(row.get("captured"), received) is None:
         row["captured"] = None
         if row.get("status") == "verified":
             row["status"] = "readable_but_stale"

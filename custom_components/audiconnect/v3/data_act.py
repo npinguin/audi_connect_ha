@@ -92,14 +92,12 @@ def decode_dataset(raw: bytes, vin: str) -> dict[str, Any]:
 
 async def read_bounded(response, limit):
     """Read complete bounded bodies, even when the server chunks the response."""
-    if response.content_length is not None and response.content_length > limit:
-        raise DataActUnavailable("Data Act response too large")
-    chunks = bytearray()
-    async for chunk in response.content.iter_chunked(65536):
-        chunks.extend(chunk)
-        if len(chunks) > limit:
-            raise DataActUnavailable("Data Act response too large")
-    return bytes(chunks)
+    from .transport import read_bounded_body
+
+    try:
+        return await read_bounded_body(response, limit)
+    except ValueError as err:
+        raise DataActUnavailable("Data Act response too large") from err
 
 
 class DataActClient:
