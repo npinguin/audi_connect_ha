@@ -100,7 +100,6 @@ class V3Engine:
             operation_request=self._operation_request,
             api_record=self._api_record,
             notify=self._notify_discovery_change,
-            apply_identity=self._apply_identity_candidate,
         )
         self.status = StatusEngine(
             hass=hass,
@@ -115,6 +114,7 @@ class V3Engine:
             operation_request=self._operation_request,
             api_record=self._api_record,
             notify=self._notify_discovery_change,
+            apply_identity=self._apply_identity_candidate,
         )
 
     @property
@@ -172,6 +172,12 @@ class V3Engine:
         ):
             return False
         if fill_missing:
+            if (
+                car.model_family
+                and candidate.model_family
+                and car.model_family != candidate.model_family
+            ):
+                return False
             old_context = car.context
             previous = (car.model, car.model_year)
             car.merge_identity_evidence(candidate, operation=operation)

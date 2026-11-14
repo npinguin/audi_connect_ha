@@ -206,6 +206,7 @@ class DataActClient:
             self._logged_in = True
             if self._reauth_path is None:
                 self._reauth_path = ""
+
     async def identity_rows(self, vins):
         """Read explicit identity fields of already owned, consented VINs."""
         await self._ensure_login()
