@@ -174,7 +174,10 @@ def test_parking_uses_shared_observations_without_inventing_motion_capture():
     assert not moving.available
     from custom_components.audiconnect.v3.capability_status import attribute_status
 
-    assert attribute_status(vehicle, profile, ATTRIBUTES["is_moving"], now)[0] == "not_observed"
+    assert (
+        attribute_status(vehicle, profile, ATTRIBUTES["is_moving"], now)[0]
+        == "not_observed"
+    )
     assert (
         vehicle.family_readings["park_time"]["cariad"] is vehicle.readings["park_time"]
     )

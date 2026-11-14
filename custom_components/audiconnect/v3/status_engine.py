@@ -433,7 +433,9 @@ class StatusEngine:
                     discovery_changed |= bool(
                         self.profiles[key].job_schema.pop(DATA_ACT_DATASET, None)
                     )
-                    self.profiles[key].job_schema.pop("eu_data_act.identity.vehicles", None)
+                    self.profiles[key].job_schema.pop(
+                        "eu_data_act.identity.vehicles", None
+                    )
                     changed |= remove_family_observations(
                         car, self.profiles[key], "eu_data_act", datetime.now(UTC)
                     )
@@ -498,7 +500,11 @@ class StatusEngine:
             rows = await client.identity_rows(car.vin for car in missing.values())
         except DataActUnavailable:
             rows = []
-            outcome = "authorization_required" if client.authorization_required else "unavailable"
+            outcome = (
+                "authorization_required"
+                if client.authorization_required
+                else "unavailable"
+            )
             http_status = None
         else:
             outcome = "no_unique_matching_vehicle"

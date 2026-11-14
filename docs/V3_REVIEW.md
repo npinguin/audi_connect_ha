@@ -25,7 +25,6 @@ Prior upstream contributions are retained. The candidate adds the independent V3
 
 Source inventories, normalized attribute counts, entity counts and ownership contracts are implementation evidence, not physical vehicle certification. Vehicle metadata has worked earlier but can be absent from OEM responses; backend or authorization context may be involved, with no confirmed root cause. Charging controls, model/market compatibility, V2 parity, HA lifecycle and rollback, quota and optional Data Act live acceptance remain explicit release gates. The legacy upstream read-only probe service remains available in V2; in V3 use independent read discovery and Workbench instead.
 
-
 ## B36 live acceptance — multi-source closure (draft, not released)
 
 B36 remains the runtime baseline. First authorized Data Act delivery: 84 bounded structural fields, 19 mapped/normalized, 2 selected; 64/101 canonical attributes normalized, none fresh. 125 registered entities, 98 offered, 394 complete odometer-interval trip records. One poll is not a soak test. No raw owner diagnostics retained in the repository.

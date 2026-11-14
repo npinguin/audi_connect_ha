@@ -1031,9 +1031,24 @@ def test_data_act_duration_and_hood_enrichment_rejects_sentinels():
     registry = CapabilityRegistry.from_json_file(catalog_path())
     payload = {
         "Data": [
-            {"key": "cf28f7d9-6201-30b8-82e5-a461968d30dc", "dataFieldName": "remaining_charging_time", "value": "42", "timestampUtc": now.isoformat()},
-            {"key": "1c62bf0a-8088-332c-9399-3b8cb0573099", "dataFieldName": "remaining_climatisation_time", "value": "-1", "timestampUtc": now.isoformat()},
-            {"key": "d48ccd21-a39f-33eb-989b-d81bd23fa766", "dataFieldName": "state_of_hood", "value": "3", "timestampUtc": now.isoformat()},
+            {
+                "key": "cf28f7d9-6201-30b8-82e5-a461968d30dc",
+                "dataFieldName": "remaining_charging_time",
+                "value": "42",
+                "timestampUtc": now.isoformat(),
+            },
+            {
+                "key": "1c62bf0a-8088-332c-9399-3b8cb0573099",
+                "dataFieldName": "remaining_climatisation_time",
+                "value": "-1",
+                "timestampUtc": now.isoformat(),
+            },
+            {
+                "key": "d48ccd21-a39f-33eb-989b-d81bd23fa766",
+                "dataFieldName": "state_of_hood",
+                "value": "3",
+                "timestampUtc": now.isoformat(),
+            },
         ]
     }
     result = data_act_observations(payload, now, registry)
