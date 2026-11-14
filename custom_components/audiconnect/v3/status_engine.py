@@ -114,7 +114,9 @@ class StatusEngine:
         deliveries = {}
         mapped = selected = 0
         for car in self.vehicles.values():
-            if not car.inventory_present or (vehicle is not None and car is not vehicle):
+            if not car.inventory_present or (
+                vehicle is not None and car is not vehicle
+            ):
                 continue
             state = states.get(car.vin.upper())
             if state is not None:

@@ -478,8 +478,13 @@ def _data_act_value(mapping, raw):
             raw
             if isinstance(raw, str)
             and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", raw)
-            and raw.lower() not in {
-                "unknown", "invalid", "unsupported", "unavailable", "error",
+            and raw.lower()
+            not in {
+                "unknown",
+                "invalid",
+                "unsupported",
+                "unavailable",
+                "error",
                 "notavailable",
             }
             else None
@@ -534,9 +539,15 @@ def data_act_observations(payload, now, registry):
         conflict = len({row[1] for row in matching}) != 1
         if conflict and latest is None:
             continue
-        sample = {"value": None if conflict else value, "captured": captured, "path": key}
+        sample = {
+            "value": None if conflict else value,
+            "captured": captured,
+            "path": key,
+        }
         if sample["value"] is None:
-            sample["reason"] = "conflicting_source_values" if conflict else "invalid_source_value"
+            sample["reason"] = (
+                "conflicting_source_values" if conflict else "invalid_source_value"
+            )
         result[ident] = sample
     return result
 

@@ -369,9 +369,12 @@ def test_sparse_q8_shape_maps_known_information_only():
     )
     for invalid in ("4294967295", "2147483647", "-1", "123.5"):
         payload["Data"][1]["value"] = invalid
-        assert data_act_observations(payload, now, registry)[
-            "UTC_TIME_AND_KILOMETER_STATUS"
-        ]["value"] is None
+        assert (
+            data_act_observations(payload, now, registry)[
+                "UTC_TIME_AND_KILOMETER_STATUS"
+            ]["value"]
+            is None
+        )
 
 
 @pytest.mark.asyncio
@@ -1304,30 +1307,46 @@ def test_timestamped_data_act_rejection_withdraws_only_its_own_value():
     )
     earlier = (now - timedelta(minutes=10)).isoformat()
     record_observation(
-        car, profile, "stateOfCharge", 40, earlier, now, "native",
-        "charging", "cariad", fresh=True, operation="cariad.climate.status.batch",
+        car,
+        profile,
+        "stateOfCharge",
+        40,
+        earlier,
+        now,
+        "native",
+        "charging",
+        "cariad",
+        fresh=True,
+        operation="cariad.climate.status.batch",
     )
     payload = {"vin": VIN, "Data": [sample("52", now.isoformat())]}
     observe_data_act(car, profile, payload, now, now.isoformat())
     assert car.readings["stateOfCharge"]["value"] == 52
     # Missing field is not invalidation; an older invalid value cannot replace it.
     for incoming in ([], [sample(None, now.isoformat())], [sample("-1", earlier)]):
-        observe_data_act(car, profile, {"vin": VIN, "Data": incoming}, now, now.isoformat())
+        observe_data_act(
+            car, profile, {"vin": VIN, "Data": incoming}, now, now.isoformat()
+        )
         assert car.readings["stateOfCharge"]["value"] == 52
     payload["Data"].append(sample("53", now.isoformat()))
     observe_data_act(car, profile, payload, now, now.isoformat())
     assert car.readings["stateOfCharge"]["value"] == 40
-    assert car.family_readings["stateOfCharge"]["eu_data_act"]["status"] == "invalid_value"
+    assert (
+        car.family_readings["stateOfCharge"]["eu_data_act"]["status"] == "invalid_value"
+    )
     from custom_components.audiconnect.v3.capability_status import build_status_report
 
     source = next(
-        row for row in build_status_report(car, profile)["family_discovery"]
+        row
+        for row in build_status_report(car, profile)["family_discovery"]
         if row["id"] == "eu_data_act"
     )
     assert source["priority"] == 30
     assert "stateOfCharge" in source["declared_attributes"]
     assert source["normalized"] == source["selected"] == 0
-    observation = next(row for row in source["observations"] if row["attribute"] == "stateOfCharge")
+    observation = next(
+        row for row in source["observations"] if row["attribute"] == "stateOfCharge"
+    )
     assert observation["valid"] is False
     assert observation["status"] == "invalid_value"
 
@@ -1342,11 +1361,20 @@ def test_data_act_health_is_vehicle_scoped():
     car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
     denied = V3Vehicle(other, "Audi", "Q5", "q5", "DE")
     client = DataActClient(None)
-    client.delivery_states.update({VIN: "dataset_received", other: "vehicle_access_denied"})
+    client.delivery_states.update(
+        {VIN: "dataset_received", other: "vehicle_access_denied"}
+    )
     status = StatusEngine(
-        hass=None, entry=None, auth=SimpleNamespace(data_act_client=client),
-        transport=None, storage=None, vehicles={VIN.lower(): car, other.lower(): denied},
-        profiles={}, discover=None, known_inventory=None, operation_request=None,
+        hass=None,
+        entry=None,
+        auth=SimpleNamespace(data_act_client=client),
+        transport=None,
+        storage=None,
+        vehicles={VIN.lower(): car, other.lower(): denied},
+        profiles={},
+        discover=None,
+        known_inventory=None,
+        operation_request=None,
         api_record=None,
     )
     assert status.data_act_poll_status()["result"] == "dataset_received"
@@ -1356,13 +1384,16 @@ def test_data_act_health_is_vehicle_scoped():
     assert report["delivery_states"] == {"vehicle_access_denied": 1}
 
 
-@pytest.mark.parametrize("change", [
-    {"attribute": "nonexistent"},
-    {"min": 100, "max": 0},
-    {"values": {"x": True}},
-    {"scale": 2},
-    {"detail": True},
-])
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"attribute": "nonexistent"},
+        {"min": 100, "max": 0},
+        {"values": {"x": True}},
+        {"scale": 2},
+        {"detail": True},
+    ],
+)
 def test_registry_rejects_malformed_source_mappings(change):
     from custom_components.audiconnect.v3.registry import RegistryError
 

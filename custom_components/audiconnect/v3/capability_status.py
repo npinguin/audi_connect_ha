@@ -578,7 +578,10 @@ def family_discovery(vehicle, profile, rows, operations):
                 sample = selected
             if not sample or row["status"] == "disabled_by_user":
                 continue
-            valid = sample.get("value") is not None and sample.get("status") != "invalid_value"
+            valid = (
+                sample.get("value") is not None
+                and sample.get("status") != "invalid_value"
+            )
             if is_selected and row["status"] not in ("verified", "readable_but_stale"):
                 valid = False
             observations.append(
@@ -589,9 +592,9 @@ def family_discovery(vehicle, profile, rows, operations):
                     "observed_at": sample.get("observed"),
                     "selected": is_selected and valid,
                     "valid": valid,
-                    "status": (
-                        row["status"] if is_selected else "alternative"
-                    ) if valid else "invalid_value",
+                    "status": (row["status"] if is_selected else "alternative")
+                    if valid
+                    else "invalid_value",
                     "fresh": valid and timestamp_is_fresh(sample.get("captured"), now),
                     "delivered_at": sample.get("delivered_at"),
                 }

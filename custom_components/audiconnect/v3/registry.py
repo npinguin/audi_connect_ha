@@ -303,9 +303,19 @@ class CapabilityRegistry:
                 or (detail and ident in ATTRIBUTES)
                 or (not detail and ident not in ATTRIBUTES)
                 or ("unit" in mapping and not isinstance(mapping["unit"], str))
-                or set(mapping) - {
-                    "field", "attribute", "detail", "unit", "values",
-                    "min", "max", "scale", "offset", "presence", "token",
+                or set(mapping)
+                - {
+                    "field",
+                    "attribute",
+                    "detail",
+                    "unit",
+                    "values",
+                    "min",
+                    "max",
+                    "scale",
+                    "offset",
+                    "presence",
+                    "token",
                 }
             ):
                 raise RegistryError("Invalid observation destination")
@@ -316,11 +326,15 @@ class CapabilityRegistry:
                 raise RegistryError("Ambiguous observation conversion")
             if "values" in mapping:
                 values = mapping["values"]
-                if not isinstance(values, dict) or not values or any(
-                    not isinstance(k, str)
-                    or type(v) not in (str, bool, int, float)
-                    or (type(v) in (int, float) and not finite(v))
-                    for k, v in values.items()
+                if (
+                    not isinstance(values, dict)
+                    or not values
+                    or any(
+                        not isinstance(k, str)
+                        or type(v) not in (str, bool, int, float)
+                        or (type(v) in (int, float) and not finite(v))
+                        for k, v in values.items()
+                    )
                 ):
                     raise RegistryError("Invalid observation enum")
             elif "min" in mapping:
@@ -329,9 +343,10 @@ class CapabilityRegistry:
                     or not finite(mapping.get("max"))
                     or mapping["min"] > mapping["max"]
                     or ("scale" in mapping) != ("offset" in mapping)
-                    or ("scale" in mapping and not all(
-                        finite(mapping[k]) for k in ("scale", "offset")
-                    ))
+                    or (
+                        "scale" in mapping
+                        and not all(finite(mapping[k]) for k in ("scale", "offset"))
+                    )
                 ):
                     raise RegistryError("Invalid observation numeric conversion")
             elif mapping.get("presence", mapping.get("token")) is not True:

@@ -1481,21 +1481,38 @@ class AudiConnectV3Panel extends HTMLElement {
   }
 
   capabilityMatrix(rows, families) {
-    if (!rows.length) return "<p>No matching attributes. Show all attributes to inspect missing data.</p>";
+    if (!rows.length)
+      return "<p>No matching attributes. Show all attributes to inspect missing data.</p>";
     const sources = families.map((source) => ({
       ...source,
-      samples: new Map((source.observations || []).map((row) => [row.attribute, row])),
+      samples: new Map(
+        (source.observations || []).map((row) => [row.attribute, row]),
+      ),
       declared: new Set(source.declared_attributes || []),
     }));
     return `<p class="helper">Selected source is marked ✓. Newest valid capture wins; source priority breaks equivalent captures (lower number first). Last known is not live data.</p>
       <div class="coverage-table"><table><thead><tr><th>Attribute / HA entity</th>${sources.map((source) => `<th>${escapeHTML(source.label)}<div class="subline">Priority ${escapeHTML(source.priority ?? "—")}</div></th>`).join("")}<th>Inspect</th></tr></thead><tbody>
-      ${rows.map((row) => `<tr><td><b>${escapeHTML(row.metadata?.name || friendly(row.entity_key))}</b><div class="subline">${pill(row.status)}</div><div class="subline">${this.entityLinks(row.entity_ids) || "No registered entity"}</div></td>
-      ${sources.map((source) => {
-        const sample = source.samples.get(row.attribute);
-        if (!sample) return `<td class="muted">${source.declared.has(row.attribute) ? "Mapped · no value" : "—"}</td>`;
-        const value = sample.valid === false ? "Invalid value" : sample.normalized_value ?? "Not retained";
-        return `<td><b>${sample.selected ? "✓ " : ""}${escapeHTML(value)}</b><div class="subline">${sample.valid === false ? "Invalid" : sample.fresh ? "Fresh" : "Last known"}${sample.captured ? " · " + escapeHTML(this.localTime(sample.captured)) : ""}</div><details><summary>Source details</summary><code>${escapeHTML(sample.source_field || "—")}</code><div class="subline">Received ${escapeHTML(this.localTime(sample.observed_at))}</div></details></td>`;
-      }).join("")}<td><button data-action="select-attribute" data-capability="${escapeHTML(row.capability)}" data-attribute="${escapeHTML(row.attribute)}">Inspect &amp; test ›</button></td></tr>`).join("")}
+      ${rows
+        .map(
+          (
+            row,
+          ) => `<tr><td><b>${escapeHTML(row.metadata?.name || friendly(row.entity_key))}</b><div class="subline">${pill(row.status)}</div><div class="subline">${this.entityLinks(row.entity_ids) || "No registered entity"}</div></td>
+      ${sources
+        .map((source) => {
+          const sample = source.samples.get(row.attribute);
+          if (!sample)
+            return `<td class="muted">${source.declared.has(row.attribute) ? "Mapped · no value" : "—"}</td>`;
+          const value =
+            sample.valid === false
+              ? "Invalid value"
+              : (sample.normalized_value ?? "Not retained");
+          return `<td><b>${sample.selected ? "✓ " : ""}${escapeHTML(value)}</b><div class="subline">${sample.valid === false ? "Invalid" : sample.fresh ? "Fresh" : "Last known"}${sample.captured ? " · " + escapeHTML(this.localTime(sample.captured)) : ""}</div><details><summary>Source details</summary><code>${escapeHTML(sample.source_field || "—")}</code><div class="subline">Received ${escapeHTML(this.localTime(sample.observed_at))}</div></details></td>`;
+        })
+        .join(
+          "",
+        )}<td><button data-action="select-attribute" data-capability="${escapeHTML(row.capability)}" data-attribute="${escapeHTML(row.attribute)}">Inspect &amp; test ›</button></td></tr>`,
+        )
+        .join("")}
       </tbody></table></div>`;
   }
 
@@ -1802,7 +1819,10 @@ class AudiConnectV3Panel extends HTMLElement {
         (family === "all" ||
           r.api_family === family ||
           sourceObservations.has(r.attribute) ||
-          (selectedSource?.id === family && (selectedSource.declared_attributes || []).includes(r.attribute))) &&
+          (selectedSource?.id === family &&
+            (selectedSource.declared_attributes || []).includes(
+              r.attribute,
+            ))) &&
         (!selectedEntity ||
           entityMatches(r) ||
           (!r.entity_key && selectedEntity.operations.includes(r.operation))),
@@ -1825,7 +1845,12 @@ class AudiConnectV3Panel extends HTMLElement {
           api_family: family,
           normalized_value: observation.normalized_value,
           path: observation.source_field,
-          status: observation.valid === false ? "invalid_value" : observation.fresh ? "verified" : "readable_but_stale",
+          status:
+            observation.valid === false
+              ? "invalid_value"
+              : observation.fresh
+                ? "verified"
+                : "readable_but_stale",
         };
       });
     const controls = filteredRows.filter(

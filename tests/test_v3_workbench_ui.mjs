@@ -1903,25 +1903,47 @@ test("Selecting a source shows its alternative observations and actual scalar va
   assert.match(p.shadowRoot.innerHTML, /includes alternatives/);
 });
 
-
 test("Capability matrix shows actual, missing and invalid source evidence without requests", () => {
   const p = new Panel();
-  const rows = [{
-    attribute: "stateOfCharge",
-    entity_key: "sensor.state_of_charge",
-    capability: "charging",
-    metadata: { name: "Battery level" },
-    status: "readable_but_stale",
-    entity_ids: [],
-  }];
+  const rows = [
+    {
+      attribute: "stateOfCharge",
+      entity_key: "sensor.state_of_charge",
+      capability: "charging",
+      metadata: { name: "Battery level" },
+      status: "readable_but_stale",
+      entity_ids: [],
+    },
+  ];
   const families = [
-    { id: "cariad", label: "CARIAD", priority: 10, observations: [
-      { attribute: "stateOfCharge", normalized_value: 0, selected: true, valid: true, fresh: false },
-    ] },
-    { id: "future_source", label: "Future source", priority: 20, declared_attributes: ["stateOfCharge"] },
-    { id: "eu_data_act", label: "EU Data Act", priority: 30, observations: [
-      { attribute: "stateOfCharge", selected: false, valid: false },
-    ] },
+    {
+      id: "cariad",
+      label: "CARIAD",
+      priority: 10,
+      observations: [
+        {
+          attribute: "stateOfCharge",
+          normalized_value: 0,
+          selected: true,
+          valid: true,
+          fresh: false,
+        },
+      ],
+    },
+    {
+      id: "future_source",
+      label: "Future source",
+      priority: 20,
+      declared_attributes: ["stateOfCharge"],
+    },
+    {
+      id: "eu_data_act",
+      label: "EU Data Act",
+      priority: 30,
+      observations: [
+        { attribute: "stateOfCharge", selected: false, valid: false },
+      ],
+    },
   ];
   const html = p.capabilityMatrix(rows, families);
   assert.match(html, /Priority 10/);
