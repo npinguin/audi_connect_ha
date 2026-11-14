@@ -1206,3 +1206,52 @@ def test_portal_identity_uses_declared_paths_and_never_role_or_nickname():
     assert car.model == "Audi A6"
     assert car.model_year == "2022"
     assert car.model_source == "eu_data_act_oem.model"
+
+
+def test_observed_portal_inventory_has_exact_declared_destinations():
+    """The 84 observed structural fields must never silently lose a mapping."""
+    from pathlib import Path
+
+    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
+
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    inventory = json.loads(
+        (Path(__file__).parent / "fixtures/v3_data_act_observed_fields.json").read_text()
+    )
+    mappings = registry.families["eu_data_act"]["observations"]
+    assert len(inventory) == 84
+    for row in inventory:
+        mapping = mappings[row["key"]]
+        assert mapping["field"] == row["name"]
+        assert mapping["attribute"] in ATTRIBUTES or (
+            mapping.get("detail") and mapping["attribute"].endswith("_detail")
+        )
+
+
+def test_portal_read_only_details_use_existing_observation_lifecycle():
+    from custom_components.audiconnect.v3.attribute_runtime import remove_family_observations
+    from custom_components.audiconnect.v3.capability_status import build_status_report
+
+    now = datetime.now(UTC)
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "BE")
+    profile = DevelopmentProfile(
+        CapabilityRegistry.from_json_file(catalog_path()), car.context
+    )
+    payload = {
+        "vin": VIN,
+        "Data": [
+            {"key": "f8bbe94d-06e1-3311-bf8f-c0c99cc67d48", "dataFieldName": "parking_brake", "value": "1", "timestampUtc": now.isoformat()},
+            {"key": "c4a26fd6-c08f-3921-bb8c-23fab6751c54", "dataFieldName": "tyre_pressure_actual_front_left", "value": "2.8", "timestampUtc": now.isoformat()},
+            {"key": "0f43f2e7-3556-36a9-8271-a60bc54afad8", "dataFieldName": "echo", "value": "private-value", "timestampUtc": now.isoformat()},
+        ],
+    }
+    observe_data_act(car, profile, payload, now, now.isoformat())
+    assert car.readings["parking_brake_detail"]["value"] is True
+    assert car.readings["tyre_pressure_actual_front_left_detail"]["value"] == 2.8
+    assert car.readings["echo_detail"]["value"] is True
+    source = next(row for row in build_status_report(car, profile)["family_discovery"] if row["id"] == "eu_data_act")
+    assert source["normalized_details"] == 3
+    assert source["normalized"] == 0
+    assert "private-value" not in str(source)
+    remove_family_observations(car, profile, "eu_data_act", now)
+    assert "parking_brake_detail" not in car.readings

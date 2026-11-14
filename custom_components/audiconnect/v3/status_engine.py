@@ -120,7 +120,7 @@ class StatusEngine:
             if state is not None:
                 deliveries[state] = deliveries.get(state, 0) + 1
             for ident, families in car.family_readings.items():
-                if "eu_data_act" in families:
+                if "eu_data_act" in families and not ident.endswith("_detail"):
                     mapped += 1
                     selected += (
                         car.readings.get(ident, {}).get("family") == "eu_data_act"
