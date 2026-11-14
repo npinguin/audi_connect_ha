@@ -529,3 +529,20 @@ def test_sleeping_lock_retains_last_observation_and_explicit_reverse_dispatch():
     assert entity.is_locked is True
     assert entity.extra_state_attributes["state_source"] == "last_known_vehicle"
     assert entity.extra_state_attributes["last_reported_state"] == "locked"
+
+
+
+def test_restart_never_reactivates_optimistic_state():
+    from custom_components.audiconnect.v3.command_readback import control_projection
+
+    command = record("access", "unlock")
+    command.observe_http(200)
+    restored = CommandRecord.restore(command.snapshot())
+    reading = {
+        "value": "locked",
+        "captured": OLD.isoformat(),
+        "status": "verified",
+    }
+    assert control_projection(
+        NS(command_journal=[restored]), "doorLockStatus", reading, now=NOW
+    ) == ("locked", "vehicle")

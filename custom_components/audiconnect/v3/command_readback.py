@@ -274,17 +274,12 @@ def optimistic_expiry(record):
     if (
         record is None
         or record.origin != "home_assistant"
+        or getattr(record, "restored", False)
         or record.http_status is None
         or not 200 <= record.http_status < 300
         or not projection_attributes(record)
         or record.backend_result in ("rejected", "transport_uncertain")
-        or not (
-            record.state in _ACCEPTED
-            or (
-                record.state == "uncertain"
-                and record.backend_result == "accepted_unconfirmed"
-            )
-        )
+        or record.state not in _ACCEPTED
     ):
         return None
     return record.started_at + OPTIMISTIC_TTL_SECONDS
@@ -299,7 +294,7 @@ def requested_projection(record, attribute):
     return values[0] if len(values) == 1 else None
 
 
-def control_projection(profile, attribute, reading, *, now=None, fallback=None):
+def control_projection(profile, attribute, reading, *, now=None):
     """Effective HA control state, never a physical or authorization proof.
 
     Retain the newest valid observed value across sleep and sentinel data.
@@ -309,23 +304,17 @@ def control_projection(profile, attribute, reading, *, now=None, fallback=None):
     now = now or datetime.now(UTC)
     reading = reading or {}
     known = last_known_observation(reading)
-    if not known and reading.get("reason") != "conflicting_source_values":
-        known = fallback or {}
     record = latest_projection_command(profile, attribute)
     expiry = optimistic_expiry(record)
     stamp = _valid_capture(known.get("captured"), now)
-    conflict_stamp = (
-        _valid_capture(reading.get("captured"), now)
-        if reading.get("reason") == "conflicting_source_values"
-        else None
-    )
+    observed_stamp = _valid_capture(reading.get("captured"), now)
     if (
         expiry is not None
         and record.started_at <= now.timestamp() < expiry
         and (stamp is None or stamp.timestamp() <= record.started_at)
         and (
-            conflict_stamp is None
-            or conflict_stamp.timestamp() <= record.started_at
+            observed_stamp is None
+            or observed_stamp.timestamp() <= record.started_at
         )
         and record.readback_observed_at is None
         and record.readback_mismatch_at is None
@@ -393,16 +382,6 @@ def command_attributes(profile, capability, actions, *, attribute=None):
             else None
         ),
     }
-
-
-def last_known_climate(profile):
-    """Historical telemetry only, including the existing restart cache."""
-    from .attribute_runtime import validate_last_known_climate
-
-    row = validate_last_known_climate(getattr(profile, "last_known_climate", None))
-    if row:
-        return row["value"], row["captured"], "last_known_vehicle"
-    return None, None, "unknown"
 
 
 def pending_access_action(profile, captured, *, now=None):

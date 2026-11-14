@@ -106,8 +106,8 @@ def test_parked_state_unknown_does_not_hide_authorized_control():
     car.set_climate("off", stamp, route="test", observed_at=now, http_status=200)
     lock = V3LockEntity(co, car)
     quick = V3ClimateQuickSwitch(co, car)
-    assert lock.available and lock.is_locked is None
-    assert quick.available and quick.is_on is None
+    assert lock.available and lock.is_locked is True
+    assert quick.available and quick.is_on is False
     lock.async_write_ha_state = lambda: None
     quick.async_write_ha_state = lambda: None
     asyncio.run(lock.async_lock())

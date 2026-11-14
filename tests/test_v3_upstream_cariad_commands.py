@@ -161,7 +161,7 @@ async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outc
         )
 
     async def confirm(*args):
-        assert notifications == [("off", "vehicle")]
+        assert notifications == [("on", "optimistic")]
         assert car.climate_state == "off"
         return outcome
 
@@ -186,7 +186,7 @@ async def test_accepted_comfort_feedback_precedes_confirmation(monkeypatch, outc
         record = await engine.commands.send_control(VIN, "start", "climate")
         assert record.state == "accepted_unconfirmed"
         assert record.backend_result == outcome
-        assert notifications[-1] == ("off", "vehicle")
+        assert notifications[-1] == ("on", "optimistic")
     assert car.climate_state == "off"
     assert car.climate_captured == stamp
 

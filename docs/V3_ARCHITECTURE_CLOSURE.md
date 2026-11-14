@@ -94,16 +94,16 @@ Independent read sessions may run concurrently within one coordinator. Keep the 
 
 Before committing, run the existing pinned pre-commit hooks on changed files and focused tests where the development environment supports them. Batch related fixes; use the complete hook report rather than committing individual formatting corrections. Preserve the exact-head full PR and release validation gates. No new lint workflow or relaxed check.
 
-
 ### Control-state continuity (B41)
 
-The existing observation owner and command journal remain authoritative. HA
-control projection retains valid last-known observations independently of age.
-A known HTTP acceptance may overlay a requested control value for five minutes
-from the original dispatch; newer valid vehicle captures (including a
-contradiction), superseding attempts, rejection and expiry take precedence.
+Status owns canonical readings and their historical scalar representation.
+The profile serializes the same vehicle map; the old climate-only cache is
+migrated and removed. Restored observations are historical, never fresh
+readback or route authorization. No optional Data Act, location or raw response
+is persisted here. Command owns intent, outcome and bounded expiry; HA derives
+effective state from these existing owners, with no independent state cache.
+Restart restores observations and outcomes but never reactivates intent.
 One coordinator-local timer expires the overlay without a vehicle request.
-Read-only telemetry and security/energy decisions must use actual observations,
-not the optimistic control value. A command outcome is never changed by display
-projection or expiry. The latest command outcome per control is protected within
-the existing bounded journal. No automatic replay or new polling owner.
+Read-only telemetry never projects intent. The HA assumed-state indicator and
+explicit source/last-reported attributes distinguish estimated controls.
+No automatic replay, new store or polling owner.

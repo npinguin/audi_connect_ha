@@ -61,39 +61,112 @@ def _accept_observation(
     return incoming is not None and incoming >= prior
 
 
-def validate_last_known_climate(row, now=None):
-    """Bounded display-only observation; never a source of authorization."""
-    from .freshness import capture_age_minutes
-    from .vehicle import CLIMATE_OFF_STATES, CLIMATE_ON_STATES
+# Persist native, dated scalar status only; no location, raw payload,
+# custom attributes, capability proof or optional Data Act data.
+_RETAINED_CONTROL_FIELDS = {
+    "doorLockStatus",
+    "climatisationState",
+    "chargingState",
+    "preferredChargeMode",
+    "targetstateOfCharge",
+    "climatisationTargetTemperatureC",
+    "windowHeatingActive",
+    "preheater_active",
+    "climatisationWindowHeatingEnabled",
+    "climatisationAtUnlock",
+    "climatisationZoneFrontLeft",
+    "climatisationZoneFrontRight",
+    "climatisationZoneRearLeft",
+    "climatisationZoneRearRight",
+}
 
-    if not isinstance(row, dict):
-        return None
-    value, captured = row.get("value"), row.get("captured")
+
+def retained_status_field(ident):
+    from .attribute_contracts import binary_contract_for, contract_for
+
+    if ident in _RETAINED_CONTROL_FIELDS:
+        return True
+    descriptor = ATTRIBUTES.get(ident, {})
+    key = descriptor.get("entity_key", "")
+    if not key or any(word in key for word in ("position", "park_time", "profile_name")):
+        return False
+    contract = (
+        binary_contract_for(key)
+        if descriptor.get("platform") == "binary_sensor"
+        else contract_for(key)
+    )
+    return contract.get("display_last_known") is True
+
+
+def status_snapshot(readings, *, now=None):
+    """Serialize the canonical status map, not an independent runtime cache."""
+    result = {}
+    for ident, reading in readings.items():
+        known = last_known_observation(reading)
+        value, captured = known.get("value"), known.get("captured")
+        family = known.get("family")
+        if (
+            retained_status_field(ident)
+            and family in ("cariad", "mbb")
+            and type(value) in (str, int, float, bool)
+            and (not isinstance(value, str) or 0 < len(value) <= 100)
+            and (type(value) not in (int, float) or abs(value) <= 1e100)
+            and _valid_capture(captured, now) is not None
+            and not semantic_value_issue(
+                ATTRIBUTES.get(ident, {}).get("entity_key", ""), value
+            )
+        ):
+            result[ident] = {
+                "value": value,
+                "captured": captured,
+                "family": family,
+                "status": "readable_but_stale",
+            }
+    return result
+
+
+def restore_status(saved, legacy_climate=None):
+    """Restore as historical evidence only, never as an API response."""
+    if not isinstance(saved, dict):
+        saved = {}
     if (
-        not isinstance(value, str)
-        or value not in CLIMATE_OFF_STATES + CLIMATE_ON_STATES
-        or capture_age_minutes(captured, now) is None
+        "climatisationState" not in saved
+        and isinstance(legacy_climate, dict)
+        and legacy_climate.get("value") in (
+            "off", "stopped", "inactive", "heating", "cooling",
+            "ventilation", "on", "active",
+        )
     ):
-        return None
-    return {"value": value, "captured": captured}
+        saved = {
+            **saved,
+            "climatisationState": {**legacy_climate, "family": "cariad"},
+        }
+    rows = {
+        ident: row
+        for ident, row in saved.items()
+        if isinstance(ident, str) and isinstance(row, dict)
+    }
+    return {
+        ident: {
+            "value": None,
+            "captured": row["captured"],
+            "family": row["family"],
+            "status": "invalid_value",
+            "reason": "restored_history",
+            "last_known": row,
+        }
+        for ident, row in status_snapshot(rows).items()
+    }
 
 
-def remember_climate(profile, reading, now=None):
-    """Keep the most recent valid sample, including across sentinel responses."""
-    if profile is None:
+def bind_status(vehicle, profile):
+    """One live map per VIN; profiles only serialize/restore that map."""
+    if profile is None or not hasattr(profile, "status_readings"):
         return
-    previous = getattr(profile, "last_known_climate", None)
-    if previous and any(
-        sample.get("reason") == "conflicting_source_values"
-        and _capture_in_utc(previous["captured"])
-        == _capture_in_utc(sample.get("captured"))
-        for sample in (reading, reading.get("last_known") or {})
-    ):
-        profile.last_known_climate = None
-        previous = None
-    row = validate_last_known_climate(last_known_observation(reading), now)
-    if row and _accept_observation(previous, row["captured"], now):
-        profile.last_known_climate = row
+    if profile.status_readings is not vehicle.readings:
+        for ident, row in profile.status_readings.items():
+            vehicle.readings.setdefault(ident, row)
+        profile.status_readings = vehicle.readings
 
 
 def _observation_rank(row, registry, now):
@@ -104,13 +177,16 @@ def _observation_rank(row, registry, now):
         if registry is not None and family in registry.families
         else 100
     )
-    valid = row.get("value") is not None and row.get("status") != "invalid_value"
+    restored = row.get("reason") == "restored_history"
+    valid = (
+        row.get("value") is not None and row.get("status") != "invalid_value"
+    ) or restored
     stamp = _valid_capture(
         row.get("captured"), _capture_in_utc(row.get("observed")) or now
     )
     captured = stamp.timestamp() if stamp else float("-inf")
     if valid and stamp is not None:
-        return (2, captured, -priority, family)
+        return (2, captured, not restored, -priority, family)
     if valid:
         return (1, -priority, captured, family)
     return (0, captured, -priority, family)
@@ -258,6 +334,16 @@ def _merge_observation(previous, row, now):
         return _retain_history(previous, previous, row, now)
     if incoming is not None and (prior is None or incoming > prior):
         return _retain_history(row, previous, row, now)
+    if previous.get("reason") == "restored_history" and incoming == prior:
+        # A real same-capture observation replaces restored display evidence.
+        # Contradictory values at that capture still fail closed.
+        known = previous.get("last_known") or {}
+        if row.get("status") != "invalid_value" and (
+            type(row.get("value")) is type(known.get("value"))
+            and row.get("value") == known.get("value")
+        ):
+            return row
+        previous = {**known, "observed": None}
     # Both captures are equal or absent. An invalid undated report is not
     # a new vehicle event; two incompatible values are an explicit conflict.
     old_invalid = previous.get("status") == "invalid_value"
@@ -418,8 +504,6 @@ def record_invalid_observation(
         getattr(profile, "registry", None),
         observed_at,
     )
-    if ident == "climatisationState":
-        remember_climate(profile, vehicle.readings[ident], observed_at)
 
 
 def record_observation(
@@ -461,8 +545,6 @@ def record_observation(
     accepted = commit_observation(
         vehicle, ident, row, getattr(profile, "registry", None), observed_at
     )
-    if ident == "climatisationState":
-        remember_climate(profile, vehicle.readings[ident], observed_at)
     if not accepted:
         return False
     if persist_evidence:

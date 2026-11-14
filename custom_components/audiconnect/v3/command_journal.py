@@ -374,6 +374,7 @@ class CommandRecord:
             )
         ):
             record.state = "uncertain"  # Never replay an interrupted mutation.
+        record.restored = True
         return record
 
 

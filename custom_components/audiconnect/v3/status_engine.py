@@ -18,7 +18,6 @@ from .attribute_runtime import (
     _valid_capture,
     record_invalid_observation,
     record_observation,
-    remember_climate,
     normalize_attribute_value,
 )
 from .custom_attributes import attributes_for
@@ -793,19 +792,14 @@ class StatusEngine:
                             and "climatisationState" not in profile.attribute_disabled
                             and profile.attribute_routes.get("climatisationState")
                             in (None, "cariad.selectivestatus.batch")
-                            and vehicle.set_climate(
+                        ):
+                            vehicle.set_climate(
                                 value,
                                 captured,
                                 route=ident,
                                 path=field,
                                 observed_at=response.observed_at,
                                 http_status=response.status,
-                            )
-                        ):
-                            remember_climate(
-                                profile,
-                                vehicle.readings["climatisationState"],
-                                response.observed_at,
                             )
                     elif valid:
                         if (

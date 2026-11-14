@@ -71,7 +71,13 @@ def supported_charge_modes(car, profile=None):
         return []
     if row.get("status") != "invalid_value" and isinstance(values, list) and values:
         return [mode for mode in ("manual", "timer") if mode in values]
-    if profile is None or not charge_mode_recovery_candidate(car):
+    if profile is None:
+        return []
+    # Only current revision-bound physical proof survives missing options.
+    # Dated invalid or contradictory options still block writes.
+    if not charge_mode_recovery_candidate(car) and (
+        row.get("captured") is not None or row.get("status") == "invalid_value"
+    ):
         return []
     from .operation_revision import operation_revision
 

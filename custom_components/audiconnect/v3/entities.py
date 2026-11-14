@@ -54,12 +54,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from ..const import DOMAIN
 from .auth import configured_spin
 from .freshness import movement_capture_valid, reading_freshness_attributes
+from .attribute_runtime import last_known_observation
 from .coordinator_clean import V3CleanCoordinator
 from .vehicle import V3Vehicle, CLIMATE_ON_STATES, CLIMATE_OFF_STATES
 from .command_readback import (
     command_attributes,
     control_projection,
-    last_known_climate,
     latest_projection_command,
     optimistic_expiry,
 )
@@ -132,6 +132,15 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
     def available(self) -> bool:
         return getattr(self.vehicle, "inventory_present", True) and super().available
 
+    @property
+    def assumed_state(self) -> bool:
+        """Use HA's native indicator for estimated control state."""
+        if not isinstance(self, (ClimateEntity, SwitchEntity, LockEntity, NumberEntity, SelectEntity)):
+            return False
+        return (self.extra_state_attributes or {}).get("state_source") in (
+            "optimistic", "last_known_vehicle"
+        )
+
     def _control_attributes(
         self,
         capability,
@@ -183,8 +192,6 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
             row = (
                 reading if reading is not None else self.vehicle.readings.get(attribute)
             )
-            from .attribute_runtime import last_known_observation
-
             optimistic = source == "optimistic"
             record = latest_projection_command(profile, attribute) if optimistic else None
             expiry = optimistic_expiry(record)
@@ -220,16 +227,12 @@ _CLIMATE_ON = frozenset(CLIMATE_ON_STATES)
 
 
 def _reading_projection(coordinator, vehicle, attribute, *, allow_last_known=True):
-    """Native control projection; read-only entities never use command intent."""
-    profile = getattr(coordinator.engine, "profiles", {}).get(vehicle.vin.lower())
-    row = vehicle.readings.get(attribute) or {}
+    """Native control projection directly from status and command owners."""
+    profile = getattr(
+        getattr(coordinator, "engine", None), "profiles", {}
+    ).get(vehicle.vin.lower())
     key = "climate" if attribute == "climatisationState" else attribute
-    fallback = None
-    if key == "climate":
-        value, captured, _ = last_known_climate(profile)
-        if value is not None:
-            fallback = {"value": value, "captured": captured}
-    return control_projection(profile, key, row, fallback=fallback)
+    return control_projection(profile, key, vehicle.readings.get(attribute))
 
 
 def _climate_projection(coordinator, vehicle):
@@ -284,8 +287,6 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
 
     @property
     def reported_target_temperature(self):
-        from .attribute_runtime import last_known_observation
-
         value = last_known_observation(
             self.vehicle.readings.get("climatisationTargetTemperatureC")
         ).get("value")
@@ -367,16 +368,9 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
         profile = getattr(engine, "profiles", {}).get(self.vehicle.vin.lower())
         from .structured_details import details_for
 
-        from .attribute_runtime import last_known_observation
-
         row = last_known_observation(self.vehicle.readings.get("climatisationState"))
-        known, stamp, known_source = last_known_climate(profile)
-        if row and row.get("captured"):
-            known, stamp, known_source = (
-                row["value"],
-                row["captured"],
-                "last_known_vehicle",
-            )
+        known, stamp = row.get("value"), row.get("captured")
+        known_source = "last_known_vehicle" if known is not None else "unknown"
         _, source = _climate_projection(self.coordinator, self.vehicle)
         return {
             **details_for(
@@ -954,15 +948,15 @@ def _reading_available(
     *,
     allow_last_known: bool = False,
 ) -> bool:
+    if allow_last_known:
+        reading = last_known_observation(reading)
+        return reading.get("status") in ("verified", "readable_but_stale")
     if (
         not reading
         or reading.get("value") is None
         or reading.get("status") == "invalid_value"
     ):
         return False
-    if allow_last_known:
-        # Display only. Command projections keep their independent freshness gate.
-        return reading.get("status") in ("verified", "readable_but_stale")
     captured_age = _reading_age_minutes(reading.get("captured"))
     if captured_age is not None:
         return captured_age <= 60
@@ -1040,11 +1034,12 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             not profile or self.attribute["id"] not in profile.attribute_routes
         ):
             return False
-        reading = _sensor_projection(self)[1]
+        reading = _sensor_projection(self)[1] or {}
+        value_row = last_known_observation(reading) if self._allow_last_known else reading
         return _reading_available(
             reading, allow_last_known=self._allow_last_known
         ) and not semantic_value_issue(
-            self.attribute["entity_key"], reading.get("value"), self._semantic_contract
+            self.attribute["entity_key"], value_row.get("value"), self._semantic_contract
         )
 
     @property
@@ -1055,8 +1050,10 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             from .vehicle import powertrain_identity
 
             return powertrain_identity(self.vehicle)["value"]
-        reading = _sensor_projection(self)[1]
-        value = reading.get("value") if reading else None
+        reading = _sensor_projection(self)[1] or {}
+        if self._allow_last_known:
+            reading = last_known_observation(reading)
+        value = reading.get("value")
         if semantic_value_issue(
             self.attribute["entity_key"], value, self._semantic_contract
         ):
@@ -1346,6 +1343,8 @@ class V3ReadOnlyBinarySensor(V3BaseEntity, BinarySensorEntity):
             return None
         if self.attribute["id"] == "is_moving" and not movement_capture_valid(reading):
             return None
+        if self._allow_last_known:
+            reading = last_known_observation(reading)
         value = reading.get("value")
         if isinstance(value, bool):
             return value
@@ -1825,9 +1824,7 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
             return False
-        return _reading_available(
-            self.vehicle.readings.get("targetstateOfCharge"), allow_last_known=True
-        ) and self.coordinator.engine.control_enabled(
+        return self.native_value is not None and self.coordinator.engine.control_enabled(
             self.vehicle.vin, "set_target_soc", "charging"
         )
 
