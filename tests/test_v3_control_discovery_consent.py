@@ -132,10 +132,16 @@ def test_climate_discovery_requires_typed_temperature_before_dispatch(
     ]
     assert candidate["operation"] == route
     assert candidate["parameter_schema"] == parameter_schema(
-        registry.operations[route], {}, discovery_action=f"climate.{action}"
+        registry.operations[route], {}, discovery_parameters=["temp_c"]
     )
     assert candidate["parameter_schema"] == {
-        "temp_c": {"type": "number", "minimum": 15, "maximum": 30, "required": True}
+        "temp_c": {
+            "type": "number",
+            "minimum": 15,
+            "maximum": 30,
+            "label": "Target temperature (°C)",
+            "required": True,
+        }
     }
 
     def execute(params):
