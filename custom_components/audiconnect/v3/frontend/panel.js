@@ -56,29 +56,6 @@ const domainName = (value) =>
     vehicle_status: "Vehicle status",
     vehicle_identity: "Vehicle identity",
   })[value] || friendly(value);
-const actionName = (cap, action) =>
-  ({
-    "climate.start": "Climate · Turn on (vehicle settings)",
-    "climate.stop": "Climate · Turn off",
-    "climate.start_with_settings": "Climate · Turn on with selected settings",
-    "climate.set_settings": "Climate · Update settings",
-    "climate.window_heating_start": "Window heating · Turn on",
-    "climate.window_heating_stop": "Window heating · Turn off",
-    "climate.preheater_start": "Preheater · Turn on",
-    "climate.preheater_stop": "Preheater · Turn off",
-    "access.lock": "Central locking · Lock",
-    "access.unlock": "Central locking · Unlock",
-    "charging.start": "Charging · Start",
-    "charging.stop": "Charging · Stop",
-  })[cap + "." + action] ||
-  {
-    wake: "Wake vehicle",
-    refresh: "Request fresh vehicle data",
-    flash: "Flash lights",
-    set_target_soc: "Set charge target",
-    set_charge_mode: "Set charge mode",
-  }[action] ||
-  friendly(action);
 const stateTone = (value) =>
   ["verified", "worked", "local_verified"].includes(value)
     ? "good"
@@ -1333,7 +1310,7 @@ class AudiConnectV3Panel extends HTMLElement {
         const field = choices
           ? `<select ${attrs}><option value="">${rule.required ? "Choose" : "Unchanged"}</option>${choices.map((x) => `<option value="${escapeHTML(x)}" ${String(x) === value ? "selected" : ""}>${escapeHTML(x)}</option>`).join("")}</select>`
           : `<input ${attrs} type="${["integer", "number"].includes(rule.type) ? "number" : "text"}" value="${escapeHTML(value)}" ${rule.minimum != null ? `min="${rule.minimum}"` : ""} ${rule.maximum != null ? `max="${rule.maximum}"` : ""} step="${rule.step ?? (rule.type === "integer" ? 1 : "any")}">`;
-        return `<div class="definition-row"><label>${escapeHTML(name.replaceAll("_", " "))}${rule.required ? " *" : ""}</label>${field}</div>`;
+        return `<div class="definition-row"><label>${escapeHTML(rule.label || name.replaceAll("_", " "))}${rule.required ? " *" : ""}</label>${field}</div>`;
       })
       .join("");
   }
@@ -1474,6 +1451,15 @@ class AudiConnectV3Panel extends HTMLElement {
     );
   }
 
+  actionName(capability, action) {
+    return (
+      (this.capabilityStatus.end_user_progress?.controls || []).find(
+        (row) => row.capability === capability && row.action === action,
+      )?.label ||
+      (action === "wake" ? "Wake vehicle" : `${domainName(capability)} · ${friendly(action)}`)
+    );
+  }
+
   nextEndUserCandidate() {
     return (this.capabilityStatus.end_user_candidates || []).find(
       (c) => !this.skippedControls.has(c.capability + "." + c.action),
@@ -1597,6 +1583,7 @@ class AudiConnectV3Panel extends HTMLElement {
           ? `<p>Select any eligible action below. Each Test authorizes that action only; a reviewed equivalent may be tried after definitive rejection. No mandatory sequence. Failed routes can be edited in the existing API editor.</p>`
           : candidate && !this.pending
             ? `<div class="callout"><b>Discover ${escapeHTML(candidate.label)}?</b><p>Yes authorizes this action only. If definitively rejected, one reviewed equivalent route may be tried. Be present at the safely parked vehicle and able to restore its state.</p>
+      ${candidate.instructions ? `<p>${escapeHTML(candidate.instructions)}</p>` : ""}
       ${this.parameterFields(candidate)}
       <div class="actions">${["yes", "no"].map((answer) => `<button data-action="end-user-${answer}" data-operation="${escapeHTML(candidate.operation)}" data-capability="${escapeHTML(candidate.capability)}" data-control="${escapeHTML(candidate.action)}" ${this.loading ? "disabled" : ""}>${answer === "yes" ? "Yes" : "No"}</button>`).join("")}</div>
       <details><summary>Engineering route</summary><code>${escapeHTML(candidate.operation)}</code></details></div>`
@@ -1623,10 +1610,10 @@ class AudiConnectV3Panel extends HTMLElement {
           const failed =
             latest && ["physical_failed", "rejected"].includes(latest.state);
           const attrs = `data-capability="${escapeHTML(c.capability)}" data-control="${escapeHTML(c.action)}"`;
-          return `<div class="attribute-row"><div><b>${escapeHTML(actionName(c.capability, c.action))}</b> · ${escapeHTML(friendly(c.route_status || c.status))} · ${escapeHTML(!this.expertDiscovery && this.skippedControls.has(c.capability + "." + c.action) ? "Skipped" : friendly(c.physical))}<div class="subline">${escapeHTML(c.reason ? friendly(c.reason) : c.dispatch_ready === false && c.dispatch_reason ? friendly(c.dispatch_reason) : this.pending ? "Testing paused: finish the pending engineering test above" : latest ? `Last command: ${friendly(latest.state)}${latest.http_status ? ` · HTTP ${latest.http_status}` : ""}` : "No current command restriction")}</div>${c.charge_mode_evidence ? `<div class="subline">Locally verified modes: ${escapeHTML(c.charge_mode_evidence.locally_verified_modes.join(", ") || "None")} · Writable options: ${escapeHTML(c.charge_mode_evidence.writable_modes.join(", ") || "None")}</div>` : ""}</div>
+          return `<div class="attribute-row"><div><b>${escapeHTML(this.actionName(c.capability, c.action))}</b> · ${escapeHTML(friendly(c.route_status || c.status))} · ${escapeHTML(!this.expertDiscovery && this.skippedControls.has(c.capability + "." + c.action) ? "Skipped" : friendly(c.physical))}<div class="subline">${escapeHTML(c.reason ? friendly(c.reason) : c.dispatch_ready === false && c.dispatch_reason ? friendly(c.dispatch_reason) : this.pending ? "Testing paused: finish the pending engineering test above" : latest ? `Last command: ${friendly(latest.state)}${latest.http_status ? ` · HTTP ${latest.http_status}` : ""}` : "No current command restriction")}</div>${c.charge_mode_evidence ? `<div class="subline">Locally verified modes: ${escapeHTML(c.charge_mode_evidence.locally_verified_modes.join(", ") || "None")} · Writable options: ${escapeHTML(c.charge_mode_evidence.writable_modes.join(", ") || "None")}</div>` : ""}</div>
         ${
           this.expertDiscovery
-            ? `<div>${this.parameterFields(candidate)}<div class="actions"><button data-action="end-user-yes" ${attrs} data-operation="${escapeHTML(candidate?.operation || "")}" ${!candidate || this.pending || this.loading ? "disabled" : ""} title="${escapeHTML(this.pending ? "Finish the pending engineering test above" : !candidate ? friendly(c.reason || c.status) : "Test this action")}">Test</button>
+            ? `<div>${candidate?.instructions ? `<p class="helper">${escapeHTML(candidate.instructions)}</p>` : ""}${this.parameterFields(candidate)}<div class="actions"><button data-action="end-user-yes" ${attrs} data-operation="${escapeHTML(candidate?.operation || "")}" ${!candidate || this.pending || this.loading ? "disabled" : ""} title="${escapeHTML(this.pending ? "Finish the pending engineering test above" : !candidate ? friendly(c.reason || c.status) : "Test this action")}">Test</button>
         <button data-action="select-control" ${attrs} data-operation="${escapeHTML(failed ? latest.operation : candidate?.operation || "")}">${failed ? "Edit failed API" : "Edit API"}</button></div></div>`
             : ""
         }</div>`;
@@ -2102,7 +2089,7 @@ class AudiConnectV3Panel extends HTMLElement {
         ${
           car && this.pending
             ? `<section class="card" style="margin-bottom:18px">
-          <div class="warn"><b>Pending engineering test: ${escapeHTML(actionName(this.pending.capability, this.pending.action))}</b>
+          <div class="warn"><b>Pending engineering test: ${escapeHTML(this.actionName(this.pending.capability, this.pending.action))}</b>
             <p>Route: ${escapeHTML(this.pending.operation)} · HTTP ${escapeHTML(this.pending.http_status ?? "not observed")} · ${escapeHTML(this.localTime(this.pending.started_at * 1000))}</p><p>Check the actual result on the car. Worked or Did not work closes this test; Not sure keeps it pending. No review sends another command. Normal controls for this capability and other engineering tests are paused until review.</p>
             <div class="actions">
               <button data-action="confirm-worked" ${this.loading ? "disabled" : ""}>Worked on vehicle</button>
@@ -2168,7 +2155,7 @@ class AudiConnectV3Panel extends HTMLElement {
                   .slice(0, 3)
                   .map(
                     (f) =>
-                      `<div class="finding"><div><b>${escapeHTML(f.action ? actionName(f.capability, f.action) : friendly(f.reason))}</b><div class="subline">${escapeHTML(f.action ? friendly(f.reason) : f.capability ? domainName(f.capability) : "Vehicle")}</div></div><button data-action="inspect-finding" data-index="${findings.findIndex((x) => x.id === f.id)}">Review</button></div>`,
+                      `<div class="finding"><div><b>${escapeHTML(f.action ? this.actionName(f.capability, f.action) : friendly(f.reason))}</b><div class="subline">${escapeHTML(f.action ? friendly(f.reason) : f.capability ? domainName(f.capability) : "Vehicle")}</div></div><button data-action="inspect-finding" data-index="${findings.findIndex((x) => x.id === f.id)}">Review</button></div>`,
                   )
                   .join("") || "<p>No current action required.</p>"
               }
@@ -2349,7 +2336,7 @@ class AudiConnectV3Panel extends HTMLElement {
               groupActions
                 .map(
                   (r) => `<div class="attribute-row">
-              <div><b>${escapeHTML(actionName(r.capability, r.action))}</b>
+              <div><b>${escapeHTML(this.actionName(r.capability, r.action))}</b>
                 <div class="subline">${pill(r.binding_status === "user_disabled" ? "disabled_by_user" : r.status, r.binding_status === "user_disabled" ? "Disabled by user" : r.physical_evidence === "local_verified" ? "Verified on vehicle" : r.status === "verified" ? "Previously verified" : friendly(r.status))} ${r.enabled ? pill("neutral", "Enabled") : ""} · ${r.candidate_count} routes</div><div class="subline">${this.entityLinks(r.entity_ids) || "No registered entity"}</div></div>
               <button data-action="select-control" data-capability="${escapeHTML(r.capability)}"
                 data-control="${escapeHTML(r.action)}" ${!r.candidate_count && r.binding_status !== "user_disabled" ? "disabled" : ""}>Inspect & test ›</button>
@@ -2411,7 +2398,7 @@ class AudiConnectV3Panel extends HTMLElement {
             </div>
           </section>
           <section class="card" style="margin-bottom:18px;display:${this.step === 3 && this.controlAction ? "block" : "none"}">
-            <div class="section-head"><div><div class="eyebrow">${escapeHTML(selectedDomain)} · Vehicle control</div><h2>${escapeHTML(actionName(this.controlCapability, this.controlAction))}</h2></div><button data-action="step-2">‹ Capabilities</button></div>
+            <div class="section-head"><div><div class="eyebrow">${escapeHTML(selectedDomain)} · Vehicle control</div><h2>${escapeHTML(this.actionName(this.controlCapability, this.controlAction))}</h2></div><button data-action="step-2">‹ Capabilities</button></div>
             <p>Test one command, confirm what happened on the car, then activate the verified route.</p>${this.controlCapability === "charging" && this.controlAction === "set_charge_mode" ? `<p>Test manual and timer separately. Verify the selected setting actually changed on the car or in myAudi before recording success. An HTTP success or an already-selected mode is not proof of a change.</p>` : ""}
             <div class="warn">Before testing: be physically present, understand the action, and verify the result on the vehicle or myAudi. ${escapeHTML(this.controlRequirement)}</div>
             <label for="control-route" style="margin-top:16px">API-family executor / route</label>
@@ -2433,7 +2420,7 @@ class AudiConnectV3Panel extends HTMLElement {
               I approve this exact action on the selected car and will verify its effect.
             </label>
             <div class="actions">
-              ${this.pending ? `<p class="warn">Testing paused: finish ${escapeHTML(actionName(this.pending.capability, this.pending.action))} above.</p>` : this.capabilityBlocked(this.controlCapability) ? `<p class="warn">Testing paused: inspect and acknowledge the previous uncertain command above.</p>` : ""}<button data-action="control-test" class="primary" ${!this.controlChoice || this.loading || this.controlDisabled || this.pending || this.capabilityBlocked(this.controlCapability) || group === "unsupported" || (group === "spin" && !this.spinConfigured) ? "disabled" : ""}>Send one test command</button>
+              ${this.pending ? `<p class="warn">Testing paused: finish ${escapeHTML(this.actionName(this.pending.capability, this.pending.action))} above.</p>` : this.capabilityBlocked(this.controlCapability) ? `<p class="warn">Testing paused: inspect and acknowledge the previous uncertain command above.</p>` : ""}<button data-action="control-test" class="primary" ${!this.controlChoice || this.loading || this.controlDisabled || this.pending || this.capabilityBlocked(this.controlCapability) || group === "unsupported" || (group === "spin" && !this.spinConfigured) ? "disabled" : ""}>Send one test command</button>
               ${this.controlChoice.startsWith("user.") ? `<button data-action="share-definition" data-operation="${escapeHTML(this.controlChoice)}">Copy shareable definition</button>` : ""}
               <button data-action="control-select" ${this.loading || this.pending || selectedControl?.status !== "worked" || !selectedControl?.runtime_ready ? "disabled" : ""}>Activate verified route</button>
               ${this.controlChoice.startsWith("user.") && selectedControl?.status === "not_tested" && !selectedControl.active ? `<button data-action="discard-route" data-operation="${escapeHTML(this.controlChoice)}" ${this.loading || this.pending ? "disabled" : ""}>Delete unused draft</button>` : ""}
