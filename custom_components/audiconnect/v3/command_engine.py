@@ -412,7 +412,8 @@ class CommandEngine:
                 self, car, profile, include_verified=expert
             ).get(f"{capability}.{aspect}")
             if not candidate or (candidate["operation"], candidate["approval_group"]) != (
-                alternative, approval
+                alternative,
+                approval,
             ):
                 return {**result, "alternative": "no_eligible_route"}
             try:
@@ -453,7 +454,8 @@ class CommandEngine:
                 self, vehicle, profile, include_verified=expert
             ).get(f"{capability}.{aspect}")
             if not candidate or (candidate["operation"], candidate["approval_group"]) != (
-                operation, approval
+                operation,
+                approval,
             ):
                 raise ValueError(
                     "Discovery action changed; refresh status before testing"
