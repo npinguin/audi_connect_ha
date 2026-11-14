@@ -234,7 +234,9 @@ def test_b41_legacy_accepted_access_records_preserve_verified_routes_on_restart(
         route = f"cariad.access.{action}"
         attempt = p.begin_test("access", action, route, now=100 + i * 100)
         p.observe_http(attempt.sequence, 200)
-        p.confirm(attempt.sequence, worked=True, inspected_vehicle=True, now=101 + i * 100)
+        p.confirm(
+            attempt.sequence, worked=True, inspected_vehicle=True, now=101 + i * 100
+        )
         p.choose_working("access", action, route)
         row = CommandRecord.begin("access", action, route, 150 + i * 100)
         row.state = "accepted_unconfirmed"

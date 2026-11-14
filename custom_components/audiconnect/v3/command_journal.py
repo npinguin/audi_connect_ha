@@ -352,7 +352,14 @@ class CommandRecord:
             record.state = "accepted_unconfirmed"
         if recover_pending and (
             record.state == "pending"
-            or (record.origin == "workbench" and record.state == "accepted_unconfirmed")
+            or (
+                record.state == "accepted_unconfirmed"
+                and (
+                    record.origin == "workbench"
+                    or record.backend_result in (None, "transport_uncertain")
+                )
+                and not record.known_access_acceptance
+            )
         ):
             record.state = "uncertain"  # Never replay an interrupted mutation.
         record.restored = True
@@ -406,7 +413,9 @@ def check_command_sequence(
     )
     if previous is not None and (
         previous.state in _UNRESOLVED
-        or (previous.capability == "access" and previous.state == "accepted_unconfirmed")
+        or (
+            previous.capability == "access" and previous.state == "accepted_unconfirmed"
+        )
     ):
         previous.check_next(
             now, cooldown=cooldown, capability=capability, action=action
