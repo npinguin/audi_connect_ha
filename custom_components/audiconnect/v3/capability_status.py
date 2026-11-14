@@ -616,6 +616,16 @@ def family_discovery(vehicle, profile, rows, operations):
                 "auth": definition.get("auth"),
                 "priority": profile.registry.family_priority(family),
                 "declared_attributes": sorted(declared),
+                "details": [
+                    {
+                        "attribute": mapping["attribute"],
+                        "capability": mapping.get("capability"),
+                        "field": mapping["field"],
+                        "unit": mapping.get("unit"),
+                    }
+                    for mapping in definition.get("observations", {}).values()
+                    if mapping.get("detail")
+                ],
                 "read_scan": bool(definition.get("executor"))
                 and any(op.get("applicability") == "applicable" for op in sources),
                 "operations": len(operation_ids | schema_ids),

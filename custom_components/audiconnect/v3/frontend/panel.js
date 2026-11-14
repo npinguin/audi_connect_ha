@@ -1483,20 +1483,28 @@ class AudiConnectV3Panel extends HTMLElement {
   capabilityMatrix(rows, families) {
     if (!rows.length)
       return "<p>No matching attributes. Show all attributes to inspect missing data.</p>";
-    const sources = families.map((source) => ({
-      ...source,
-      samples: new Map(
-        (source.observations || []).map((row) => [row.attribute, row]),
-      ),
-      declared: new Set(source.declared_attributes || []),
-    }));
+    const sources = families
+      .map((source) => ({
+        ...source,
+        samples: new Map(
+          (source.observations || []).map((row) => [row.attribute, row]),
+        ),
+        declared: new Set(source.declared_attributes || []),
+      }))
+      .filter((source) =>
+        rows.some(
+          (row) =>
+            source.declared.has(row.attribute) ||
+            source.samples.has(row.attribute),
+        ),
+      );
     return `<p class="helper">Selected source is marked ✓. Newest valid capture wins; source priority breaks equivalent captures (lower number first). Last known is not live data.</p>
       <div class="coverage-table"><table><thead><tr><th>Attribute / HA entity</th>${sources.map((source) => `<th>${escapeHTML(source.label)}<div class="subline">Priority ${escapeHTML(source.priority ?? "—")}</div></th>`).join("")}<th>Inspect</th></tr></thead><tbody>
       ${rows
         .map(
           (
             row,
-          ) => `<tr><td><b>${escapeHTML(row.metadata?.name || friendly(row.entity_key))}</b><div class="subline">${pill(row.status)}</div><div class="subline">${this.entityLinks(row.entity_ids) || "No registered entity"}</div></td>
+          ) => `<tr><td><b>${escapeHTML(row.metadata?.name || friendly(row.entity_key))}</b><div class="subline">${pill(row.status)}</div><div class="subline">${row.detail ? "Read-only detail" + (row.unit ? " · " + escapeHTML(row.unit) : "") : this.entityLinks(row.entity_ids) || "No registered entity"}</div></td>
       ${sources
         .map((source) => {
           const sample = source.samples.get(row.attribute);
@@ -1506,11 +1514,11 @@ class AudiConnectV3Panel extends HTMLElement {
             sample.valid === false
               ? "Invalid value"
               : (sample.normalized_value ?? "Not retained");
-          return `<td><b>${sample.selected ? "✓ " : ""}${escapeHTML(value)}</b><div class="subline">${sample.valid === false ? "Invalid" : sample.fresh ? "Fresh" : "Last known"}${sample.captured ? " · " + escapeHTML(this.localTime(sample.captured)) : ""}</div><details><summary>Source details</summary><code>${escapeHTML(sample.source_field || "—")}</code><div class="subline">Received ${escapeHTML(this.localTime(sample.observed_at))}</div></details></td>`;
+          return `<td><b>${sample.selected ? "✓ " : ""}${escapeHTML(value)}</b><div class="subline">${sample.valid === false ? "Invalid" : sample.fresh ? "Fresh" : "Last known"}${sample.captured ? " · " + escapeHTML(this.localTime(sample.captured)) : ""}</div><details><summary>Source details</summary><code>${escapeHTML(sample.source_field || "—")}</code><div class="subline">Received ${escapeHTML(this.localTime(sample.observed_at))}${sample.delivered_at ? " · Delivered " + escapeHTML(this.localTime(sample.delivered_at)) : ""}</div>${sample.reason ? `<div class="subline">${escapeHTML(friendly(sample.reason))}</div>` : ""}</details></td>`;
         })
         .join(
           "",
-        )}<td><button data-action="select-attribute" data-capability="${escapeHTML(row.capability)}" data-attribute="${escapeHTML(row.attribute)}">Inspect &amp; test ›</button></td></tr>`,
+        )}<td>${row.detail ? "—" : `<button data-action="select-attribute" data-capability="${escapeHTML(row.capability)}" data-attribute="${escapeHTML(row.attribute)}">Inspect &amp; test ›</button>`}</td></tr>`,
         )
         .join("")}
       </tbody></table></div>`;
@@ -2305,6 +2313,21 @@ class AudiConnectV3Panel extends HTMLElement {
               <button data-action="read-new" ${this.loading ? "disabled" : ""}>Save local attribute</button>
             </details>
             ${this.capabilityMatrix(visibleAttributes, families)}
+            ${(() => {
+              const details = families
+                .flatMap((source) => source.details || [])
+                .filter((detail) => detail.capability === this.category)
+                .map((detail) => ({
+                  ...detail,
+                  detail: true,
+                  metadata: { name: friendly(detail.field) },
+                  status: "not_tested",
+                  entity_ids: [],
+                }));
+              return details.length
+                ? `<details><summary>Additional source details · ${details.length}</summary><p>Read-only engineering data; no operational HA entity or command authorization.</p>${this.capabilityMatrix(details, families)}</details>`
+                : "";
+            })()}
             </div>
             <div style="display:${this.functionMode === "data" ? "none" : "block"}">
             <h2 style="margin-top:20px">Vehicle controls <span class="muted" style="font-size:14px">· ${groupActions.length} functions</span></h2>

@@ -1302,6 +1302,11 @@ def test_portal_read_only_details_use_existing_observation_lifecycle():
     )
     assert source["normalized_details"] == 3
     assert source["normalized"] == 0
+    assert any(
+        row["attribute"] == "parking_brake_detail"
+        and row["capability"] == "vehicle_status"
+        for row in source["details"]
+    )
     assert "private-value" not in str(source)
     remove_family_observations(car, profile, "eu_data_act", now)
     assert "parking_brake_detail" not in car.readings

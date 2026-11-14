@@ -275,8 +275,7 @@ class CapabilityRegistry:
                     if op is None or (op["method"] == "GET") != (aspect == "status"):
                         raise RegistryError("Invalid operation reference")
 
-    @staticmethod
-    def _validate_observations(mappings):
+    def _validate_observations(self, mappings):
         """Validate declarative read-only source mappings before runtime use."""
         from .historical_catalog import ATTRIBUTES
 
@@ -302,12 +301,21 @@ class CapabilityRegistry:
                 or type(detail) is not bool
                 or (detail and ident in ATTRIBUTES)
                 or (not detail and ident not in ATTRIBUTES)
+                or (
+                    "capability" in mapping
+                    and (
+                        not detail
+                        or not isinstance(mapping["capability"], str)
+                        or mapping["capability"] not in self.capabilities
+                    )
+                )
                 or ("unit" in mapping and not isinstance(mapping["unit"], str))
                 or set(mapping)
                 - {
                     "field",
                     "attribute",
                     "detail",
+                    "capability",
                     "unit",
                     "values",
                     "min",
