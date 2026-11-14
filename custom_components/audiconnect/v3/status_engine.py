@@ -14,7 +14,7 @@ from .freshness import timestamp_is_fresh, capture_field_timestamp as _captured
 from .attribute_runtime import (
     planned_jobs,
     observe_read_only,
-    _accept_observation,
+    _merge_observation,
     _valid_capture,
     record_invalid_observation,
     record_observation,
@@ -829,22 +829,19 @@ class StatusEngine:
                             valid = False
                         elif isinstance(value, (str, int, float, bool)):
                             previous = vehicle.capability_readings.get(capability)
-                            if _accept_observation(
-                                previous, captured, response.observed_at
-                            ):
-                                vehicle.capability_readings[capability] = {
+                            vehicle.capability_readings[capability] = _merge_observation(
+                                previous,
+                                {
                                     "value": value,
-                                    "captured": (
-                                        captured
-                                        if _valid_capture(
-                                            captured, response.observed_at
-                                        )
-                                        else None
-                                    ),
+                                    "captured": captured if _valid_capture(captured, response.observed_at) else None,
                                     "observed": response.observed_at.isoformat(),
                                     "operation": ident,
+                                    "family": family,
                                     "path": field,
-                                }
+                                    "status": "verified" if timestamp_is_fresh(captured, response.observed_at) else "readable_but_stale",
+                                },
+                                response.observed_at,
+                            )
                     fresh = bool(
                         valid and timestamp_is_fresh(captured, response.observed_at)
                     )

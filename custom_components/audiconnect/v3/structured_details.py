@@ -489,8 +489,12 @@ def details_for(vehicle, *keys):
     for key in keys:
         row = vehicle.readings.get(key)
         if row is not None:
+            data = row.get("value")
+            if key == "charging_profile_context_detail" and isinstance(data, dict):
+                # Profiles already have their own existing local HA attributes.
+                data = {k: v for k, v in data.items() if k not in ("profiles", "active_profile_id")}
             result[key.removesuffix("_detail")] = {
-                "data": row.get("value"),
+                "data": data,
                 **reading_freshness_attributes(row),
                 "source": row.get("path"),
             }
