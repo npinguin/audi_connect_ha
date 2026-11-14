@@ -126,8 +126,7 @@ def parameter_schema(operation, route, *, discovery_parameters=None):
     if discovery_parameters is not None:
         schema = parameter_schema(operation, route)
         return {
-            name: {**schema[name], "required": True}
-            for name in discovery_parameters
+            name: {**schema[name], "required": True} for name in discovery_parameters
         }
     if operation.get("input_schema"):
         return operation["input_schema"]
