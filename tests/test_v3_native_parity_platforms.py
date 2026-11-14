@@ -210,3 +210,66 @@ def test_parking_invalid_capture_cannot_poison_position_recovery(invalid):
     )
     assert keep_newest_position({"timestamp": invalid}, good, now)
     assert not keep_newest_position(good, point, now)
+
+
+def test_registered_read_entities_survive_missing_values_on_reload(monkeypatch):
+    from custom_components.audiconnect.v3 import ha_platforms
+
+    vehicle = car()
+    vin = VIN.lower()
+    keys = (
+        "charging_plug_auto_unlock",
+        "next_climatisation_timer_local",
+        "charging_current_limit_a",
+        "charging_current_limit_mode",
+        "remaining_climatisation_time",
+    )
+    registered = [
+        SimpleNamespace(
+            unique_id=f"{vin}_sensor_{key}",
+            domain="sensor",
+            platform="audiconnect",
+        )
+        for key in keys
+    ]
+    # An unrelated VIN must not create a capability on this vehicle.
+    registered.append(
+        SimpleNamespace(
+            unique_id="other_vin_sensor_oil_level",
+            domain="sensor",
+            platform="audiconnect",
+        )
+    )
+    monkeypatch.setattr(ha_platforms.er, "async_get", lambda _: object())
+    monkeypatch.setattr(
+        ha_platforms.er, "async_entries_for_config_entry", lambda *_: registered
+    )
+    ctx = coordinator()
+    ctx.hass = object()
+    ctx.engine.vehicles = {vin: vehicle}
+    ctx.engine.profiles = {}
+    entry = SimpleNamespace(
+        entry_id="entry",
+        runtime_data=SimpleNamespace(v3=ctx.engine, coordinator=ctx),
+        async_on_unload=lambda _: None,
+    )
+    offered = []
+    ha_platforms.setup("sensor", entry, offered.extend)
+    by_id = {entity.unique_id: entity for entity in offered}
+    for key in keys:
+        entity = by_id[f"{vin}_sensor_{key}"]
+        assert not entity.available
+        assert entity.native_value is None
+    assert f"{vin}_sensor_oil_level" not in by_id
+    assert len(by_id) == len(offered)
+    # When data returns, the same entity object becomes available.
+    now = datetime.now(UTC).isoformat()
+    vehicle.readings["chargingCurrentLimitA"] = {
+        "value": 16,
+        "status": "verified",
+        "captured": now,
+        "observed": now,
+    }
+    entity = by_id[f"{vin}_sensor_charging_current_limit_a"]
+    assert entity.available
+    assert entity.native_value == 16
