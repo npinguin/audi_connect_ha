@@ -22,6 +22,7 @@ from aiohttp import ClientError
 from .quota import QuotaBudget
 
 PORTAL = "https://eu-data-act.drivesomethinggreater.com"
+IDENTITY_OPERATION = "eu_data_act.identity.vehicles"
 MAX_ZIP_BYTES = 5_000_000
 MAX_JSON_BYTES = 10_000_000
 MAX_FIELDS = 10000
@@ -114,7 +115,16 @@ class DataActClient:
         self._request_lock = asyncio.Lock()
         self._identifiers = {}
         self._last_file = {}
-        self.denied_vins = set()
+        self.delivery_states = {}
+
+    @property
+    def denied_vins(self):
+        """A denial is a terminal delivery state, not a second mutable cache."""
+        return {
+            vin
+            for vin, state in self.delivery_states.items()
+            if state == "vehicle_access_denied"
+        }
 
     async def _get(self, path, *, limit, headers=None, allow_empty=False):
         async with self._request_lock:
@@ -170,10 +180,11 @@ class DataActClient:
         vin = vin.upper()
         if vin in self.denied_vins:
             return None
+        self.delivery_states[vin] = "unavailable"
         try:
             result = await self._latest(vin)
         except DataActVehicleDenied:
-            self.denied_vins.add(vin)
+            self.delivery_states[vin] = "vehicle_access_denied"
             self._identifiers.pop(vin, None)
             self._last_file.pop(vin, None)
             raise
@@ -183,7 +194,7 @@ class DataActClient:
             self._reauth_path = None
         return result
 
-    async def _latest(self, vin):
+    async def _ensure_login(self):
         if not self._logged_in:
             if self.authorization_required or self._login is None:
                 raise DataActUnavailable("Data Act authorization required")
@@ -195,14 +206,48 @@ class DataActClient:
             self._logged_in = True
             if self._reauth_path is None:
                 self._reauth_path = ""
+
+    async def identity_rows(self, vins):
+        """Read explicit identity fields of already owned, consented VINs."""
+        await self._ensure_login()
+        payload = await self._json(
+            "/proxy_api/consent/me/vehicles?viewPosition=FRONT_LEFT"
+        )
+        rows = payload.get("vehicles") if isinstance(payload, dict) else payload
+        if not isinstance(rows, list) or len(rows) > 2000:
+            raise DataActUnavailable("Invalid Data Act vehicle list")
+        allowed = {vin.upper() for vin in vins} - self.denied_vins
+        selected = {}
+        duplicates = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            vin = row.get("vin") or row.get("vehicleIdentificationNumber")
+            if not isinstance(vin, str) or vin.upper() not in allowed:
+                continue
+            vin = vin.upper()
+            if vin in selected:
+                duplicates.add(vin)
+                continue
+            selected[vin] = {
+                "vin": vin,
+                "modelName": row.get("modelName"),
+                "modelYear": row.get("modelYear"),
+            }
+        return [row for vin, row in selected.items() if vin not in duplicates]
+
+    async def _latest(self, vin):
+        await self._ensure_login()
         prefix = "/proxy_api/euda-apim/"
         identifier = self._identifiers.get(vin)
         if identifier is None:
             meta = await self._json(
-                prefix + f"datarequest/vehicles/{vin}/metadata/partial"
+                prefix + f"datarequest/vehicles/{vin}/metadata/partial",
+                allow_empty=True,
             )
             identifier = meta.get("Identifier") if isinstance(meta, dict) else None
             if not isinstance(identifier, str) or not _IDENTIFIER.fullmatch(identifier):
+                self.delivery_states[vin] = "subscription_unavailable"
                 return None
             self._identifiers[vin] = identifier
         path = prefix + f"datadelivery/vehicles/{vin}/{identifier}/"
@@ -212,12 +257,14 @@ class DataActClient:
         if result is None:
             # A replaced or removed subscription can recover on the next due poll.
             self._identifiers.pop(vin, None)
-        files = result.get("files") if isinstance(result, dict) else result
-        if files is None:
+            self._last_file.pop(vin, None)
+            self.delivery_states[vin] = "subscription_unavailable"
             return None
+        files = result.get("files") if isinstance(result, dict) else result
         if not isinstance(files, list) or len(files) > 2000:
             raise DataActUnavailable("Invalid Data Act listing")
         content = []
+        now = datetime.now(UTC)
         for item in files:
             if not isinstance(item, dict):
                 continue
@@ -228,13 +275,16 @@ class DataActClient:
                 and _FILENAME.fullmatch(name)
                 and not name.lower().endswith("_no_content_found.zip")
                 and delivered is not None
+                and delivered <= now + timedelta(minutes=5)
             ):
                 content.append((delivered, name))
         if not content:
+            self.delivery_states[vin] = "no_nonempty_dataset"
             return None
         delivered, name = max(content)
         previous = self._last_file.get(vin)
         if previous is not None and (delivered, name) <= previous:
+            self.delivery_states[vin] = "no_new_dataset"
             return None
         raw = await self._get(
             path + "download",
@@ -242,5 +292,11 @@ class DataActClient:
             headers={"filename": name, "type": "partial"},
         )
         payload = await asyncio.to_thread(decode_dataset, raw, vin)
-        self._last_file[vin] = (delivered, name)
-        return payload, delivered.isoformat()
+        self.delivery_states[vin] = (
+            "dataset_received" if payload["Data"] else "empty_dataset"
+        )
+        return payload, delivered.isoformat(), (delivered, name)
+
+    def acknowledge(self, vin, marker):
+        """Advance deduplication only after the existing Status owner commits."""
+        self._last_file[vin.upper()] = marker

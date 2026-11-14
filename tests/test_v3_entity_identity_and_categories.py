@@ -144,9 +144,21 @@ def test_v2_source_remains_unmodified_and_v3_owns_categories():
         "charging_timer_enabled_count",
     ):
         assert contract_for(key).get("category") != "diagnostic"
-    v3 = (root / "v3" / "entities.py").read_text()
-    assert "_attr_entity_category = EntityCategory.DIAGNOSTIC" in v3
-    assert 'if contract.get("category") == "diagnostic"' in v3
+    from homeassistant.const import EntityCategory
+
+    from custom_components.audiconnect.v3.entities import _product_description
+
+    # Test the actual native description, not the old implementation syntax.
+    for key in ("integration_status", "vehicle_data_age", "last_error"):
+        assert (
+            _product_description("sensor." + key).entity_category
+            == EntityCategory.DIAGNOSTIC
+        )
+    assert _product_description("sensor.mileage").entity_category is None
+    assert (
+        _product_description("number.target_state_of_charge").entity_category
+        == EntityCategory.CONFIG
+    )
 
 
 def test_exact_pilot_retirement_and_single_account_refresh_anchor(monkeypatch):
@@ -379,7 +391,13 @@ def test_registry_product_names_clean_unavailable_and_preserve_user_name(monkeyp
     ]
     assert rows[2].name == "My custom range"
     assert rows[2].entity_id == "sensor.hybrid_range"
+    # Native HA registration now owns the translated original name.
+    rows[0].translation_key = "v3_last_trip"
+    rows[0].original_name = "Letzte Fahrt"
+    asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, True))
+    assert rows[0].original_name == "Letzte Fahrt"
     asyncio.run(lifecycle.async_apply_v3_entity_visibility(None, entry, False))
+    assert rows[0].translation_key is None
     assert [row.original_name for row in rows] == [
         "Last trip (CARIAD)",
         "Next Climate Timer (Car Local Time)",

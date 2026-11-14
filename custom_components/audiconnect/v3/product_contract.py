@@ -94,8 +94,7 @@ def projection_descriptor(attribute):
 
 def projection_reading(vehicle, attribute, *, registry=None, now=None):
     """Resolve only declared same-semantic historical aliases, never by order."""
-    from datetime import UTC, datetime
-    from .attribute_runtime import _capture_in_utc, _observation_rank
+    from .attribute_runtime import select_reading
 
     ident = attribute["id"]
     canonical = ALIAS_OF.get(ident, ident)
@@ -119,47 +118,10 @@ def projection_reading(vehicle, attribute, *, registry=None, now=None):
         )
     if key == "mileage":
         sources.append("maintenanceMileage")
-    valid = []
-    cache = getattr(vehicle, "family_readings", {})
-    for a in dict.fromkeys(sources):
-        if a not in vehicle.readings:
-            continue
-        row = vehicle.readings[a]
-        candidates = dict(cache.get(a, {})) if registry is not None else {}
-        candidates[row.get("family", "")] = row
-        valid.extend(
-            (a, sample)
-            for sample in candidates.values()
-            if sample.get("value") is not None
-            or sample.get("status") == "invalid_value"
-        )
-    if not valid:
-        return ident, vehicle.readings.get(ident)
-
-    def score(item):
-        stamp = _capture_in_utc(item[1].get("captured"))
-        return (stamp.timestamp() if stamp is not None else -1, item[0] == canonical)
-
-    # Resolve historical aliases within each family by capture first, then
-    # apply the same family ranking as the observation writer. An explicit
-    # invalid newer sample must still invalidate its own family.
-    by_family = {}
-    for item in valid:
-        family = item[1].get("family", "")
-        previous = by_family.get(family)
-        if previous is None or score(item) > score(previous):
-            by_family[family] = item
-    if len(by_family) == 1 or registry is None:
-        return max(valid, key=score)
-    reference = now or datetime.now(UTC)
-    return max(
-        by_family.values(),
-        key=lambda item: (
-            _observation_rank(item[1], registry, reference),
-            item[0] == canonical,
-            item[0],
-        ),
+    selected, row = select_reading(
+        vehicle, sources, canonical, registry=registry, now=now
     )
+    return (selected, row) if row is not None else (ident, vehicle.readings.get(ident))
 
 
 def entity_key(unique_id, entry_id):
@@ -525,28 +487,35 @@ def engine_role(vehicle, role):
     )
 
 
-def canonical_entity_name(key, vehicle=None):
-    """Integration-owned product label; source, lifecycle and API family are metadata."""
+def canonical_entity_presentation(key, vehicle=None):
+    """One product label and translation identity, including range-role aliases."""
     from .attribute_contracts import binary_contract_for, contract_for
 
     definition = product_inventory()["entities"].get(key)
     if definition is None:
-        return None
-    platform, _, entity = key.partition(".")
-    if vehicle is not None and entity in (
+        return None, None
+    platform, _, ident = key.partition(".")
+    if vehicle is not None and ident in (
         "primary_engine_range",
         "secondary_engine_range",
     ):
-        role = engine_role(vehicle, entity.split("_", 1)[0])
+        role = engine_role(vehicle, ident.split("_", 1)[0])
         if role:
-            return "Electric range" if role == "electric" else "Fuel range"
-    if definition.get("name"):
-        return definition["name"]
-    if platform == "sensor":
-        return contract_for(entity).get("name")
-    if platform == "binary_sensor":
-        return binary_contract_for(entity).get("name")
-    return None
+            return role.capitalize() + " range", "v3_" + role + "_range"
+    name = definition.get("name")
+    if not name and platform == "sensor":
+        name = contract_for(ident).get("name")
+    if not name and platform == "binary_sensor":
+        name = binary_contract_for(ident).get("name")
+    return name, "v3_" + ident.replace("_{profile_id}", "")
+
+
+def canonical_entity_name(key, vehicle=None):
+    return canonical_entity_presentation(key, vehicle)[0]
+
+
+def canonical_entity_translation_key(key, vehicle=None):
+    return canonical_entity_presentation(key, vehicle)[1]
 
 
 def stateful_controls():
