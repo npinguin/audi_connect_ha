@@ -25,6 +25,7 @@ from .command_parameters import (
     map_parameters,
     runtime_ready,
     parameter_schema,
+    discovery_parameter_schema,
     validate_inputs,
     validate_parameter,
     SOC,
@@ -450,10 +451,16 @@ class CommandEngine:
             candidate = user_test_candidates(
                 self, vehicle, profile, include_verified=expert
             ).get(f"{capability}.{aspect}")
-            if candidate is None or candidate[3:] != (operation, approval) or params:
+            if candidate is None or candidate[3:] != (operation, approval):
                 raise ValueError(
                     "Discovery action changed; refresh status before testing"
                 )
+            validate_inputs(
+                params or {},
+                discovery_parameter_schema(
+                    capability, aspect, profile.registry.operations[operation]
+                ),
+            )
         family = profile.registry.operations.get(operation, {}).get("family")
         if family not in ("cariad", "mbb") or (
             family == "mbb" and self.auth.uses_auth0
