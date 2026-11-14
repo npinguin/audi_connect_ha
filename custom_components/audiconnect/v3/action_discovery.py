@@ -264,7 +264,6 @@ class GuidedActionDiscovery:
         if (
             result in ("worked", "failed")
             and inspected_vehicle is not True
-            and not (result == "worked" and readback_verified is True)
         ):
             raise DiscoveryError("Physical outcome requires vehicle confirmation")
         if now < record.started_at:

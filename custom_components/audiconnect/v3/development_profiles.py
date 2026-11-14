@@ -708,13 +708,8 @@ class DevelopmentProfile:
         readback_verified: bool = False,
     ) -> None:
         record = self.engineering_record(sequence)
-        if readback_verified and (
-            worked is not True
-            or record is None
-            or record.state != "verified"
-            or not record.readback_attribute
-        ):
-            raise DevelopmentProfileError("No verified readback for this action")
+        if readback_verified:
+            raise DevelopmentProfileError("Observed state does not prove physical execution")
         attempted = self.discovery.review(
             sequence,
             result="uncertain" if worked is None else "worked" if worked else "failed",
