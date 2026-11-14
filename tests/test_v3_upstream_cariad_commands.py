@@ -333,3 +333,28 @@ def test_next_climate_timer_excludes_expired_and_ambiguous_times():
     )
     observe()
     assert car.readings[key]["value"] is None
+
+
+def test_conflicting_undated_charge_modes_recover_only_through_explicit_discovery():
+    from custom_components.audiconnect.v3.command_policy import supported_charge_modes
+    from custom_components.audiconnect.v3.read_discovery import user_test_candidates
+
+    engine, car = make_engine()
+    profile = engine.profiles[VIN.lower()]
+    route = "cariad.charging.mode"
+    car.readings["availableChargeModes"] = {
+        "value": None, "status": "invalid_value", "reason": "conflicting_source_values",
+        "family": "cariad", "captured": None, "discovered_options": ["manual", "timer"],
+    }
+    assert not supported_charge_modes(car, profile)
+    candidate = user_test_candidates(engine, car, profile)["charging.set_charge_mode"]
+    assert candidate["operation"] == route
+    assert candidate["parameter_schema"]["value"]["enum"] == ["manual", "timer"]
+    attempt = profile.begin_test("charging", "set_charge_mode", route, now=100)
+    profile.engineering_record(attempt.sequence).requested_charge_mode = "manual"
+    profile.observe_http(attempt.sequence, 200)
+    profile.confirm(attempt.sequence, worked=True, inspected_vehicle=True, now=101)
+    profile.choose_working("charging", "set_charge_mode", route)
+    assert supported_charge_modes(car, profile) == ["manual"]
+    car.readings["availableChargeModes"]["captured"] = datetime.now(UTC).isoformat()
+    assert not supported_charge_modes(car, profile)

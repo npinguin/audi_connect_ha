@@ -115,7 +115,7 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 continue
             vin = car.vin.lower()
 
-            def retained(key):
+            def retained(key, vin=vin):
                 return f"{vin}_{platform}_{key}" in registered
 
             def add_once(tag: str, factory, *args, car=car) -> None:

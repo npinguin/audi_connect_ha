@@ -26,7 +26,7 @@ Audi's cloud can be reachable while a parked vehicle has not sent new data. A cl
 
 Latest vehicle data age refers to the newest usable vehicle measurement, not the cloud receipt or oldest measurement. Oldest observed age and per-job ages remain available in attributes and the Workbench. Check the specific entity's capture time for automations. Data Act delivery may be fresh while the underlying capture is old. The tracker shows last parked position, not live GPS; movement without reliable vehicle capture stays unknown.
 
-A previously registered, mapped read-only sensor is offered again on reload even if its current OEM value is absent. Its identity does not establish current availability or new vehicle support. Explicitly retired identities such as the redundant V3 Charging ready sensor remain retired; no registry deletion is required.
+Previously registered, mapped read-only sensors and reviewed native control identities are offered again on reload even if their current OEM value or write route is absent. Registration is not authorization. The same entity recovers when valid evidence returns. Its identity does not establish current availability or new vehicle support. Explicitly retired identities such as the redundant V3 Charging ready sensor remain retired; no registry deletion is required.
 
 ### Native controls
 
@@ -64,7 +64,7 @@ For ordinary users: Configure → Vehicle setup & discovery → select a specifi
 5. Confirm Worked on vehicle or Did not work on vehicle for the actual outcome. If unsure, keep the test pending and inspect the car; do not replay it. Restore the vehicle to a safe state before the next test.
 6. Check the native HA climate entity after validation. Only explicit physical confirmation activates a tested control route. A successfully verified route is stored for that vehicle; failure on another vehicle does not authorize or disable this one.
 
-The same physical instructions appear in Guided. A reviewed equivalent route may be tried after definitive rejection under the existing consent and quota rules; never auto-send a different semantic action. For a published B40 build, use Capabilities → Climate → Vehicle controls → Inspect & test for parameterized operations instead.
+The same physical instructions appear in Guided. If undated charging-mode option lists conflict, they never become ordered vehicle measurements. Use Vehicle setup & discovery → Verify preferred charging mode to physically test Manual and Timer separately. Only individually verified modes on the active route revision become writable during this undated conflict; dated invalid evidence still blocks writes. A selectable option is not proof of the currently reported mode. A reviewed equivalent route may be tried after definitive rejection under the existing consent and quota rules; never auto-send a different semantic action. For a published B40 build, use Capabilities → Climate → Vehicle controls → Inspect & test for parameterized operations instead.
 
 ### Report a problem safely
 

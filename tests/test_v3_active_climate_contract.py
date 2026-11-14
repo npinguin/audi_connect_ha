@@ -81,12 +81,20 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
     enabled = {"start", "stop", "start_with_settings"}
     calls, offered, listeners = [], [], []
 
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    from custom_components.audiconnect.v3.command_readback import configure_readback
+
+    journal = []
     async def send(vin, action, capability, **kwargs):
         calls.append((vin, action, capability, kwargs))
+        row = CommandRecord.begin(capability, action, "test", datetime.now(UTC).timestamp())
+        configure_readback(row, kwargs.get("params"))
+        row.observe_http(200)
+        journal.append(row)
 
     engine = NS(
         vehicles={VIN.lower(): car},
-        profiles={},
+        profiles={VIN.lower(): NS(command_journal=journal)},
         control_enabled=lambda vin, action, capability="climate": (
             capability == "climate" and action in enabled
         ),
@@ -134,6 +142,8 @@ def test_native_climate_actions_are_independent_of_stale_state_and_no_duplicate_
     assert entity.hvac_mode is None
     assert entity.target_temperature is None
     assert entity.extra_state_attributes["pending_dispatched_temperature"] == 19.5
+    journal[-1].observe_backend("rejected", datetime.now(UTC).timestamp())
+    assert entity.extra_state_attributes["pending_dispatched_temperature"] is None
     car.readings["climatisationTargetTemperatureC"] = {
         "value": 20,
         "captured": (datetime.now(UTC) + timedelta(seconds=1)).isoformat(),

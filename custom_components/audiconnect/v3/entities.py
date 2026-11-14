@@ -177,13 +177,8 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
             row = (
                 reading if reading is not None else self.vehicle.readings.get(attribute)
             )
-            from .attribute_runtime import last_known_observation
-
-            known = last_known_observation(row)
             result.update(
                 reading_freshness_attributes(row, allow_last_known=allow_last_known),
-                last_known_state=known.get("value"),
-                last_known_captured=known.get("captured"),
                 last_reported_state=(row or {}).get("value"),
                 state_source=source or "unknown",
                 state_is_optimistic=False,

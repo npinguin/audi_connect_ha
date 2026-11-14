@@ -83,12 +83,13 @@ def remember_climate(profile, reading, now=None):
     if profile is None:
         return
     previous = getattr(profile, "last_known_climate", None)
-    if reading.get("reason") == "conflicting_source_values" and previous:
-        if _capture_in_utc(previous["captured"]) == _capture_in_utc(
-            reading.get("captured")
-        ):
-            profile.last_known_climate = None
-            previous = None
+    if (
+        reading.get("reason") == "conflicting_source_values"
+        and previous
+        and _capture_in_utc(previous["captured"]) == _capture_in_utc(reading.get("captured"))
+    ):
+        profile.last_known_climate = None
+        previous = None
     row = validate_last_known_climate(last_known_observation(reading), now)
     if row and _accept_observation(previous, row["captured"], now):
         profile.last_known_climate = row

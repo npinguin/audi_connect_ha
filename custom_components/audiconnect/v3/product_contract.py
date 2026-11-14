@@ -125,6 +125,27 @@ def projection_reading(vehicle, attribute, *, registry=None, now=None):
     selected, row = select_reading(
         vehicle, sources, canonical, registry=registry, now=now
     )
+    if key in ("remaining_charging_time", "charging_complete_time"):
+        from .attribute_runtime import _capture_in_utc
+        from .vehicle import charging_active
+
+        charging = vehicle.readings.get("chargingState", {})
+        stamp = _capture_in_utc(charging.get("captured"))
+        duration = vehicle.readings.get("remainingChargingTime", {})
+        duration_stamp = _capture_in_utc(duration.get("captured"))
+        if (
+            stamp is not None
+            and charging.get("status") != "invalid_value"
+            and charging_active(charging.get("value")) is False
+            and (duration_stamp is None or stamp >= duration_stamp)
+        ):
+            return canonical, {
+                **charging,
+                "value": None,
+                "status": "invalid_value",
+                "reason": "charging_not_active",
+                "derived_from": "chargingState",
+            }
     return (selected, row) if row is not None else (ident, vehicle.readings.get(ident))
 
 
