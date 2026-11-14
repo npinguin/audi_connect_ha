@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from homeassistant.helpers import entity_registry as er
+
 from .entities import (
     V3ClimateEntity,
     V3ReadOnlyBinarySensor,
@@ -63,6 +65,21 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
     if not hasattr(engine, "projected_entities"):
         engine.projected_entities = {}
     projected = engine.projected_entities.setdefault(platform, set())
+
+    # The account registry is existing evidence that an entity was offered.
+    # Do not require a fresh OEM value to offer that same identity on reload.
+    hass = getattr(coordinator, "hass", None)
+    registered = (
+        {
+            entity.unique_id
+            for entity in er.async_entries_for_config_entry(
+                er.async_get(hass), entry.entry_id
+            )
+            if entity.domain == platform and entity.platform == "audiconnect"
+        }
+        if hass is not None and platform in ("sensor", "binary_sensor")
+        else set()
+    )
 
     if platform not in (
         "sensor",
@@ -159,6 +176,14 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                 attributes = attributes_for(profile)
                 # Canonical entities can be backed by declared alternative sources.
                 candidates = set(car.readings)
+                for ident, descriptor in attributes.items():
+                    if descriptor["platform"] != platform:
+                        continue
+                    canonical = projection_descriptor(descriptor)
+                    if canonical and (
+                        f"{vin}_{platform}_{canonical['entity_key']}" in registered
+                    ):
+                        candidates.add(ident)
                 if platform == "sensor":
                     candidates.update(
                         (
@@ -196,16 +221,20 @@ def setup(platform: str, entry: Any, async_add_entities: Any) -> None:
                         if powertrain_identity(car)["value"] is not None:
                             add_once(f"{vin}:car_type", V3ReadOnlySensor, descriptor)
                         continue
-                    if not reading or not isinstance(
-                        reading.get("value"), (str, int, float, bool)
-                    ):
-                        continue
-                    if platform == "sensor" and semantic_value_issue(
-                        descriptor["entity_key"],
-                        reading["value"],
-                        descriptor.get("contract"),
-                    ):
-                        continue
+                    previously_offered = (
+                        f"{vin}_{platform}_{descriptor['entity_key']}" in registered
+                    )
+                    if not previously_offered:
+                        if not reading or not isinstance(
+                            reading.get("value"), (str, int, float, bool)
+                        ):
+                            continue
+                        if platform == "sensor" and semantic_value_issue(
+                            descriptor["entity_key"],
+                            reading["value"],
+                            descriptor.get("contract"),
+                        ):
+                            continue
                     tag = f"{vin}:{descriptor['entity_key']}"
                     if tag in seen:
                         continue
