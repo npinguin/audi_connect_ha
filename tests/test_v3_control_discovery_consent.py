@@ -133,7 +133,8 @@ def test_climate_discovery_requires_typed_temperature_before_dispatch(
     assert candidate["operation"] == route
     assert candidate["parameter_schema"] == parameter_schema(
         registry.operations[route], {}, discovery_action=f"climate.{action}"
-    ) == {
+    )
+    assert candidate["parameter_schema"] == {
         "temp_c": {"type": "number", "minimum": 15, "maximum": 30, "required": True}
     }
 
@@ -152,7 +153,12 @@ def test_climate_discovery_requires_typed_temperature_before_dispatch(
             )
         )
 
-    for invalid in ({}, {"temp_c": True}, {"temp_c": 31}, {"temp_c": 22, "spin": "1234"}):
+    for invalid in (
+        {},
+        {"temp_c": True},
+        {"temp_c": 31},
+        {"temp_c": 22, "spin": "1234"},
+    ):
         with pytest.raises(ValueError):
             execute(invalid)
     prepare.assert_not_awaited()
