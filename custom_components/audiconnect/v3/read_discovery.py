@@ -683,6 +683,7 @@ def user_test_candidates(engine, car, profile, *, include_verified=False):
     """Reviewed native actions for guided and selective physical tests."""
     from .control_resolution import control_decision
     from .action_discovery import approval_group
+    from .command_parameters import parameter_schema
 
     labels = {
         ("climate", "start"): "Start cabin climate",
@@ -719,11 +720,13 @@ def user_test_candidates(engine, car, profile, *, include_verified=False):
         group = approval_group(capability, action, op)
         if group not in ("non_spin", "spin") or op.get("request_variables"):
             continue
-        result[capability + "." + action] = (
-            label,
-            capability,
-            action,
-            operation,
-            group,
-        )
+        key = f"{capability}.{action}"
+        result[key] = {
+            "label": label,
+            "capability": capability,
+            "action": action,
+            "operation": operation,
+            "approval_group": group,
+            "parameter_schema": parameter_schema(op, {}, discovery_action=key),
+        }
     return result
