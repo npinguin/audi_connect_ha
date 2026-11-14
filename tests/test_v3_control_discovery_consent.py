@@ -195,9 +195,9 @@ def test_discovery_can_extend_existing_command_by_catalog_metadata_only():
     engine = NS(auth=NS(uses_auth0=True, service=NS(_spin="")))
     profile = DevelopmentProfile(registry, car.context)
     for expert in (False, True):
-        candidate = user_test_candidates(
-            engine, car, profile, include_verified=expert
-        )["charging.set_target_soc"]
+        candidate = user_test_candidates(engine, car, profile, include_verified=expert)[
+            "charging.set_target_soc"
+        ]
         assert candidate["operation"] == "cariad.charging.settings"
         assert candidate["label"] == node["discovery"]["label"]
         assert candidate["instructions"] == node["discovery"]["instructions"]
