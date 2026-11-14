@@ -136,6 +136,7 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
         source=None,
         allow_last_known=False,
         correlate=True,
+        optimistic=True,
     ):
         """One metadata contract for all native vehicle controls."""
         engine = self.coordinator.engine
@@ -182,7 +183,9 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
                 last_reported_state=(row or {}).get("value"),
                 state_source=source or "unknown",
                 state_is_optimistic=(
-                    source == "command_pending" and attribute != "doorLockStatus"
+                    source == "command_pending"
+                    and optimistic
+                    and attribute != "doorLockStatus"
                 ),
             )
         return result
@@ -1500,7 +1503,10 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
         from .vehicle import charging_active
 
         value, source = _reading_projection(
-            self.coordinator, self.vehicle, self.definition["attribute"]
+            self.coordinator,
+            self.vehicle,
+            self.definition["attribute"],
+            optimistic=False,
         )
         state = (
             charging_active(value)
@@ -1525,6 +1531,7 @@ class V3OperationalSwitch(V3BaseEntity, SwitchEntity):
                 attribute=self.definition["attribute"],
                 reading=row or {},
                 source=self._projection()[1],
+                optimistic=False,
             ),
             "last_reported_state": state,
             "on_enabled": self._enabled("on"),
