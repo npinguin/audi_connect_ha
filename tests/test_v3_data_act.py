@@ -916,7 +916,9 @@ async def test_portal_identity_only_enriches_owned_missing_fields():
     ],
 )
 def test_portal_identity_does_not_promote_nickname_or_placeholder(row):
-    candidate = V3Vehicle.from_data_act({"vin": VIN, **row}, "BE")
+    candidate = V3Vehicle.from_data_act(
+        {"vin": VIN, **row}, "BE", CapabilityRegistry.from_json_file(catalog_path())
+    )
     assert not candidate.model
     assert not candidate.model_family
 
@@ -1066,7 +1068,9 @@ def test_optional_identity_withdrawal_preserves_native_telemetry_and_history():
 
     now = datetime.now(UTC)
     car = V3Vehicle.from_data_act(
-        {"vin": VIN, "modelName": "Audi Q8", "modelYear": 2021}, "BE"
+        {"vin": VIN, "modelName": "Audi Q8", "modelYear": 2021},
+        "BE",
+        CapabilityRegistry.from_json_file(catalog_path()),
     )
     car.identity_observed_at = now.isoformat()
     profile = DevelopmentProfile(
@@ -1157,3 +1161,46 @@ def test_portal_duration_projects_eta_only_from_selected_source():
     remove_family_observations(car, profile, "eu_data_act", now)
     project_charging_eta(car, profile, now)
     assert "charging_complete_time" not in car.readings
+
+
+def test_data_act_observed_charging_and_parking_fields_use_shared_contract():
+    from custom_components.audiconnect.v3.attribute_runtime import data_act_observations
+
+    now = datetime.now(UTC)
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    rows = [
+        {
+            "key": "9da735bb-c5d5-39f8-bf53-0fa2a367aa8f",
+            "dataFieldName": "charging_state",
+            "value": "charging",
+            "timestampUtc": now.isoformat(),
+        },
+        {
+            "key": "c17ead4f-09b8-357f-ac2b-38c448ab88c4",
+            "dataFieldName": "parking_lights",
+            "value": "2",
+            "timestampUtc": now.isoformat(),
+        },
+    ]
+    result = data_act_observations({"Data": rows}, now, registry)
+    assert result["chargingState"]["value"] == "charging"
+    assert result["parking_light"]["value"] is False
+    rows[0]["value"] = "unsupported"
+    rows[1]["value"] = "1"
+    assert not data_act_observations({"Data": rows}, now, registry)
+
+
+def test_portal_identity_uses_declared_paths_and_never_role_or_nickname():
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    registry.families["eu_data_act"]["identity_mappings"]["eu_data_act.identity.vehicles"] = {
+        "model": "oem.model",
+        "model_year": "oem.year",
+    }
+    row = {"vin": VIN, "modelName": "Audi Q8", "role": "owner", "nickName": "Audi Q8"}
+    car = V3Vehicle.from_data_act(row, "BE", registry)
+    assert not car.model and not car.model_year
+    row["oem"] = {"model": "Audi A6", "year": 2022}
+    car = V3Vehicle.from_data_act(row, "BE", registry)
+    assert car.model == "Audi A6"
+    assert car.model_year == "2022"
+    assert car.model_source == "eu_data_act_oem.model"

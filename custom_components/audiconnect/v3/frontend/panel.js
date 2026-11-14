@@ -1484,19 +1484,19 @@ class AudiConnectV3Panel extends HTMLElement {
     const sources = families.filter(
       (source) => family === "all" || source.id === family,
     );
-    if (!sources.length) return "";
+    if (!sources.length) return '<p class="warn">No source discovery loaded. Refresh the Workbench and check the integration status.</p>';
     return `<div class="section-head"><h3>Data sources · discovery &amp; coverage</h3></div>
       ${sources
         .map((source) => {
           const summary = `${escapeHTML(source.label)} · ${source.fields_observed} fields · ${source.fields_mapped} mapped · ${source.normalized} normalized · ${source.selected} selected · ${source.fresh} fresh`;
           const health = source.health || {};
-          return `<details ${family !== "all" ? "open" : ""}><summary>${summary}</summary>
+          return `<details open><summary>${summary}</summary>
           <p>${escapeHTML(friendly(health.result || "source evidence"))} · ${source.tested_operations}/${source.operations} operations tested${source.truncated ? " · Bounded inventory" : ""}</p>
           ${detailed ? (source.schema_results || []).map((result) => `<div class="subline">${escapeHTML(result.source)} · HTTP ${escapeHTML(result.http_status ?? "—")} · ${escapeHTML(friendly(result.outcome || "observed"))} · ${escapeHTML(this.localTime(result.observed_at))}</div>`).join("") : ""}
           ${
             detailed
               ? `<div class="coverage-table"><table><thead><tr><th>Operation / field</th><th>Mapping</th><th>Evidence</th></tr></thead><tbody>${(source.fields || []).map((field) => `<tr><td>${escapeHTML(field.path)}<div class="subline">${escapeHTML(field.operation)}</div></td><td>${escapeHTML((field.attributes || []).join(", ") || "—")}</td><td>${escapeHTML(friendly(field.mapping))} · ${escapeHTML(friendly(field.quality || "unknown"))}</td></tr>`).join("")}</tbody></table></div>
-          <div class="coverage-table"><table><thead><tr><th>Canonical attribute</th><th>Capture / delivery</th><th>Selection</th></tr></thead><tbody>${(source.observations || []).map((row) => `<tr><td>${escapeHTML(row.attribute)}</td><td>${escapeHTML(this.localTime(row.captured))}<div class="subline">Received ${escapeHTML(this.localTime(row.observed_at))}${row.delivered_at ? " · Delivered " + escapeHTML(this.localTime(row.delivered_at)) : ""}</div></td><td>${escapeHTML(friendly(row.status))} · ${row.fresh ? "fresh" : "last known"}</td></tr>`).join("")}</tbody></table></div>`
+          <div class="coverage-table"><table><thead><tr><th>Canonical attribute / source field</th><th>Normalized value</th><th>Capture / delivery</th><th>Selection</th></tr></thead><tbody>${(source.observations || []).map((row) => `<tr><td>${escapeHTML(row.attribute)}<div class="subline">${escapeHTML(row.source_field || "—")}</div></td><td>${escapeHTML(row.normalized_value ?? "Not retained")}</td><td>${escapeHTML(this.localTime(row.captured))}<div class="subline">Received ${escapeHTML(this.localTime(row.observed_at))}${row.delivered_at ? " · Delivered " + escapeHTML(this.localTime(row.delivered_at)) : ""}</div></td><td>${escapeHTML(friendly(row.status))} · ${row.fresh ? "fresh" : "last known"}</td></tr>`).join("")}</tbody></table></div>`
               : ""
           }
           </details>`;
@@ -1718,7 +1718,7 @@ class AudiConnectV3Panel extends HTMLElement {
     const rows = coverage.rows || [];
     const vehicleFamily = car?.api_family || "cariad";
     const families = coverage.family_discovery || [];
-    const family = this.apiFamily === "vehicle" ? "all" : this.apiFamily;
+    const family = families.some((source) => source.id === this.apiFamily) ? this.apiFamily : "all";
     const scanFamily = family === "all" ? vehicleFamily : family;
     const selectedSource = families.find((source) => source.id === scanFamily);
     const entityLinks = coverage.entity_links || [];
@@ -1769,10 +1769,15 @@ class AudiConnectV3Panel extends HTMLElement {
     const nextActions = coverage.next_actions || [];
     const identitySummary = coverage.identity_summary || {};
     const projection = coverage.account_entity_projection || {};
+    const familyAttributes = new Set(
+      (families.find((source) => source.id === family)?.observations || []).map(
+        (row) => row.attribute,
+      ),
+    );
     const filteredRows = rows.filter(
       (r) =>
         (!this.capabilityFilter || r.capability === this.capabilityFilter) &&
-        (family === "all" || r.api_family === family) &&
+        (family === "all" || r.api_family === family || (r.entity_key && familyAttributes.has(r.attribute))) &&
         (!selectedEntity ||
           entityMatches(r) ||
           (!r.entity_key && selectedEntity.operations.includes(r.operation))),
@@ -1993,7 +1998,7 @@ class AudiConnectV3Panel extends HTMLElement {
               )
               .join("")}
           </select></div>
-          <div class="tool family-select"><label for="api-family">API family <span class="muted">· advanced</span></label>
+          <div class="tool family-select"><label for="api-family">Data source</label>
             <select id="api-family" ${this.loading ? "disabled" : ""}>
               <option value="all" ${family === "all" ? "selected" : ""}>This vehicle · consolidated</option>
               ${families.map((source) => `<option value="${escapeHTML(source.id)}" ${family === source.id ? "selected" : ""}>${escapeHTML(source.label)}</option>`).join("")}
@@ -2061,11 +2066,11 @@ class AudiConnectV3Panel extends HTMLElement {
           <section style="display:${this.step === 1 ? "block" : "none"}" data-view="overview">
             <div class="metrics">
               <div class="card"><div class="eyebrow">Cloud connection</div><div class="stat">${item.poll_success ? "Connected" : "Unknown"}</div><div class="summary">${escapeHTML(item.poll_success ? new Date(item.poll_success).toLocaleString() : "No successful poll")}</div></div>
-              <div class="card"><div class="eyebrow">Readable data</div><div class="stat">${readable.length}</div><div class="summary">${freshCount} fresh · ${staleCount} last known</div></div>
+              <div class="card"><div class="eyebrow">Readable data</div><div class="stat">${family === "all" ? readable.length : (families.find((source) => source.id === family)?.normalized ?? 0)}</div><div class="summary">${family === "all" ? freshCount + " fresh · " + staleCount + " last known" : "Source observations · includes alternatives"}</div></div>
               <div class="card"><div class="eyebrow">Enabled controls</div><div class="stat">${enabledCount}</div><div class="summary">${verifiedCount} locally verified</div></div>
               <div class="card"><div class="eyebrow">Needs review</div><div class="stat">${nextActions.length}</div><div class="summary"><button data-action="step-4">View evidence</button></div></div>
             </div>
-            ${this.sourceDiscovery(families, family, false)}
+            ${this.sourceDiscovery(families, family, family !== "all")}
             <div class="section-head"><h2>Capabilities</h2><button data-action="step-2">Browse functions</button></div>
             <div class="cap-grid">${capabilityNames
               .map((cap) => {

@@ -560,7 +560,11 @@ class StatusEngine:
                 or car.vin.lower() not in self.profiles
             ):
                 continue
-            candidate = V3Vehicle.from_data_act(row, car.country)
+            candidate = V3Vehicle.from_data_act(
+                {**row["payload"], "vin": row["vin"]},
+                car.country,
+                self.profiles[car.vin.lower()].registry,
+            )
             changed |= self._apply_identity(
                 car,
                 self.profiles[car.vin.lower()],

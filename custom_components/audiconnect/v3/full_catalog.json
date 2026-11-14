@@ -25,7 +25,34 @@
       "poll_interval_minutes": 30,
       "host_owner": "authorized_data_act_portal_session",
       "notes": "Read-only dataset provider; no control or generic request executor.",
+      "identity_mappings": {
+        "eu_data_act.identity.vehicles": {
+          "model": "modelName",
+          "model_year": "modelYear"
+        }
+      },
       "observations": {
+        "9da735bb-c5d5-39f8-bf53-0fa2a367aa8f": {
+          "field": "charging_state",
+          "attribute": "chargingState",
+          "values": {
+            "off": "off",
+            "charging": "charging",
+            "completed": "completed",
+            "error": "error",
+            "conservationCharging": "conservationCharging"
+          }
+        },
+        "c17ead4f-09b8-357f-ac2b-38c448ab88c4": {
+          "field": "parking_lights",
+          "attribute": "parking_light",
+          "values": {
+            "2": false,
+            "3": true,
+            "4": true,
+            "5": true
+          }
+        },
         "cf28f7d9-6201-30b8-82e5-a461968d30dc": {
           "field": "remaining_charging_time",
           "attribute": "remainingChargingTime",
