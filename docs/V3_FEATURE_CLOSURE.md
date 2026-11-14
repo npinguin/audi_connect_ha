@@ -72,7 +72,7 @@ All native V3 controls use the common entity metadata builder and command journa
 
 ## B29 lock and Workbench recovery
 
-A known HTTP 2xx normal access mutation is distinct from an uncertain transport. The existing 30-second cooldown governs subsequent explicit authorized dispatch independently of the bounded command projection window; no automatic retries or fabricated locked/unlocked state. A status GET returning unknown, pending or quota-limited does not turn acceptance into a failed mutation. A truly uncertain mutation, missing S-PIN, unapproved route or open engineering experiment still prevents unsafe dispatch. Persisted B29 access outcomes with known 2xx and only missing GET confirmation migrate to accepted-unconfirmed. A one-shot local HA state write ends the transition even without a new cloud poll. Engineering tests still require explicit review; Test buttons remain visible with a reason when blocked. The pending action and relevant command evidence are exported structurally in diagnostics without payloads, VIN, request or command IDs. Physical Q8 verification remains mandatory.
+A known HTTP 2xx normal access mutation is distinct from an uncertain transport. The existing 30-second cooldown governs subsequent explicit authorized dispatch independently of the bounded command projection window; no automatic retries or fabricated locked/unlocked state. A status GET returning unknown, pending or quota-limited does not turn acceptance into a failed mutation. A truly uncertain mutation, missing S-PIN, unapproved route or open engineering experiment still prevents unsafe dispatch. Persisted B29 access outcomes with known 2xx and only missing GET confirmation migrate to accepted-unconfirmed. A one-shot local HA state write ends the bounded transition even without a new cloud poll. Engineering tests still require explicit review; Test buttons remain visible with a reason when blocked. The pending action and relevant command evidence are exported structurally in diagnostics without payloads, VIN, request or command IDs. Physical Q8 verification remains mandatory.
 
 ## B31 charging and dispatch evidence
 
@@ -204,3 +204,11 @@ evidence. Do not conflate discovery assessment (28/28) and data coverage.
 B40 requires live acceptance; identity #35, exact charging command proof,
 climate status availability and prior stable gate #44 remain open. No raw
 owner diagnostics or private values in repository.
+
+The existing age sensor retains its latest-capture semantics and ID. Invalid
+climate captures remain engineering evidence but do not report a valid climate
+age. Workbench distinguishes derived projections from received source fields.
+The ordinary EU Data Act diagnostic and wizard expose delivery state without
+reauthentication; Position is an ordinary entity and redundant Charging ready
+is retired, preserving registry history. Identity findings remain in
+engineering instead of degrading a working native poll.

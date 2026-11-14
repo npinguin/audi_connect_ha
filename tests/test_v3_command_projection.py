@@ -334,7 +334,9 @@ def test_command_requires_post_dispatch_receipt(receipt):
 
 
 def test_command_response_publishes_real_capture_without_poll_or_request_echo():
-    from custom_components.audiconnect.v3.command_readback import observe_command_response
+    from custom_components.audiconnect.v3.command_readback import (
+        observe_command_response,
+    )
     from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
     from custom_components.audiconnect.v3.freshness import (
         reading_freshness_attributes,
@@ -399,7 +401,9 @@ def test_command_response_publishes_real_capture_without_poll_or_request_echo():
     summary = vehicle_capture_summary(car, NEW)
     assert summary["vehicle_age_minutes"] == 0
     assert summary["source_operation"] == "cariad.access.unlock"
-    response.data = {"access": {"accessStatus": {"requests": [{"status": "successful"}]}}}
+    response.data = {
+        "access": {"accessStatus": {"requests": [{"status": "successful"}]}}
+    }
     response.observed_at = NEW + timedelta(minutes=2)
     observe_command_response(row, car, profile, "cariad", response)
     assert car.readings["last_update_time"]["value"] == NEW.isoformat()

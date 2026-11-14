@@ -592,6 +592,7 @@ def family_discovery(vehicle, profile, rows, operations):
                 {
                     "attribute": ident,
                     "detail": ident in detail_attributes,
+                    "derived_from": sample.get("derived_from"),
                     "captured": sample.get("captured"),
                     "observed_at": sample.get("observed"),
                     "selected": is_selected and valid,
@@ -640,6 +641,9 @@ def family_discovery(vehicle, profile, rows, operations):
                 ),
                 "normalized_details": sum(
                     row["valid"] and row["detail"] for row in observations
+                ),
+                "derived_projections": sum(
+                    row["valid"] and bool(row["derived_from"]) for row in observations
                 ),
                 "selected": sum(
                     row["selected"] and not row["detail"] for row in observations

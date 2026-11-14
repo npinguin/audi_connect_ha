@@ -387,8 +387,12 @@ def observe_command_response(record, car, profile, family, response):
     if not payload:
         return
     observe_read_only(
-        car, profile, payload, response.observed_at,
-        operation=record.operation, complete_discovery=False,
+        car,
+        profile,
+        payload,
+        response.observed_at,
+        operation=record.operation,
+        complete_discovery=False,
     )
     project_vehicle_capture(car, response.observed_at)
     reconcile_readback(record, car, response.observed_at, registry=profile.registry)

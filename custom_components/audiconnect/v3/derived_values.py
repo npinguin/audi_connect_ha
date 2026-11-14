@@ -40,17 +40,24 @@ def project_charging_eta(car, profile, observed_at):
         car.readings[ident] = {
             **remaining,
             "reason": remaining.get("reason") or "invalid_remaining_charging_time",
+            "derived_from": "remainingChargingTime",
         }
     elif type(minutes) in (int, float) and 0 < minutes <= 10080:
         car.readings[ident] = {
             **remaining,
             "value": (stamp + timedelta(minutes=minutes)).isoformat(),
+            "derived_from": "remainingChargingTime",
         }
 
 
 def observe_derived(
-    car, profile, payload: dict, observed_at, accepts,
-    *, operation="cariad.climate.status.batch",
+    car,
+    profile,
+    payload: dict,
+    observed_at,
+    accepts,
+    *,
+    operation="cariad.climate.status.batch",
 ) -> None:
     from .attribute_runtime import (
         record_observation,

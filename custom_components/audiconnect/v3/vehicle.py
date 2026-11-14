@@ -457,7 +457,7 @@ class V3Vehicle:
 
     @property
     def capture_age_minutes(self) -> int | None:
-        if self.climate_captured is None:
+        if self.climate_state is None or self.climate_captured is None:
             return None
         from .freshness import capture_age_minutes
 

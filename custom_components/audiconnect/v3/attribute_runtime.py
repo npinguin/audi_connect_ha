@@ -474,7 +474,11 @@ def observe_read_only(
     from .derived_values import observe_derived
 
     observe_derived(
-        vehicle, profile, payload, observed_at, _accept_observation,
+        vehicle,
+        profile,
+        payload,
+        observed_at,
+        _accept_observation,
         operation=operation,
     )
     from .structured_details import observe_structured

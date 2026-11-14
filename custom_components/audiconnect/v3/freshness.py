@@ -75,6 +75,7 @@ def reading_freshness_attributes(row, *, allow_last_known=False, now=None):
             else row.get("status", "unknown")
         ),
         **({"source_operation": row["operation"]} if row.get("operation") else {}),
+        **({"derived_from": row["derived_from"]} if row.get("derived_from") else {}),
         **({"delivered_at": row["delivered_at"]} if row.get("delivered_at") else {}),
     }
 
@@ -115,12 +116,13 @@ def project_vehicle_capture(vehicle, now: datetime | None = None):
     if newest is None:
         vehicle.readings.pop("last_update_time", None)
         return
-    stamp, _ident, source = newest
+    stamp, ident, source = newest
     vehicle.readings["last_update_time"] = {
         **source,
         "value": stamp.isoformat(),
         "captured": stamp.isoformat(),
         "path": "vehicle_capture",
+        "derived_from": ident,
     }
 
 

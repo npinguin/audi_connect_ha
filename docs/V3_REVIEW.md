@@ -161,3 +161,9 @@ eligible; HTTP acceptance, request echoes and undated values never advance
 freshness or confirm physical state. The existing last-update entity updates
 immediately, independent of the cloud poll clock. Regression covers a combined
 access/charging response, stale and missing captures, and request-only echo.
+
+Source projections explicitly label derived ETA and global last update and
+retain the source operation in the matrix; direct dataset counts remain
+separate from normalized projections. Invalid climate state cannot produce a
+valid climate age. Source operation identifiers are filtered in exported
+capture evidence to the built-in registry.
