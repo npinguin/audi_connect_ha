@@ -108,7 +108,11 @@ def select_reading(
         if a not in vehicle.readings:
             continue
         row = vehicle.readings[a]
-        candidates = dict(cache.get(a, {})) if registry is not None or families is not None else {}
+        candidates = (
+            dict(cache.get(a, {}))
+            if registry is not None or families is not None
+            else {}
+        )
         candidates[row.get("family", "")] = row
         valid.extend(
             (a, sample)
@@ -148,7 +152,6 @@ def select_reading(
     )
 
 
-
 def _current_candidates(vehicle, ident):
     previous = vehicle.readings.get(ident)
     candidates = vehicle.family_readings.setdefault(ident, {})
@@ -168,7 +171,7 @@ def _select_observation(vehicle, ident, candidates, registry, now):
     )
 
 
-def _commit_observation(vehicle, ident, row, registry, now):
+def commit_observation(vehicle, ident, row, registry, now):
     """Keep one sample per family; choose from the same set in either arrival order."""
     candidates = _current_candidates(vehicle, ident)
     family = row["family"]
@@ -176,7 +179,7 @@ def _commit_observation(vehicle, ident, row, registry, now):
         return False
     candidates[family] = row
     _select_observation(vehicle, ident, candidates, registry, now)
-    return vehicle.readings[ident] is row
+    return True
 
 
 def refresh_family_observations(vehicle, profile, now):
@@ -221,7 +224,7 @@ def record_invalid_observation(
     profile=None,
 ) -> None:
     """An explicit invalid sample invalidates only the originating family."""
-    _commit_observation(
+    commit_observation(
         vehicle,
         ident,
         {
@@ -256,7 +259,7 @@ def record_observation(
     persist_evidence=True,
     delivered_at=None,
 ):
-    """Commit one normalized observation; persist only reviewed mapping evidence."""
+    """Return whether the family accepted the sample, not whether it won selection."""
     status = "verified" if fresh else "readable_but_stale"
     row = {
         "value": value,
@@ -271,7 +274,7 @@ def record_observation(
     }
     if delivered_at is not None:
         row["delivered_at"] = delivered_at
-    if not _commit_observation(
+    if not commit_observation(
         vehicle, ident, row, getattr(profile, "registry", None), observed_at
     ):
         return False
@@ -478,13 +481,14 @@ def observe_data_act(vehicle, profile, payload, observed_at, delivered_at):
         or not isinstance(payload.get("Data"), list)
     ):
         return False
-    accepted = False
+    changed = False
     for ident, sample in data_act_observations(
         payload, observed_at, profile.registry
     ).items():
         if ident in getattr(profile, "attribute_disabled", ()):
             continue
-        accepted |= record_observation(
+        previous = vehicle.readings.get(ident)
+        record_observation(
             vehicle,
             profile,
             ident,
@@ -499,4 +503,5 @@ def observe_data_act(vehicle, profile, payload, observed_at, delivered_at):
             persist_evidence=False,
             delivered_at=delivered_at,
         )
-    return accepted
+        changed |= vehicle.readings.get(ident) is not previous
+    return changed

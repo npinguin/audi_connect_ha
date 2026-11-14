@@ -363,4 +363,3 @@ def test_trip_failed_cycle_retries_even_with_cached_scopes(monkeypatch):
     assert transport.request.await_count == 5
     assert engine._trip_poll_at[VIN.lower()] == due + 900
     assert car.trips["shortterm_current"]["mileage"] == 35
-

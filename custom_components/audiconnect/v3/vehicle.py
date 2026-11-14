@@ -403,7 +403,7 @@ class V3Vehicle:
         path: str | None = None,
     ) -> bool:
         """Compatibility for selected status routes: write the canonical reading."""
-        from .attribute_runtime import _accept_observation
+        from .attribute_runtime import commit_observation
         from .freshness import timestamp_is_fresh
 
         if (
@@ -412,21 +412,24 @@ class V3Vehicle:
             or value.strip().lower() in _INVALID
         ):
             return False
-        if not _accept_observation(self.readings.get("climatisationState"), captured):
-            return False
         fresh = timestamp_is_fresh(captured, observed_at)
-        self.readings["climatisationState"] = {
-            "value": value.strip().lower(),
-            "captured": captured,
-            "observed": observed_at.isoformat(),
-            "fresh": fresh,
-            "path": path,
-            "job": "climatisation",
-            "operation": route,
-            "status": "verified" if fresh else "readable_but_stale",
-            "family": "mbb" if route.startswith("mbb.") else "cariad",
-        }
-        return True
+        return commit_observation(
+            self,
+            "climatisationState",
+            {
+                "value": value.strip().lower(),
+                "captured": captured,
+                "observed": observed_at.isoformat(),
+                "fresh": fresh,
+                "path": path,
+                "job": "climatisation",
+                "operation": route,
+                "status": "verified" if fresh else "readable_but_stale",
+                "family": "mbb" if route.startswith("mbb.") else "cariad",
+            },
+            None,
+            observed_at,
+        )
 
     @property
     def capture_age_minutes(self) -> int | None:

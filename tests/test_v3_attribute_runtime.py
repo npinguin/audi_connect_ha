@@ -357,7 +357,8 @@ def test_family_selection_prefers_newest_capture_then_priority():
     assert not sample("mbb", 70, None, later)
     assert sample("mbb", 81, newer, later)
     assert vehicle.readings["stateOfCharge"]["family"] == "mbb"
-    assert not sample("cariad", 79, now, later)
+    assert sample("cariad", 79, now, later)
+    assert vehicle.readings["stateOfCharge"]["family"] == "mbb"
     assert sample("cariad", 82, newer, later)
     assert vehicle.readings["stateOfCharge"]["family"] == "cariad"
 
@@ -526,3 +527,43 @@ def test_family_selection_remains_latest_as_observations_age():
     refresh_family_observations(vehicle, profile, now + timedelta(minutes=30))
     assert "stateOfCharge" not in vehicle.readings
     assert not vehicle.family_readings["stateOfCharge"]
+
+
+def test_native_evidence_is_kept_when_other_read_channel_is_newer():
+    from custom_components.audiconnect.v3.attribute_runtime import record_observation
+
+    vehicle, profile, now = car(), Profile(), datetime.now(UTC)
+    assert record_observation(
+        vehicle,
+        profile,
+        "stateOfCharge",
+        70,
+        now.isoformat(),
+        now,
+        "dataset",
+        "charging",
+        "eu_data_act",
+        fresh=True,
+        operation="eu_data_act.dataset",
+        persist_evidence=False,
+    )
+    older = (now - timedelta(minutes=2)).isoformat()
+    assert record_observation(
+        vehicle,
+        profile,
+        "stateOfCharge",
+        69,
+        older,
+        now,
+        "native",
+        "charging",
+        "cariad",
+        fresh=True,
+        operation="cariad.climate.status.batch",
+    )
+    assert vehicle.readings["stateOfCharge"]["value"] == 70
+    assert (
+        profile.attribute_evidence["stateOfCharge"]["source"]
+        == "cariad.selectivestatus"
+    )
+    assert vehicle.family_readings["stateOfCharge"]["cariad"]["value"] == 69

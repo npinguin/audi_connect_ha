@@ -73,9 +73,7 @@ def configure_readback(record, params):
 def _readback_row(car, attribute, now=None):
     """Use native evidence, independently of the selected display observation."""
     key = "climatisationState" if attribute == "climate" else attribute
-    _, row = select_reading(
-        car, (key,), key, now=now, families=("cariad", "mbb", "")
-    )
+    _, row = select_reading(car, (key,), key, now=now, families=("cariad", "mbb", ""))
     return row or {}
 
 

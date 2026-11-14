@@ -182,7 +182,9 @@ def test_guided_readback_only_uses_known_changed_comfort_state(value, expected):
     car = NS(
         readings={
             "climatisationState": {
-                "value": value, "captured": NOW.isoformat(), "family": "cariad"
+                "value": value,
+                "captured": NOW.isoformat(),
+                "family": "cariad",
             }
         }
     )
