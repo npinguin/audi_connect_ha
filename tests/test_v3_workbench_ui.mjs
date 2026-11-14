@@ -1973,12 +1973,19 @@ test("Guided and selective climate discovery use the same typed parameters", asy
     p.capabilityFilter = "climate";
     const candidate = {
       label: "Start climate with temperature",
+      instructions: "Stop climate first. Check both start and target temperature.",
       capability: "climate",
       action: "start_with_settings",
       operation: "cariad.climate.start.vehicle_settings",
       approval_group: "non_spin",
       parameter_schema: {
-        temp_c: { type: "number", minimum: 15, maximum: 30, required: true },
+        temp_c: {
+          type: "number",
+          minimum: 15,
+          maximum: 30,
+          required: true,
+          label: "Target temperature (°C)",
+        },
       },
     };
     p.capabilityStatus = {
@@ -2005,7 +2012,8 @@ test("Guided and selective climate discovery use the same typed parameters", asy
       throw Error(name);
     };
     p.render();
-    assert.match(p.shadowRoot.innerHTML, /temp c/);
+    assert.match(p.shadowRoot.innerHTML, /Target temperature/);
+    assert.match(p.shadowRoot.innerHTML, /Stop climate first/);
     const click = () =>
       p._click({
         target: {
