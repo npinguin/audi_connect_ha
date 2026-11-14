@@ -1456,7 +1456,9 @@ class AudiConnectV3Panel extends HTMLElement {
       (this.capabilityStatus.end_user_progress?.controls || []).find(
         (row) => row.capability === capability && row.action === action,
       )?.label ||
-      (action === "wake" ? "Wake vehicle" : `${domainName(capability)} · ${friendly(action)}`)
+      (action === "wake"
+        ? "Wake vehicle"
+        : `${domainName(capability)} · ${friendly(action)}`)
     );
   }
 
