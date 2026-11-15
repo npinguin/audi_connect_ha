@@ -948,8 +948,12 @@ def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
     restored = restore_profile(catalog, vehicle.context, profile.snapshot())
     assert restored.attribute_routes == profile.attribute_routes
     assert restored.attribute_evidence == profile.attribute_evidence
-    assert restored.status_readings["lvBatteryVoltage"]["value"] == 12.5
-    assert restored.status_readings["stateOfCharge"]["value"] == 0
+    for ident, value in (("lvBatteryVoltage", 12.5), ("stateOfCharge", 0)):
+        row = restored.status_readings[ident]
+        assert row["value"] is None
+        assert row["reason"] == "restored_history"
+        assert row["last_known"]["value"] == value
+        assert row["last_known"]["captured"] == stamp
     assert "dailyPowerBudgetAvailable" not in restored.status_readings
     assert "batterySupportState" not in restored.status_readings
     assert not restored.control_results and not restored.command_journal
