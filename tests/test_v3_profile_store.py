@@ -127,11 +127,11 @@ async def test_partial_vehicle_save_never_erases_another_car_profile():
     assert isinstance(loaded["current_vehicle"], DevelopmentProfile)
 
     checkpoint = {"retry_at": "2026-11-15T10:00:00+00:00", "streak": 3}
-    await storage.async_save_data_act_backoff(checkpoint)
+    await storage.async_save_api_backoff("data_act", checkpoint)
     await storage.async_save({"current_vehicle": profile})
-    assert await storage.async_load_data_act_backoff() == checkpoint
-    await storage.async_save_data_act_backoff({})
-    assert await storage.async_load_data_act_backoff() == {}
+    assert await storage.async_load_api_backoff("data_act") == checkpoint
+    await storage.async_save_api_backoff("data_act", {})
+    assert await storage.async_load_api_backoff("data_act") == {}
     assert set(storage._store.data["profiles"]) == {"current_vehicle", "other_vehicle"}
 
 
@@ -271,3 +271,23 @@ def test_disabled_route_revision_cannot_be_reactivated_after_upgrade(legacy_snap
     restored.discovery.enable("climate", "start")
     with pytest.raises(DevelopmentProfileError, match="test"):
         restored.choose_working("climate", "start", route)
+
+
+@pytest.mark.parametrize("due", [None, -1, True, "invalid", float("nan"), float("inf")])
+def test_invalid_trip_poll_deadline_does_not_break_profile_restore(due):
+    catalog, context, profile = fresh()
+    saved = profile.snapshot()
+    saved["trip_poll_due_at"] = due
+    assert restore_profile(catalog, context, saved).trip_poll_due_at is None
+
+
+def test_trip_poll_deadline_is_invalidated_on_context_change():
+    catalog, context, profile = fresh()
+    profile.trip_poll_due_at = 1800000000.0
+    changed = VehicleContext(auth="auth0", region="DE", model_family="q5")
+    assert restore_profile(catalog, context, profile.snapshot()).trip_poll_due_at == (
+        profile.trip_poll_due_at
+    )
+    assert (
+        restore_profile(catalog, changed, profile.snapshot()).trip_poll_due_at is None
+    )

@@ -37,7 +37,6 @@ from .read_discovery import (
     DATA_ACT_DATASET,
 )
 from .status_planner import status_groups
-from .quota import optional_budget_available
 
 
 DATA_ACT_CONNECTION_STATES = [
@@ -65,10 +64,14 @@ def data_act_connection_state(result, deliveries):
     return "awaiting_data" if result == "initializing" else result
 
 
-def identity_refresh_due(vehicles, elapsed_seconds, remaining_calls):
+def native_status_families(car):
+    if car.context.auth != "legacy":
+        return ("cariad",)
+    return ("cariad", "mbb") if car.legacy_cariad else ("mbb",)
+
+
+def identity_refresh_due(vehicles, elapsed_seconds):
     """Bound inventory recovery independently of routine bearer renewal."""
-    if not optional_budget_available(remaining_calls):
-        return False
     present = [car for car in vehicles.values() if car.inventory_present]
     incomplete = any(
         car.identity_restored
@@ -117,7 +120,6 @@ class StatusEngine:
         self.last_cloud_poll_succeeded = None
         self._poll_cycles = 0
         self._identity_attempt_at = None
-        self._trip_poll_at = {}
         self._legacy_route_backoff = {}
         self._data_act_attempt_at = None
         self._data_act_success_at = None
@@ -281,10 +283,6 @@ class StatusEngine:
                 )
         return samples
 
-    def invalidate_trip_poll(self, vin: str) -> None:
-        """Re-evaluate trip polling after the vehicle context changes."""
-        self._trip_poll_at.pop(vin.lower(), None)
-
     async def _poll_legacy(self, car, profile, cache) -> bool:
         """Normal MBB polling, one GET per resource, with no mutations."""
         from .legacy_read_mappings import read_routes
@@ -300,8 +298,6 @@ class StatusEngine:
                 continue
             if self._poll_cycles < self._legacy_route_backoff.get(key, 0):
                 continue
-            if not optional_budget_available(self.transport.remaining_calls):
-                break
             path = template.format(VIN=car.vin, COUNTRY=car.country, TYPE="Audi")
             try:
                 response = await self.transport.request("mbb", "GET", path)
@@ -332,13 +328,10 @@ class StatusEngine:
         from .trips import CARIAD_TRIP_OPERATIONS, observe_cariad_trip
         from .attribute_runtime import _capture_in_utc
 
-        remaining = self.transport.remaining_calls
-        if not optional_budget_available(remaining, cost=8):
-            return
-        now = time.monotonic()
+        now = time.time()
         key = car.vin.lower()
-        due = self._trip_poll_at.get(key)
         profile = self.profiles[key]
+        due = profile.trip_poll_due_at
         # Retry missing scopes at the ordinary poll cadence, not a 3-hour
         # penalty after a quota/transport/partial-response failure.
         expected = (
@@ -350,11 +343,14 @@ class StatusEngine:
             if car.context.auth != "legacy"
             else ["shortterm_current", "longterm_current"]
         )
-        if due is not None and now < due:
+        # A future deadline beyond the maximum cadence is invalid (for
+        # example after a backward clock correction); do not defer forever.
+        if due is not None and now < due <= now + 10800:
             return
-        # Reserve the bounded retry before I/O. Only a complete successful
-        # cycle extends it; cached trip scopes alone never prove success.
-        self._trip_poll_at[key] = now + 900
+        # Reserve the bounded retry before I/O and persist via the existing
+        # profile snapshot at the end of the poll. A complete cycle alone
+        # extends it; cached trip scopes alone never prove success.
+        profile.trip_poll_due_at = now + 900
         complete = True
         if car.context.auth == "legacy":
             from .trips import normalize_mbb_trips
@@ -401,7 +397,7 @@ class StatusEngine:
                         car.trips[state_key] = trip
             else:
                 if complete and all(car.trips.get(scope) for scope in expected):
-                    self._trip_poll_at[key] = now + 10800
+                    profile.trip_poll_due_at = now + 10800
             return
         profile = self.profiles[car.vin.lower()]
         available = (
@@ -414,9 +410,6 @@ class StatusEngine:
         for ident in (*CARIAD_TRIP_OPERATIONS, "cariad.mobility.status.tripStatistics"):
             if ident not in available or read_excluded(profile, ident):
                 continue
-            remaining = self.transport.remaining_calls
-            if not optional_budget_available(remaining):
-                break
             family, method, path, _ = self._operation_request(car, ident)
             try:
                 reply = await self.transport.request(family, method, path)
@@ -438,17 +431,25 @@ class StatusEngine:
                 complete &= normalize_cariad_trip(reply.data)[0] is not None
         else:
             if complete and all(car.trips.get(scope) for scope in expected):
-                self._trip_poll_at[key] = now + 10800
+                profile.trip_poll_due_at = now + 10800
 
     async def poll(self) -> list[V3Vehicle]:
         # A deliberately deferred native read is not a failed cloud poll.
         # Preserve the last real result and allow independent Data Act delivery.
         # The transport still authorizes every explicit command and recovery read.
         quota = getattr(self.transport, "quota", None)
+        families = {
+            family
+            for car in self.vehicles.values()
+            if car.inventory_present
+            for family in native_status_families(car)
+        }
+        now_utc = datetime.now(UTC)
         if (
             self._inventory_ready()
+            and families
             and quota is not None
-            and quota.read_deferred(datetime.now(UTC))
+            and all(quota.read_deferred(now_utc, family) for family in families)
         ):
             self._start_data_act()
             self._update_capture_projection()
@@ -470,9 +471,7 @@ class StatusEngine:
         await self._poll_native_status()
         # Inventory enrichment is secondary to primary vehicle measurements.
         # Recheck remaining allowance after the native reads, not before them.
-        if not initial and identity_refresh_due(
-            self.vehicles, elapsed, self.transport.remaining_calls
-        ):
+        if not initial and identity_refresh_due(self.vehicles, elapsed):
             self._identity_attempt_at = now
             with suppress(RuntimeError, ValueError, OSError, TimeoutError):
                 await self.discover()
@@ -509,9 +508,9 @@ class StatusEngine:
         previous_identity_attempt = self._data_act_identity_attempt_at
         try:
             if client is not None and not self._data_act_backoff_loaded:
-                load = getattr(self.storage, "async_load_data_act_backoff", None)
+                load = getattr(self.storage, "async_load_api_backoff", None)
                 if load is not None:
-                    client.quota.restore_rate_limit(await load())
+                    client.quota.restore_rate_limit(await load("data_act"))
                 self._data_act_backoff_loaded = True
             before_backoff = client.quota.rate_limit_checkpoint() if client else {}
             samples = await self._poll_data_act()
@@ -559,10 +558,10 @@ class StatusEngine:
             self._data_act_processing_failed = True
         if client is not None:
             checkpoint = client.quota.rate_limit_checkpoint()
-            save = getattr(self.storage, "async_save_data_act_backoff", None)
+            save = getattr(self.storage, "async_save_api_backoff", None)
             if save is not None and checkpoint != before_backoff:
                 try:
-                    await save(checkpoint)
+                    await save("data_act", checkpoint)
                 except (RuntimeError, ValueError, OSError):
                     self._data_act_processing_failed = True
         if changed:
@@ -981,8 +980,6 @@ class StatusEngine:
                 break
             for jobs in pending_groups(profile, max_groups=remaining_discovery):
                 remaining_discovery -= 1
-                if not optional_budget_available(self.transport.remaining_calls):
-                    break
                 path = selective_status_path(car.vin, ",".join(jobs))
                 response = polled_responses.get((key, "cariad", path))
                 if response is None:
@@ -1156,8 +1153,6 @@ class StatusEngine:
                 car.context.auth != "auth0" and not car.legacy_cariad
             ) or not self.parking_read_allowed(car):
                 continue
-            if not optional_budget_available(self.transport.remaining_calls):
-                return
             ident = "cariad.mobility.status.parkingPosition"
             profile = self.profiles[car.vin.lower()]
             if ident not in profile.registry.operations or read_excluded(
