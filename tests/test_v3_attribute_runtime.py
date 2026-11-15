@@ -887,10 +887,18 @@ def test_conflicting_native_observation_roundtrips_and_repairs_old_profile():
 
 def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
     """Synthetic payload tests the published field paths, not vehicle support."""
+    from custom_components.audiconnect.v3.attribute_runtime import bind_status
+    from custom_components.audiconnect.v3.development_profiles import DevelopmentProfile
     from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES, V2_JOBS
     from custom_components.audiconnect.v3.product_contract import projection_descriptor
+    from custom_components.audiconnect.v3.profile_store import restore_profile
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.runtime import catalog_path
 
-    vehicle, profile, now = car(), Profile(), datetime.now(UTC)
+    vehicle, now = car(), datetime.now(UTC)
+    catalog = CapabilityRegistry.from_json_file(catalog_path())
+    profile = DevelopmentProfile(catalog, vehicle.context)
+    bind_status(vehicle, profile)
     stamp = now.isoformat()
     before = planned_jobs(vehicle, profile)
     assert len(before) == 23 and before == V2_JOBS
@@ -936,6 +944,15 @@ def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
         assert projection_descriptor(ATTRIBUTES[ident]) is not None
     assert planned_jobs(vehicle, profile) == before
     assert "batteryHealthState" not in before and "tyrePressure" not in before
+    # The existing profile owner restores bindings and only retained history.
+    restored = restore_profile(catalog, vehicle.context, profile.snapshot())
+    assert restored.attribute_routes == profile.attribute_routes
+    assert restored.attribute_evidence == profile.attribute_evidence
+    assert restored.status_readings["lvBatteryVoltage"]["value"] == 12.5
+    assert restored.status_readings["stateOfCharge"]["value"] == 0
+    assert "dailyPowerBudgetAvailable" not in restored.status_readings
+    assert "batterySupportState" not in restored.status_readings
+    assert not restored.control_results and not restored.command_journal
     # Missing data from a later partial response must not erase a valid sample.
     observe_read_only(vehicle, profile, {}, now + timedelta(minutes=5))
     assert vehicle.readings["lvBatteryVoltage"]["value"] == 12.5
