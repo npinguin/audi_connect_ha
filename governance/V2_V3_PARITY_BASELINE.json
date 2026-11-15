@@ -78,7 +78,7 @@
     "historical_refs": 110,
     "historical_with_paths": 53,
     "historical_without_paths": 57,
-    "metadata_contracts": 74,
+    "metadata_contracts": 73,
     "api_jobs": 23,
     "v2_services": 11,
     "v2_action_options": 11,
@@ -93,7 +93,7 @@
       "candidate_after_manual_proof": 22
     },
     "v3_api_operations": 64,
-    "binary_metadata_contracts": 24
+    "binary_metadata_contracts": 23
   },
   "entities": [
     {

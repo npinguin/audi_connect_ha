@@ -282,9 +282,6 @@
       "v3_lv_battery_voltage": {
         "name": "Tension de la batterie 12 V"
       },
-      "v3_battery_support_state": {
-        "name": "État du soutien de la batterie"
-      },
       "v3_vehicle_reported_online": {
         "name": "Connectivité signalée du véhicule"
       },
@@ -590,9 +587,6 @@
       },
       "v3_is_moving": {
         "name": "Véhicule en mouvement"
-      },
-      "v3_daily_power_budget_available": {
-        "name": "Budget énergétique quotidien du véhicule disponible"
       },
       "v3_integration_problem": {
         "name": "Problème d’intégration"

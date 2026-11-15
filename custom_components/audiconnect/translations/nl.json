@@ -212,9 +212,6 @@
       "v3_lv_battery_voltage": {
         "name": "Spanning van de 12V-accu"
       },
-      "v3_battery_support_state": {
-        "name": "Status batterijondersteuning"
-      },
       "v3_vehicle_reported_online": {
         "name": "Gemelde voertuigverbinding"
       },
@@ -520,9 +517,6 @@
       },
       "v3_is_moving": {
         "name": "Voertuig in beweging"
-      },
-      "v3_daily_power_budget_available": {
-        "name": "Dagelijks energiebudget voertuig beschikbaar"
       },
       "v3_integration_problem": {
         "name": "Integratieprobleem"

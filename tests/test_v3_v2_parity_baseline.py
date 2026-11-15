@@ -115,11 +115,7 @@ def test_v2_service_ids_and_all_execute_action_options_are_captured():
 
 def test_110_raw_v2_attribute_refs_with_paths_and_jobs_are_stable():
     refs = BASE["source_references"]
-    extensions = {
-        "lvBatteryVoltage",
-        "batterySupportState",
-        "dailyPowerBudgetAvailable",
-    }
+    extensions = {"lvBatteryVoltage"}
     original = [x for x in INVENTORY["attributes"] if x["id"] not in extensions]
     assert {
         x["id"] for x in INVENTORY["attributes"] if x["id"] in extensions
@@ -134,8 +130,8 @@ def test_110_raw_v2_attribute_refs_with_paths_and_jobs_are_stable():
 
 def test_native_sensor_metadata_coverage_and_recorder_repair_inventory():
     contracts = attribute_contracts()
-    assert len(contracts) == BASE["counts"]["metadata_contracts"] == 74
-    assert {"lv_battery_voltage", "battery_support_state"} <= set(contracts)
+    assert len(contracts) == BASE["counts"]["metadata_contracts"] == 73
+    assert "lv_battery_voltage" in contracts
     assert len(BASE["recorder_repair_entity_keys"]) == 13
     assert len(set(BASE["recorder_repair_entity_keys"])) == 13
     assert set(BASE["recorder_repair_entity_keys"]) <= _rows("sensor")
