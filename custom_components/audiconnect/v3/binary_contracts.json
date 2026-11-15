@@ -2,6 +2,13 @@
   "schema_version": 1,
   "source": "V3 product semantics; historical binary identities retained",
   "attributes": {
+    "daily_power_budget_available": {
+      "name": "Vehicle daily power budget available",
+      "device_class": null,
+      "icon": "mdi:gauge",
+      "category": "diagnostic",
+      "display_last_known": false
+    },
     "plug_state": {
       "name": "Charging plug",
       "device_class": "plug",

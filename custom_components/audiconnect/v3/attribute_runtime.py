@@ -631,7 +631,7 @@ def normalize_attribute_value(definition, value, conversion):
         value = normalize_api_value(value, conversion)
     except ValueError:
         return None, None
-    if definition.get("local"):
+    if "type" in definition:
         from .custom_attributes import normalize_local_value
 
         value = normalize_local_value(value, definition)
@@ -721,7 +721,7 @@ def observe_read_only(
             operation=operation,
         ):
             continue
-        # A proven V2 response field is *readable* even if the vehicle's
+        # An observed response field is *readable* even if the vehicle's
         # capture time is older than 60 minutes.  Activation exposes a clearly
         # marked last-known sensor, not a fresh control or lock reading.
         if (

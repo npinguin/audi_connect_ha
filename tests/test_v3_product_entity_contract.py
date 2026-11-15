@@ -23,6 +23,9 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
     historical = {row["id"] for row in baseline["entities"]}
     inventory = product_inventory()
     assert set(inventory["entities"]) == historical | {
+        "sensor.lv_battery_voltage",
+        "sensor.battery_support_state",
+        "binary_sensor.daily_power_budget_available",
         "sensor.discovery_coverage",
         "sensor.last_trip",
         "button.v3_refresh_cloud",

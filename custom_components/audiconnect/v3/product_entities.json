@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "source": "V2_V3_PARITY_BASELINE plus explicit product extensions; b10 reversible compatibility visibility, vehicle-first categories",
+  "source": "V2_V3_PARITY_BASELINE plus explicit product extensions; reversible compatibility visibility, vehicle-first categories",
   "entities": {
     "sensor.last_update_time": {
       "origin": "v2",
@@ -174,6 +174,39 @@
       "source_attributes": ["chargingPlugAutoUnlock"],
       "metadata_contract": "attribute_contracts.json:charging_plug_auto_unlock",
       "freshness": "last_known"
+    },
+    "sensor.lv_battery_voltage": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [
+        "lvBatteryVoltage"
+      ],
+      "metadata_contract": "attribute_contracts.json:lv_battery_voltage",
+      "freshness": "last_known",
+      "category": "diagnostic",
+      "name": "12V battery voltage"
+    },
+    "sensor.battery_support_state": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [
+        "batterySupportState"
+      ],
+      "metadata_contract": "attribute_contracts.json:battery_support_state",
+      "freshness": "fresh_or_unknown",
+      "category": "diagnostic",
+      "name": "Battery support state"
+    },
+    "binary_sensor.daily_power_budget_available": {
+      "origin": "v3_product_extension",
+      "scope": "vehicle",
+      "source_attributes": [
+        "dailyPowerBudgetAvailable"
+      ],
+      "metadata_contract": "binary_contracts.json:daily_power_budget_available",
+      "freshness": "fresh_or_unknown",
+      "category": "diagnostic",
+      "name": "Vehicle daily power budget available"
     },
     "sensor.vehicle_reported_online": {
       "origin": "v2",

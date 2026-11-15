@@ -1,8 +1,9 @@
-"""Source-derived historical V2 capability inventory for V3 discovery.
+"""Source-derived V2 inventory and reviewed V3 read extensions.
 
 Generated from V2 audi_models.py field mappings, sensor/binary_sensor descriptors,
 and the V2 selective-status job allowlist. No runtime dependency on V2 code.
-An inventory entry is NOT a proven V3 response or an authorized vehicle action.
+Reviewed V3 mappings identify their separate source; a declaration is not proof
+of vehicle support or an authorized vehicle action.
 """
 
 from __future__ import annotations
@@ -719,6 +720,45 @@ INVENTORY: dict[str, Any] = json.loads(r"""{
         "charging.chargingSettings.value.autoUnlockPlugWhenChargedAC"
       ],
       "source": "v2_audi_models",
+      "sensitivity": "vehicle_state"
+    },
+    {
+      "id": "lvBatteryVoltage",
+      "capability": "vehicle_status",
+      "job": "lvBattery",
+      "entity_key": "lv_battery_voltage",
+      "platform": "sensor",
+      "type": "number",
+      "paths": [
+        "lvBattery.lvBatteryStatus.value.batteryVoltage_V"
+      ],
+      "source": "reviewed_cariad_read",
+      "sensitivity": "vehicle_state"
+    },
+    {
+      "id": "batterySupportState",
+      "capability": "charging",
+      "job": "batterySupport",
+      "entity_key": "battery_support_state",
+      "platform": "sensor",
+      "type": "string",
+      "paths": [
+        "batterySupport.batterySupportStatus.value.batterySupport"
+      ],
+      "source": "reviewed_cariad_read",
+      "sensitivity": "vehicle_state"
+    },
+    {
+      "id": "dailyPowerBudgetAvailable",
+      "capability": "vehicle_status",
+      "job": "readiness",
+      "entity_key": "daily_power_budget_available",
+      "platform": "binary_sensor",
+      "type": "boolean",
+      "paths": [
+        "readiness.readinessStatus.value.connectionState.dailyPowerBudgetAvailable"
+      ],
+      "source": "reviewed_cariad_read",
       "sensitivity": "vehicle_state"
     },
     {
@@ -1680,7 +1720,7 @@ def capture_time(payload: Any, dotted_path: str) -> str | None:
 
 
 def extract_attributes(payload: Any) -> list[dict[str, Any]]:
-    """Extract only declared V2 mappings, preserving False/0 and source evidence."""
+    """Extract declared mappings, preserving False/0 and source evidence."""
     if not isinstance(payload, dict):
         return []
     results = []

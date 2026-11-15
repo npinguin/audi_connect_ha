@@ -883,3 +883,76 @@ def test_conflicting_native_observation_roundtrips_and_repairs_old_profile():
     saved["attribute_evidence"][ident]["path"] = "untrusted.path"
     with pytest.raises(DevelopmentProfileError, match="Untrusted attribute evidence"):
         restore_profile(catalog, vehicle.context, saved)
+
+
+
+def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
+    """Synthetic payload tests the published field paths, not vehicle support."""
+    from custom_components.audiconnect.v3.historical_catalog import V2_JOBS
+    from custom_components.audiconnect.v3.product_contract import projection_descriptor
+    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
+
+    vehicle, profile, now = car(), Profile(), datetime.now(UTC)
+    stamp = now.isoformat()
+    before = planned_jobs(vehicle, profile)
+    assert len(before) == 23 and before == V2_JOBS
+    payload = {
+        "lvBattery": {
+            "lvBatteryStatus": {
+                "value": {"batteryVoltage_V": 12.5, "carCapturedTimestamp": stamp}
+            }
+        },
+        "batterySupport": {
+            "batterySupportStatus": {
+                "value": {"batterySupport": "active", "carCapturedTimestamp": stamp}
+            }
+        },
+        "readiness": {
+            "readinessStatus": {
+                "value": {
+                    "connectionState": {
+                        "dailyPowerBudgetAvailable": False,
+                        "isOnline": True,
+                        "carCapturedTimestamp": stamp,
+                    }
+                }
+            }
+        },
+        "charging": {
+            "batteryStatus": {
+                "value": {"currentSOC_pct": 0, "carCapturedTimestamp": stamp}
+            }
+        },
+    }
+    observe_read_only(vehicle, profile, payload, now)
+    for ident, expected in (
+        ("lvBatteryVoltage", 12.5),
+        ("batterySupportState", "active"),
+        ("dailyPowerBudgetAvailable", False),
+        ("vehicleReportedOnline", True),
+        ("stateOfCharge", 0),
+    ):
+        assert vehicle.readings[ident]["value"] == expected
+        assert vehicle.readings[ident]["captured"] == stamp
+        assert profile.attribute_routes[ident] == "cariad.selectivestatus.batch"
+        assert projection_descriptor(ATTRIBUTES[ident]) is not None
+    assert planned_jobs(vehicle, profile) == before
+    assert "batteryHealthState" not in before and "tyrePressure" not in before
+    # Missing data from a later partial response must not erase a valid sample.
+    observe_read_only(vehicle, profile, {}, now + timedelta(minutes=5))
+    assert vehicle.readings["lvBatteryVoltage"]["value"] == 12.5
+    # Malformed types must never become valid new entities.
+    other, other_profile = car(), Profile()
+    payload["lvBattery"]["lvBatteryStatus"]["value"]["batteryVoltage_V"] = True
+    payload["batterySupport"]["batterySupportStatus"]["value"]["batterySupport"] = {}
+    payload["readiness"]["readinessStatus"]["value"]["connectionState"][
+        "dailyPowerBudgetAvailable"
+    ] = "true"
+    observe_read_only(other, other_profile, payload, now)
+    for ident in (
+        "lvBatteryVoltage",
+        "batterySupportState",
+        "dailyPowerBudgetAvailable",
+    ):
+        assert ident not in other_profile.attribute_routes
+        assert ident not in other.readings or other.readings[ident].get("value") is None

@@ -114,3 +114,18 @@ def test_read_family_priority_is_central_and_command_routes_are_unchanged():
         model.resolve("access", "lock", VehicleContext(auth="auth0"))["operation"]
         == "cariad.access.lock"
     )
+
+
+
+def test_new_external_jobs_are_manual_discovery_only():
+    from custom_components.audiconnect.v3.registry import CapabilityRegistry
+    from custom_components.audiconnect.v3.runtime import catalog_path
+    from custom_components.audiconnect.v3.historical_catalog import V2_JOBS
+
+    registry = CapabilityRegistry.from_json_file(catalog_path())
+    for job in ("batteryHealthState", "tyrePressure"):
+        operation = "cariad.status." + job
+        assert operation in registry.operations_for("vehicle_status", "status")
+        assert registry.operations[operation]["delivery"] == "manual"
+        assert registry.operations[operation]["method"] == "GET"
+        assert job not in V2_JOBS

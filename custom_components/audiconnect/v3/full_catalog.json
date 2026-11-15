@@ -843,6 +843,8 @@
       "status": {
         "operations": [
           "cariad.status.fuelStatus",
+          "cariad.status.batteryHealthState",
+          "cariad.status.tyrePressure",
           "cariad.status.lvBattery",
           "cariad.status.measurements",
           "cariad.status.oilLevel",
@@ -1107,6 +1109,31 @@
       "priority": 80,
       "response_paths": ["batteryChargingCare"],
       "notes": "V2 reference job; verify per vehicle before activation",
+      "legacy_compatible": true
+    },
+    "cariad.status.batteryHealthState": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=batteryHealthState",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "batteryHealthState.stateOfHealth.value.ubeIndicator_pct",
+        "batteryHealthState.stateOfHealth.value.usableBatteryCapacity"
+      ],
+      "notes": "Read-only discovery candidate; external field evidence, validate on vehicle before scheduling or mapping",
+      "legacy_compatible": true
+    },
+    "cariad.status.tyrePressure": {
+      "family": "cariad",
+      "method": "GET",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=tyrePressure",
+      "delivery": "manual",
+      "priority": 80,
+      "response_paths": [
+        "tyrePressure.tyrePressureStatus.value.overallStatus"
+      ],
+      "notes": "Read-only discovery candidate; validate on vehicle before scheduling or mapping",
       "legacy_compatible": true
     },
     "cariad.status.batterySupport": {
