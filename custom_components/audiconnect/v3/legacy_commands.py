@@ -10,6 +10,7 @@ import hashlib
 import re
 from .auth import service_api_level
 from .registry import read_json_path
+from .quota import QuotaUnavailable, optional_budget_available
 from .command_parameters import (
     LEGACY_CLIMATE_INPUTS,
     temperature_celsius,
@@ -69,7 +70,11 @@ async def security_token(transport, vin, action, spin):
         raise ValueError("Configured four-digit S-PIN required for legacy access")
     base = f"/api/rolesrights/authorization/v2/vehicles/{vin}/services/rlu_v1/operations/{action.upper()}"
     reply = await transport.request(
-        "mbb", "GET", base + "/security-pin-auth-requested", explicit_action=True
+        "mbb",
+        "GET",
+        base + "/security-pin-auth-requested",
+        explicit_action=True,
+        command_preparation=2,
     )
     challenge = read_json_path(
         reply.data, "securityPinAuthInfo.securityPinTransmission.challenge"
@@ -102,6 +107,7 @@ async def security_token(transport, vin, action, spin):
         },
         explicit_action=True,
         region_vin=vin,
+        command_preparation=1,
     )
     final = reply.data.get("securityToken") if isinstance(reply.data, dict) else None
     if (
@@ -131,7 +137,7 @@ async def confirm(transport, path, payload, *, delay=4, max_reads=3):
     if not isinstance(request_id, str) or not _ID.fullmatch(request_id):
         return "accepted_unconfirmed"
     for n in range(max_reads):
-        if transport.remaining_calls is not None and transport.remaining_calls <= 12:
+        if not optional_budget_available(transport.remaining_calls):
             return "quota_limited"
         if n:
             await asyncio.sleep(delay)
@@ -151,7 +157,7 @@ async def confirm(transport, path, payload, *, delay=4, max_reads=3):
     return "accepted_unconfirmed"
 
 
-async def configure_home_region(transport, auth, car):
+async def configure_home_region(transport, auth, car, *, command_preparation=0):
     """Resolve a legacy region once, never follow arbitrary OEM URLs."""
     executor = transport.executors["mbb"]
     if car.vin.upper() in executor._trusted_hosts:
@@ -164,8 +170,13 @@ async def configure_home_region(transport, auth, car):
         return
     try:
         response = await transport.request(
-            "mbb", "GET", f"/api/cs/vds/v1/vehicles/{car.vin}/homeRegion"
+            "mbb",
+            "GET",
+            f"/api/cs/vds/v1/vehicles/{car.vin}/homeRegion",
+            command_preparation=command_preparation,
         )
+        if command_preparation and response.status == 429:
+            raise QuotaUnavailable("Audi home region request rate limited")
         base = read_json_path(response.data, "homeRegion.baseUri.content")
         if isinstance(base, str) and base.endswith("/api"):
             base = base[:-4]
@@ -176,6 +187,9 @@ async def configure_home_region(transport, auth, car):
         ):
             executor.set_vehicle_home_region(car.vin, base)
             return
+    except QuotaUnavailable:
+        if command_preparation:
+            raise
     except (RuntimeError, ValueError, OSError, TimeoutError):
         pass
     executor.set_vehicle_home_region(car.vin, "https://msg.volkswagen.de")

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from dataclasses import asdict
 from typing import Any
 
 from .action_discovery import ActionAttempt
@@ -473,22 +474,79 @@ def restore_profile(
     revisions = saved.get("active_revisions", {})
     if not isinstance(revisions, dict):
         raise DevelopmentProfileError("Malformed route revisions")
+    # New snapshots bind every reviewed outcome, including inactive/disabled
+    # routes. Older snapshots retain their evidence where the old journal or
+    # selected revision proves it; never infer a revision from an operation ID.
+    control_revisions = saved.get("control_revisions", {})
+    if not isinstance(control_revisions, dict):
+        raise DevelopmentProfileError("Malformed control revisions")
     for key, operation in active.items():
         if "." not in key:
             raise DevelopmentProfileError("Unexpected active capability")
         capability, action = key.split(".", 1)
-        # Validate the evidence even for old, unversioned data. Do not treat
-        # the old record as proof for a changed or unknown operation revision.
         profile.choose_working(capability, action, operation)
-        if action != "status":
-            if revisions.get(key) != operation_revision(
-                profile.registry.operations[operation]
-            ):
-                profile.active.pop(key, None)
-                profile.active_revisions.pop(key, None)
-                profile.discovery.preferred.pop(key, None)
-            else:
+    for operation, outcome in list(profile.control_results.items()):
+        revision = control_revisions.get(operation)
+        if revision is None:
+            revision = next(
+                (
+                    record.operation_revision
+                    for record in reversed(profile.command_journal)
+                    if record.operation == operation
+                    and record.origin == "workbench"
+                    and record.state in ("verified", "physical_failed", "rejected")
+                    and record.operation_revision
+                ),
+                None,
+            )
+        if revision is None:
+            preferred = discovery.get("preferred", {})
+            revision = next(
+                (
+                    revisions.get(key)
+                    for key, selected in {**preferred, **active}.items()
+                    if selected == operation and revisions.get(key)
+                ),
+                None,
+            )
+        current = operation_revision(profile.registry.operations[operation])
+        selected_keys = [
+            key for key, selected in profile.active.items() if selected == operation
+        ]
+        if revision == current and all(
+            revisions.get(key) == current for key in selected_keys
+        ):
+            for key in selected_keys:
                 profile.discovery.preferred[key] = operation
+            continue
+        if operation in catalog.operations:
+            row = {
+                "operation": operation,
+                "outcome": outcome,
+                "context": asdict(old_context),
+                "operation_revision": revision
+                if isinstance(revision, str)
+                and len(revision) == 64
+                and all(ch in "0123456789abcdef" for ch in revision)
+                else None,
+            }
+            if row not in profile.historical_control_evidence:
+                profile.historical_control_evidence.append(row)
+        for key in selected_keys:
+            profile.active.pop(key, None)
+            profile.active_revisions.pop(key, None)
+            profile.discovery.preferred.pop(key, None)
+        profile.control_results.pop(operation, None)
+        if operation == "cariad.charging.mode":
+            profile.verified_charge_modes.clear()
+    profile.historical_control_evidence = profile.historical_control_evidence[-50:]
+    pending = profile.discovery.active_attempt
+    if pending is not None:
+        record = profile.engineering_record(pending.sequence)
+        if record is not None and record.operation_revision != operation_revision(
+            profile.registry.operations[pending.operation]
+        ):
+            profile.invalidated_attempt_sequence = pending.sequence
     # Catalog-match cache is not an authorization source; recomputed at poll.
     profile.fast_bindings = {}
     profile.rebind_context(context)
@@ -512,6 +570,23 @@ class V3ProfileStorage:
         """Remove this entry's profiles and evidence after integration removal."""
         async with self._write_lock:
             await self._store.async_remove()
+
+    async def async_load_data_act_backoff(self) -> dict:
+        async with self._write_lock:
+            saved = await self._store.async_load() or {}
+            return saved.get("data_act_backoff", {}) if isinstance(saved, dict) else {}
+
+    async def async_save_data_act_backoff(self, checkpoint: dict) -> None:
+        async with self._write_lock:
+            saved = await self._store.async_load() or {}
+            if not isinstance(saved, dict):
+                raise DevelopmentProfileError("Invalid existing local profile store")
+            if saved.get("data_act_backoff", {}) != checkpoint:
+                if checkpoint:
+                    saved["data_act_backoff"] = checkpoint
+                else:
+                    saved.pop("data_act_backoff", None)
+                await self._store.async_save(saved)
 
     async def async_identity(self, vehicle_key: str, region: str) -> dict:
         from .identity_cache import validate_identity
@@ -564,4 +639,4 @@ class V3ProfileStorage:
         if len(records) > 50:
             raise DevelopmentProfileError("Too many saved vehicle profiles")
         if records != old.get("profiles", {}):
-            await self._store.async_save({"profiles": records})
+            await self._store.async_save({**old, "profiles": records})

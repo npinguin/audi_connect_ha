@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 import time
 from typing import Any
@@ -36,6 +37,7 @@ from .read_discovery import (
     DATA_ACT_DATASET,
 )
 from .status_planner import status_groups
+from .quota import optional_budget_available
 
 
 DATA_ACT_CONNECTION_STATES = [
@@ -48,6 +50,7 @@ DATA_ACT_CONNECTION_STATES = [
     "vehicle_access_denied",
     "subscription_unavailable",
     "rate_limited",
+    "session_refresh_pending",
     "unavailable",
 ]
 
@@ -64,7 +67,7 @@ def data_act_connection_state(result, deliveries):
 
 def identity_refresh_due(vehicles, elapsed_seconds, remaining_calls):
     """Bound inventory recovery independently of routine bearer renewal."""
-    if remaining_calls is not None and remaining_calls <= 12:
+    if not optional_budget_available(remaining_calls):
         return False
     present = [car for car in vehicles.values() if car.inventory_present]
     incomplete = any(
@@ -119,6 +122,7 @@ class StatusEngine:
         self._data_act_attempt_at = None
         self._data_act_success_at = None
         self._data_act_processing_failed = False
+        self._data_act_backoff_loaded = False
 
     @property
     def transport(self):
@@ -169,6 +173,10 @@ class StatusEngine:
             result = "vehicle_access_denied"
         elif vehicle is not None and "subscription_unavailable" in deliveries:
             result = "subscription_unavailable"
+        elif getattr(client.quota, "rate_limit_streak", 0):
+            result = "rate_limited"
+        elif getattr(client, "reauth_pending", False):
+            result = "session_refresh_pending"
         elif retry and retry > datetime.now(UTC):
             result = "rate_limited"
         elif self._data_act_processing_failed or "unavailable" in deliveries:
@@ -192,10 +200,46 @@ class StatusEngine:
             if self._data_act_success_at
             else None,
             "retry_at": retry.isoformat() if retry else None,
+            "next_poll_at": self._data_act_due_at(client).isoformat()
+            if client is not None
+            and not client.authorization_required
+            and (self._data_act_attempt_at or retry)
+            else None,
+            "rate_limit_streak": getattr(client.quota, "rate_limit_streak", 0)
+            if client is not None
+            else 0,
             "delivery_states": deliveries,
             "mapped_observations": mapped,
             "selected_readings": selected,
         }
+
+    def _data_act_due_at(self, client):
+        """Schedule from delivery evidence and the existing quota deadline."""
+        if getattr(client.quota, "rate_limit_streak", 0) and client.quota.retry_at:
+            return client.quota.retry_at
+        interval = next(
+            (
+                p.registry.families["eu_data_act"]["poll_interval_minutes"]
+                for p in self.profiles.values()
+            ),
+            30,
+        )
+        deliveries = set(getattr(client, "delivery_states", {}).values())
+        idle = deliveries and deliveries <= {
+            "no_new_dataset",
+            "no_nonempty_dataset",
+            "empty_dataset",
+            "subscription_unavailable",
+            "vehicle_access_denied",
+        }
+        if idle:
+            interval *= 2
+        due = (
+            self._data_act_attempt_at + timedelta(minutes=interval)
+            if self._data_act_attempt_at
+            else datetime.min.replace(tzinfo=UTC)
+        )
+        return max(due, client.quota.retry_at or due)
 
     async def _poll_data_act(self, now=None):
         """Fetch due optional family data; native quota is separate."""
@@ -209,7 +253,7 @@ class StatusEngine:
         if client.authorization_required:
             return samples
         now = now or datetime.now(UTC)
-        if client.quota.retry_at and now < client.quota.retry_at:
+        if now < self._data_act_due_at(client):
             return samples
         profiles = [
             (car, self.profiles[key])
@@ -217,13 +261,6 @@ class StatusEngine:
             if car.inventory_present and key in self.profiles
         ]
         if not profiles:
-            return samples
-        interval = profiles[0][1].registry.families["eu_data_act"][
-            "poll_interval_minutes"
-        ]
-        if self._data_act_attempt_at and now < self._data_act_attempt_at + timedelta(
-            minutes=interval
-        ):
             return samples
         self._data_act_attempt_at = now
         self._data_act_processing_failed = False
@@ -263,10 +300,7 @@ class StatusEngine:
                 continue
             if self._poll_cycles < self._legacy_route_backoff.get(key, 0):
                 continue
-            if (
-                self.transport.remaining_calls is not None
-                and self.transport.remaining_calls <= 12
-            ):
+            if not optional_budget_available(self.transport.remaining_calls):
                 break
             path = template.format(VIN=car.vin, COUNTRY=car.country, TYPE="Audi")
             try:
@@ -299,7 +333,7 @@ class StatusEngine:
         from .attribute_runtime import _capture_in_utc
 
         remaining = self.transport.remaining_calls
-        if remaining is not None and remaining < 20:
+        if not optional_budget_available(remaining, cost=8):
             return
         now = time.monotonic()
         key = car.vin.lower()
@@ -381,7 +415,7 @@ class StatusEngine:
             if ident not in available or read_excluded(profile, ident):
                 continue
             remaining = self.transport.remaining_calls
-            if remaining is not None and remaining <= 12:
+            if not optional_budget_available(remaining):
                 break
             family, method, path, _ = self._operation_request(car, ident)
             try:
@@ -407,6 +441,18 @@ class StatusEngine:
                 self._trip_poll_at[key] = now + 10800
 
     async def poll(self) -> list[V3Vehicle]:
+        # A deliberately deferred native read is not a failed cloud poll.
+        # Preserve the last real result and allow independent Data Act delivery.
+        # The transport still authorizes every explicit command and recovery read.
+        quota = getattr(self.transport, "quota", None)
+        if (
+            self._inventory_ready()
+            and quota is not None
+            and quota.read_deferred(datetime.now(UTC))
+        ):
+            self._start_data_act()
+            self._update_capture_projection()
+            return list(self.vehicles.values())
         self.last_cloud_poll_attempt = datetime.now(UTC)
         self.last_cloud_poll_succeeded = False
         self._poll_cycles += 1
@@ -415,28 +461,34 @@ class StatusEngine:
         if self._identity_attempt_at is None:
             self._identity_attempt_at = now
         elapsed = now - self._identity_attempt_at
-        if initial or identity_refresh_due(
-            self.vehicles,
-            elapsed,
-            self.transport.remaining_calls,
-        ):
+        if initial:
             self._identity_attempt_at = now
-            try:
-                await self.discover()
-            except (RuntimeError, ValueError, OSError, TimeoutError):
-                if initial:
-                    raise
+            await self.discover()
         # One optional family task, owned by the same status lifecycle. A slow
         # portal read must not delay the native coordinator's publication.
         self._start_data_act()
         await self._poll_native_status()
+        # Inventory enrichment is secondary to primary vehicle measurements.
+        # Recheck remaining allowance after the native reads, not before them.
+        if not initial and identity_refresh_due(
+            self.vehicles, elapsed, self.transport.remaining_calls
+        ):
+            self._identity_attempt_at = now
+            with suppress(RuntimeError, ValueError, OSError, TimeoutError):
+                await self.discover()
         self._update_capture_projection()
         return list(self.vehicles.values())
 
     def _start_data_act(self):
         if self._data_act_task is not None and not self._data_act_task.done():
             return
-        if getattr(self.auth, "data_act_client", None) is None:
+        client = getattr(self.auth, "data_act_client", None)
+        if client is None:
+            return
+        if self._data_act_backoff_loaded and (
+            client.authorization_required
+            or datetime.now(UTC) < self._data_act_due_at(client)
+        ):
             return
         create_task = getattr(self.entry, "async_create_background_task", None)
         if create_task is not None and self.hass is not None:
@@ -449,11 +501,19 @@ class StatusEngine:
     async def _collect_data_act(self):
         from .attribute_runtime import observe_data_act
 
+        client = getattr(self.auth, "data_act_client", None)
         before = self.data_act_poll_status()
         changed = discovery_changed = False
+        before_backoff = {}
         previous_attempt = self._data_act_attempt_at
         previous_identity_attempt = self._data_act_identity_attempt_at
         try:
+            if client is not None and not self._data_act_backoff_loaded:
+                load = getattr(self.storage, "async_load_data_act_backoff", None)
+                if load is not None:
+                    client.quota.restore_rate_limit(await load())
+                self._data_act_backoff_loaded = True
+            before_backoff = client.quota.rate_limit_checkpoint() if client else {}
             samples = await self._poll_data_act()
             client = getattr(self.auth, "data_act_client", None)
             changed, discovery_changed = self._withdraw_data_act(client)
@@ -479,7 +539,10 @@ class StatusEngine:
                         car, profile, payload, observed, delivered
                     )
                     client.acknowledge(car.vin, marker)
-            if self._data_act_attempt_at != previous_attempt:
+            if (
+                self._data_act_attempt_at != previous_attempt
+                and self._data_act_success_at == self._data_act_attempt_at
+            ):
                 changed |= await self._enrich_data_act_identity(client)
                 discovery_changed |= (
                     self._data_act_identity_attempt_at != previous_identity_attempt
@@ -494,6 +557,14 @@ class StatusEngine:
             # Optional provider errors must not invalidate native data or expose
             # response content and credentials in logs.
             self._data_act_processing_failed = True
+        if client is not None:
+            checkpoint = client.quota.rate_limit_checkpoint()
+            save = getattr(self.storage, "async_save_data_act_backoff", None)
+            if save is not None and checkpoint != before_backoff:
+                try:
+                    await save(checkpoint)
+                except (RuntimeError, ValueError, OSError):
+                    self._data_act_processing_failed = True
         if changed:
             self._update_capture_projection()
         if self._notify is not None:
@@ -555,7 +626,7 @@ class StatusEngine:
         }
         if not missing or (
             self._data_act_identity_attempt_at
-            and now - self._data_act_identity_attempt_at < timedelta(hours=1)
+            and now - self._data_act_identity_attempt_at < timedelta(hours=24)
         ):
             return False
         self._data_act_identity_attempt_at = now
@@ -655,7 +726,12 @@ class StatusEngine:
         # API family + VIN + exact path is the request identity; a route change
         # must never trigger a second call for a response already in this poll.
         polled_responses: dict[tuple[str, str, str], V3Response] = {}
-        for key, vehicle in self.vehicles.items():
+        # Rotate the existing account poll order so a low shared allowance
+        # cannot consistently favor the first vehicle in inventory.
+        keys = list(self.vehicles)
+        start = (self._poll_cycles - 1) % len(keys) if keys else 0
+        for key in keys[start:] + keys[:start]:
+            vehicle = self.vehicles[key]
             if not vehicle.inventory_present:
                 continue
             profile = self.profiles[key]
@@ -890,9 +966,7 @@ class StatusEngine:
             else MAX_EXTRA_PERIODIC_REQUESTS
         )
         # Rotate the existing account-wide discovery budget across vehicles.
-        discovery_keys = list(self.vehicles)
-        start = (self._poll_cycles - 1) % len(discovery_keys) if discovery_keys else 0
-        for key in discovery_keys[start:] + discovery_keys[:start]:
+        for key in keys[start:] + keys[:start]:
             car = self.vehicles[key]
             if not car.inventory_present:
                 continue
@@ -907,10 +981,7 @@ class StatusEngine:
                 break
             for jobs in pending_groups(profile, max_groups=remaining_discovery):
                 remaining_discovery -= 1
-                if (
-                    self.transport.remaining_calls is not None
-                    and self.transport.remaining_calls <= 12
-                ):
+                if not optional_budget_available(self.transport.remaining_calls):
                     break
                 path = selective_status_path(car.vin, ",".join(jobs))
                 response = polled_responses.get((key, "cariad", path))
@@ -1085,10 +1156,7 @@ class StatusEngine:
                 car.context.auth != "auth0" and not car.legacy_cariad
             ) or not self.parking_read_allowed(car):
                 continue
-            if (
-                self.transport.remaining_calls is not None
-                and self.transport.remaining_calls <= 12
-            ):
+            if not optional_budget_available(self.transport.remaining_calls):
                 return
             ident = "cariad.mobility.status.parkingPosition"
             profile = self.profiles[car.vin.lower()]

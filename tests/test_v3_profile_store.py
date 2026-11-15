@@ -126,6 +126,14 @@ async def test_partial_vehicle_save_never_erases_another_car_profile():
     loaded = await storage.async_load(catalog, {"current_vehicle": ctx})
     assert isinstance(loaded["current_vehicle"], DevelopmentProfile)
 
+    checkpoint = {"retry_at": "2026-11-15T10:00:00+00:00", "streak": 3}
+    await storage.async_save_data_act_backoff(checkpoint)
+    await storage.async_save({"current_vehicle": profile})
+    assert await storage.async_load_data_act_backoff() == checkpoint
+    await storage.async_save_data_act_backoff({})
+    assert await storage.async_load_data_act_backoff() == {}
+    assert set(storage._store.data["profiles"]) == {"current_vehicle", "other_vehicle"}
+
 
 def test_saved_unverified_candidate_survives_restart_but_not_active():
     catalog, context, profile = fresh()
@@ -188,3 +196,78 @@ def test_identity_draft_roundtrip_does_not_activate_or_dispatch():
             INVENTORY_OPERATION, "mutation { userVehicles { vin } }", {}
         )
     assert result.identity_drafts[INVENTORY_OPERATION]["query"] == query
+
+
+def test_changed_route_revision_cannot_reactivate_previous_physical_proof():
+    catalog, context, profile = fresh()
+    route = "cariad.climate.start.stored"
+    attempt = profile.begin_test("climate", "start", route, now=10)
+    profile.observe_http(attempt.sequence, 200)
+    profile.confirm(attempt.sequence, worked=True, inspected_vehicle=True, now=11)
+    profile.choose_working("climate", "start", route)
+    saved = profile.snapshot()
+    revision = saved["active_revisions"]["climate.start"]
+    changed = json.loads(PATH.read_text())
+    changed["operations"][route]["priority"] = 42
+    revised = CapabilityRegistry(changed)
+    restored = restore_profile(revised, context, saved, cooldown_seconds=0)
+    assert "climate.start" not in restored.active
+    assert route not in restored.control_results
+    assert restored.reviewed_control(route) is None
+    assert restored.historical_control_evidence[-1]["operation_revision"] == revision
+    with pytest.raises(DevelopmentProfileError, match="test"):
+        restored.choose_working("climate", "start", route)
+    again = restore_profile(revised, context, restored.snapshot(), cooldown_seconds=0)
+    assert again.historical_control_evidence == restored.historical_control_evidence
+
+
+def test_pending_old_revision_review_is_not_new_route_proof():
+    catalog, context, profile = fresh()
+    route = "cariad.climate.start.stored"
+    attempt = profile.begin_test("climate", "start", route, now=10)
+    profile.observe_http(attempt.sequence, 200)
+    changed = json.loads(PATH.read_text())
+    changed["operations"][route]["priority"] = 42
+    restored = restore_profile(
+        CapabilityRegistry(changed), context, profile.snapshot(), cooldown_seconds=0
+    )
+    restored.confirm(attempt.sequence, worked=True, inspected_vehicle=True, now=11)
+    assert restored.discovery.active_attempt is None
+    assert route not in restored.control_results
+    assert restored.reviewed_control(route) is None
+    assert restored.engineering_record(attempt.sequence).state == "verified"
+
+
+def test_auth_context_change_clears_both_bound_status_maps():
+    _, _, profile = fresh()
+    profile.status_readings["stateOfCharge"] = {"value": 50}
+    profile.status_family_readings["stateOfCharge"] = {"cariad": {"value": 50}}
+    profile.rebind_context(VehicleContext(auth="auth0", region="BE"))
+    assert not profile.status_readings
+    assert not profile.status_family_readings
+
+
+@pytest.mark.parametrize("legacy_snapshot", [False, True])
+def test_disabled_route_revision_cannot_be_reactivated_after_upgrade(legacy_snapshot):
+    catalog, context, profile = fresh()
+    route = "cariad.climate.start.stored"
+    attempt = profile.begin_test("climate", "start", route, now=10)
+    profile.confirm(attempt.sequence, worked=True, inspected_vehicle=True, now=11)
+    profile.choose_working("climate", "start", route)
+    profile.disable("climate", "start")
+    saved = profile.snapshot()
+    if legacy_snapshot:
+        saved.pop("control_revisions")
+    unchanged = restore_profile(catalog, context, saved, cooldown_seconds=0)
+    unchanged.discovery.enable("climate", "start")
+    unchanged.choose_working("climate", "start", route)
+    changed = json.loads(PATH.read_text())
+    changed["operations"][route]["priority"] = 42
+    restored = restore_profile(
+        CapabilityRegistry(changed), context, saved, cooldown_seconds=0
+    )
+    assert route not in restored.control_results
+    assert restored.historical_control_evidence[-1]["operation"] == route
+    restored.discovery.enable("climate", "start")
+    with pytest.raises(DevelopmentProfileError, match="test"):
+        restored.choose_working("climate", "start", route)

@@ -1,21 +1,23 @@
-# Audi Connect 3.0.0b42 — owner self-test candidate
+# Audi Connect 3.0.0b43 — reliability & continuity test beta
 
-Experimental HACS prerelease. V2 remains the default and rollback; V3 is opt-in. This is a targeted correction to B41, not a stable promotion or general field-test announcement.
+Experimental HACS prerelease, authorized for community testing. V2 remains the default and fallback; V3 is opt-in. EU Data Act remains optional. This is not stable promotion.
 
-## What changed
+## Improvements since B42
 
-- Previously verified controls no longer become permanently blocked by old routine command outcomes, including B41 legacy lock/unlock records without per-command HTTP status.
-- Keep discovery bindings and historical outcomes separate. A failed or uncertain routine command does not revoke a proven binding. A new explicit request may be made after the existing bounded cooldown.
-- Restore accepted historical outcomes without inventing HTTP evidence or replaying commands. Interrupted, unacknowledged operations remain uncertain.
-- Preserve authorization, route applicability/revision, parameter validation, active discovery review and wake quota/cadence guards.
-- B41 state continuity, entity identities, canonical last-known status and bounded optimistic projection remain intact. No new polling, automatic retries or state layer.
+- Preserve newer native last-known readings, including SoC, across partial/invalid responses and restart. Show the actual measurement provenance; historical data is not fresh command evidence.
+- Charging START/STOP reflects reported vehicle state rather than an assumed successful action. HTTP acceptance, backend completion and actual observations remain separate. Preserve received HTTP evidence even if later local processing fails.
+- Preserve physically verified discovery and independently verified charge modes across restart and routine command failures. Bind reviews to their operation revision; a failed timer test does not withdraw independent manual-mode proof.
+- Consolidate request budgets, native priorities and recovery. Respect Retry-After, use bounded fallback for repeated throttling, avoid unnecessary optional reads, prioritize native status, rotate vehicles fairly, and preserve the complete necessary command request allowance, including legacy access preparation.
+- Keep configured native cadence; deferred reads are not cloud failures. Data Act normal delivery checks remain 30 minutes and back off to 60 minutes when idle; recover from valid empty delivery without retaining stale throttling.
+- Validate conflicting temperature inputs before settings reads. Preserve existing routes, vehicle/entity IDs, trip history and normal HA controls. Workbench displays distinct historical HA projection provenance.
+- Simplified onboarding and engineering documentation. No new runtime files, API routes, schedulers or entity definitions.
 
-## Local acceptance
+## Installation and field acceptance
 
-1. Update via HACS and restart without deleting the integration or existing history.
-2. Before running discovery, verify that previously proven lock and unlock are both usable. Inspect actual vehicle response and export diagnostics.
-3. Run Vehicle Setup & Discovery for unresolved controls; test climate, charging and charge mode.
-4. Confirm that sleep, restart and temporary command failure do not erase previously proven bindings. Verify physical charging against measured power.
-5. Keep EU Data Act separate from native command validation; check it after native controls.
+Back up HA. In HACS enable beta versions, select 3.0.0b43, update and restart without deleting the integration or its devices. Test existing proven controls first, then use Vehicle Setup & Discovery only where needed.
 
-Source: merged PR #58, 8d1dbbb677c0c2ba3290c995718703b89ffd03f5. Exact reviewed head 1cb911f1cdc3c5d94858f86313994e8fed6912ac passed 1,298 Python tests, 43 Workbench tests, lint/format, HACS and hassfest. The candidate workflow independently checks both supported HA targets and packages the release. Physical Q8/Q5 acceptance, charging START/STOP behavior and stable gate #44 remain open.
+Check native charging against measured power, actual START/STOP, manual/timer modes, climate and access, sleep/restart, retained trips and entity IDs, timestamps and quota with more than one client. Test EU Data Act separately. Export sanitized diagnostics when reporting a problem.
+
+The physical Q5 STOP regression, exact Q6 charge-target schema, manufacturer identity, auxiliary heating, Q4 partial-response/parking behavior and real multi-client quota scope still need field evidence. HTTP acceptance is not physical execution. Ownership consolidation findings remain documented; no speculative redesign or stable claim.
+
+Source: merged PR #60, 35314ae4c5986a02efdfdb253090a10af5265492. Exact product head 1f17aab476dd1d12ecc7b5f2e486376a4cf37a2f passed 1,329 Python tests on HA 2026.11.1, 43 Workbench tests, lint, HACS and hassfest (Test #2187, Validate #2188). The release workflow independently verifies the pinned source and tests only the latest stable monthly HA release, then checks archive integrity and SHA256. Older HA support metadata is unchanged, not newly revalidated. Stable gate #44 remains open. Upstream #918 remains on B42 pending separate review synchronization.

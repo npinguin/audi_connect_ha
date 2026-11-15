@@ -50,6 +50,7 @@ async def settings(transport: Any, vin: str, job: str, path: str) -> dict:
         "cariad",
         "GET",
         selective_status_path(vin, job),
+        command_preparation=1,
     )
     value = read_json_path(reply.data, path)
     if not 200 <= reply.status < 300 or not isinstance(value, dict) or not value:
@@ -86,13 +87,6 @@ async def patch_settings(transport, vin, mode, params):
         raise ValueError("Unknown climatisation setting")
     current = await settings(transport, vin, job, path)
     if not strict and TEMPERATURE.keys() & updates.keys():
-        if {
-            "targetTemperature",
-            "targetTemperature_C",
-            "targetTemperature_F",
-            "targetTemperatureUnit",
-        } & updates.keys():
-            raise ValueError("Supply one semantic temperature, not raw settings")
         target = temperature_celsius(updates, None)
         if "targetTemperature_C" not in current:
             raise ValueError("Vehicle has not reported a Celsius setpoint")
@@ -199,6 +193,7 @@ async def build(engine: Any, car: Any, mode: str, params: dict) -> Any:
             f"/vehicle/v1/engine/{vin}/userpromptproof",
             body={"spin": spin},
             explicit_action=True,
+            command_preparation=1,
         )
         proof = (
             reply.data.get("userPromptProof") if isinstance(reply.data, dict) else None

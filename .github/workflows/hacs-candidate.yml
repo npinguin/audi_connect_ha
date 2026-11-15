@@ -15,14 +15,6 @@ jobs:
   verify:
     if: github.repository == 'npinguin/audi_connect_ha'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - ha: "2026.7.0"
-            package: false
-          - ha: "2026.11.1"
-            package: true
     steps:
       - uses: actions/checkout@v7
         with:
@@ -79,39 +71,32 @@ jobs:
           assert version in Path("docs/HACS_CANDIDATE.md").read_text().splitlines()[0]
           assert json.loads(Path("hacs.json").read_text())["homeassistant"] == "2026.7.0"
           PY
-      - name: Install target HA and test dependencies
-        run: |
-          sed 's/^homeassistant==.*/homeassistant==${{ matrix.ha }}/' requirements-test.txt > "$RUNNER_TEMP/audi-test.txt"
-          pip install -r "$RUNNER_TEMP/audi-test.txt"
+      - name: Install latest stable HA and test dependencies
+        run: pip install -r requirements-test.txt
       - name: Python regression tests
         run: pytest -q
       - name: Workbench regression
-        if: matrix.package
         run: |
           node --check custom_components/audiconnect/v3/frontend/panel.js
           node --test tests/test_v3_workbench_ui.mjs
       - name: Upstream pre-commit hooks
-        if: matrix.package
         run: |
           pip install pre-commit
           pre-commit run --all-files --show-diff-on-failure
       - name: Home Assistant hassfest
-        if: matrix.package
         uses: home-assistant/actions/hassfest@master
       - name: HACS integration validation
-        if: matrix.package
         uses: hacs/action@main
         with:
           category: integration
       - name: Package integration
-        if: matrix.package
         run: |
           version=$(python -c 'import json; print(json.load(open("custom_components/audiconnect/manifest.json"))["version"])')
           archive="audi_connect_v3_$version.zip"
           (cd custom_components && zip -qr "../$archive" audiconnect -x "*/__pycache__/*" "*.pyc")
+          unzip -tq "$archive"
           sha256sum "$archive" > "SHA256SUMS_V3_$version.txt"
       - uses: actions/upload-artifact@v4
-        if: matrix.package
         with:
           name: hacs-candidate-validated
           path: |

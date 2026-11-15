@@ -374,6 +374,7 @@ class DevelopmentProfile:
         self.identity_drafts: dict[str, dict[str, Any]] = {}
         # Bound once to the vehicle's canonical map by the composition owner.
         self.status_readings: dict[str, Any] = {}
+        self.status_family_readings: dict[str, Any] = {}
         self.last_command: CommandRecord | None = None
         self.command_journal: list[CommandRecord] = []
         self.invalidated_attempt_sequence: int | None = None
@@ -607,6 +608,23 @@ class DevelopmentProfile:
             None,
         )
 
+    def reviewed_control(self, operation: str):
+        """Current physical discovery proof, independent of routine outcomes."""
+        if self.control_results.get(operation) != "worked":
+            return None
+        revision = operation_revision(self.registry.operations[operation])
+        for attempt in reversed(self.discovery.history):
+            key = f"{attempt.capability}.{attempt.action}"
+            if (
+                attempt.operation == operation
+                and attempt.result == "worked"
+                and self.active.get(key) == operation
+                and self.active_revisions.get(key) == revision
+                and key not in self.discovery.disabled
+            ):
+                return attempt.public()
+        return None
+
     @contextmanager
     def command_transaction(self):
         """Rollback journal/discovery changes only before physical dispatch."""
@@ -656,6 +674,7 @@ class DevelopmentProfile:
         previous = self.discovery.context
         if context.auth != previous.auth or context.region != previous.region:
             self.status_readings.clear()
+            self.status_family_readings.clear()
         if self.discovery.active_attempt is not None:
             self.invalidated_attempt_sequence = self.discovery.active_attempt.sequence
         # Preserve reviewed built-in outcomes before invalidating the current
@@ -740,7 +759,11 @@ class DevelopmentProfile:
             )
             if worked is not None:
                 record.completed_at = now
-        if sequence == self.invalidated_attempt_sequence:
+        if sequence == self.invalidated_attempt_sequence or (
+            record is not None
+            and record.operation_revision
+            != operation_revision(self.registry.operations[attempted.operation])
+        ):
             self.discovery.preferred.pop(key, None)
             if worked is not None:
                 self.invalidated_attempt_sequence = None
@@ -758,12 +781,21 @@ class DevelopmentProfile:
                 )
             elif worked is False:
                 self.verified_charge_modes.pop(record.requested_charge_mode, None)
+                if any(
+                    revision == record.operation_revision
+                    for revision in self.verified_charge_modes.values()
+                ):
+                    # A failed parameter is not a failed endpoint. Preserve
+                    # the independently proven mode and existing active route.
+                    self.discovery.preferred[key] = attempted.operation
+                    return
         if attempted.result in ("worked", "failed"):
             self.control_results[attempted.operation] = attempted.result
         if attempted.result != "worked" and self.active.get(key) == attempted.operation:
             # A later failure/uncertainty invalidates this vehicle's active
             # mapping. Never keep advertising a known-broken command.
             self.active.pop(key)
+            self.active_revisions.pop(key, None)
 
     def reject_test(self, sequence: int, *, now: float) -> None:
         record = self.engineering_record(sequence)
@@ -909,10 +941,16 @@ class DevelopmentProfile:
             "draft_selected": dict(self.draft_selected),
             "read_evidence": deepcopy(self.read_results),
             "control_evidence": dict(self.control_results),
+            "control_revisions": {
+                operation: operation_revision(self.registry.operations[operation])
+                for operation in self.control_results
+            },
             "verified_charge_modes": dict(self.verified_charge_modes),
             "historical_control_evidence": deepcopy(self.historical_control_evidence),
             "manufacturer_identity": deepcopy(self.manufacturer_identity),
-            "status_observations": status_snapshot(self.status_readings),
+            "status_observations": status_snapshot(
+                self.status_readings, family_readings=self.status_family_readings
+            ),
             "identity_drafts": deepcopy(self.identity_drafts),
             "last_command": legacy_snapshot(self.last_command)
             if self.last_command

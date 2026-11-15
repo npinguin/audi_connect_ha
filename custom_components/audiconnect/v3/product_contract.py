@@ -96,11 +96,22 @@ def projection_descriptor(attribute):
     return canonical if key in product_inventory()["entities"] else None
 
 
+def control_reading(vehicle, attribute, *, registry=None):
+    """Use the Status selector for a control's exact reported attribute."""
+    from .attribute_runtime import select_reading
+
+    _, row = select_reading(
+        vehicle, (attribute,), attribute, registry=registry, allow_last_known=True
+    )
+    return row or {}
+
+
 def control_projection(profile, attribute, reading, *, now=None):
     """Effective HA control state, never a physical or authorization proof.
 
     Retain the newest valid observed value across sleep and sentinel data.
-    Only an acknowledged, unsuperseded command may temporarily overlay it.
+    Acknowledged commands may temporarily overlay other controls, but charging
+    always displays observed state; request feedback stays separate.
     A newer dated observation wins whether or not it matches the request.
     """
     from datetime import UTC, datetime
@@ -128,6 +139,14 @@ def control_projection(profile, attribute, reading, *, now=None):
         and record.readback_observed_at is None
         and record.readback_mismatch_at is None
     ):
+        if attribute == "chargingState":
+            # Accepted charging requests may fail while the car continues to
+            # charge. Retain reported state; assumed_state exposes both actions.
+            return (
+                (known["value"], "last_known_vehicle")
+                if known.get("value") is not None
+                else (None, "unknown")
+            )
         requested = requested_projection(record, attribute)
         if requested is not None:
             return requested, "optimistic"
@@ -142,7 +161,7 @@ def control_projection(profile, attribute, reading, *, now=None):
 
 def projection_reading(vehicle, attribute, *, registry=None, now=None):
     """Resolve only declared same-semantic historical aliases, never by order."""
-    from .attribute_runtime import select_reading
+    from .attribute_runtime import retained_status_field, select_reading
 
     ident = attribute["id"]
     canonical = ALIAS_OF.get(ident, ident)
@@ -167,7 +186,12 @@ def projection_reading(vehicle, attribute, *, registry=None, now=None):
     if key == "mileage":
         sources.append("maintenanceMileage")
     selected, row = select_reading(
-        vehicle, sources, canonical, registry=registry, now=now
+        vehicle,
+        sources,
+        canonical,
+        registry=registry,
+        now=now,
+        allow_last_known=retained_status_field(canonical),
     )
     if key in ("remaining_charging_time", "charging_complete_time"):
         from .attribute_runtime import _capture_in_utc
@@ -359,7 +383,9 @@ def entity_availability_reason(engine, uid, key, status, state_present):
         attribute = ATTRIBUTES.get(ident)
         if not attribute:
             continue
-        _, reading = projection_reading(car, attribute)
+        _, reading = projection_reading(
+            car, attribute, registry=getattr(engine, "registry", None)
+        )
         if not reading:
             continue
         found = True
@@ -587,13 +613,13 @@ def stateful_controls():
     return product_inventory()["stateful_controls"]
 
 
-def stateful_reading(vehicle, key):
+def stateful_reading(vehicle, key, *, registry=None):
     """Shared operational state normalization, independent of write support."""
     from .attribute_runtime import last_known_observation
     from .vehicle import charging_active
 
     definition = stateful_controls()[key]
-    row = getattr(vehicle, "readings", {}).get(definition["attribute"], {})
+    row = control_reading(vehicle, definition["attribute"], registry=registry)
     known = last_known_observation(row)
     value = known.get("value")
     state = (
@@ -611,7 +637,9 @@ def stateful_reading(vehicle, key):
 
 def stateful_control_supported(engine, vehicle, key):
     definition = stateful_controls()[key]
-    _, value = stateful_reading(vehicle, key)
+    _, value = stateful_reading(
+        vehicle, key, registry=getattr(engine, "registry", None)
+    )
     return value is not None and all(
         engine.control_enabled(
             vehicle.vin, definition[action], definition["capability"]

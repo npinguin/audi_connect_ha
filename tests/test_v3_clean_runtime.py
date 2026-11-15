@@ -1526,3 +1526,83 @@ async def test_diagnostics_distinguish_poll_attempts_quota_and_operation_evidenc
     assert (
         engine.diagnostics()["quota_scope"] == "conservative_estimate_since_last_header"
     )
+
+
+@pytest.mark.asyncio
+async def test_periodic_identity_yields_to_primary_status_and_updated_quota():
+    import time
+
+    engine, transport, _ = engine_for(status(), status(), status())
+    await engine.poll()
+    engine.status._identity_attempt_at = time.monotonic() - 3601
+    original = transport.request
+
+    async def low_quota(*args, **kwargs):
+        response = await original(*args, **kwargs)
+        transport.remaining_calls = 12
+        return response
+
+    transport.request = low_quota
+    transport.calls.clear()
+    await engine.poll()
+    assert len(transport.calls) == 1
+    assert transport.calls[0][1] == "GET"
+    transport.request = original
+    transport.remaining_calls = 100
+    transport.calls.clear()
+    await engine.poll()
+    assert transport.calls[0][1] == "GET"
+    assert transport.calls[-1] == ("inventory",)
+
+
+@pytest.mark.asyncio
+async def test_native_poll_rotates_vehicle_priority_without_extra_requests():
+    engine, transport, _ = engine_for(status(), status(), status(), status())
+    second = "WAUZZZ4M0MD123457"
+    original = transport.discover_vehicles
+
+    async def inventory():
+        rows = await original()
+        return [*rows, {**rows[0], "vin": second}]
+
+    transport.discover_vehicles = inventory
+    await engine.poll()
+    calls = [call for call in transport.calls if len(call) > 1]
+    assert len(calls) == 2
+    assert VIN in calls[0][2] and second in calls[1][2]
+    transport.calls.clear()
+    await engine.poll()
+    assert len(transport.calls) == 2
+    assert second in transport.calls[0][2] and VIN in transport.calls[1][2]
+
+
+@pytest.mark.asyncio
+async def test_deferred_native_poll_preserves_actual_success_and_command_reserve():
+    from datetime import timedelta
+    from custom_components.audiconnect.v3.quota import QuotaBudget
+
+    engine, transport, _ = engine_for(status(), status())
+    await engine.poll()
+    attempt = engine.last_cloud_poll_attempt
+    success = engine.last_cloud_poll_success
+    count = engine.status.poll_attempt_count
+    transport.quota = QuotaBudget()
+    now = datetime.now(UTC)
+    transport.quota.observe(200, {"Vcf-Remaining-Calls": "7"}, now)
+    transport.remaining_calls = 7
+    transport.calls.clear()
+    await engine.poll()
+    assert not transport.calls
+    assert engine.last_cloud_poll_succeeded is True
+    assert engine.last_cloud_poll_attempt == attempt
+    assert engine.last_cloud_poll_success == success
+    assert engine.status.poll_attempt_count == count
+    transport.quota.authorize(now, read_only=False)
+    assert (
+        engine.health.snapshot(engine, engine.vehicles[VIN.lower()])["status"]
+        == "rate_limited"
+    )
+    transport.quota.retry_at = now - timedelta(seconds=1)
+    await engine.poll()
+    assert len(transport.calls) == 1
+    assert engine.status.poll_attempt_count == count + 1
