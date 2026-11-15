@@ -885,12 +885,10 @@ def test_conflicting_native_observation_roundtrips_and_repairs_old_profile():
         restore_profile(catalog, vehicle.context, saved)
 
 
-
 def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
     """Synthetic payload tests the published field paths, not vehicle support."""
-    from custom_components.audiconnect.v3.historical_catalog import V2_JOBS
+    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES, V2_JOBS
     from custom_components.audiconnect.v3.product_contract import projection_descriptor
-    from custom_components.audiconnect.v3.historical_catalog import ATTRIBUTES
 
     vehicle, profile, now = car(), Profile(), datetime.now(UTC)
     stamp = now.isoformat()

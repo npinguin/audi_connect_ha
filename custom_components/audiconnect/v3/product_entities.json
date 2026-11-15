@@ -178,9 +178,7 @@
     "sensor.lv_battery_voltage": {
       "origin": "v3_product_extension",
       "scope": "vehicle",
-      "source_attributes": [
-        "lvBatteryVoltage"
-      ],
+      "source_attributes": ["lvBatteryVoltage"],
       "metadata_contract": "attribute_contracts.json:lv_battery_voltage",
       "freshness": "last_known",
       "category": "diagnostic",
@@ -189,9 +187,7 @@
     "sensor.battery_support_state": {
       "origin": "v3_product_extension",
       "scope": "vehicle",
-      "source_attributes": [
-        "batterySupportState"
-      ],
+      "source_attributes": ["batterySupportState"],
       "metadata_contract": "attribute_contracts.json:battery_support_state",
       "freshness": "fresh_or_unknown",
       "category": "diagnostic",
@@ -200,9 +196,7 @@
     "binary_sensor.daily_power_budget_available": {
       "origin": "v3_product_extension",
       "scope": "vehicle",
-      "source_attributes": [
-        "dailyPowerBudgetAvailable"
-      ],
+      "source_attributes": ["dailyPowerBudgetAvailable"],
       "metadata_contract": "binary_contracts.json:daily_power_budget_available",
       "freshness": "fresh_or_unknown",
       "category": "diagnostic",

@@ -1130,9 +1130,7 @@
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=tyrePressure",
       "delivery": "manual",
       "priority": 80,
-      "response_paths": [
-        "tyrePressure.tyrePressureStatus.value.overallStatus"
-      ],
+      "response_paths": ["tyrePressure.tyrePressureStatus.value.overallStatus"],
       "notes": "Read-only discovery candidate; validate on vehicle before scheduling or mapping",
       "legacy_compatible": true
     },
