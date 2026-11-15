@@ -78,7 +78,7 @@
     "historical_refs": 110,
     "historical_with_paths": 53,
     "historical_without_paths": 57,
-    "metadata_contracts": 72,
+    "metadata_contracts": 74,
     "api_jobs": 23,
     "v2_services": 11,
     "v2_action_options": 11,
@@ -92,8 +92,8 @@
       "mapped_conditional": 87,
       "candidate_after_manual_proof": 22
     },
-    "v3_api_operations": 62,
-    "binary_metadata_contracts": 23
+    "v3_api_operations": 64,
+    "binary_metadata_contracts": 24
   },
   "entities": [
     {
@@ -4069,6 +4069,22 @@
       "method": "GET",
       "family": "cariad",
       "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=batteryChargingCare",
+      "request_mode": null,
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.status.batteryHealthState",
+      "method": "GET",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=batteryHealthState",
+      "request_mode": null,
+      "delivery": "manual"
+    },
+    {
+      "id": "cariad.status.tyrePressure",
+      "method": "GET",
+      "family": "cariad",
+      "path": "/vehicle/v1/vehicles/{VIN}/selectivestatus?jobs=tyrePressure",
       "request_mode": null,
       "delivery": "manual"
     },

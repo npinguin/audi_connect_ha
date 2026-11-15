@@ -452,6 +452,12 @@
       "v3_charging_plug_auto_unlock": {
         "name": "Unlock charging plug after charge"
       },
+      "v3_lv_battery_voltage": {
+        "name": "Auxiliary battery voltage"
+      },
+      "v3_battery_support_state": {
+        "name": "Battery support state"
+      },
       "v3_vehicle_reported_online": {
         "name": "Vehicle reported connectivity"
       },
@@ -757,6 +763,9 @@
       },
       "v3_is_moving": {
         "name": "Vehicle moving"
+      },
+      "v3_daily_power_budget_available": {
+        "name": "Vehicle daily power budget available"
       },
       "v3_integration_problem": {
         "name": "Integration problem"

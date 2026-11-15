@@ -6,7 +6,7 @@
       "name": "Vehicle daily power budget available",
       "device_class": null,
       "icon": "mdi:gauge",
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": false
     },
     "plug_state": {

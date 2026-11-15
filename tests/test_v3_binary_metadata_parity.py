@@ -11,7 +11,9 @@ from custom_components.audiconnect.v3.vehicle import V3Vehicle
 def test_binary_identity_and_device_class_parity_with_v3_product_presentation():
     car = V3Vehicle("WAUZZZ4M0MD123456", "Audi", "Q8", "q8", "DE")
     coordinator = SimpleNamespace(async_add_listener=lambda callback: None)
-    assert set(binary_contracts()) == {d.key for d in BINARY_SENSOR_DESCRIPTIONS}
+    assert set(binary_contracts()) == {d.key for d in BINARY_SENSOR_DESCRIPTIONS} | {
+        "daily_power_budget_available",
+    }
     for description in BINARY_SENSOR_DESCRIPTIONS:
         entity = V3ReadOnlyBinarySensor(
             coordinator,

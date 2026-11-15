@@ -420,6 +420,12 @@
       "v3_charging_plug_auto_unlock": {
         "name": "Ladestecker nach Laden entriegeln"
       },
+      "v3_lv_battery_voltage": {
+        "name": "Spannung der 12-V-Batterie"
+      },
+      "v3_battery_support_state": {
+        "name": "Status der Batterieunterstützung"
+      },
       "v3_vehicle_reported_online": {
         "name": "Gemeldete Fahrzeugverbindung"
       },
@@ -725,6 +731,9 @@
       },
       "v3_is_moving": {
         "name": "Fahrzeug in Bewegung"
+      },
+      "v3_daily_power_budget_available": {
+        "name": "Tägliches Energiebudget des Fahrzeugs verfügbar"
       },
       "v3_integration_problem": {
         "name": "Integrationsproblem"

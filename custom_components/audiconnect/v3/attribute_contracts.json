@@ -434,12 +434,12 @@
       "icon": "mdi:ev-plug-type2"
     },
     "lv_battery_voltage": {
-      "name": "12V battery voltage",
+      "name": "Auxiliary battery voltage",
       "unit": "V",
       "device_class": "voltage",
       "state_class": "measurement",
       "precision": 1,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": true,
       "icon": "mdi:car-battery"
     },
@@ -449,7 +449,7 @@
       "device_class": null,
       "state_class": null,
       "precision": null,
-      "category": "diagnostic",
+      "category": null,
       "display_last_known": false,
       "icon": "mdi:battery-sync"
     },
