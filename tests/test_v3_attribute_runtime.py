@@ -910,7 +910,7 @@ def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
         },
         "batterySupport": {
             "batterySupportStatus": {
-                "value": {"batterySupport": "active", "carCapturedTimestamp": stamp}
+                "value": {"batterySupport": "enabled", "carCapturedTimestamp": stamp}
             }
         },
         "readiness": {
@@ -920,7 +920,8 @@ def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
                         "dailyPowerBudgetAvailable": False,
                         "isOnline": True,
                         "carCapturedTimestamp": stamp,
-                    }
+                    },
+                    "carCapturedTimestamp": stamp,
                 }
             }
         },
@@ -933,8 +934,6 @@ def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
     observe_read_only(vehicle, profile, payload, now)
     for ident, expected in (
         ("lvBatteryVoltage", 12.5),
-        ("batterySupportState", "active"),
-        ("dailyPowerBudgetAvailable", False),
         ("vehicleReportedOnline", True),
         ("stateOfCharge", 0),
     ):
@@ -942,6 +941,15 @@ def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
         assert vehicle.readings[ident]["captured"] == stamp
         assert profile.attribute_routes[ident] == "cariad.selectivestatus.batch"
         assert projection_descriptor(ATTRIBUTES[ident]) is not None
+    assert vehicle.readings["battery_support_detail"]["value"] == {
+        "battery_support": "enabled"
+    }
+    assert (
+        vehicle.readings["readiness_detail"]["value"]["daily_power_budget_available"]
+        is False
+    )
+    assert "batterySupportState" not in ATTRIBUTES
+    assert "dailyPowerBudgetAvailable" not in ATTRIBUTES
     assert planned_jobs(vehicle, profile) == before
     assert "batteryHealthState" not in before and "tyrePressure" not in before
     # The existing profile owner restores bindings and only retained history.
@@ -968,10 +976,13 @@ def test_reviewed_passive_diagnostic_fields_do_not_change_batch_or_controls():
         "dailyPowerBudgetAvailable"
     ] = "true"
     observe_read_only(other, other_profile, payload, now)
-    for ident in (
-        "lvBatteryVoltage",
-        "batterySupportState",
-        "dailyPowerBudgetAvailable",
-    ):
-        assert ident not in other_profile.attribute_routes
-        assert ident not in other.readings or other.readings[ident].get("value") is None
+    assert "lvBatteryVoltage" not in other_profile.attribute_routes
+    assert (
+        "lvBatteryVoltage" not in other.readings
+        or other.readings["lvBatteryVoltage"].get("value") is None
+    )
+    assert "battery_support_detail" not in other.readings
+    assert (
+        "daily_power_budget_available"
+        not in other.readings["readiness_detail"]["value"]
+    )

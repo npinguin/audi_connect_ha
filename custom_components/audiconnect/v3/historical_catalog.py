@@ -736,32 +736,6 @@ INVENTORY: dict[str, Any] = json.loads(r"""{
       "sensitivity": "vehicle_state"
     },
     {
-      "id": "batterySupportState",
-      "capability": "charging",
-      "job": "batterySupport",
-      "entity_key": "battery_support_state",
-      "platform": "sensor",
-      "type": "string",
-      "paths": [
-        "batterySupport.batterySupportStatus.value.batterySupport"
-      ],
-      "source": "reviewed_cariad_read",
-      "sensitivity": "vehicle_state"
-    },
-    {
-      "id": "dailyPowerBudgetAvailable",
-      "capability": "vehicle_status",
-      "job": "readiness",
-      "entity_key": "daily_power_budget_available",
-      "platform": "binary_sensor",
-      "type": "boolean",
-      "paths": [
-        "readiness.readinessStatus.value.connectionState.dailyPowerBudgetAvailable"
-      ],
-      "source": "reviewed_cariad_read",
-      "sensitivity": "vehicle_state"
-    },
-    {
       "id": "vehicleReportedOnline",
       "capability": "vehicle_status",
       "v2_state": "vehicleReportedOnline",

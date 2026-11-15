@@ -443,16 +443,6 @@
       "display_last_known": true,
       "icon": "mdi:car-battery"
     },
-    "battery_support_state": {
-      "name": "Battery support state",
-      "unit": null,
-      "device_class": null,
-      "state_class": null,
-      "precision": null,
-      "category": null,
-      "display_last_known": false,
-      "icon": "mdi:battery-sync"
-    },
     "vehicle_reported_online": {
       "name": "Vehicle reported connectivity",
       "unit": null,
