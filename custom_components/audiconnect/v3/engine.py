@@ -1316,6 +1316,25 @@ class V3Engine:
                 await self._follow_up_cloud()
             raise
         await self._after_command(vin, record)
+        # A user-initiated CARIAD STOP may get one bounded recovery check.
+        # HA owns cancellation on unload; never restore a delayed write on restart.
+        from .request_status import PENDING_RESULTS
+
+        create_task = getattr(self.entry, "async_create_background_task", None)
+        if (
+            callable(create_task)
+            and self.hass is not None
+            and record.operation == "cariad.charging.stop"
+            and record.state == "accepted_unconfirmed"
+            and record.backend_result in PENDING_RESULTS
+            and record.request_id is not None
+            and record.parent_command_id is None
+        ):
+            create_task(
+                self.hass,
+                self.commands.retry_charging_stop(vin, record, self._follow_up_cloud),
+                "Audi charging STOP recovery",
+            )
 
     async def review_normal_command(self, vin: str, command_id: str) -> None:
         await self.commands.review_normal_command(vin, command_id)

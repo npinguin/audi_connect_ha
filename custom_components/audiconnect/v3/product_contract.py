@@ -128,6 +128,7 @@ def control_projection(profile, attribute, reading, *, now=None):
     reading = reading or {}
     known = last_known_observation(reading)
     record = latest_projection_command(profile, attribute)
+    charging = attribute == "chargingState"
     expiry = optimistic_expiry(record)
     stamp = _valid_capture(known.get("captured"), now)
     observed_stamp = _valid_capture(reading.get("captured"), now)
@@ -153,9 +154,10 @@ def control_projection(profile, attribute, reading, *, now=None):
         ),
         None,
     )
-    if accepted is not None and (
+    historical = accepted is not None and (
         stamp is None or stamp.timestamp() <= accepted.started_at
-    ):
+    )
+    if historical and not charging:
         return None, "unknown"
     # A newer explicit invalid cabin-climate capture cannot be shown as
     # a current HVAC mode. Keep the historical value in control attributes.
@@ -165,7 +167,9 @@ def control_projection(profile, attribute, reading, *, now=None):
         return None, "unknown"
     return known["value"], (
         "vehicle"
-        if known is reading and timestamp_is_fresh(known.get("captured"), now)
+        if not historical
+        and known is reading
+        and timestamp_is_fresh(known.get("captured"), now)
         else "last_known_vehicle"
     )
 

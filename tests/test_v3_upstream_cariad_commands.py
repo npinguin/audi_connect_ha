@@ -800,3 +800,95 @@ def test_timer_count_follows_selected_list_even_when_count_is_unchanged(
     assert car.readings[count]["value"] == 1
     assert car.readings[detail]["value"]["items"][0]["id"] == 2
     assert car.readings[count]["captured"] == car.readings[detail]["captured"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "backend,telemetry,expected",
+    [
+        ("timeout", "charging", True),
+        ("in_progress", "charging", False),
+        ("successful", "charging", False),
+        ("failed", "charging", False),
+        ("timeout", "readyForCharging", False),
+        ("timeout", "stale", False),
+        ("timeout", "data_act", False),
+        ("timeout", "superseded", False),
+    ],
+)
+async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_state(
+    monkeypatch, backend, telemetry, expected
+):
+    from datetime import timedelta
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    from custom_components.audiconnect.v3.command_readback import configure_readback
+    from custom_components.audiconnect.v3.operation_revision import operation_revision
+
+    engine, car = make_engine()
+    profile = engine.profiles[VIN.lower()]
+    route = "cariad.charging.stop"
+    monkeypatch.setattr(engine.commands, "command_route", lambda *args: route)
+    started = datetime.now(UTC) - timedelta(seconds=301)
+    first = CommandRecord.begin(
+        "charging",
+        "stop",
+        route,
+        started.timestamp(),
+        operation_revision=operation_revision(profile.registry.operations[route]),
+    )
+    first.observe_http(200)
+    first.observe_backend("in_progress", started.timestamp())
+    first.request_id = "original"
+    first.request_context = profile.discovery.context
+    configure_readback(first, {})
+    profile.track_command(first)
+    calls = []
+
+    class Transport:
+        async def request(self, family, method, path, **kwargs):
+            calls.append((family, method, path))
+            if method == "POST":
+                return V3Response(
+                    200, {"data": {"requestID": "second"}}, datetime.now(UTC)
+                )
+            item = (
+                {"id": "original", "status": backend}
+                if len(calls) == 1
+                else {"id": "second", "status": "successful"}
+            )
+            return V3Response(200, {"data": [item]}, datetime.now(UTC))
+
+    engine.transport = Transport()
+
+    async def refresh():
+        now = datetime.now(UTC)
+        car.readings["chargingState"] = {
+            "value": "readyForCharging" if telemetry == "readyForCharging" else "charging",
+            "family": "eu_data_act" if telemetry == "data_act" else "cariad",
+            "captured": (started if telemetry == "stale" else now).isoformat(),
+            "observed": now.isoformat(),
+            "status": "verified",
+        }
+        if telemetry == "superseded":
+            profile.track_command(
+                CommandRecord.begin("charging", "start", route, now.timestamp())
+            )
+
+    result = await engine.commands.retry_charging_stop(VIN, first, refresh)
+    writes = [call for call in calls if call[1] == "POST"]
+    assert len(writes) == int(expected)
+    if expected:
+        assert writes == [("cariad", "POST", f"/vehicle/v1/vehicles/{VIN}/charging/stop")]
+        assert result.parent_command_id == first.command_id
+        assert first.state == "rejected"
+        assert result.state == "backend_completed"
+        assert result.readback_observed_at is None
+        before = list(calls)
+        assert await engine.commands.retry_charging_stop(VIN, first, refresh) is None
+        assert calls == before
+    else:
+        assert result is None
+    if backend == "in_progress":
+        assert first.state == "accepted_unconfirmed"
+    if backend == "successful":
+        assert first.state == "backend_completed"

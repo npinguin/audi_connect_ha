@@ -147,6 +147,11 @@ def reconcile_readback(record, car, now=None, *, registry=None) -> bool:
     )
     if captured is None or captured.timestamp() <= record.started_at:
         return False
+    if (
+        record.readback_attribute == "chargingState"
+        and captured.timestamp() > record.started_at + OPTIMISTIC_TTL_SECONDS
+    ):
+        return False
     age = (now - captured).total_seconds()
     if not -300 <= age <= 3600:
         return False
@@ -287,6 +292,7 @@ def optimistic_expiry(record):
         or record.http_status is None
         or not 200 <= record.http_status < 300
         or not projection_attributes(record)
+        or record.readback_attribute == "chargingState"
         or record.backend_result in ("rejected", "transport_uncertain")
         or record.state not in _ACCEPTED
     ):
