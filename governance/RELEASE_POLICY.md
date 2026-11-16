@@ -4,7 +4,7 @@ This is a maintainer policy, not user documentation or a release-status report. 
 
 ## Release authority
 
-Use one active development line and one upstream delivery line in the fork. Reuse the existing branches and review history; do not create a new long-lived branch or a new upstream PR for every beta.
+Use one active development line (`dev`) and one upstream delivery line in the fork. Keep one active compatible implementation batch/PR at a time; integrate completed work promptly, then reuse the development line. Backlog and field-evidence holds belong in issues, not active development branches. Reuse the existing branches and review history; do not create a new long-lived branch or a new upstream PR for every beta.
 
 | Branch                       | Responsibility                                                                                                    |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -12,11 +12,11 @@ Use one active development line and one upstream delivery line in the fork. Reus
 | `feature/v3-upstream-review` | Curated delivery to upstream `dev` through existing PR #918; only reviewed, validated, upstream-relevant changes. |
 | `master`                     | Unmodified upstream master mirror.                                                                                |
 | `main`                       | Historical fork baseline; no parallel V3 development.                                                             |
-| `release/*`                  | Pinned HACS test candidates; published tags and their contents are immutable.                                     |
+| `release/hacs`               | Sole HACS packaging line; published candidate tags and their contents are immutable.                            |
 
 Keep the delivery branch an ancestor of development wherever practical. Sync reviewed upstream changes back into `dev` before additional development. Promote a coherent, validated delta from `dev` to the existing upstream review branch; exclude fork-only release packaging, experimental evidence, private diagnostics and unrelated research. Do not force-push the active upstream review branch or replace its PR. Use a short-lived fix branch only when review or CI needs it; retire it after integration when no release or review depends on it.
 
-Merge focused PRs promptly once review, exact-head CI and relevant acceptance gates pass. Do not accumulate green fixes in parallel branches or wait for an unrelated beta. Review open PRs and branch drift at each release checkpoint; record the owner and concrete blocker for any deferred merge. Promote small coherent upstream-ready deltas regularly, without bypassing upstream maintainers or live acceptance gates. Sync the accepted delivery head back to development before the next promotion.
+Merge focused PRs promptly once review and exact-head source CI pass for an authorized TEST batch; stable/upstream promotion requires applicable live acceptance. Do not accumulate green fixes in parallel branches or wait for an unrelated beta. Review open PRs and branch drift at each release checkpoint; record the owner and concrete blocker for any deferred merge. Promote small coherent upstream-ready deltas regularly, without bypassing upstream maintainers or live acceptance gates. Sync the accepted delivery head back to development before the next promotion.
 
 Keep the offered upstream product code, tests and documentation at most one published HACS beta behind. Before publishing a new beta, verify that the preceding published beta's pinned product source is already included in the upstream review branch. Count published releases, not skipped version numbers. If this gate fails, stop publication and review a coherent delta for promotion; never push to upstream automatically or interrupt an agreed review freeze. Fork-only packaging, release notes and version metadata stay outside the upstream contribution.
 
@@ -24,7 +24,7 @@ Derive HACS candidates from a pinned, validated `dev` runtime snapshot. Keep for
 
 ## TEST versus stable acceptance
 
-A HACS experimental TEST prerelease is the input to live acceptance, not its result. After source review, exact integrated automated checks, safety/privacy review, package integrity and explicit product-owner TEST authorization, merge into fork `dev` and publish the pinned experimental candidate through the existing workflow. Pending physical vehicle, provider and HA lifecycle acceptance is documented as the test objective, not a precondition for TEST publication. Keep experimental controls explicit, opt-in and fail-closed; known unsafe behavior, failing checks or an explicitly excluded feature still blocks inclusion. Stable promotion and upstream maintainer acceptance require the applicable live evidence below; TEST publication does not assert either. Do not conflate the two gates in issues or PRs.
+A HACS experimental TEST prerelease is the input to live acceptance, not its result. After source review, exact-head automated checks and safety/privacy review, merge the authorized TEST batch into fork `dev`. Publish its pinned integrated source through the existing workflow only after integrated automated checks and package integrity pass. Pending physical vehicle, provider and HA lifecycle acceptance is documented as the test objective, not a precondition for TEST publication. Keep experimental controls explicit, opt-in and fail-closed; known unsafe behavior, failing checks or an explicitly excluded feature still blocks inclusion. Stable promotion and upstream maintainer acceptance require the applicable live evidence below; TEST publication does not assert either. Do not conflate the two gates in issues or PRs.
 
 ## Acceptance criteria
 
