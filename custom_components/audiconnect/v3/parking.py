@@ -139,8 +139,7 @@ def geocoding_endpoint(entry):
     endpoint = options.get(GEOCODING_ENDPOINT)
     return (
         endpoint
-        if options.get(REVERSE_GEOCODING) is True
-        and valid_geocoding_endpoint(endpoint)
+        if options.get(REVERSE_GEOCODING) is True and valid_geocoding_endpoint(endpoint)
         else None
     )
 
