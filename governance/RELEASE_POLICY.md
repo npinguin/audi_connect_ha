@@ -12,7 +12,7 @@ Use one active development line (`dev`) and one upstream delivery line in the fo
 | `feature/v3-upstream-review` | Curated delivery to upstream `dev` through existing PR #918; only reviewed, validated, upstream-relevant changes. |
 | `master`                     | Unmodified upstream master mirror.                                                                                |
 | `main`                       | Historical fork baseline; no parallel V3 development.                                                             |
-| `release/hacs`               | Sole HACS packaging line; published candidate tags and their contents are immutable.                            |
+| `release/hacs`               | Sole HACS packaging line; published candidate tags and their contents are immutable.                              |
 
 Keep the delivery branch an ancestor of development wherever practical. Sync reviewed upstream changes back into `dev` before additional development. Promote a coherent, validated delta from `dev` to the existing upstream review branch; exclude fork-only release packaging, experimental evidence, private diagnostics and unrelated research. Do not force-push the active upstream review branch or replace its PR. Use a short-lived fix branch only when review or CI needs it; retire it after integration when no release or review depends on it.
 
