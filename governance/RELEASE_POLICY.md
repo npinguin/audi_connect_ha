@@ -20,7 +20,11 @@ Merge focused PRs promptly once review, exact-head CI and relevant acceptance ga
 
 Keep the offered upstream product code, tests and documentation at most one published HACS beta behind. Before publishing a new beta, verify that the preceding published beta's pinned product source is already included in the upstream review branch. Count published releases, not skipped version numbers. If this gate fails, stop publication and review a coherent delta for promotion; never push to upstream automatically or interrupt an agreed review freeze. Fork-only packaging, release notes and version metadata stay outside the upstream contribution.
 
-Derive HACS candidates from a pinned, validated `dev` runtime snapshot. Keep fork versioning and publication out of the upstream contribution. No release promotion, version reuse for changed published code, or upstream merge based only on static tests. Keep upstream release ownership intact. Separate implementation, automated evidence and live acceptance in all status reporting.
+Derive HACS candidates from a pinned, validated `dev` runtime snapshot. Keep fork versioning and publication out of the upstream contribution. No stable release promotion, version reuse for changed published code, or upstream merge based only on static tests. Keep upstream release ownership intact. Separate implementation, automated evidence and live acceptance in all status reporting.
+
+## TEST versus stable acceptance
+
+A HACS experimental TEST prerelease is the input to live acceptance, not its result. After source review, exact integrated automated checks, safety/privacy review, package integrity and explicit product-owner TEST authorization, merge into fork `dev` and publish the pinned experimental candidate through the existing workflow. Pending physical vehicle, provider and HA lifecycle acceptance is documented as the test objective, not a precondition for TEST publication. Keep experimental controls explicit, opt-in and fail-closed; known unsafe behavior, failing checks or an explicitly excluded feature still blocks inclusion. Stable promotion and upstream maintainer acceptance require the applicable live evidence below; TEST publication does not assert either. Do not conflate the two gates in issues or PRs.
 
 ## Acceptance criteria
 
