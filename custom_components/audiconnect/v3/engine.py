@@ -1378,10 +1378,17 @@ class V3Engine:
         car = self.vehicles.get(vin.lower())
         if car is None or not car.inventory_present:
             return
+        from .command_readback import recent_charging_state
+
+        charging = recent_charging_state(
+            second, car, registry=profile.registry, max_age_seconds=300
+        )
         if second.state == "rejected":
             message = "Audi rejected the second charging STOP request."
-        elif second.readback_observed_at is not None:
-            return  # Matching native state observed; not causal execution proof.
+        elif charging is True:
+            message = "Audi still reports charging after the second STOP request."
+        elif charging is False:
+            return  # Latest native state is stopped; not causal execution proof.
         else:
             message = "Charging STOP could not be confirmed after the second request."
         from homeassistant.components import persistent_notification

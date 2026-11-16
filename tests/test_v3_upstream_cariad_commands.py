@@ -936,20 +936,23 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "outcome,readback,superseded,notice",
+    "outcome,readback,current,superseded,notice",
     [
-        (None, False, False, None),
-        ("rejected", False, False, "rejected"),
-        ("uncertain", False, False, "could not be confirmed"),
-        ("accepted_unconfirmed", False, False, "could not be confirmed"),
-        ("backend_completed", False, False, "could not be confirmed"),
-        ("backend_completed", True, False, None),
-        ("accepted_unconfirmed", True, False, None),
-        ("rejected", False, True, None),
+        (None, False, None, False, None),
+        ("rejected", False, None, False, "rejected"),
+        ("uncertain", False, None, False, "could not be confirmed"),
+        ("accepted_unconfirmed", False, None, False, "could not be confirmed"),
+        ("backend_completed", False, None, False, "could not be confirmed"),
+        ("backend_completed", True, "readyForCharging", False, None),
+        ("accepted_unconfirmed", True, "readyForCharging", False, None),
+        ("backend_completed", True, "charging", False, "still reports charging"),
+        ("backend_completed", True, None, False, "could not be confirmed"),
+        ("backend_completed", False, "readyForCharging", False, None),
+        ("rejected", False, None, True, None),
     ],
 )
 async def test_second_stop_reports_failure_or_unconfirmed_once(
-    monkeypatch, outcome, readback, superseded, notice
+    monkeypatch, outcome, readback, current, superseded, notice
 ):
     from unittest.mock import AsyncMock, Mock
 
@@ -957,7 +960,7 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
 
     from custom_components.audiconnect.v3.command_journal import CommandRecord
 
-    engine, _ = make_engine()
+    engine, car = make_engine()
     engine.hass = object()
     profile = engine.profiles[VIN.lower()]
     first = CommandRecord.begin(
@@ -980,6 +983,18 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
         second.state = outcome
         if readback:
             second.readback_observed_at = second.started_at + 1
+        if current is not None:
+            from datetime import timedelta
+
+            second.started_at -= 2
+            stamp = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+            car.readings["chargingState"] = {
+                "value": current,
+                "captured": stamp,
+                "observed": stamp,
+                "family": "cariad",
+                "status": "verified",
+            }
         profile.track_command(second)
         if superseded:
             profile.track_command(

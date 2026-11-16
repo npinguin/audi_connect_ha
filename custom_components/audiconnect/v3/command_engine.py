@@ -39,6 +39,7 @@ from .command_readback import (
     observe_command_response,
     latest_readback_command,
     follow_up_refresh_allowed,
+    recent_charging_state,
 )
 from .control_resolution import control_decision, resolve_control
 from .command_policy import supported_charge_modes
@@ -725,30 +726,15 @@ class CommandEngine:
 
     def charging_stop_retry_ready(self, car, profile, record):
         """Require a correlated terminal timeout and recent native still-charging evidence."""
-        from .command_readback import _readback_row
-        from .attribute_runtime import _capture_in_utc, _valid_capture
-        from .vehicle import charging_active
-
         if (
             not self.charging_stop_retry_current(car, profile, record)
             or not record.stop_retry_timed_out
             or not optional_budget_available(self._command_allowance("cariad"), cost=4)
         ):
             return False
-        now = datetime.now(UTC)
-        row = _readback_row(car, "chargingState", now, registry=profile.registry)
-        observed = _capture_in_utc(row.get("observed"))
-        captured = _valid_capture(row.get("captured"), observed or now)
-        return (
-            row.get("family") in ("cariad", "mbb")
-            and row.get("status") != "invalid_value"
-            and charging_active(row.get("value")) is True
-            and observed is not None
-            and observed.timestamp() >= record.completed_at
-            and captured is not None
-            and captured.timestamp() > record.started_at
-            and 0 <= (now - captured).total_seconds() <= 60
-        )
+        return recent_charging_state(
+            record, car, registry=profile.registry, receipt_after=record.completed_at
+        ) is True
 
     async def retry_charging_stop(self, vin, record, refresh):
         """Experimental one-shot STOP recovery; never retry pending/uncertain actions."""
