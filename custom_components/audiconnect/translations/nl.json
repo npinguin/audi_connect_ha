@@ -77,7 +77,9 @@
           "v3_development_workbench": "V3 Development Workbench inschakelen",
           "filter_vins": "Uitgesloten VIN's",
           "run_vehicle_discovery": "Voertuigconfiguratie & discovery",
-          "manage_data_act": "EU Data Act beheren"
+          "manage_data_act": "EU Data Act beheren",
+          "v3_reverse_geocoding": "Reverse geocoding",
+          "v3_geocoding_endpoint": "Reverse-geocodingendpoint"
         },
         "title": "Audi Connect-opties",
         "data_description": {
@@ -87,7 +89,9 @@
           "v3_development_workbench": "Toon het API-ontwikkeldashboard alleen in V3 en alleen na jouw toestemming. Standaard uit; opgeslagen API-profielen blijven bewaard.",
           "filter_vins": "Kommagescheiden lijst van VIN's die niet worden ingesteld of bijgewerkt.",
           "run_vehicle_discovery": "Open op elk moment om de automatische detectie te bekijken, begeleid te testen of één functie te selecteren, ook voor hertests. Elke fysieke actie vereist expliciete toestemming.",
-          "manage_data_act": "Verbind, herstel of verbreek de optionele alleen-lezenbron. De native Audi-login blijft ongewijzigd."
+          "manage_data_act": "Verbind, herstel of verbreek de optionele alleen-lezenbron. De native Audi-login blijft ongewijzigd.",
+          "v3_reverse_geocoding": "Stuur de benaderde laatst bekende parkeercoördinaten naar de ingestelde externe dienst (standaard uit).",
+          "v3_geocoding_endpoint": "Geautoriseerd HTTPS-endpoint /reverse, compatibel met Nominatim. De publieke OpenStreetMap-dienst wordt niet ondersteund."
         },
         "description": "{data_act_status}"
       },
@@ -132,7 +136,8 @@
       "invalid_vehicle": "Selecteer een geldig voertuig.",
       "data_act_credentials_required": "Vul beide gegevens in.",
       "data_act_authorization_required": "Het portaal weigert de login of vereist interactieve autorisatie. Controleer de gegevens en toestemming in het portaal en probeer opnieuw.",
-      "data_act_unavailable": "Het portaal is tijdelijk niet beschikbaar. De bestaande verbinding blijft behouden; probeer later opnieuw."
+      "data_act_unavailable": "Het portaal is tijdelijk niet beschikbaar. De bestaande verbinding blijft behouden; probeer later opnieuw.",
+      "invalid_geocoding_endpoint": "Voer een geautoriseerd HTTPS-endpoint in, niet de publieke OpenStreetMap-dienst."
     },
     "abort": {
       "no_vehicle_available": "Er is nog geen Audi-voertuig geladen."
@@ -446,6 +451,9 @@
           "session_refresh_pending": "Sessievernieuwing gepland",
           "unavailable": "Tijdelijk niet beschikbaar"
         }
+      },
+      "v3_parking_address": {
+        "name": "Parkeeradres"
       }
     },
     "binary_sensor": {

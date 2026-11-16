@@ -28,6 +28,12 @@ Latest vehicle data age refers to the newest usable vehicle measurement, not the
 
 Previously registered, mapped read-only sensors and reviewed native control identities are offered again on reload even if their current OEM value or write route is absent. Registration is not authorization. The same entity recovers when valid evidence returns. Its identity does not establish current availability or new vehicle support. Explicitly retired identities such as the redundant V3 Charging ready sensor remain retired; no registry deletion is required.
 
+### Optional parking address
+
+**Parked in** continues to use Home Assistant zones locally. A separate **Parking address** sensor can resolve the last reported parked coordinates when **Reverse geocoding** is explicitly enabled in V3 configuration (off by default). Supply an authorized HTTPS Nominatim-compatible reverse endpoint, for example a self-hosted service; the public OpenStreetMap Nominatim endpoint is not supported for vehicle tracking. Only rounded coordinates (three decimal places) are sent, without Audi credentials or identifiers. The address is approximate, not live GPS. OpenStreetMap data attribution: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright). See the [public Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) for the distinction between public and self-hosted services.
+
+The optional lookup uses the existing parked position and does not wake the vehicle, add Audi requests or change native polling. Results are cached in memory, not in Audi diagnostics or profile storage. Home Assistant may record the address entity in its own history; exclude it from Recorder if that is not desired. Disable the toggle to stop external requests and hide the resolved address; historical HA recorder data is not automatically deleted. The existing device tracker remains the native map view.
+
 ### Native controls
 
 Use the HA vehicle device page for ordinary actions. Routes and features depend on the vehicle, auth context and verified capabilities. Missing controls are not permission to try a different API.

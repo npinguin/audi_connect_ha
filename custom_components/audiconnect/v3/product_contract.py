@@ -319,11 +319,18 @@ def entity_availability_reason(engine, uid, key, status, state_present):
             "device_tracker.position",
             "sensor.park_time",
             "sensor.parked_in",
+            "sensor.parking_address",
             "sensor.position_last_updated",
         )
         and car.position is None
     ):
         return "parking_position_missing"
+    if key == "sensor.parking_address":
+        from .parking import geocoding_endpoint
+
+        if geocoding_endpoint(getattr(engine, "entry", None)) is None:
+            return "reverse_geocoding_disabled"
+        return "parking_address_not_resolved"
     # The same control decision as the actual command resolver, not an
     # independent permission model. Never export a custom route name.
     profile = getattr(engine, "profiles", {}).get(car.vin.lower())
