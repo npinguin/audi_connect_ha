@@ -91,7 +91,9 @@ async def test_address_is_only_for_current_point_and_current_consent(monkeypatch
     engine._start_parking_address()
     assert not engine._parking_address_cache
     assert engine._parking_address_endpoint is None
+    reverse.reset_mock()
     await engine._collect_parking_address(ENDPOINT, point)
+    reverse.assert_not_awaited()
     assert not engine._parking_address_cache
 
 
@@ -122,3 +124,37 @@ def test_separate_address_sensor_uses_existing_status_owner():
     assert sensor.available
     assert sensor.native_value == "Approximate place"
     assert sensor.extra_state_attributes["address_precision"] == "approximate"
+
+
+
+@pytest.mark.asyncio
+async def test_reverse_lookup_sends_only_rounded_point_and_never_redirects(monkeypatch):
+    from custom_components.audiconnect.v3.parking import reverse_address
+
+    async def chunks(_size):
+        yield b'{"display_name": "Approximate address", "private": "not retained"}'
+
+    response = NS(status=200, content=NS(iter_chunked=chunks))
+    from unittest.mock import MagicMock
+
+    context = MagicMock()
+    context.__aenter__ = AsyncMock(return_value=response)
+    context.__aexit__ = AsyncMock(return_value=False)
+    session = NS(get=Mock(return_value=context))
+    monkeypatch.setattr(
+        "homeassistant.helpers.aiohttp_client.async_get_clientsession",
+        lambda hass: session,
+    )
+    assert await reverse_address(None, ENDPOINT, (51.123456, 4.56789)) == (
+        "Approximate address"
+    )
+    session.get.assert_called_once()
+    args, kwargs = session.get.call_args
+    assert args == (ENDPOINT,)
+    assert kwargs["params"] == {"lat": "51.123", "lon": "4.568", "format": "jsonv2"}
+    assert kwargs["allow_redirects"] is False
+    assert set(kwargs["headers"]) == {"User-Agent"}
+    session.get.reset_mock()
+    assert await reverse_address(None, ENDPOINT, (999, 0)) is None
+    assert await reverse_address(None, "https://nominatim.openstreetmap.org/reverse", (51, 4)) is None
+    session.get.assert_not_called()

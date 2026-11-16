@@ -413,3 +413,44 @@ async def test_native_selective_discovery_accepts_typed_temperature(monkeypatch)
         guided=True,
         expert=True,
     )
+
+
+
+@pytest.mark.asyncio
+async def test_reverse_geocoding_is_explicit_and_v3_only():
+    from custom_components.audiconnect.v3.parking import (
+        GEOCODING_ENDPOINT,
+        REVERSE_GEOCODING,
+    )
+
+    flow = OptionsFlowHandler()
+    flow.handler = "test-audi-entry"
+    flow.hass = SimpleNamespace(
+        config_entries=SimpleNamespace(
+            async_get_known_entry=lambda _id: flow._test_entry
+        )
+    )
+    flow._test_entry = SimpleNamespace(
+        data={}, options={"runtime_version": "v3_climate"}
+    )
+    schema = flow._options_schema(flow._test_entry.options).schema
+    assert next(key for key in schema if key.schema == REVERSE_GEOCODING).default() is False
+    assert REVERSE_GEOCODING not in {
+        key.schema for key in flow._options_schema({"runtime_version": "v2"}).schema
+    }
+    result = await flow.async_step_init(
+        {REVERSE_GEOCODING: True, GEOCODING_ENDPOINT: "", "run_vehicle_discovery": False}
+    )
+    assert result["errors"][GEOCODING_ENDPOINT] == "invalid_geocoding_endpoint"
+    result = await flow.async_step_init(
+        {
+            REVERSE_GEOCODING: True,
+            GEOCODING_ENDPOINT: "https://geocoder.example.invalid/reverse",
+            "run_vehicle_discovery": False,
+        }
+    )
+    assert result["type"] == "create_entry"
+    assert result["data"][REVERSE_GEOCODING] is True
+    flow._test_entry.options = result["data"]
+    result = await flow.async_step_init({"runtime_version": "v2"})
+    assert result["data"][REVERSE_GEOCODING] is False

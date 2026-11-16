@@ -540,6 +540,8 @@ class StatusEngine:
         """Fail soft and never publish a result under changed provider consent."""
         from .parking import geocoding_endpoint, reverse_address
 
+        if endpoint != geocoding_endpoint(self.entry):
+            return
         address = await reverse_address(self.hass, endpoint, point)
         if endpoint != geocoding_endpoint(self.entry):
             return

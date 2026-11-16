@@ -160,15 +160,24 @@ async def reverse_address(hass, endpoint, point):
     from aiohttp import ClientError, ClientTimeout
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-    if not valid_geocoding_endpoint(endpoint) or point is None:
+    if (
+        not valid_geocoding_endpoint(endpoint)
+        or not isinstance(point, (tuple, list))
+        or len(point) != 2
+    ):
         return None
-    lat, lon = geocoding_point({"latitude": point[0], "longitude": point[1]})
+    rounded = geocoding_point({"latitude": point[0], "longitude": point[1]})
+    if rounded is None:
+        return None
+    lat, lon = rounded
     try:
         session = async_get_clientsession(hass)
         async with session.get(
             endpoint,
             params={"lat": str(lat), "lon": str(lon), "format": "jsonv2"},
-            headers={"User-Agent": "AudiConnectHA/3 (+https://github.com/audiconnect/audi_connect_ha)"},
+            headers={
+                "User-Agent": "AudiConnectHA/3 (+https://github.com/audiconnect/audi_connect_ha)"
+            },
             timeout=ClientTimeout(total=5),
             allow_redirects=False,
         ) as response:
