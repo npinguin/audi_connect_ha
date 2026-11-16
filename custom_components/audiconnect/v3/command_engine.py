@@ -915,9 +915,21 @@ class CommandEngine:
                         from .request_status import confirm
 
                         if record.request_id is not None:
-                            outcome = await confirm(
-                                self.transport, car.vin, record.request_id
-                            )
+                            if (
+                                self._stop_retry_enabled()
+                                and record.operation == "cariad.charging.stop"
+                                and record.parent_command_id is None
+                            ):
+                                outcome = await confirm(
+                                    self.transport,
+                                    car.vin,
+                                    record.request_id,
+                                    distinguish_timeout=True,
+                                )
+                            else:
+                                outcome = await confirm(
+                                    self.transport, car.vin, record.request_id
+                                )
                     elif family == "mbb":
                         from .legacy_commands import confirm
 
@@ -944,7 +956,10 @@ class CommandEngine:
                         f"HTTP {record.http_status}; {record.state}; "
                         "result processing failed"
                     )
-                if record.state in ("rejected", "uncertain"):
+                if record.state in (
+                    "rejected",
+                    "uncertain",
+                ) and not record.stop_retry_timed_out:
                     record.completed_at = max(record.started_at, time.time())
                 await self.storage.async_save(self.profiles)
                 self._notify_discovery_change()
@@ -952,7 +967,10 @@ class CommandEngine:
                 raise RuntimeError(
                     f"Audi {capability}.{aspect}: {detail}. {advice}."
                 ) from err
-            if record.state in ("rejected", "uncertain"):
+            if record.state in (
+                "rejected",
+                "uncertain",
+            ) and not record.stop_retry_timed_out:
                 record.completed_at = max(record.started_at, time.time())
             await self.storage.async_save(self.profiles)
             self._notify_discovery_change()

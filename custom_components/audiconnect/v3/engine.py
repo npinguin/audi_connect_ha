@@ -1324,8 +1324,19 @@ class V3Engine:
             ):
                 self._refresh_event(vin, current)
                 await self._follow_up_cloud()
+            elif (
+                capability == "charging"
+                and aspect == "stop"
+                and current is not None
+                and current is not previous
+                and current.stop_retry_timed_out
+            ):
+                self._schedule_charging_stop_recovery(vin, current, retry_enabled)
             raise
+        self._schedule_charging_stop_recovery(vin, record, retry_enabled)
         await self._after_command(vin, record)
+
+    def _schedule_charging_stop_recovery(self, vin, record, retry_enabled):
         # A user-initiated CARIAD STOP may get one bounded recovery check.
         # HA owns cancellation on unload; never restore a delayed write on restart.
         from .request_status import PENDING_RESULTS

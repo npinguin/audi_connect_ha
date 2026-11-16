@@ -1043,3 +1043,53 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
         outcome not in (None, "rejected", "uncertain", "local_cancel")
         and not superseded
     )
+
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "enabled,backend,expected",
+    [(True, "timeout", True), (False, "timeout", False), (True, "error", False)],
+)
+async def test_initial_stop_confirmation_timeout_preserves_recovery_intent(
+    monkeypatch, enabled, backend, expected
+):
+    """An exact early timeout remains a rejection and may schedule one recovery."""
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+
+    engine, _car = make_engine()
+    engine.entry.options["v3_charging_stop_retry"] = enabled
+    engine.hass = object()
+    route = "cariad.charging.stop"
+    monkeypatch.setattr(engine.commands, "command_route", lambda *args: route)
+    calls = []
+    tasks = []
+
+    def create_task(hass, coroutine, name):
+        tasks.append(name)
+        coroutine.close()
+
+    engine.entry.async_create_background_task = create_task
+
+    class Transport:
+        async def request(self, family, method, path, **kwargs):
+            calls.append(method)
+            if method == "POST":
+                return V3Response(
+                    200, {"data": {"requestID": "original"}}, datetime.now(UTC)
+                )
+            return V3Response(
+                200,
+                {"data": [{"id": "original", "status": backend}]},
+                datetime.now(UTC),
+            )
+
+    engine.transport = Transport()
+    with pytest.raises(RuntimeError, match="rejected"):
+        await engine.send_control(VIN, "stop", "charging")
+    record = engine.profiles[VIN.lower()].last_command
+    assert record.state == "rejected"
+    assert record.stop_retry_timed_out is expected
+    assert not CommandRecord.restore(record.snapshot()).stop_retry_timed_out
+    assert calls == ["POST", "GET"]
+    assert tasks == (["Audi charging STOP recovery"] if expected else [])
