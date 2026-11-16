@@ -158,6 +158,49 @@ def observe_derived(
         path,
         10000,
     )
+    # Candidate technical fields are read-only and remain absent unless
+    # the existing batch actually supplies an explicit-unit numeric value.
+    for path, field, ident, maximum in (
+        (
+            "charging.chargingSettings.value",
+            "minChargeLimit_pct",
+            "minimumChargeLimit",
+            100,
+        ),
+        (
+            "charging.batteryStatus.value",
+            "navigationTargetSOC_pct",
+            "navigationTargetSOC",
+            100,
+        ),
+        (
+            "charging.chargingStatus.value",
+            "remainingChargingTimeNavigation_min",
+            "navigationRemainingChargingTime",
+            10080,
+        ),
+        (
+            "measurements.temperatureBatteryStatus.value",
+            "temperatureHvBatteryMin_K",
+            "hvBatteryMinimumTemperature",
+            400,
+        ),
+        (
+            "measurements.temperatureBatteryStatus.value",
+            "temperatureHvBatteryMax_K",
+            "hvBatteryMaximumTemperature",
+            400,
+        ),
+    ):
+        block = read_json_path(payload, path)
+        if ident.startswith("hvBattery") and (
+            not isinstance(block, dict)
+            or type(block.get(field)) not in (int, float)
+            or block[field] < 173.15
+        ):
+            continue
+        metric(block, field, ident, path.split(".", 1)[0], path, maximum)
+
     path = "measurements.fuelLevelStatus.value"
     metric(
         fuel_level, "currentSOC_pct", "measuredElectricSOC", "measurements", path, 100
@@ -191,6 +234,19 @@ def observe_derived(
                 # Keep engine-specific values; the product contract decides
                 # whether this is the actual combustion tank. Never last-wins
                 # across primary and secondary engines.
+    settings_path = "climatisation.climatisationSettings.value"
+    climate_settings = read_json_path(payload, settings_path)
+    if isinstance(climate_settings, dict) and climate_settings.get(
+        "climatisationMode"
+    ) in ("comfort", "economy"):
+        record(
+            "climatisationMode",
+            climate_settings["climatisationMode"],
+            climate_settings.get("carCapturedTimestamp"),
+            "climatisation",
+            settings_path + ".climatisationMode",
+        )
+
     # Operational window heating is not the preference windowHeatingEnabled,
     # and is not the legacy mirror-heating signal.
     from .vehicle import window_heating_active
@@ -600,22 +656,44 @@ def observe_derived(
                         operation=operation,
                     )
 
-    for job, count in (
-        ("chargingTimers", "charging_timer_enabled_count"),
-        ("climatisationTimers", "climatisation_timer_enabled_count"),
-    ):
-        path = f"{job}.{job}Status.value"
-        block = read_json_path(payload, path)
-        if not isinstance(block, dict) or not isinstance(block.get("timers"), list):
-            continue
-        captured = block.get("carCapturedTimestamp")
-        # The count retains the capture boundary even if the next single
-        # timer disappears. Older responses must not resurrect removed timers.
-        if not accepts(car.readings.get(count), captured, observed_at):
-            continue
-        from .structured_details import _array, _timer
+    from .structured_details import observe_structured
 
-        timers = _array(block["timers"], _timer, 30)
+    # Normalize the lists once. Derive scalars from the selected observation,
+    # not independently from the incoming response.
+    observe_structured(car, payload, observed_at, accepts, operation=operation)
+    for job, detail, count in (
+        ("chargingTimers", "charging_timers_detail", "charging_timer_enabled_count"),
+        (
+            "climatisationTimers",
+            "climate_timers_detail",
+            "climatisation_timer_enabled_count",
+        ),
+    ):
+        source = car.readings.get(detail)
+        # A retained detail cannot acquire a new receipt or capture time.
+        if source is None or source.get("observed") != observed_at.isoformat():
+            continue
+        path = f"{job}.{job}Status.value"
+        captured = source.get("captured")
+        timers = source.get("value")
+        if source.get("status") == "invalid_value" or not isinstance(timers, dict):
+            for ident in (
+                (count, "next_climatisation_timer_local")
+                if detail == "climate_timers_detail"
+                else (count,)
+            ):
+                record_invalid_observation(
+                    car,
+                    ident,
+                    captured,
+                    observed_at,
+                    path,
+                    job,
+                    source.get("reason") or "incomplete_timer_data",
+                    profile=profile,
+                    operation=operation,
+                )
+            continue
         entries = timers["items"]
         complete = timers["all_items_recognized"] and all(
             "enabled" in timer for timer in entries
@@ -634,7 +712,7 @@ def observe_derived(
                 profile=profile,
                 operation=operation,
             )
-        if job == "climatisationTimers":
+        if detail == "climate_timers_detail":
             ident = "next_climatisation_timer_local"
             starts = [
                 t["start_datetime_local"]
@@ -646,17 +724,12 @@ def observe_derived(
             single_starts_complete = complete and all(
                 timer.get("enabled") is not True
                 or "start_datetime_local" in timer
-                or (
-                    isinstance(raw.get("recurringTimer"), dict)
-                    and raw.get("singleTimer") is None
-                )
-                for raw, timer in zip(block["timers"], entries, strict=True)
+                or timer.get("recurring_only") is True
+                for timer in entries
             )
             # Local wall-clock timestamps require a vehicle clock anchor.
             # Never infer its timezone from the HA host or API market.
-            from .structured_details import _zoned_datetime
-
-            clock = _zoned_datetime(block.get("timeInCar"))
+            clock = timers.get("vehicle_time")
             if (
                 clock is not None
                 and timestamp_is_fresh(clock, observed_at)

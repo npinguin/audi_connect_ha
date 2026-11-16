@@ -293,3 +293,71 @@ def test_physical_review_survives_routine_and_discovery_history_rotation():
     assert row["discovery_review"] == attempt.public()
     restored.rebind_context(VehicleContext(auth="auth0", region="BE"))
     assert restored.reviewed_control(route) is None
+
+
+def test_accepted_control_boundary_survives_rejection_and_journal_rotation():
+    from datetime import UTC, datetime
+    from custom_components.audiconnect.v3.command_readback import configure_readback
+    from custom_components.audiconnect.v3.product_contract import control_projection
+
+    p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
+    accepted = CommandRecord.begin(
+        "charging", "start", "cariad.charging.start", 1790000100
+    )
+    configure_readback(accepted, {})
+    accepted.observe_http(200)
+    p.track_command(accepted)
+    rejected = CommandRecord.begin(
+        "charging", "stop", "cariad.charging.stop", 1790000200
+    )
+    configure_readback(rejected, {})
+    rejected.observe_http(403)
+    p.track_command(rejected)
+    for i in range(HISTORY_LIMIT + 5):
+        other = CommandRecord.begin(
+            "climate", "start", "cariad.climate.start.stored", 1790000300 + i
+        )
+        configure_readback(other, {})
+        other.observe_http(200)
+        p.track_command(other)
+    restored = restore_profile(model(), p.discovery.context, p.snapshot())
+    assert len(restored.command_journal) == HISTORY_LIMIT
+    assert accepted.command_id in {row.command_id for row in restored.command_journal}
+    old = {
+        "value": "off",
+        "captured": datetime.fromtimestamp(1790000000, UTC).isoformat(),
+        "status": "verified",
+    }
+    assert control_projection(
+        restored,
+        "chargingState",
+        old,
+        now=datetime.fromtimestamp(1790001000, UTC),
+    ) == (None, "unknown")
+
+
+def test_queue_backend_evidence_survives_restart_without_reactivating_intent():
+    p = DevelopmentProfile(model(), VehicleContext(auth="auth0", region="DE"))
+    record = CommandRecord.begin("access", "lock", "cariad.access.lock", 100)
+    record.observe_http(200)
+    record.observe_backend("queued", 101)
+    p.track_command(record)
+    recovered = restore_profile(model(), p.discovery.context, p.snapshot())
+    assert "requested_climate_variant" not in record.snapshot()
+    assert recovered.last_command.backend_result == "pending"
+    assert recovered.last_command.state == "accepted_unconfirmed"
+    assert recovered.last_command.restored
+
+
+def test_pending_queue_does_not_turn_accepted_wake_into_uncertain_transport():
+    for outcome in ("pending", "queued", "in_progress", "accepted", "not_listed"):
+        record = CommandRecord.begin("remote", "wake", "cariad.remote.wake", 100)
+        record.observe_http(200)
+        record.observe_backend(outcome, 101)
+        assert record.state == "accepted_unconfirmed"
+        assert record.wake_accepted
+        assert not record.unresolved
+        assert record.backend_result == outcome
+        snapshot = record.snapshot()
+        assert snapshot["backend_result"] in ("pending", "accepted_unconfirmed")
+        assert CommandRecord.restore(snapshot).wake_accepted

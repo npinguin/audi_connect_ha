@@ -61,6 +61,7 @@ def test_product_contract_covers_v2_plus_only_deliberate_extensions():
         "binary_sensor.integration_problem",
         "sensor.door_status",
         "sensor.window_status",
+        "sensor.parked_in",
     }
     assert all(
         "sensor." + key not in historical for key in inventory["retired_v3_sensors"]
@@ -426,3 +427,64 @@ def test_product_presentation_and_categories_have_one_contract():
         "Electric range",
         "v3_electric_range",
     )
+
+
+def test_parked_in_resolves_local_zone_without_network_or_new_state(monkeypatch):
+    from custom_components.audiconnect.v3.entities import V3ParkedInSensor
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+
+    car = V3Vehicle(VIN, "Audi", "Test", "q8", "DE")
+    entity = V3ParkedInSensor(NS(), car)
+    entity.hass = NS()
+    assert not entity.available
+    assert entity.native_value is None
+    car.position = {"latitude": 0, "longitude": 0}
+    monkeypatch.setattr(
+        "homeassistant.components.zone.async_active_zone",
+        lambda hass, lat, lon: NS(name="Test zone"),
+    )
+    assert entity.available
+    assert entity.native_value == "Test zone"
+    assert entity.unique_id == VIN.lower() + "_sensor_parked_in"
+    monkeypatch.setattr(
+        "homeassistant.components.zone.async_active_zone", lambda *args: None
+    )
+    assert entity.native_value is None
+    car.position = None
+    assert entity.native_value is None
+
+
+def test_timer_sensor_retains_history_but_never_displays_invalid_current_count():
+    from datetime import UTC, datetime, timedelta
+
+    from custom_components.audiconnect.v3.entities import V3ReadOnlySensor
+    from custom_components.audiconnect.v3.vehicle import V3Vehicle
+
+    car = V3Vehicle(VIN, "Audi", "Q8", "q8", "DE")
+    coordinator = NS(engine=NS(profiles={}), last_update_success=True)
+    ident = "charging_timer_enabled_count"
+    sensor = V3ReadOnlySensor(coordinator, car, ATTRIBUTES[ident])
+    now = datetime.now(UTC)
+    known = {
+        "value": 0,
+        "captured": (now - timedelta(hours=2)).isoformat(),
+        "family": "cariad",
+        "status": "readable_but_stale",
+    }
+    car.readings[ident] = known
+    assert sensor.available and sensor.native_value == 0
+    car.readings[ident] = {
+        "value": None,
+        "captured": now.isoformat(),
+        "family": "cariad",
+        "status": "invalid_value",
+        "reason": "conflicting_source_values",
+        "last_known": known,
+    }
+    assert not sensor.available
+    assert sensor.native_value is None
+    attrs = sensor.extra_state_attributes
+    assert attrs["last_known_state"] == 0
+    assert attrs["last_known_captured"] == known["captured"]
+    assert attrs["vehicle_captured"] == now.isoformat()
+    assert attrs["vehicle_freshness"] == "unknown"

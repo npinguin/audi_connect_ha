@@ -140,9 +140,9 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
             self, (ClimateEntity, SwitchEntity, LockEntity, NumberEntity, SelectEntity)
         ):
             return False
-        return (self.extra_state_attributes or {}).get("state_source") in (
-            "optimistic",
-            "last_known_vehicle",
+        source = (self.extra_state_attributes or {}).get("state_source")
+        return source in ("optimistic", "last_known_vehicle") or (
+            source == "unknown" and isinstance(self, (SwitchEntity, LockEntity))
         )
 
     def _control_attributes(
@@ -204,7 +204,9 @@ class V3BaseEntity(CoordinatorEntity[V3CleanCoordinator]):
             )
             expiry = optimistic_expiry(record)
             result.update(
-                reading_freshness_attributes(row, allow_last_known=True),
+                reading_freshness_attributes(
+                    row, allow_last_known=source == "last_known_vehicle"
+                ),
                 last_reported_state=last_known_observation(row).get("value"),
                 state_source=source or "unknown",
                 state_is_current=source == "vehicle",
@@ -402,6 +404,7 @@ class V3ClimateEntity(V3BaseEntity, ClimateEntity):
                 "departure_climate_timers_detail",
                 "window_heating_detail",
                 "climate_requests_detail",
+                "climate_settings_requests_detail",
             ),
             "climatisation_without_external_power": (
                 self.vehicle.readings.get("climatisationWithoutExternalPower", {}).get(
@@ -1049,6 +1052,12 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         if contract.get("precision") is not None:
             self._attr_suggested_display_precision = contract["precision"]
 
+    def _display_history(self, reading):
+        return self._allow_last_known and (
+            not self._semantic_contract.get("require_valid_observation")
+            or reading.get("status") != "invalid_value"
+        )
+
     @property
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
@@ -1071,11 +1080,10 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
         ):
             return False
         reading = _sensor_projection(self)[1] or {}
-        value_row = (
-            last_known_observation(reading) if self._allow_last_known else reading
-        )
+        display_history = self._display_history(reading)
+        value_row = last_known_observation(reading) if display_history else reading
         return _reading_available(
-            reading, allow_last_known=self._allow_last_known
+            reading, allow_last_known=display_history
         ) and not semantic_value_issue(
             self.attribute["entity_key"],
             value_row.get("value"),
@@ -1091,9 +1099,11 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
 
             return powertrain_identity(self.vehicle)["value"]
         reading = _sensor_projection(self)[1] or {}
-        if self._allow_last_known:
+        if self._display_history(reading):
             reading = last_known_observation(reading)
-        value = reading.get("value")
+        value = (
+            reading.get("value") if reading.get("status") != "invalid_value" else None
+        )
         if semantic_value_issue(
             self.attribute["entity_key"], value, self._semantic_contract
         ):
@@ -1167,6 +1177,13 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
                 "battery_care_detail",
                 "charging_profile_context_detail",
             ),
+            "state_of_charge": (
+                "minimumChargeLimit",
+                "navigationTargetSOC",
+                "hvBatteryMinimumTemperature",
+                "hvBatteryMaximumTemperature",
+            ),
+            "remaining_charging_time": ("navigationRemainingChargingTime",),
             "vehicle_reported_online": ("readiness_detail",),
             "vehicle_reported_active": ("readiness_detail",),
         }
@@ -1205,7 +1222,7 @@ class V3ReadOnlySensor(V3BaseEntity, SensorEntity):
             "api_family": reading.get("family", "cariad"),
             "response_mapping": reading.get("path"),
             **reading_freshness_attributes(
-                reading, allow_last_known=self._allow_last_known
+                reading, allow_last_known=self._display_history(reading)
             ),
         }
 
@@ -1797,16 +1814,9 @@ class V3ParkedTracker(V3BaseEntity, TrackerEntity):
         position = self.vehicle.position
         if not isinstance(position, dict):
             return None
-        lat, lon = position.get("latitude"), position.get("longitude")
-        if isinstance(lat, bool) or isinstance(lon, bool):
-            return None
-        try:
-            latitude, longitude = float(lat), float(lon)
-        except (ValueError, TypeError):
-            return None
-        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
-            return None
-        return latitude, longitude
+        from .parking import parked_coordinates
+
+        return parked_coordinates(position.get("latitude"), position.get("longitude"))
 
     @property
     def available(self) -> bool:
@@ -1851,6 +1861,48 @@ class V3ParkedTracker(V3BaseEntity, TrackerEntity):
         }
 
 
+class V3ParkedInSensor(V3BaseEntity, SensorEntity):
+    """Last reported parked position resolved only against local HA zones."""
+
+    entity_description = _product_description("sensor.parked_in")
+    _attr_icon = "mdi:map-marker"
+
+    def __init__(self, coordinator, vehicle):
+        super().__init__(coordinator, vehicle)
+        self._attr_unique_id = f"{vehicle.vin.lower()}_sensor_parked_in"
+
+    def _coordinates(self):
+        from .parking import parked_coordinates
+
+        position = self.vehicle.position or {}
+        return parked_coordinates(position.get("latitude"), position.get("longitude"))
+
+    @property
+    def available(self):
+        return (
+            getattr(self.vehicle, "inventory_present", True)
+            and self._coordinates() is not None
+        )
+
+    @property
+    def native_value(self):
+        from homeassistant.components.zone import async_active_zone
+
+        coordinates = self._coordinates()
+        if coordinates is None or not self.available or self.hass is None:
+            return None
+        zone = async_active_zone(self.hass, *coordinates)
+        return zone.name if zone is not None else None
+
+    @property
+    def extra_state_attributes(self):
+        row = self.vehicle.readings.get("position_last_updated", {})
+        return {
+            **reading_freshness_attributes(row, allow_last_known=True),
+            "position_source": "Audi last reported parking position / local HA zone",
+        }
+
+
 class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
     """V2 global charge-target identity; command gated by V3 route evidence."""
 
@@ -1870,11 +1922,15 @@ class V3ChargeTargetNumber(V3BaseEntity, NumberEntity):
     def available(self) -> bool:
         if not getattr(self.vehicle, "inventory_present", True):
             return False
+        # A previously observed target remains evidence of this control,
+        # not the effective setting after an unconfirmed mutation.
+        reported = last_known_observation(
+            _control_reading(self.coordinator, self.vehicle, "targetstateOfCharge")
+        ).get("value")
         return (
-            self.native_value is not None
-            and self.coordinator.engine.control_enabled(
-                self.vehicle.vin, "set_target_soc", "charging"
-            )
+            self.native_value is not None or type(reported) in (int, float)
+        ) and self.coordinator.engine.control_enabled(
+            self.vehicle.vin, "set_target_soc", "charging"
         )
 
     @property
@@ -2058,13 +2114,25 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
     def available(self):
         if not getattr(self.vehicle, "inventory_present", True):
             return False
-        return self.is_on is not None and self.coordinator.engine.control_enabled(
-            self.vehicle.vin, "set_settings", "climate"
+        reported = last_known_observation(
+            _control_reading(self.coordinator, self.vehicle, self.reading)
+        ).get("value")
+        return (self.is_on is not None or type(reported) is bool) and self._writable
+
+    @property
+    def _writable(self):
+        # A native switch promises both directions. A route-level proof is
+        # not proof of either individual setting value.
+        return all(
+            self.coordinator.engine.control_enabled(
+                self.vehicle.vin, "set_settings", "climate", params={self.field: value}
+            )
+            for value in (False, True)
         )
 
     @property
     def extra_state_attributes(self):
-        return self._control_attributes(
+        result = self._control_attributes(
             "climate",
             ("set_settings",),
             attribute=self.reading,
@@ -2073,6 +2141,15 @@ class V3ClimateSettingSwitch(V3BaseEntity, SwitchEntity):
             )[1],
             allow_last_known=True,
         )
+        writable = self._writable
+        result["control_actions"]["set_settings"] = writable
+        dispatch = result.get("control_dispatch", {}).get("set_settings")
+        if dispatch is not None and not writable:
+            dispatch["ready"] = False
+            dispatch["reason"] = (
+                dispatch["reason"] or "climate_setting_requires_discovery"
+            )
+        return result
 
     async def _write(self, value):
         if not self.available:
@@ -2132,12 +2209,13 @@ class V3ChargeModeSelect(V3BaseEntity, SelectEntity):
             "charging",
             ("set_charge_mode",),
             attribute="preferredChargeMode",
-            source=_reading_projection(
-                self.coordinator,
-                self.vehicle,
-                "preferredChargeMode",
-                allow_last_known=True,
-            )[1],
+            source=(
+                _reading_projection(
+                    self.coordinator, self.vehicle, "preferredChargeMode"
+                )[1]
+                if self.current_option is not None
+                else "unknown"
+            ),
             allow_last_known=True,
         )
 

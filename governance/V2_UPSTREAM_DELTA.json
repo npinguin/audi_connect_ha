@@ -83,7 +83,7 @@
     {
       "path": "custom_components/audiconnect/config_flow.py",
       "upstream_blob": "a53844c689bbca85f11f05c1f9a1727b0d828e54",
-      "development_blob": "ecc6d4bd72bba122f629b0497b9cf753e5d71ec2"
+      "development_blob": "6df0abf9f9c10c55b357f2b3681a966985d29eb6"
     },
     {
       "path": "custom_components/audiconnect/device_tracker.py",
@@ -128,7 +128,7 @@
     {
       "path": "custom_components/audiconnect/strings.json",
       "upstream_blob": "ee7cade4b7e3141848bb82a0ce70df5a40437801",
-      "development_blob": "d118dd1e53e88a174dcbe84eb03d168ba724d0a9"
+      "development_blob": "12ebeb3f1c7039bdb4379d0e21e8de3d7d3ed0cb"
     },
     {
       "path": "custom_components/audiconnect/switch.py",
@@ -138,12 +138,12 @@
     {
       "path": "custom_components/audiconnect/translations/de.json",
       "upstream_blob": "5966797c9b391cb63a5304d095c6b7ae45148726",
-      "development_blob": "195587da7ebb0c53f80007b4dca3496c2ebec060"
+      "development_blob": "8a6ff86082bec59e44ddd3556e1c62aa8cbe6ea3"
     },
     {
       "path": "custom_components/audiconnect/translations/en.json",
       "upstream_blob": "ee7cade4b7e3141848bb82a0ce70df5a40437801",
-      "development_blob": "73c2a970ccd5f3d3571e1332a374054db3c00475"
+      "development_blob": "712602b12c8232287271a02fada5497f5242533b"
     },
     {
       "path": "custom_components/audiconnect/translations/fi.json",
@@ -153,7 +153,7 @@
     {
       "path": "custom_components/audiconnect/translations/fr.json",
       "upstream_blob": "0a282e073671f34cea7d2002c5865b2a585a4855",
-      "development_blob": "449e84d2019ca7c12e285920d687e253d18a42e0"
+      "development_blob": "4288275aa2eb2c2e70936b8b2a41936425e69b4a"
     },
     {
       "path": "custom_components/audiconnect/translations/nb.json",
@@ -163,7 +163,7 @@
     {
       "path": "custom_components/audiconnect/translations/nl.json",
       "upstream_blob": "125b1002d7779c52500131af5d1e1e80ced6a7f4",
-      "development_blob": "29f3adc78b664d7765f94083a2cf01ec48029b6e"
+      "development_blob": "2df1ab2889292c3be3f35085d12cb31f6bb1ac2e"
     },
     {
       "path": "custom_components/audiconnect/translations/pt-BR.json",

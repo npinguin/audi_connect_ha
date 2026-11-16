@@ -117,6 +117,7 @@ class V3Engine:
             api_record=self._api_record,
             notify=self._notify_discovery_change,
             apply_identity=self._apply_identity_candidate,
+            observe_native_requests=self.commands.reconcile_native_requests,
         )
 
     @property
@@ -151,6 +152,7 @@ class V3Engine:
             if not metadata_refined:
                 vehicle.readings.clear()
                 vehicle.family_readings.clear()
+                vehicle.charging_observations.clear()
                 vehicle.position = None
             vehicle.capability_readings.clear()
             vehicle.charging_profiles.clear()
@@ -804,7 +806,12 @@ class V3Engine:
         }
 
     async def test_family_reads(
-        self, vin: str, family: str, *, full: bool = False
+        self,
+        vin: str,
+        family: str,
+        *,
+        full: bool = False,
+        rescan_after: str | None = None,
     ) -> dict[str, Any]:
         """Explicit, bounded read-only API-family sweep, never remote commands.
 
@@ -813,6 +820,8 @@ class V3Engine:
         The API cloud budget remains enforced by V3Transport.
         """
         vehicle = self.require_vehicle(vin)
+        if rescan_after is not None and (not full or family == "graphql"):
+            raise ValueError("Rescan cursor requires a native full read scan")
         if family == "graphql":
             from .transport import IDENTITY_QUERIES
 
@@ -833,7 +842,9 @@ class V3Engine:
             raise ValueError("API family is not applicable to this vehicle")
         profile = self.profiles[vehicle.vin.lower()]
         if full:
-            return await self._scan_catalog_reads(vehicle, profile, family)
+            return await self._scan_catalog_reads(
+                vehicle, profile, family, rescan_after=rescan_after
+            )
         outcomes: list[dict[str, Any]] = []
         if family == "cariad":
             plans = [
@@ -905,13 +916,24 @@ class V3Engine:
             "note": "Only safe GET requests were sent. Stale cloud data is not current vehicle data.",
         }
 
-    async def _scan_catalog_reads(self, car, profile, family):
+    async def _scan_catalog_reads(self, car, profile, family, *, rescan_after=None):
         """Explicit exhaustive reviewed-route scan, in bounded resumable batches."""
         plan, excluded = full_read_plan(profile, car.context, family)
         results = []
         pending = []
         stopped = None
+        if rescan_after is not None:
+            # Stable route ordering is independent of changing observations.
+            # The caller's explicit cursor does not erase or persist new evidence.
+            plan = sorted(plan)
+            if rescan_after and rescan_after not in {ident for ident, _ in plan}:
+                raise ValueError("Rescan route changed; start a new read scan")
+        last_completed = rescan_after
         for ident, template in plan:
+            if rescan_after is not None:
+                if ident > rescan_after:
+                    pending.append((ident, template))
+                continue
             prior = profile.api_observations.get(ident, {})
             status = prior.get("http_status")
             if status is not None and status not in (401, 403, 429) and status < 500:
@@ -958,6 +980,7 @@ class V3Engine:
             if reply.status in (401, 403, 429) or reply.status >= 500:
                 stopped = "account_or_service_error"
                 break
+            last_completed = ident
         await self.storage.async_save(self.profiles)
         self._notify_discovery_change()
         remaining = [
@@ -970,9 +993,16 @@ class V3Engine:
                 and http < 500
             )
         ]
+        if rescan_after is not None:
+            remaining = [ident for ident, _ in plan if ident > last_completed]
         return {
             "family": family,
             "mode": "full",
+            **(
+                {"next_rescan_after": last_completed if remaining else None}
+                if rescan_after is not None
+                else {}
+            ),
             "request_count": attempted,
             "eligible_routes": len(plan),
             "remaining_routes": remaining,
@@ -1078,9 +1108,9 @@ class V3Engine:
         return self.commands.command_route(vin, aspect, capability)
 
     def control_enabled(
-        self, vin: str, aspect: str, capability: str = "climate"
+        self, vin: str, aspect: str, capability: str = "climate", *, params=None
     ) -> bool:
-        return self.commands.control_enabled(vin, aspect, capability)
+        return self.commands.control_enabled(vin, aspect, capability, params=params)
 
     async def approved_control_discovery(
         self,
@@ -1225,6 +1255,8 @@ class V3Engine:
             _LOGGER.warning("Audi command follow-up cloud read failed")
 
     async def _after_command(self, vin: str, record) -> None:
+        from .command_readback import follow_up_refresh_allowed
+
         if (
             getattr(getattr(self.entry, "runtime_data", None), "coordinator", None)
             is None
@@ -1233,14 +1265,14 @@ class V3Engine:
         remote_refresh = record.capability == "remote" and record.action == "refresh"
         if remote_refresh:
             self._refresh_event(vin, record)
-        elif (
-            getattr(self.entry, "options", {}).get(CONF_REFRESH_AFTER_ACTION, False)
-            and record.state in ("backend_completed", "verified")
-            and not (record.capability == "remote" and record.action == "wake")
+        elif getattr(self.entry, "options", {}).get(
+            CONF_REFRESH_AFTER_ACTION, False
+        ) and follow_up_refresh_allowed(
+            record, self.vehicles.get(vin.lower()), self.registry
         ):
             # The existing opt-in V2 option permits one explicit refresh after
-            # an accepted action. Never send it after uncertainty, recurse, or
-            # bypass the wake quota/security/evidence checks.
+            # known HTTP acceptance without a newer native capture. Never
+            # recurse or bypass the wake quota/security/evidence checks.
             try:
                 refresh = await self.commands.send_control(
                     vin, "refresh", "remote", _follow_up_to=record.command_id
@@ -1693,7 +1725,7 @@ class V3Engine:
         return {
             "mode": "v3",
             "diagnostics_schema_version": 2,
-            "privacy_scope": "structural_evidence_only_no_response_previews",
+            "privacy_scope": "allowlisted_technical_telemetry_no_response_previews",
             "polling_owner": "independent_v3_discovery_engine",
             "data_act_polling": self.status.data_act_poll_status(),
             "requests": self.transport.request_count,
