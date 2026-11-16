@@ -1364,8 +1364,9 @@ class V3Engine:
             or second.operation != "cariad.charging.stop"
             or second.capability != "charging"
             or second.action != "stop"
+            or (second.state == "rejected" and second.http_status is None)
         ):
-            return  # Recovery was skipped or superseded; no second STOP error.
+            return  # Recovery was skipped, cancelled locally or superseded.
         if second.state not in ("rejected", "uncertain"):
             # Reuse the normal read-only follow-up, never a wake or third STOP.
             await self._follow_up_cloud()

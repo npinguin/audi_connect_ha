@@ -88,10 +88,6 @@ class CommandRecord:
 
     def observe_backend(self, outcome: str, now: float) -> None:
         """Apply correlated backend evidence without undoing terminal results."""
-        if self.backend_result == "rejected" or (
-            self.backend_result == "backend_completed" and outcome != "rejected"
-        ):
-            return
         stop_timeout = (
             outcome == "timeout"
             and self.origin == "home_assistant"
@@ -103,6 +99,10 @@ class CommandRecord:
         )
         if outcome == "timeout":
             outcome = "rejected"
+        if self.backend_result == "rejected" or (
+            self.backend_result == "backend_completed" and outcome != "rejected"
+        ):
+            return
         self.backend_result = outcome
         # Runtime receipt ordering only; never reactivate restored intent.
         self.backend_observed_at = now

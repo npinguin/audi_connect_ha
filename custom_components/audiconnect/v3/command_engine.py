@@ -686,7 +686,7 @@ class CommandEngine:
             self._notify_discovery_change()
             return {"confirmed": outcome, "active": dict(profile.active)}
 
-    def charging_stop_retry_current(self, car, profile, record):
+    def charging_stop_retry_current(self, car, profile, record, *, child=None):
         """One same-session explicit STOP intent, never a restored or superseded one."""
         latest = profile.last_command
         return (
@@ -709,7 +709,11 @@ class CommandEngine:
             )
             == 1
             and (
-                latest is record
+                latest is child
+                and child is not None
+                and child.parent_command_id == record.command_id
+                if child is not None
+                else latest is record
                 or (
                     latest is not None
                     and latest.parent_command_id == record.command_id
@@ -724,10 +728,10 @@ class CommandEngine:
             == operation_revision(profile.registry.operations[record.operation])
         )
 
-    def charging_stop_retry_ready(self, car, profile, record):
+    def charging_stop_retry_ready(self, car, profile, record, *, child=None):
         """Require a correlated terminal timeout and recent native still-charging evidence."""
         if (
-            not self.charging_stop_retry_current(car, profile, record)
+            not self.charging_stop_retry_current(car, profile, record, child=child)
             or not record.stop_retry_timed_out
             or not optional_budget_available(self._command_allowance("cariad"), cost=4)
         ):
@@ -877,6 +881,16 @@ class CommandEngine:
                 p.track_command(record)
                 # No physical action until the pending record is durable.
                 await self.storage.async_save(self.profiles)
+            if _retry_of is not None and not self.charging_stop_retry_ready(
+                car, p, _retry_of, child=record
+            ):
+                # Consent, route or telemetry can change while storage awaits.
+                # This is a local cancellation, not an Audi response.
+                record.observe_backend("rejected", time.time())
+                car.last_command_result = record.state
+                await self.storage.async_save(self.profiles)
+                self._notify_discovery_change()
+                raise RuntimeError("Charging STOP recovery cancelled before dispatch")
             try:
                 family, path, response = await self._execute_prepared(
                     car, p, record, prepared, params

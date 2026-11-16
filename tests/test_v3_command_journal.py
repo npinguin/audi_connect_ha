@@ -361,3 +361,13 @@ def test_pending_queue_does_not_turn_accepted_wake_into_uncertain_transport():
         snapshot = record.snapshot()
         assert snapshot["backend_result"] in ("pending", "accepted_unconfirmed")
         assert CommandRecord.restore(snapshot).wake_accepted
+
+
+def test_stop_timeout_after_backend_completion_preserves_rejection_without_retry():
+    record = CommandRecord.begin("charging", "stop", "cariad.charging.stop", 100)
+    record.observe_http(200)
+    record.observe_backend("backend_completed", 105)
+    record.observe_backend("timeout", 110)
+    assert record.state == "rejected"
+    assert record.backend_result == "rejected"
+    assert not record.stop_retry_timed_out

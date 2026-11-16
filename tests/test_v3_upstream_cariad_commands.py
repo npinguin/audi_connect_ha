@@ -819,6 +819,8 @@ def test_timer_count_follows_selected_list_even_when_count_is_unchanged(
         ("native_timeout", "charging", True),
         ("native_timeout", "readyForCharging", False),
         ("native_error", "charging", False),
+        ("timeout", "disabled_during_save", False),
+        ("timeout", "stopped_during_save", False),
     ],
 )
 async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_state(
@@ -906,6 +908,22 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
                 CommandRecord.begin("charging", "start", route, now.timestamp())
             )
 
+    if telemetry in ("disabled_during_save", "stopped_during_save"):
+
+        async def save(_profiles):
+            latest = profile.last_command
+            if latest.parent_command_id != first.command_id:
+                return
+            if telemetry == "disabled_during_save":
+                engine.entry.options["v3_charging_stop_retry"] = False
+            else:
+                stamp = datetime.now(UTC).isoformat()
+                car.readings["chargingState"].update(
+                    value="readyForCharging", captured=stamp, observed=stamp
+                )
+
+        monkeypatch.setattr(engine.storage, "async_save", save)
+
     result = await engine.commands.retry_charging_stop(VIN, first, refresh)
     writes = [call for call in calls if call[1] == "POST"]
     if telemetry == "disabled" or backend == "native_error":
@@ -928,6 +946,11 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
         assert calls == before
     else:
         assert result is None
+    if telemetry in ("disabled_during_save", "stopped_during_save"):
+        child = profile.last_command
+        assert child.parent_command_id == first.command_id
+        assert child.state == "rejected"
+        assert child.http_status is None
     if backend == "in_progress":
         assert first.state == "accepted_unconfirmed"
     if backend == "successful":
@@ -940,6 +963,7 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     [
         (None, False, None, False, None),
         ("rejected", False, None, False, "rejected"),
+        ("local_cancel", False, None, False, None),
         ("uncertain", False, None, False, "could not be confirmed"),
         ("accepted_unconfirmed", False, None, False, "could not be confirmed"),
         ("backend_completed", False, None, False, "could not be confirmed"),
@@ -980,7 +1004,8 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
             datetime.now(UTC).timestamp(),
             parent_command_id=first.command_id,
         )
-        second.state = outcome
+        second.state = "rejected" if outcome == "local_cancel" else outcome
+        second.http_status = None if outcome in ("local_cancel", "uncertain") else 200
         if readback:
             second.readback_observed_at = second.started_at + 1
         if current is not None:
@@ -1015,5 +1040,5 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
         assert "No further automatic STOP" in notify.call_args.args[1]
         assert VIN not in notify.call_args.kwargs["notification_id"]
     assert refresh.await_count == int(
-        outcome not in (None, "rejected", "uncertain") and not superseded
+        outcome not in (None, "rejected", "uncertain", "local_cancel") and not superseded
     )
