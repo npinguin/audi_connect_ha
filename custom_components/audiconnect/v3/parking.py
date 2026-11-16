@@ -188,7 +188,7 @@ async def reverse_address(hass, endpoint, point):
                 if len(body) > 65536:
                     return None
         payload = json.loads(body)
-    except (ClientError, OSError, TimeoutError, ValueError):
+    except (ClientError, OSError, TimeoutError, ValueError, RecursionError):
         return None
     address = payload.get("display_name") if isinstance(payload, dict) else None
     if not isinstance(address, str) or not address.strip():

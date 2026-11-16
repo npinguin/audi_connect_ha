@@ -63,7 +63,7 @@ def status():
         api_record=None,
         notify=Mock(),
     )
-    engine.parking_read_allowed = lambda car: True
+    engine.parking_read_allowed = lambda car, **kwargs: True
     engine._parking_address_endpoint = ENDPOINT
     return engine
 
@@ -72,14 +72,17 @@ def status():
 async def test_address_is_only_for_current_point_and_current_consent(monkeypatch):
     engine = status()
     car = NS(
-        inventory_present=True, position={"latitude": 51.123456, "longitude": 4.56789}
+        vin="example",
+        inventory_present=True,
+        position={"latitude": 51.123456, "longitude": 4.56789},
     )
+    engine.vehicles[car.vin] = car
     point = geocoding_point(car.position)
     reverse = AsyncMock(return_value="Approximate place")
     monkeypatch.setattr(
         "custom_components.audiconnect.v3.parking.reverse_address", reverse
     )
-    await engine._collect_parking_address(ENDPOINT, point)
+    await engine._collect_parking_address(car, ENDPOINT, point)
     reverse.assert_awaited_once_with(engine.hass, ENDPOINT, point)
     assert engine.parking_address(car) == "Approximate place"
     engine._notify.assert_called_once()
@@ -92,7 +95,7 @@ async def test_address_is_only_for_current_point_and_current_consent(monkeypatch
     assert not engine._parking_address_cache
     assert engine._parking_address_endpoint is None
     reverse.reset_mock()
-    await engine._collect_parking_address(ENDPOINT, point)
+    await engine._collect_parking_address(car, ENDPOINT, point)
     reverse.assert_not_awaited()
     assert not engine._parking_address_cache
 
@@ -104,7 +107,11 @@ async def test_failed_lookup_does_not_publish_or_change_native_state(monkeypatch
     monkeypatch.setattr(
         "custom_components.audiconnect.v3.parking.reverse_address", reverse
     )
-    await engine._collect_parking_address(ENDPOINT, (51, 4))
+    car = NS(
+        vin="example", inventory_present=True, position={"latitude": 51, "longitude": 4}
+    )
+    engine.vehicles[car.vin] = car
+    await engine._collect_parking_address(car, ENDPOINT, (51, 4))
     assert not engine._parking_address_cache
     assert engine._parking_address_retry_at > 0
     assert engine.last_cloud_poll_success is None
@@ -116,6 +123,7 @@ def test_separate_address_sensor_uses_existing_status_owner():
 
     engine = status()
     car = NS(vin="example", readings={}, inventory_present=True, position=None)
+    engine.vehicles[car.vin] = car
     sensor = V3ParkingAddressSensor(NS(engine=NS(status=engine)), car)
     assert sensor.unique_id == "example_sensor_parking_address"
     assert not sensor.available
@@ -162,3 +170,31 @@ async def test_reverse_lookup_sends_only_rounded_point_and_never_redirects(monke
         is None
     )
     session.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_queued_lookup_does_not_send_or_publish_after_vehicle_changes(monkeypatch):
+    engine = status()
+    car = NS(
+        vin="example", inventory_present=True, position={"latitude": 51, "longitude": 4}
+    )
+    engine.vehicles[car.vin] = car
+    reverse = AsyncMock(return_value="Approximate place")
+    monkeypatch.setattr(
+        "custom_components.audiconnect.v3.parking.reverse_address", reverse
+    )
+    engine.parking_read_allowed = lambda car, **kwargs: False
+    await engine._collect_parking_address(car, ENDPOINT, (51, 4))
+    reverse.assert_not_awaited()
+    engine.parking_read_allowed = lambda car, **kwargs: True
+
+    async def move_before_response(*args):
+        car.position["latitude"] = 52
+        return "Old address"
+
+    reverse.side_effect = move_before_response
+    await engine._collect_parking_address(car, ENDPOINT, (51, 4))
+    reverse.assert_awaited_once()
+    assert not engine._parking_address_cache
+    assert engine.parking_address(car) is None
+    engine._notify.assert_not_called()
