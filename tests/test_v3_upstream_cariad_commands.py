@@ -1040,5 +1040,6 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
         assert "No further automatic STOP" in notify.call_args.args[1]
         assert VIN not in notify.call_args.kwargs["notification_id"]
     assert refresh.await_count == int(
-        outcome not in (None, "rejected", "uncertain", "local_cancel") and not superseded
+        outcome not in (None, "rejected", "uncertain", "local_cancel")
+        and not superseded
     )

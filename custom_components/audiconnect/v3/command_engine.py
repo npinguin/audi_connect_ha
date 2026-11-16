@@ -736,9 +736,15 @@ class CommandEngine:
             or not optional_budget_available(self._command_allowance("cariad"), cost=4)
         ):
             return False
-        return recent_charging_state(
-            record, car, registry=profile.registry, receipt_after=record.completed_at
-        ) is True
+        return (
+            recent_charging_state(
+                record,
+                car,
+                registry=profile.registry,
+                receipt_after=record.completed_at,
+            )
+            is True
+        )
 
     async def retry_charging_stop(self, vin, record, refresh):
         """Experimental one-shot STOP recovery; never retry pending/uncertain actions."""
