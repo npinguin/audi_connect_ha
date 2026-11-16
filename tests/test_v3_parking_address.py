@@ -126,7 +126,6 @@ def test_separate_address_sensor_uses_existing_status_owner():
     assert sensor.extra_state_attributes["address_precision"] == "approximate"
 
 
-
 @pytest.mark.asyncio
 async def test_reverse_lookup_sends_only_rounded_point_and_never_redirects(monkeypatch):
     from custom_components.audiconnect.v3.parking import reverse_address
@@ -156,5 +155,10 @@ async def test_reverse_lookup_sends_only_rounded_point_and_never_redirects(monke
     assert set(kwargs["headers"]) == {"User-Agent"}
     session.get.reset_mock()
     assert await reverse_address(None, ENDPOINT, (999, 0)) is None
-    assert await reverse_address(None, "https://nominatim.openstreetmap.org/reverse", (51, 4)) is None
+    assert (
+        await reverse_address(
+            None, "https://nominatim.openstreetmap.org/reverse", (51, 4)
+        )
+        is None
+    )
     session.get.assert_not_called()
