@@ -1,23 +1,24 @@
-# Audi Connect 3.0.0b47 — control reliability and diagnostics
+# Audi Connect 3.0.0b48 — API discovery and status reliability
 
 Experimental HACS test release. V2 remains the default and fallback; V3 is opt-in.
 
 ## What's changed
 
-- Consistent, temporary optimistic state for supported remote controls, with a five-minute validity window. Newer valid vehicle observations take precedence. After expiry without newer evidence, the control state is unknown; the last reported observation remains available.
-- More reliable recovery after rejected requests, Home Assistant restart and failed optional refreshes. Explicitly supported controls remain usable when their effective state is unknown.
-- The existing opt-in refresh-after-action setting can request one eligible vehicle refresh after a known HTTP acceptance when newer native evidence is missing. Existing authorization, cooldown and wake-budget restrictions remain in place.
-- Richer sanitized technical diagnostics: actual normalized values, source candidates, capture and receipt times, a bounded charging observation trace and command readback history. No raw responses or private identifiers.
-- Existing V2 behavior, entity identities, configuration, trip history and normal polling cadence are preserved.
+- More precise remote-command feedback: queued, in-progress, not-listed and terminal backend outcomes remain distinct. Later native status is correlated only with the integration's own matching request. Backend acceptance is not physical confirmation.
+- Vehicle-specific climate discovery supports selective settings and combinations. Optional settings require independent physical review; a failed optional experiment does not invalidate the separately verified base route.
+- Existing electric and combustion range entities use role-aware observations, with original capture times and zero/unknown semantics.
+- Parked since retains its existing entity identity. The new Parked in sensor uses local Home Assistant zones only, without external geocoding.
+- Additional read-only charging and high-voltage battery technical values and sanitized request diagnostics are available when reported by the vehicle. Automation is an explicit read-only API discovery candidate, not a scheduled request or a new writable profile.
+- No extra scheduled Audi requests, automatic command replay, or new credential requirements.
 
 ## Upgrade and test
 
-Back up Home Assistant, update the existing Audi Connect integration through HACS and restart Home Assistant. Keep the existing configuration entry, devices and entities.
+Back up Home Assistant, update the existing integration through HACS and restart. Keep the existing configuration entry, devices and entities. Check retained trip history, entity identities and the freshness of reported values.
 
-Test charging START and STOP independently against actual vehicle behavior and measured charging power. Compare the refresh-after-action option off and on. Test existing climate, access and charging settings, and check the control state after the optimistic validity window and after restart. Do not automatically replay uncertain commands.
+Test charging START/STOP against independently measured charging power. Test stored and parameterized climate start, stop, and individual reported settings; confirm actual vehicle behavior. Previously used optional climate settings may require selective Vehicle Setup & Discovery again before they can be controlled. A native setting switch requires both directions to be verified; a base route alone does not prove optional parameters.
 
 ## Known limitations
 
-Vehicle coverage depends on model, market and permissions. An accepted request, optimistic state or matching later observation is not proof of physical execution. Data Act readings may be delayed. Charging-mode and SoC discrepancies require vehicle-specific evidence; no new command routes or permissions are inferred.
+Availability depends on model, market, permissions and vehicle-specific evidence. New readings and controls remain subject to field testing. An accepted request or matching later capture is not proof of physical execution. Data Act delivery may be delayed. No new timer, charging-profile or battery-care write support is claimed.
 
-Report model/year, region, integration and HA versions, expected and actual behavior, relevant timestamps and sanitized Audi Connect diagnostics. Review attachments before sharing; never include credentials, VINs, tokens, private locations or raw responses.
+Report model/year, region, integration and HA versions, expected and actual behavior, relevant timestamps and sanitized Audi Connect diagnostics. Never include credentials, VINs, tokens, private locations or raw responses.
