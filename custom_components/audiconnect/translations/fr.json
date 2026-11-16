@@ -73,6 +73,7 @@
         "data": {
           "scan_initial": "Mise à jour du cloud au démarrage",
           "scan_interval": "Intervalle de mises à jour",
+          "v3_charging_stop_retry": "Réessayer un arrêt de charge échoué",
           "v3_development_workbench": "Activer l'atelier de développement V3",
           "filter_vins": "VIN exclus",
           "edit_local_dealer": "Modifier les données du concessionnaire et d’entretien",
@@ -84,6 +85,7 @@
         "data_description": {
           "scan_initial": "Effectuer une mise à jour du cloud immédiatement après le démarrage.",
           "scan_interval": "Minutes entre les mises à jour du cloud.",
+          "v3_charging_stop_retry": "Expérimental, désactivé par défaut. Autorise un seul STOP supplémentaire après un délai d'attente définitif signalé par Audi et des données récentes confirmant que la charge continue. Aucun nouvel essai si la demande est incertaine ou en cours.",
           "v3_development_workbench": "Afficher l'atelier API réservé aux administrateurs uniquement en mode V3. Désactivé par défaut, sans supprimer les profils enregistrés.",
           "filter_vins": "Liste des VIN séparés par des virgules à exclure de la configuration et des mises à jour.",
           "edit_local_dealer": "Ouvrir le formulaire pour enregistrer localement les informations du concessionnaire, de l’entretien et de la garantie, sans appel à l’API Audi.",
