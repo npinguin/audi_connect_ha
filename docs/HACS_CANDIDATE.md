@@ -1,24 +1,23 @@
-# Audi Connect 3.0.0b49 — discovery and runtime reliability
+# Audi Connect 3.0.0b50 — charging and parking reliability
 
-Experimental HACS test release. V2 remains the default and fallback; V3 is opt-in.
+Experimental HACS TEST prerelease for live acceptance. V2 remains the default and fallback; V3 is opt-in. This is not a stable release.
 
 ## What's changed
 
-- Previously unsuccessful reviewed vehicle controls can be tested again without editing their API definitions. Expert discovery allows individual applicable routes to be selected explicitly.
-- Manual and Timer charging modes can be tested separately when the vehicle reports charging capability and a native mode but provides an empty options list. Normal controls remain gated by applicable evidence.
-- Guided and selective climate discovery use the same vehicle-specific settings; optional settings do not require an unrelated temperature change.
-- Charging and climate timer counts follow the selected timer list. Conflicting observations do not appear as a valid current timer count.
-- Invalid current climate observations show unknown instead of a historical HVAC state; historical observations and supported control availability are retained separately.
-- Explicit read-only rescans can retest previously assessed routes in bounded batches. No additional scheduled Audi requests or new credentials are required.
+- Conflicting native observations retain their conflict boundary across restart. Older or undated data cannot silently replace the conflict; no raw timer or location history is added to the profile store.
+- EU Data Act uses the migrated official VW Group portal. Existing native Audi sign-in is unchanged.
+- Charging START/STOP reports actual native or clearly marked last-known vehicle state rather than optimistic charging state.
+- Optional **Retry failed charging STOP** (off by default): one additional direct CARIAD STOP only after an exact terminal timeout and fresh native evidence that charging continues. No retry on pending or uncertain results, after restart or after a newer explicit action. A failed or unconfirmed second STOP is reported in Home Assistant; no third automatic STOP.
+- Optional **Reverse geocoding** (off by default): a separate approximate Parking address sensor, using an authorized HTTPS Nominatim-compatible provider and rounded coordinates. The public OpenStreetMap Nominatim endpoint is not supported. Local Parked in zones and the tracker are unchanged. Home Assistant may record the address in its own history.
 
 ## Upgrade and test
 
-Back up Home Assistant, update the existing Audi Connect integration through HACS and restart. Retain the existing configuration entry, entities and devices. Check retained trip history and entity identities.
+Back up Home Assistant, update the existing Audi Connect integration through HACS and restart. Keep the existing config entry, devices and entities. Confirm existing history and identities survive restart, and test V2 fallback if needed.
 
-Use Vehicle Setup & Discovery to test one function at a time. Independently verify charging START/STOP against actual charging power, Manual/Timer mode in myAudi or the vehicle, and cabin climate start/stop and selected settings. Confirm physical behavior before accepting discovery results.
+For V3 physical acceptance, compare START/STOP with actual charging power and myAudi; check terminal request outcomes, the optional bounded retry and its notification. Enable reverse geocoding only with a provider you are authorized to use, then check the separate address, consent withdrawal and unchanged tracker. Reconnect the optional Data Act source if needed and verify delivery independently. No additional periodic Audi polling is introduced.
 
 ## Known limitations
 
-Vehicle support depends on model, market, permissions and vehicle-specific evidence. HTTP acceptance is not physical confirmation. Manufacturer identity can remain unavailable. No new timer, battery-care or charging-profile write support is claimed. Data Act delivery may be delayed.
+Physical effectiveness of STOP recovery, Audi portal recovery and live geocoding/lifecycle acceptance remain unproven. Backend HTTP acceptance is not physical confirmation. Vehicle support varies; manufacturer identity and some fields can be unavailable. No new 12V voltage, timer, battery-care or charging-profile write support is claimed.
 
 Report model/year, region, integration and HA versions, expected and actual behavior, relevant timestamps and sanitized diagnostics. Do not share credentials, VINs, tokens, private locations or raw responses.
