@@ -1332,9 +1332,50 @@ class V3Engine:
         ):
             create_task(
                 self.hass,
-                self.commands.retry_charging_stop(vin, record, self._follow_up_cloud),
+                self._recover_charging_stop(vin, record),
                 "Audi charging STOP recovery",
             )
+
+    async def _recover_charging_stop(self, vin, original) -> None:
+        """Report a failed or unconfirmed second STOP through native HA UX."""
+        await self.commands.retry_charging_stop(
+            vin, original, self._follow_up_cloud
+        )
+        profile = self.profiles.get(vin.lower())
+        second = getattr(profile, "last_command", None)
+        if (
+            second is None
+            or second.parent_command_id != original.command_id
+            or second.operation != "cariad.charging.stop"
+            or second.capability != "charging"
+            or second.action != "stop"
+        ):
+            return  # Recovery was skipped or superseded; no second STOP error.
+        if second.state not in ("rejected", "uncertain"):
+            # Reuse the normal read-only follow-up, never a wake or third STOP.
+            await self._follow_up_cloud()
+        if (
+            self.profiles.get(vin.lower()) is not profile
+            or profile.last_command is not second
+            or self.hass is None
+        ):
+            return
+        if second.state == "rejected":
+            message = "Audi rejected the second charging STOP request."
+        elif second.readback_observed_at is not None:
+            return  # Matching native state observed; not causal execution proof.
+        else:
+            message = "Charging STOP could not be confirmed after the second request."
+        from homeassistant.components import persistent_notification
+
+        persistent_notification.async_create(
+            self.hass,
+            message
+            + " Check the actual charging status in myAudi or at the charger. "
+            "No further automatic STOP will be sent.",
+            title="Audi Connect: charging STOP",
+            notification_id=f"{DOMAIN}_charging_stop_{second.command_id}",
+        )
 
     async def review_normal_command(self, vin: str, command_id: str) -> None:
         await self.commands.review_normal_command(vin, command_id)

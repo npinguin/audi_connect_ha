@@ -892,3 +892,72 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
         assert first.state == "accepted_unconfirmed"
     if backend == "successful":
         assert first.state == "backend_completed"
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "outcome,readback,superseded,notice",
+    [
+        (None, False, False, None),
+        ("rejected", False, False, "rejected"),
+        ("uncertain", False, False, "could not be confirmed"),
+        ("accepted_unconfirmed", False, False, "could not be confirmed"),
+        ("backend_completed", False, False, "could not be confirmed"),
+        ("backend_completed", True, False, None),
+        ("accepted_unconfirmed", True, False, None),
+        ("rejected", False, True, None),
+    ],
+)
+async def test_second_stop_reports_failure_or_unconfirmed_once(
+    monkeypatch, outcome, readback, superseded, notice
+):
+    from unittest.mock import AsyncMock, Mock
+
+    from homeassistant.components import persistent_notification
+
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+
+    engine, _ = make_engine()
+    engine.hass = object()
+    profile = engine.profiles[VIN.lower()]
+    first = CommandRecord.begin(
+        "charging", "stop", "cariad.charging.stop", datetime.now(UTC).timestamp()
+    )
+    profile.track_command(first)
+    notify = Mock()
+    monkeypatch.setattr(persistent_notification, "async_create", notify)
+
+    async def retry(*args):
+        if outcome is None:
+            return
+        second = CommandRecord.begin(
+            "charging",
+            "stop",
+            first.operation,
+            datetime.now(UTC).timestamp(),
+            parent_command_id=first.command_id,
+        )
+        second.state = outcome
+        if readback:
+            second.readback_observed_at = second.started_at + 1
+        profile.track_command(second)
+        if superseded:
+            profile.track_command(
+                CommandRecord.begin(
+                    "charging", "start", "cariad.charging.start", second.started_at
+                )
+            )
+
+    monkeypatch.setattr(engine.commands, "retry_charging_stop", retry)
+    refresh = AsyncMock()
+    monkeypatch.setattr(engine, "_follow_up_cloud", refresh)
+    await engine._recover_charging_stop(VIN, first)
+    if notice is None:
+        notify.assert_not_called()
+    else:
+        notify.assert_called_once()
+        assert notice in notify.call_args.args[1]
+        assert "No further automatic STOP" in notify.call_args.args[1]
+        assert VIN not in notify.call_args.kwargs["notification_id"]
+    assert refresh.await_count == int(
+        outcome not in (None, "rejected", "uncertain") and not superseded
+    )
