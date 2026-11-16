@@ -814,6 +814,8 @@ def test_timer_count_follows_selected_list_even_when_count_is_unchanged(
         ("timeout", "stale", False),
         ("timeout", "data_act", False),
         ("timeout", "superseded", False),
+        ("timeout", "disabled", False),
+        ("timeout", "disabled_during_refresh", False),
     ],
 )
 async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_state(
@@ -825,6 +827,7 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     from custom_components.audiconnect.v3.operation_revision import operation_revision
 
     engine, car = make_engine()
+    engine.entry.options["v3_charging_stop_retry"] = telemetry != "disabled"
     profile = engine.profiles[VIN.lower()]
     route = "cariad.charging.stop"
     monkeypatch.setattr(engine.commands, "command_route", lambda *args: route)
@@ -871,6 +874,8 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
             "observed": now.isoformat(),
             "status": "verified",
         }
+        if telemetry == "disabled_during_refresh":
+            engine.entry.options["v3_charging_stop_retry"] = False
         if telemetry == "superseded":
             profile.track_command(
                 CommandRecord.begin("charging", "start", route, now.timestamp())
@@ -878,6 +883,8 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
 
     result = await engine.commands.retry_charging_stop(VIN, first, refresh)
     writes = [call for call in calls if call[1] == "POST"]
+    if telemetry == "disabled":
+        assert calls == []
     assert len(writes) == int(expected)
     if expected:
         assert writes == [
