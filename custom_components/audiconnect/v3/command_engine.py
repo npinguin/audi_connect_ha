@@ -721,6 +721,12 @@ class CommandEngine:
                     and latest.action == "refresh"
                 )
             )
+            # Workbench uses a separate latest pointer. Its newer explicit
+            # physical intent must supersede this delayed recovery as well.
+            and not (
+                profile.discovery.history
+                and profile.discovery.history[-1].started_at >= record.started_at
+            )
             and record.readback_observed_at is None
             and 0 <= time.time() - record.started_at <= 360
             and self.command_route(car.vin, "stop", "charging") == record.operation

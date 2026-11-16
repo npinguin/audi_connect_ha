@@ -814,6 +814,8 @@ def test_timer_count_follows_selected_list_even_when_count_is_unchanged(
         ("timeout", "stale", False),
         ("timeout", "data_act", False),
         ("timeout", "superseded", False),
+        ("timeout", "workbench_superseded", False),
+        ("timeout", "workbench_during_refresh", False),
         ("timeout", "disabled", False),
         ("timeout", "disabled_during_refresh", False),
         ("native_timeout", "charging", True),
@@ -851,6 +853,21 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     configure_readback(first, {})
     profile.track_command(first)
     calls = []
+
+    def workbench_start(stamp):
+        attempt = profile.begin_test(
+            "charging", "start", "cariad.charging.start", now=stamp
+        )
+        profile.observe_http(attempt.sequence, 200)
+        profile.confirm(
+            attempt.sequence, worked=True, inspected_vehicle=True, now=stamp + 1
+        )
+        assert profile.last_command is first
+
+    if telemetry == "workbench_superseded":
+        # The experiment is complete and its normal cooldown has elapsed.
+        workbench_start(started.timestamp() + 10)
+
     if backend in ("native_timeout", "native_error"):
         engine.commands.reconcile_native_requests(
             car,
@@ -907,6 +924,8 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
             profile.track_command(
                 CommandRecord.begin("charging", "start", route, now.timestamp())
             )
+        if telemetry == "workbench_during_refresh":
+            workbench_start(now.timestamp())
 
     if telemetry in ("disabled_during_save", "stopped_during_save"):
 
@@ -926,7 +945,7 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
 
     result = await engine.commands.retry_charging_stop(VIN, first, refresh)
     writes = [call for call in calls if call[1] == "POST"]
-    if telemetry == "disabled" or backend == "native_error":
+    if telemetry in ("disabled", "workbench_superseded") or backend == "native_error":
         assert calls == []
     if backend == "native_timeout":
         assert all(call[1] != "GET" for call in calls[:1])
