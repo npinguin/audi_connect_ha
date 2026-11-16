@@ -589,6 +589,7 @@ def test_late_charging_capture_is_telemetry_not_command_readback():
         NS(command_journal=[command]), "chargingState", reading, now=later
     ) == ("readyForCharging", "vehicle")
 
+
 def test_sleeping_lock_retains_last_observation_and_explicit_reverse_dispatch():
     import asyncio
     from unittest.mock import AsyncMock

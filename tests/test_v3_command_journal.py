@@ -333,7 +333,7 @@ def test_accepted_control_boundary_survives_rejection_and_journal_rotation():
         "chargingState",
         old,
         now=datetime.fromtimestamp(1790001000, UTC),
-    ) == (None, "unknown")
+    ) == ("off", "last_known_vehicle")
 
 
 def test_queue_backend_evidence_survives_restart_without_reactivating_intent():

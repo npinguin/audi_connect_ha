@@ -863,7 +863,9 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     async def refresh():
         now = datetime.now(UTC)
         car.readings["chargingState"] = {
-            "value": "readyForCharging" if telemetry == "readyForCharging" else "charging",
+            "value": "readyForCharging"
+            if telemetry == "readyForCharging"
+            else "charging",
             "family": "eu_data_act" if telemetry == "data_act" else "cariad",
             "captured": (started if telemetry == "stale" else now).isoformat(),
             "observed": now.isoformat(),
@@ -878,7 +880,9 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     writes = [call for call in calls if call[1] == "POST"]
     assert len(writes) == int(expected)
     if expected:
-        assert writes == [("cariad", "POST", f"/vehicle/v1/vehicles/{VIN}/charging/stop")]
+        assert writes == [
+            ("cariad", "POST", f"/vehicle/v1/vehicles/{VIN}/charging/stop")
+        ]
         assert result.parent_command_id == first.command_id
         assert first.state == "rejected"
         assert result.state == "backend_completed"
@@ -892,6 +896,7 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
         assert first.state == "accepted_unconfirmed"
     if backend == "successful":
         assert first.state == "backend_completed"
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(

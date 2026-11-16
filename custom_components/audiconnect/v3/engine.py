@@ -1338,9 +1338,7 @@ class V3Engine:
 
     async def _recover_charging_stop(self, vin, original) -> None:
         """Report a failed or unconfirmed second STOP through native HA UX."""
-        await self.commands.retry_charging_stop(
-            vin, original, self._follow_up_cloud
-        )
+        await self.commands.retry_charging_stop(vin, original, self._follow_up_cloud)
         profile = self.profiles.get(vin.lower())
         second = getattr(profile, "last_command", None)
         if (

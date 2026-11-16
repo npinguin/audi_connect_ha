@@ -702,7 +702,8 @@ class CommandEngine:
             and any(row is record for row in profile.command_journal)
             and sum(
                 row.request_id == record.request_id for row in profile.command_journal
-            ) == 1
+            )
+            == 1
             and (
                 latest is record
                 or (
@@ -761,7 +762,9 @@ class CommandEngine:
                 not self.charging_stop_retry_current(car, profile, record)
                 or record.state != "accepted_unconfirmed"
                 or record.backend_result not in PENDING_RESULTS
-                or not optional_budget_available(self._command_allowance("cariad"), cost=5)
+                or not optional_budget_available(
+                    self._command_allowance("cariad"), cost=5
+                )
             ):
                 return None
             outcome = await confirm(
@@ -794,9 +797,7 @@ class CommandEngine:
                 return None
             # Reuse the normal read-only cloud refresh; never wake the car.
             await refresh()
-            return await self.send_control(
-                vin, "stop", "charging", _retry_of=record
-            )
+            return await self.send_control(vin, "stop", "charging", _retry_of=record)
         except (RuntimeError, ValueError, OSError, TimeoutError):
             return None
 
