@@ -956,10 +956,14 @@ class CommandEngine:
                         f"HTTP {record.http_status}; {record.state}; "
                         "result processing failed"
                     )
-                if record.state in (
-                    "rejected",
-                    "uncertain",
-                ) and not record.stop_retry_timed_out:
+                if (
+                    record.state
+                    in (
+                        "rejected",
+                        "uncertain",
+                    )
+                    and not record.stop_retry_timed_out
+                ):
                     record.completed_at = max(record.started_at, time.time())
                 await self.storage.async_save(self.profiles)
                 self._notify_discovery_change()
@@ -967,10 +971,14 @@ class CommandEngine:
                 raise RuntimeError(
                     f"Audi {capability}.{aspect}: {detail}. {advice}."
                 ) from err
-            if record.state in (
-                "rejected",
-                "uncertain",
-            ) and not record.stop_retry_timed_out:
+            if (
+                record.state
+                in (
+                    "rejected",
+                    "uncertain",
+                )
+                and not record.stop_retry_timed_out
+            ):
                 record.completed_at = max(record.started_at, time.time())
             await self.storage.async_save(self.profiles)
             self._notify_discovery_change()

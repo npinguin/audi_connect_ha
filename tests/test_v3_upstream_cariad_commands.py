@@ -1045,7 +1045,6 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
     )
 
 
-
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "enabled,backend,expected",
