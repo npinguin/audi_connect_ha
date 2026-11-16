@@ -1337,8 +1337,13 @@ class V3Engine:
             and callable(create_task)
             and self.hass is not None
             and record.operation == "cariad.charging.stop"
-            and record.state == "accepted_unconfirmed"
-            and record.backend_result in PENDING_RESULTS
+            and (
+                record.stop_retry_timed_out
+                or (
+                    record.state == "accepted_unconfirmed"
+                    and record.backend_result in PENDING_RESULTS
+                )
+            )
             and record.request_id is not None
             and record.parent_command_id is None
         ):

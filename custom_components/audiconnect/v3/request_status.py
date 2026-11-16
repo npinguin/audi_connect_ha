@@ -30,14 +30,14 @@ def request_id_of(payload: Any) -> str | None:
     return value if isinstance(value, str) and _ID.fullmatch(value) else None
 
 
-def _backend_status(status):
+def _backend_status(status, *, distinguish_timeout=False):
     if not isinstance(status, str):
         return "unknown"
     value = status.strip().lower()
     if value in _SUCCESS:
         return "backend_completed"
     if value in _REJECTED:
-        return "rejected"
+        return "timeout" if distinguish_timeout and value == "timeout" else "rejected"
     if value in PENDING_RESULTS:
         return value
     return "unknown"
@@ -54,14 +54,9 @@ def status_of(payload: Any, request_id: str, *, distinguish_timeout=False) -> st
     ]
     if len(matches) != 1:
         return "unknown" if matches else "not_listed"
-    status = matches[0].get("status")
-    if (
-        distinguish_timeout
-        and isinstance(status, str)
-        and status.strip().lower() == "timeout"
-    ):
-        return "timeout"
-    return _backend_status(status)
+    return _backend_status(
+        matches[0].get("status"), distinguish_timeout=distinguish_timeout
+    )
 
 
 async def confirm(
@@ -175,7 +170,10 @@ def reconcile_native_queue(profile, payload, observed_at):
         ]
         if len(matches) != 1 or matches[0].get("operation") != expected:
             continue
-        outcome = _backend_status(matches[0].get("status"))
+        outcome = _backend_status(
+            matches[0].get("status"),
+            distinguish_timeout=record.operation == "cariad.charging.stop",
+        )
         if outcome == "unknown":
             continue
         before = (record.state, record.backend_result)

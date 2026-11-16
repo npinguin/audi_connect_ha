@@ -731,10 +731,7 @@ class CommandEngine:
 
         if (
             not self.charging_stop_retry_current(car, profile, record)
-            or record.state != "rejected"
-            or record.backend_result != "rejected"
-            or record.completed_at is None
-            or getattr(record, "stop_retry_timeout_at", None) != record.completed_at
+            or not record.stop_retry_timed_out
             or not optional_budget_available(self._command_allowance("cariad"), cost=4)
         ):
             return False
@@ -763,42 +760,41 @@ class CommandEngine:
         try:
             car = self.require_vehicle(vin)
             profile = self.profiles[vin.lower()]
-            if (
-                not self.charging_stop_retry_current(car, profile, record)
-                or record.state != "accepted_unconfirmed"
-                or record.backend_result not in PENDING_RESULTS
-                or not optional_budget_available(
-                    self._command_allowance("cariad"), cost=5
-                )
-            ):
+            if not self.charging_stop_retry_current(car, profile, record):
                 return None
-            outcome = await confirm(
-                self.transport,
-                car.vin,
-                record.request_id,
-                max_reads=1,
-                distinguish_timeout=True,
-            )
-            if outcome not in ("timeout", "backend_completed", "rejected"):
-                return None
-            async with self._actions:
+            if not record.stop_retry_timed_out:
                 if (
-                    not self.charging_stop_retry_current(car, profile, record)
-                    or record.state != "accepted_unconfirmed"
+                    record.state != "accepted_unconfirmed"
                     or record.backend_result not in PENDING_RESULTS
+                    or not optional_budget_available(
+                        self._command_allowance("cariad"), cost=5
+                    )
                 ):
                     return None
-                stamp = time.time()
-                record.observe_backend(
-                    "rejected" if outcome == "timeout" else outcome, stamp
+                outcome = await confirm(
+                    self.transport,
+                    car.vin,
+                    record.request_id,
+                    max_reads=1,
+                    distinguish_timeout=True,
                 )
-                if outcome == "timeout":
-                    record.stop_retry_timeout_at = stamp
-                if profile.last_command is record:
-                    car.last_command_result = record.state
-                await self.storage.async_save(self.profiles)
-                self._notify_discovery_change()
-            if outcome != "timeout":
+                if outcome not in ("timeout", "backend_completed", "rejected"):
+                    return None
+                async with self._actions:
+                    if not self.charging_stop_retry_current(car, profile, record):
+                        return None
+                    if (
+                        record.state == "accepted_unconfirmed"
+                        and record.backend_result in PENDING_RESULTS
+                    ):
+                        record.observe_backend(outcome, time.time())
+                        if profile.last_command is record:
+                            car.last_command_result = record.state
+                        await self.storage.async_save(self.profiles)
+                        self._notify_discovery_change()
+                    elif outcome != "timeout":
+                        return None  # Conflicting terminal observations.
+            if not record.stop_retry_timed_out:
                 return None
             # Reuse the normal read-only cloud refresh; never wake the car.
             await refresh()

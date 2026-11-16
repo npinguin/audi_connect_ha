@@ -92,12 +92,26 @@ class CommandRecord:
             self.backend_result == "backend_completed" and outcome != "rejected"
         ):
             return
+        stop_timeout = (
+            outcome == "timeout"
+            and self.origin == "home_assistant"
+            and self.operation == "cariad.charging.stop"
+            and self.capability == "charging"
+            and self.action == "stop"
+            and self.parent_command_id is None
+            and self.state == "accepted_unconfirmed"
+        )
+        if outcome == "timeout":
+            outcome = "rejected"
         self.backend_result = outcome
         # Runtime receipt ordering only; never reactivate restored intent.
         self.backend_observed_at = now
         if outcome == "rejected":
             self.state = "rejected"
             self.completed_at = max(self.started_at, now)
+            if stop_timeout:
+                # Runtime evidence only; never authorize recovery after restart.
+                self.stop_retry_timeout_at = self.completed_at
         elif outcome == "backend_completed":
             if self.state not in (
                 "verified",
@@ -113,6 +127,16 @@ class CommandRecord:
             "access",
         ):
             self.state = "uncertain"
+
+    @property
+    def stop_retry_timed_out(self) -> bool:
+        return (
+            self.state == "rejected"
+            and self.backend_result == "rejected"
+            and self.completed_at is not None
+            and getattr(self, "stop_retry_timeout_at", None) == self.completed_at
+            and not getattr(self, "restored", False)
+        )
 
     @property
     def unresolved(self) -> bool:

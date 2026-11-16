@@ -816,6 +816,9 @@ def test_timer_count_follows_selected_list_even_when_count_is_unchanged(
         ("timeout", "superseded", False),
         ("timeout", "disabled", False),
         ("timeout", "disabled_during_refresh", False),
+        ("native_timeout", "charging", True),
+        ("native_timeout", "readyForCharging", False),
+        ("native_error", "charging", False),
     ],
 )
 async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_state(
@@ -846,6 +849,28 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     configure_readback(first, {})
     profile.track_command(first)
     calls = []
+    if backend in ("native_timeout", "native_error"):
+        engine.commands.reconcile_native_requests(
+            car,
+            profile,
+            {
+                "charging": {
+                    "chargingStatus": {
+                        "requests": [
+                            {
+                                "requestId": "original",
+                                "operation": "stop",
+                                "status": backend.removeprefix("native_"),
+                            }
+                        ]
+                    }
+                }
+            },
+            datetime.now(UTC),
+        )
+        assert first.state == "rejected"
+        assert first.stop_retry_timed_out == (backend == "native_timeout")
+        assert not CommandRecord.restore(first.snapshot()).stop_retry_timed_out
 
     class Transport:
         async def request(self, family, method, path, **kwargs):
@@ -883,8 +908,10 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
 
     result = await engine.commands.retry_charging_stop(VIN, first, refresh)
     writes = [call for call in calls if call[1] == "POST"]
-    if telemetry == "disabled":
+    if telemetry == "disabled" or backend == "native_error":
         assert calls == []
+    if backend == "native_timeout":
+        assert all(call[1] != "GET" for call in calls[:1])
     assert len(writes) == int(expected)
     if expected:
         assert writes == [
