@@ -122,6 +122,11 @@ def valid_geocoding_endpoint(value):
         return bool(
             url.scheme == "https"
             and url.hostname
+            # Reject ambiguous host spellings before the HTTP client can
+            # normalize them into a blocked public endpoint. Use ASCII IDNA
+            # (punycode) for internationalized authorized hostnames.
+            and url.hostname.isascii()
+            and "%" not in url.hostname
             and url.hostname.rstrip(".").lower() != "nominatim.openstreetmap.org"
             and url.username is None
             and url.password is None
