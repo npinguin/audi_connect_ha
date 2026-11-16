@@ -435,7 +435,10 @@ async def test_charging_stop_retry_requires_explicit_v3_option(enabled):
     flow.handler = "test-audi-entry"
     flow._test_entry = SimpleNamespace(
         data={"scan_interval": 15},
-        options={"runtime_version": "v3_climate", "v3_charging_stop_retry": not enabled},
+        options={
+            "runtime_version": "v3_climate",
+            "v3_charging_stop_retry": not enabled,
+        },
     )
     flow.hass = SimpleNamespace(
         config_entries=SimpleNamespace(
