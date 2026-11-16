@@ -1358,6 +1358,9 @@ class V3Engine:
             or self.hass is None
         ):
             return
+        car = self.vehicles.get(vin.lower())
+        if car is None or not car.inventory_present:
+            return
         if second.state == "rejected":
             message = "Audi rejected the second charging STOP request."
         elif second.readback_observed_at is not None:
@@ -1368,10 +1371,9 @@ class V3Engine:
 
         persistent_notification.async_create(
             self.hass,
-            message
-            + " Check the actual charging status in myAudi or at the charger. "
+            message + " Check the actual charging status in myAudi or at the charger. "
             "No further automatic STOP will be sent.",
-            title="Audi Connect: charging STOP",
+            title=f"Audi Connect: {car.name} charging STOP",
             notification_id=f"{DOMAIN}_charging_stop_{second.command_id}",
         )
 
