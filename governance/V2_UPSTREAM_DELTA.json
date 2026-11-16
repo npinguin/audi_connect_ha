@@ -83,7 +83,12 @@
     {
       "path": "custom_components/audiconnect/config_flow.py",
       "upstream_blob": "a53844c689bbca85f11f05c1f9a1727b0d828e54",
-      "development_blob": "6df0abf9f9c10c55b357f2b3681a966985d29eb6"
+      "development_blob": "b18255933e76d599e1b9c4fe546d6266563589cf"
+    },
+    {
+      "path": "custom_components/audiconnect/const.py",
+      "upstream_blob": "044c912ba16f0f725051e47df7d117f61d43ed6d",
+      "development_blob": "1e2081e6cf17727230987f970775d3eaa04e8c96"
     },
     {
       "path": "custom_components/audiconnect/device_tracker.py",
@@ -93,7 +98,7 @@
     {
       "path": "custom_components/audiconnect/diagnostics.py",
       "upstream_blob": "42b20a7edc1d7228089dc0209f29f2ce144c257f",
-      "development_blob": "20c03d58c55de9b2586a247d06790bc61d4da54f"
+      "development_blob": "405eb951b8b166ccea799f91180ba9bc69887ec8"
     },
     {
       "path": "custom_components/audiconnect/lock.py",

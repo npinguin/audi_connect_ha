@@ -58,6 +58,7 @@ class CommandEngine:
         operation_request,
         api_record,
         notify,
+        stop_retry_enabled=lambda: False,
     ):
         self.auth = auth
         self._transport = transport
@@ -67,6 +68,7 @@ class CommandEngine:
         self._operation_request = operation_request
         self._api_record = api_record
         self._notify_discovery_change = notify
+        self._stop_retry_enabled = stop_retry_enabled
         self._actions = asyncio.Lock()
 
     def exclusive(self):
@@ -687,7 +689,8 @@ class CommandEngine:
         """One same-session explicit STOP intent, never a restored or superseded one."""
         latest = profile.last_command
         return (
-            self.profiles.get(car.vin.lower()) is profile
+            self._stop_retry_enabled()
+            and self.profiles.get(car.vin.lower()) is profile
             and car.inventory_present
             and record.origin == "home_assistant"
             and record.operation == "cariad.charging.stop"
@@ -754,6 +757,8 @@ class CommandEngine:
         """Experimental one-shot STOP recovery; never retry pending/uncertain actions."""
         from .request_status import PENDING_RESULTS, confirm
 
+        if not self._stop_retry_enabled():
+            return None
         await asyncio.sleep(max(0, record.started_at + 300 - time.time()))
         try:
             car = self.require_vehicle(vin)

@@ -41,6 +41,7 @@ from .const import (
     CONF_FILTER_VINS,
     CONF_PASSWORD,
     CONF_REFRESH_AFTER_ACTION,
+    CONF_V3_CHARGING_STOP_RETRY,
     CONF_REFRESH_TOKEN,
     CONF_REGION,
     CONF_SCAN_INITIAL,
@@ -922,8 +923,12 @@ class OptionsFlowHandler(OptionsFlow):
             # existing custom API profiles untouched when it is turned off.
             if user_input["runtime_version"] != "v3_climate":
                 user_input["v3_development_workbench"] = False
+                user_input[CONF_V3_CHARGING_STOP_RETRY] = False
             else:
                 user_input.setdefault("v3_development_workbench", False)
+                user_input[CONF_V3_CHARGING_STOP_RETRY] = (
+                    user_input.get(CONF_V3_CHARGING_STOP_RETRY) is True
+                )
             edit_dealer = bool(user_input.pop("edit_local_dealer", False))
             run_discovery = bool(user_input.pop("run_vehicle_discovery", True))
             # On runtime switch, some HA clients submit only the changed
@@ -1145,6 +1150,12 @@ class OptionsFlowHandler(OptionsFlow):
             schema[vol.Optional("edit_local_dealer", default=False)] = bool
             schema[vol.Optional("manage_data_act", default=False)] = bool
             schema[vol.Optional("run_vehicle_discovery", default=True)] = bool
+            schema[
+                vol.Required(
+                    CONF_V3_CHARGING_STOP_RETRY,
+                    default=values.get(CONF_V3_CHARGING_STOP_RETRY) is True,
+                )
+            ] = bool
             schema[
                 vol.Required(
                     "v3_development_workbench",
