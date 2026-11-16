@@ -887,6 +887,8 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
         assert first.state == "rejected"
         assert result.state == "backend_completed"
         assert result.readback_observed_at is None
+        restored = CommandRecord.restore(result.snapshot())
+        assert restored.parent_command_id == first.command_id
         before = list(calls)
         assert await engine.commands.retry_charging_stop(VIN, first, refresh) is None
         assert calls == before

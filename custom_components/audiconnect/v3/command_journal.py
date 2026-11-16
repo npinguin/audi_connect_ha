@@ -283,8 +283,13 @@ class CommandRecord:
                     not isinstance(record.parent_command_id, str)
                     or not re.fullmatch(r"[a-f0-9]{32}", record.parent_command_id)
                     or record.parent_command_id == record.command_id
-                    or record.capability != "remote"
-                    or record.action != "refresh"
+                    or not (
+                        (record.capability, record.action) == ("remote", "refresh")
+                        or (
+                            (record.capability, record.action) == ("charging", "stop")
+                            and record.operation == "cariad.charging.stop"
+                        )
+                    )
                     or record.origin != "home_assistant"
                 )
             )
