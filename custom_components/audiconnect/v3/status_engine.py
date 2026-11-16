@@ -501,10 +501,7 @@ class StatusEngine:
         from .parking import geocoding_endpoint
 
         endpoint = geocoding_endpoint(self.entry)
-        if (
-            endpoint is None
-            or endpoint != self._parking_address_endpoint
-        ):
+        if endpoint is None or endpoint != self._parking_address_endpoint:
             return None
         return self._parking_address_cache.get(self._parking_address_point(car))
 

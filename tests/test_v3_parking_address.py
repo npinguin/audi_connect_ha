@@ -173,7 +173,9 @@ async def test_reverse_lookup_sends_only_rounded_point_and_never_redirects(monke
 
 
 @pytest.mark.asyncio
-async def test_queued_lookup_does_not_send_or_publish_after_vehicle_changes(monkeypatch):
+async def test_queued_lookup_does_not_send_or_publish_after_vehicle_changes(
+    monkeypatch,
+):
     engine = status()
     car = NS(
         vin="example", inventory_present=True, position={"latitude": 51, "longitude": 4}
