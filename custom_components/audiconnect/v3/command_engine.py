@@ -748,6 +748,7 @@ class CommandEngine:
                 car,
                 registry=profile.registry,
                 receipt_after=record.completed_at,
+                capture_after=record.completed_at,
             )
             is True
         )

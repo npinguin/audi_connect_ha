@@ -1111,3 +1111,48 @@ async def test_initial_stop_confirmation_timeout_preserves_recovery_intent(
     assert not CommandRecord.restore(record.snapshot()).stop_retry_timed_out
     assert calls == ["POST", "GET"]
     assert tasks == (["Audi charging STOP recovery"] if expected else [])
+
+
+@pytest.mark.parametrize(
+    "capture_offset,receipt_offset,family,value,expected",
+    [
+        (-1, 2, "cariad", "charging", None),
+        (0, 2, "cariad", "charging", None),
+        (1, 2, "cariad", "charging", True),
+        (1, 2, "cariad", "readyForCharging", False),
+        (1, 2, "eu_data_act", "charging", None),
+        (1, 0, "cariad", "charging", None),
+    ],
+)
+def test_recovery_readback_requires_capture_after_timeout(
+    capture_offset, receipt_offset, family, value, expected
+):
+    from datetime import timedelta
+
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+    from custom_components.audiconnect.v3.command_readback import recent_charging_state
+
+    engine, car = make_engine()
+    now = datetime.now(UTC)
+    timeout = now - timedelta(seconds=5)
+    record = CommandRecord.begin(
+        "charging", "stop", "cariad.charging.stop", timeout.timestamp() - 300
+    )
+    car.readings["chargingState"] = {
+        "value": value,
+        "family": family,
+        "captured": (timeout + timedelta(seconds=capture_offset)).isoformat(),
+        "observed": (timeout + timedelta(seconds=receipt_offset)).isoformat(),
+        "status": "verified",
+    }
+    assert (
+        recent_charging_state(
+            record,
+            car,
+            registry=engine.registry,
+            now=now,
+            receipt_after=timeout.timestamp(),
+            capture_after=timeout.timestamp(),
+        )
+        is expected
+    )
