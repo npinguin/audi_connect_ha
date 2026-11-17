@@ -7,6 +7,7 @@ and shared with the composition root; a command cannot create a second runtime.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -45,6 +46,9 @@ from .control_resolution import control_decision, resolve_control
 from .command_policy import supported_charge_modes
 from .response_preview import safe_response_preview
 from .vehicle import V3Vehicle
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class CommandEngine:
@@ -728,7 +732,7 @@ class CommandEngine:
                 and profile.discovery.history[-1].started_at >= record.started_at
             )
             and record.readback_observed_at is None
-            and 0 <= time.time() - record.started_at <= 360
+            and 0 <= time.time() - record.started_at <= 600
             and self.command_route(car.vin, "stop", "charging") == record.operation
             and record.operation_revision
             == operation_revision(profile.registry.operations[record.operation])
@@ -752,6 +756,40 @@ class CommandEngine:
             )
             is True
         )
+
+    async def verify_recovery(
+        self, record, refresh, current, readback, *, interval=30, window=300, max_polls=3
+    ):
+        """Bound optional read-only verification; never dispatch from this loop.
+
+        Reuse the caller's existing coordinator and canonical readback. A
+        successful cloud receipt alone is not a fresh vehicle observation.
+        """
+        deadline = time.monotonic() + window
+        for attempt in range(max_polls):
+            if not current():
+                return None, "superseded_or_disabled"
+            if time.monotonic() >= deadline:
+                break
+            if not optional_budget_available(self._command_allowance("cariad"), cost=4):
+                return None, "quota_reserve"
+            await refresh()
+            if not current():
+                return None, "superseded_or_disabled"
+            if time.monotonic() >= deadline:
+                break
+            value = readback()
+            if value is not None:
+                return value, "fresh_native_capture"
+            _LOGGER.debug(
+                "Audi %s.%s recovery poll %s: no fresh native capture",
+                record.capability,
+                record.action,
+                attempt + 1,
+            )
+            if attempt + 1 < max_polls:
+                await asyncio.sleep(min(interval, max(0, deadline - time.monotonic())))
+        return None, "fresh_capture_unavailable"
 
     async def retry_charging_stop(self, vin, record, refresh):
         """Experimental one-shot STOP recovery; never retry pending/uncertain actions."""
@@ -800,7 +838,21 @@ class CommandEngine:
             if not record.stop_retry_timed_out:
                 return None
             # Reuse the normal read-only cloud refresh; never wake the car.
-            await refresh()
+            charging, reason = await self.verify_recovery(
+                record,
+                refresh,
+                lambda: self.charging_stop_retry_current(car, profile, record),
+                lambda: recent_charging_state(
+                    record,
+                    car,
+                    registry=profile.registry,
+                    receipt_after=record.completed_at,
+                    capture_after=record.completed_at,
+                ),
+            )
+            if charging is not True:
+                _LOGGER.info("Audi charging STOP recovery skipped: %s", reason)
+                return None
             return await self.send_control(vin, "stop", "charging", _retry_of=record)
         except (RuntimeError, ValueError, OSError, TimeoutError):
             return None

@@ -812,6 +812,7 @@ def test_timer_count_follows_selected_list_even_when_count_is_unchanged(
         ("failed", "charging", False),
         ("timeout", "readyForCharging", False),
         ("timeout", "stale", False),
+        ("timeout", "stale_then_fresh", True),
         ("timeout", "data_act", False),
         ("timeout", "superseded", False),
         ("timeout", "workbench_superseded", False),
@@ -853,6 +854,14 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     configure_readback(first, {})
     profile.track_command(first)
     calls = []
+    refresh_count = 0
+
+    async def no_delay(_seconds):
+        pass
+
+    monkeypatch.setattr(
+        "custom_components.audiconnect.v3.command_engine.asyncio.sleep", no_delay
+    )
 
     def workbench_start(stamp):
         attempt = profile.begin_test(
@@ -908,13 +917,20 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     engine.transport = Transport()
 
     async def refresh():
+        nonlocal refresh_count
+        refresh_count += 1
         now = datetime.now(UTC)
         car.readings["chargingState"] = {
             "value": "readyForCharging"
             if telemetry == "readyForCharging"
             else "charging",
             "family": "eu_data_act" if telemetry == "data_act" else "cariad",
-            "captured": (started if telemetry == "stale" else now).isoformat(),
+            "captured": (
+                started
+                if telemetry == "stale"
+                or (telemetry == "stale_then_fresh" and refresh_count == 1)
+                else now
+            ).isoformat(),
             "observed": now.isoformat(),
             "status": "verified",
         }
@@ -945,6 +961,10 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
 
     result = await engine.commands.retry_charging_stop(VIN, first, refresh)
     writes = [call for call in calls if call[1] == "POST"]
+    if telemetry == "stale_then_fresh":
+        assert refresh_count == 2
+    if telemetry == "stale":
+        assert refresh_count == 3
     if telemetry in ("disabled", "workbench_superseded") or backend == "native_error":
         assert calls == []
     if backend == "native_timeout":
@@ -1121,7 +1141,7 @@ async def test_initial_stop_confirmation_timeout_preserves_recovery_intent(
         (1, 2, "cariad", "charging", True),
         (1, 2, "cariad", "readyForCharging", False),
         (1, 2, "eu_data_act", "charging", None),
-        (1, 0, "cariad", "charging", None),
+        (1, -1, "cariad", "charging", None),
     ],
 )
 def test_recovery_readback_requires_capture_after_timeout(
