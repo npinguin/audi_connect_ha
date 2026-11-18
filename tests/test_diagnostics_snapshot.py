@@ -153,7 +153,9 @@ class TestSnapshot(TestCase):
                             stop_recovery_options(entry.options),
                         )
                     else:
-                        self.assertNotIn("stop_recovery_options", option_result["entry"])
+                        self.assertNotIn(
+                            "stop_recovery_options", option_result["entry"]
+                        )
         self.assertIs(result["entry"]["v3_charging_stop_retry"], False)
         rendered = repr(result)
         for secret in (
