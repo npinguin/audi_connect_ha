@@ -758,7 +758,15 @@ class CommandEngine:
         )
 
     async def verify_recovery(
-        self, record, refresh, current, readback, *, interval=30, window=300, max_polls=3
+        self,
+        record,
+        refresh,
+        current,
+        readback,
+        *,
+        interval=30,
+        window=300,
+        max_polls=3,
     ):
         """Bound optional read-only verification; never dispatch from this loop.
 
