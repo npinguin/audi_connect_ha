@@ -155,7 +155,9 @@ class NativeQuota:
         if row is None or now - row["at"] >= timedelta(minutes=15):
             return None
         # Advisory conservative command cost, never a claimed server count.
-        attempts = row["requests_since_header"] if include_reads else row["command_attempts"]
+        attempts = (
+            row["requests_since_header"] if include_reads else row["command_attempts"]
+        )
         return max(0, row["reported"] - attempts)
 
     def authorize(self, now, *, family, read_only, command_preparation=0):

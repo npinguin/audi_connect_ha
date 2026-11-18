@@ -742,9 +742,14 @@ class CommandEngine:
                 and profile.discovery.history[-1].started_at >= record.started_at
             )
             and (verification or record.readback_observed_at is None)
-            and 0 <= time.time() - (
-                child.started_at if verification and child is not None else record.started_at
-            ) <= 600
+            and 0
+            <= time.time()
+            - (
+                child.started_at
+                if verification and child is not None
+                else record.started_at
+            )
+            <= 600
             and self.command_route(car.vin, record.action, record.capability)
             == record.operation
             and record.operation in profile.registry.operations
@@ -844,7 +849,9 @@ class CommandEngine:
 
         def current():
             return self.charging_stop_retry_current(
-                car, profile, root,
+                car,
+                profile,
+                root,
                 child=record if record is not root else None,
                 verification=True,
             )
@@ -859,19 +866,24 @@ class CommandEngine:
             and getattr(record, "request_context", None) is profile.discovery.context
             and sum(
                 row.request_id == record.request_id for row in profile.command_journal
-            ) == 1
+            )
+            == 1
             and self.recovery_budget_available(cost=5)
         ):
             outcome = await confirm(
-                self.transport, car.vin, record.request_id,
-                max_reads=1, distinguish_timeout=True,
+                self.transport,
+                car.vin,
+                record.request_id,
+                max_reads=1,
+                distinguish_timeout=True,
             )
             async with self._actions:
                 if not current():
                     return None, "superseded_or_disabled"
-                if (
-                    record.state == "accepted_unconfirmed"
-                    and outcome in ("timeout", "backend_completed", "rejected")
+                if record.state == "accepted_unconfirmed" and outcome in (
+                    "timeout",
+                    "backend_completed",
+                    "rejected",
                 ):
                     record.observe_backend(outcome, time.time())
                     if profile.last_command is record:
@@ -881,15 +893,23 @@ class CommandEngine:
 
         def readback():
             boundary = (
-                record.completed_at if record.stop_retry_timed_out else record.started_at
+                record.completed_at
+                if record.stop_retry_timed_out
+                else record.started_at
             )
             return recent_charging_state(
-                record, car, registry=profile.registry,
-                receipt_after=boundary, capture_after=boundary,
+                record,
+                car,
+                registry=profile.registry,
+                receipt_after=boundary,
+                capture_after=boundary,
             )
 
         charging, reason = await self.verify_recovery(
-            record, refresh, current, readback,
+            record,
+            refresh,
+            current,
+            readback,
             interval=options.get("v3_stop_repoll_seconds", 30),
             window=options.get("v3_stop_verification_seconds", 300),
         )
@@ -900,9 +920,12 @@ class CommandEngine:
         record.recovery_result = reason
         _LOGGER.info(
             "Audi %s.%s recovery attempt %s: backend=%s, timeout=%s, outcome=%s",
-            record.capability, record.action,
-            1 if record is root else 2, record.backend_result,
-            record.stop_retry_timed_out, reason,
+            record.capability,
+            record.action,
+            1 if record is root else 2,
+            record.backend_result,
+            record.stop_retry_timed_out,
+            reason,
         )
         return charging, reason
 
@@ -925,7 +948,9 @@ class CommandEngine:
             if self._recovery_options().get("v3_stop_extra_retries", 1) != 1:
                 record.recovery_result = "retry_disabled"
                 return None
-            return await self.send_control(vin, record.action, record.capability, _retry_of=record)
+            return await self.send_control(
+                vin, record.action, record.capability, _retry_of=record
+            )
         except (RuntimeError, ValueError, OSError, TimeoutError):
             record.recovery_result = "dispatch_or_verification_failed"
             _LOGGER.info("Audi charging STOP recovery: %s", record.recovery_result)

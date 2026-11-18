@@ -1368,7 +1368,8 @@ class V3Engine:
         car = self.require_vehicle(vin)
         profile = self.profiles[vin.lower()]
         await self.status.recovery_read(
-            car, profile,
+            car,
+            profile,
             lambda: current() and self.commands.recovery_budget_available(cost=5),
         )
         self.commands.reconcile_commands()
@@ -1377,6 +1378,7 @@ class V3Engine:
 
     async def _recover_charging_stop(self, vin, original) -> None:
         """Complete one intent and report one final native HA outcome."""
+
         async def refresh(current):
             await self._recovery_cloud(vin, current)
 
@@ -1409,24 +1411,36 @@ class V3Engine:
         if (
             reason in (None, "expected_state_observed", "superseded_or_disabled")
             or not self.commands.charging_stop_retry_current(
-                car, profile, original, child=record if linked else None,
+                car,
+                profile,
+                original,
+                child=record if linked else None,
                 verification=True,
             )
             or not self.hass
-            or not stop_recovery_options(self.entry.options)["v3_stop_final_notification"]
+            or not stop_recovery_options(self.entry.options)[
+                "v3_stop_final_notification"
+            ]
         ):
             return
-        if reason in ("fresh_still_charging", "retry_disabled", "no_correlated_terminal_timeout"):
+        if reason in (
+            "fresh_still_charging",
+            "retry_disabled",
+            "no_correlated_terminal_timeout",
+        ):
             message = "Audi still reports charging after STOP."
         elif record.state == "rejected":
-            message = "Audi rejected the charging STOP request; current state unconfirmed."
+            message = (
+                "Audi rejected the charging STOP request; current state unconfirmed."
+            )
         else:
             message = "Charging STOP could not be confirmed."
         from homeassistant.components import persistent_notification
 
         persistent_notification.async_create(
             self.hass,
-            message + " Check the actual charging status in myAudi or at the charger. "
+            message
+            + " Check the actual charging status in myAudi or at the charger. "
             + ("No retry was sent. " if not linked else "")
             + "No further automatic STOP will be sent.",
             title=f"Audi Connect: {car.name} charging STOP",

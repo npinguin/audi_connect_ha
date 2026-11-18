@@ -1083,7 +1083,9 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
     refresh = AsyncMock()
     monkeypatch.setattr(engine, "_recovery_cloud", refresh)
     monkeypatch.setattr(
-        engine.commands, "charging_stop_retry_current", lambda *args, **kwargs: not superseded
+        engine.commands,
+        "charging_stop_retry_current",
+        lambda *args, **kwargs: not superseded,
     )
 
     async def verify(*args):
