@@ -98,7 +98,7 @@
     {
       "path": "custom_components/audiconnect/diagnostics.py",
       "upstream_blob": "42b20a7edc1d7228089dc0209f29f2ce144c257f",
-      "development_blob": "8d07cf3520aefa7862658d42f8c87b2b7b473c60"
+      "development_blob": "00f94050c028d9dc04188ea71eb65d296ea719fa"
     },
     {
       "path": "custom_components/audiconnect/lock.py",

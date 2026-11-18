@@ -24,7 +24,6 @@ from .const import (
     CONF_SCAN_INTERVAL,
     DEFAULT_API_LEVEL,
     DEFAULT_UPDATE_INTERVAL,
-    stop_recovery_options,
 )
 
 # Fixed list of source state keys: report their presence, never their values.
@@ -139,6 +138,8 @@ async def async_get_config_entry_diagnostics(
     }
 
     if entry_info["v3_charging_stop_retry"]:
+        from .const import stop_recovery_options
+
         entry_info["stop_recovery_options"] = stop_recovery_options(entry.options)
 
     # Names and entity IDs may include vehicle identifiers: count only.
