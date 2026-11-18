@@ -917,7 +917,8 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
 
     engine.transport = Transport()
 
-    async def refresh():
+    async def refresh(current):
+        assert current()
         nonlocal refresh_count
         refresh_count += 1
         now = datetime.now(UTC)
@@ -971,7 +972,7 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     if telemetry == "stale_then_fresh":
         assert refresh_count == 2
     if telemetry == "stale":
-        assert refresh_count == 3
+        assert refresh_count == 10
     if telemetry in ("disabled", "workbench_superseded") or backend == "native_error":
         assert calls == []
     if backend == "native_timeout":
@@ -1080,7 +1081,21 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
 
     monkeypatch.setattr(engine.commands, "retry_charging_stop", retry)
     refresh = AsyncMock()
-    monkeypatch.setattr(engine, "_follow_up_cloud", refresh)
+    monkeypatch.setattr(engine, "_recovery_cloud", refresh)
+    monkeypatch.setattr(
+        engine.commands, "charging_stop_retry_current", lambda *args, **kwargs: not superseded
+    )
+
+    async def verify(*args):
+        if outcome == "rejected":
+            return None, "dispatch_or_verification_failed"
+        if current == "readyForCharging":
+            return False, "expected_state_observed"
+        if current == "charging":
+            return True, "fresh_still_charging"
+        return None, "fresh_capture_unavailable"
+
+    monkeypatch.setattr(engine.commands, "verify_recovery_attempt", verify)
     await engine._recover_charging_stop(VIN, first)
     if notice is None:
         notify.assert_not_called()
@@ -1089,10 +1104,7 @@ async def test_second_stop_reports_failure_or_unconfirmed_once(
         assert notice in notify.call_args.args[1]
         assert "No further automatic STOP" in notify.call_args.args[1]
         assert VIN not in notify.call_args.kwargs["notification_id"]
-    assert refresh.await_count == int(
-        outcome not in (None, "rejected", "uncertain", "local_cancel")
-        and not superseded
-    )
+    refresh.assert_not_awaited()  # The shared verification owns reads.
 
 
 @pytest.mark.asyncio
@@ -1249,10 +1261,12 @@ async def test_skipped_stop_recovery_notifies_without_second_write(monkeypatch):
         first.recovery_result = "fresh_capture_unavailable"
 
     monkeypatch.setattr(engine.commands, "retry_charging_stop", retry)
-    monkeypatch.setattr(engine.commands, "charging_stop_retry_current", lambda *a: True)
+    monkeypatch.setattr(
+        engine.commands, "charging_stop_retry_current", lambda *a, **kw: True
+    )
     notify = Mock()
     monkeypatch.setattr(persistent_notification, "async_create", notify)
     await engine._recover_charging_stop(VIN, first)
     notify.assert_called_once()
-    assert "no retry was sent" in notify.call_args.args[1]
+    assert "No retry was sent" in notify.call_args.args[1]
     assert profile.last_command is first

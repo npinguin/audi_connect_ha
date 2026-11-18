@@ -1351,10 +1351,10 @@ class V3Engine:
             and callable(create_task)
             and self.hass is not None
             and record.operation == "cariad.charging.stop"
-            and record.state in ("accepted_unconfirmed", "backend_completed", "rejected")
+            and record.state
+            in ("accepted_unconfirmed", "backend_completed", "rejected")
             and record.http_status is not None
             and 200 <= record.http_status < 300
-            and record.request_id is not None
             and record.parent_command_id is None
         ):
             create_task(
@@ -1363,76 +1363,74 @@ class V3Engine:
                 "Audi charging STOP recovery",
             )
 
+    async def _recovery_cloud(self, vin, current):
+        """Reuse the Status owner and publish through the existing HA coordinator."""
+        car = self.require_vehicle(vin)
+        profile = self.profiles[vin.lower()]
+        await self.status.recovery_read(
+            car, profile,
+            lambda: current() and self.commands.recovery_budget_available(cost=5),
+        )
+        self.commands.reconcile_commands()
+        await self.storage.async_save(self.profiles)
+        self._notify_discovery_change(reconcile_registry=False)
+
     async def _recover_charging_stop(self, vin, original) -> None:
-        """Report a failed or unconfirmed second STOP through native HA UX."""
-        await self.commands.retry_charging_stop(vin, original, self._follow_up_cloud)
+        """Complete one intent and report one final native HA outcome."""
+        async def refresh(current):
+            await self._recovery_cloud(vin, current)
+
+        await self.commands.retry_charging_stop(vin, original, refresh)
         profile = self.profiles.get(vin.lower())
-        second = getattr(profile, "last_command", None)
         car = self.vehicles.get(vin.lower())
+        if car is None or not car.inventory_present or profile is None:
+            return
+        latest = profile.last_command
+        linked = (
+            latest is not None
+            and latest.parent_command_id == original.command_id
+            and latest.operation == original.operation
+            and latest.capability == original.capability
+            and latest.action == original.action
+        )
+        record = latest if linked else original
+        if linked and record.state == "rejected" and record.http_status is None:
+            return  # Local cancellation before any dispatch.
+        if linked:
+            try:
+                _, reason = await self.commands.verify_recovery_attempt(
+                    car, profile, original, record, refresh
+                )
+            except (RuntimeError, ValueError, OSError, TimeoutError):
+                reason = "dispatch_or_verification_failed"
+                record.recovery_result = reason
+        else:
+            reason = getattr(original, "recovery_result", None)
         if (
-            car is None
-            or not car.inventory_present
-            or profile is None
-            or self.hass is None
+            reason in (None, "expected_state_observed", "superseded_or_disabled")
+            or not self.commands.charging_stop_retry_current(
+                car, profile, original, child=record if linked else None,
+                verification=True,
+            )
+            or not self.hass
+            or not stop_recovery_options(self.entry.options)["v3_stop_final_notification"]
         ):
             return
-        linked_stop = (
-            second is not None
-            and second.parent_command_id == original.command_id
-            and second.operation == "cariad.charging.stop"
-            and second.capability == "charging"
-            and second.action == "stop"
-        )
-        if not linked_stop:
-            # A skipped retry must not silently hide a failed original STOP.
-            # Only report an outcome belonging to the still-current intent.
-            reason = getattr(original, "recovery_result", None)
-            if (
-                reason in (None, "expected_state_observed", "superseded_or_disabled")
-                or not self.charging_stop_retry_enabled
-                or not self.commands.charging_stop_retry_current(car, profile, original)
-            ):
-                return
-            message = (
-                "Audi still reports charging; automatic STOP was skipped."
-                if reason == "retry_disabled"
-                else "Charging STOP could not be confirmed; no retry was sent."
-            )
-            second = original
+        if reason in ("fresh_still_charging", "retry_disabled", "no_correlated_terminal_timeout"):
+            message = "Audi still reports charging after STOP."
+        elif record.state == "rejected":
+            message = "Audi rejected the charging STOP request; current state unconfirmed."
         else:
-            if second.state == "rejected" and second.http_status is None:
-                return  # Cancelled locally before dispatch.
-            if second.state not in ("rejected", "uncertain"):
-                await self._follow_up_cloud()
-            if (
-                self.profiles.get(vin.lower()) is not profile
-                or profile.last_command is not second
-                or self.hass is None
-            ):
-                return
-            from .command_readback import recent_charging_state
-
-            charging = recent_charging_state(
-                second, car, registry=profile.registry, max_age_seconds=300
-            )
-            if second.state == "rejected":
-                message = "Audi rejected the second charging STOP request."
-            elif charging is True:
-                message = "Audi still reports charging after the second STOP request."
-            elif charging is False:
-                return  # Latest native state is stopped; not causal execution proof.
-            else:
-                message = "Charging STOP could not be confirmed after the second request."
-        if not stop_recovery_options(self.entry.options)["v3_stop_final_notification"]:
-            return
+            message = "Charging STOP could not be confirmed."
         from homeassistant.components import persistent_notification
 
         persistent_notification.async_create(
             self.hass,
             message + " Check the actual charging status in myAudi or at the charger. "
-            "No further automatic STOP will be sent.",
+            + ("No retry was sent. " if not linked else "")
+            + "No further automatic STOP will be sent.",
             title=f"Audi Connect: {car.name} charging STOP",
-            notification_id=f"{DOMAIN}_charging_stop_{second.command_id}",
+            notification_id=f"{DOMAIN}_charging_stop_{original.command_id}",
         )
 
     async def review_normal_command(self, vin: str, command_id: str) -> None:
