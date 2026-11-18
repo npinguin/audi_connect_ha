@@ -1313,7 +1313,7 @@ class V3Engine:
     ) -> None:
         profile = self.profiles.get(vin.lower())
         previous = getattr(profile, "last_command", None)
-        retry_enabled = self.charging_stop_retry_enabled()
+        retry_enabled = self.charging_stop_retry_enabled
         try:
             record = await self.commands.send_control(
                 vin, aspect, capability, params=params
@@ -1347,7 +1347,7 @@ class V3Engine:
         create_task = getattr(self.entry, "async_create_background_task", None)
         if (
             retry_enabled
-            and self.charging_stop_retry_enabled()
+            and self.charging_stop_retry_enabled
             and callable(create_task)
             and self.hass is not None
             and record.operation == "cariad.charging.stop"
