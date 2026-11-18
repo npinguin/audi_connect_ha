@@ -745,6 +745,7 @@ class CommandEngine:
         if (
             not self.charging_stop_retry_current(car, profile, record, child=child)
             or not record.stop_retry_timed_out
+            or self._recovery_options().get("v3_stop_extra_retries", 1) != 1
             or not optional_budget_available(self._command_allowance("cariad"), cost=4)
         ):
             return False
@@ -781,9 +782,18 @@ class CommandEngine:
                 return None, "superseded_or_disabled"
             if time.monotonic() >= deadline:
                 break
+            # Normal polling may already have delivered the required capture.
+            # Do not spend another cloud request if the evidence is available.
+            value = readback()
+            if value is not None:
+                return value, "fresh_native_capture"
             if not optional_budget_available(self._command_allowance("cariad"), cost=4):
                 return None, "quota_reserve"
-            await refresh()
+            try:
+                async with asyncio.timeout(max(0, deadline - time.monotonic())):
+                    await refresh()
+            except TimeoutError:
+                return None, "verification_deadline"
             if not current():
                 return None, "superseded_or_disabled"
             if time.monotonic() >= deadline:
@@ -848,6 +858,8 @@ class CommandEngine:
                     elif outcome != "timeout":
                         return None  # Conflicting terminal observations.
             if not record.stop_retry_timed_out:
+                record.recovery_result = "no_correlated_terminal_timeout"
+                _LOGGER.info("Audi charging STOP recovery: %s", record.recovery_result)
                 return None
             # Reuse the normal read-only cloud refresh; never wake the car.
             charging, reason = await self.verify_recovery(
@@ -865,13 +877,20 @@ class CommandEngine:
                 window=options.get("v3_stop_verification_seconds", 300),
             )
             if charging is not True:
-                _LOGGER.info("Audi charging STOP recovery skipped: %s", reason)
+                record.recovery_result = (
+                    "expected_state_observed" if charging is False else reason
+                )
+                _LOGGER.info("Audi charging STOP recovery: %s", record.recovery_result)
                 return None
-            if options.get("v3_stop_extra_retries", 1) != 1:
+            if self._recovery_options().get("v3_stop_extra_retries", 1) != 1:
+                record.recovery_result = "retry_disabled"
                 _LOGGER.info("Audi charging STOP recovery skipped: retry disabled")
                 return None
+            record.recovery_result = "fresh_still_charging"
             return await self.send_control(vin, "stop", "charging", _retry_of=record)
         except (RuntimeError, ValueError, OSError, TimeoutError):
+            record.recovery_result = "dispatch_or_verification_failed"
+            _LOGGER.info("Audi charging STOP recovery: %s", record.recovery_result)
             return None
 
     async def send_control(
@@ -994,7 +1013,6 @@ class CommandEngine:
                             if (
                                 self._stop_retry_enabled()
                                 and record.operation == "cariad.charging.stop"
-                                and record.parent_command_id is None
                             ):
                                 outcome = await confirm(
                                     self.transport,

@@ -823,6 +823,7 @@ def test_timer_count_follows_selected_list_even_when_count_is_unchanged(
         ("native_timeout", "readyForCharging", False),
         ("native_error", "charging", False),
         ("timeout", "disabled_during_save", False),
+        ("timeout", "retry_zero_during_save", False),
         ("timeout", "stopped_during_save", False),
     ],
 )
@@ -943,7 +944,9 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
         if telemetry == "workbench_during_refresh":
             workbench_start(now.timestamp())
 
-    if telemetry in ("disabled_during_save", "stopped_during_save"):
+    if telemetry in (
+        "disabled_during_save", "retry_zero_during_save", "stopped_during_save"
+    ):
 
         async def save(_profiles):
             latest = profile.last_command
@@ -951,6 +954,8 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
                 return
             if telemetry == "disabled_during_save":
                 engine.entry.options["v3_charging_stop_retry"] = False
+            elif telemetry == "retry_zero_during_save":
+                engine.entry.options["v3_stop_extra_retries"] = 0
             else:
                 stamp = datetime.now(UTC).isoformat()
                 car.readings["chargingState"].update(
@@ -985,7 +990,9 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
         assert calls == before
     else:
         assert result is None
-    if telemetry in ("disabled_during_save", "stopped_during_save"):
+    if telemetry in (
+        "disabled_during_save", "retry_zero_during_save", "stopped_during_save"
+    ):
         child = profile.last_command
         assert child.parent_command_id == first.command_id
         assert child.state == "rejected"
@@ -1176,3 +1183,21 @@ def test_recovery_readback_requires_capture_after_timeout(
         )
         is expected
     )
+
+
+@pytest.mark.asyncio
+async def test_recovery_reuses_already_fresh_native_evidence():
+    from unittest.mock import AsyncMock
+
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+
+    engine, _car = make_engine()
+    record = CommandRecord.begin(
+        "charging", "stop", "cariad.charging.stop", datetime.now(UTC).timestamp()
+    )
+    refresh = AsyncMock()
+    result = await engine.commands.verify_recovery(
+        record, refresh, lambda: True, lambda: False
+    )
+    assert result == (False, "fresh_native_capture")
+    refresh.assert_not_awaited()
