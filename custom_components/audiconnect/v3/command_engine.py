@@ -742,14 +742,7 @@ class CommandEngine:
                 and profile.discovery.history[-1].started_at >= record.started_at
             )
             and (verification or record.readback_observed_at is None)
-            and 0
-            <= time.time()
-            - (
-                child.started_at
-                if verification and child is not None
-                else record.started_at
-            )
-            <= 600
+            and (verification or 0 <= time.time() - record.started_at <= 600)
             and self.command_route(car.vin, record.action, record.capability)
             == record.operation
             and record.operation in profile.registry.operations
@@ -846,6 +839,8 @@ class CommandEngine:
 
         options = self._recovery_options()
         timeout = options.get("v3_stop_confirmation_seconds", 300)
+        window = options.get("v3_stop_verification_seconds", 300)
+        deadline = record.started_at + timeout + window
 
         def current():
             return self.charging_stop_retry_current(
@@ -859,6 +854,8 @@ class CommandEngine:
         await asyncio.sleep(max(0, record.started_at + timeout - time.time()))
         if not current():
             return None, "superseded_or_disabled"
+        if time.time() >= deadline:
+            return None, "verification_deadline"
         # One exact-ID query if scheduled status has not already resolved it.
         if (
             record.state == "accepted_unconfirmed"
@@ -870,13 +867,17 @@ class CommandEngine:
             == 1
             and self.recovery_budget_available(cost=5)
         ):
-            outcome = await confirm(
-                self.transport,
-                car.vin,
-                record.request_id,
-                max_reads=1,
-                distinguish_timeout=True,
-            )
+            try:
+                async with asyncio.timeout(max(0, deadline - time.time())):
+                    outcome = await confirm(
+                        self.transport,
+                        car.vin,
+                        record.request_id,
+                        max_reads=1,
+                        distinguish_timeout=True,
+                    )
+            except TimeoutError:
+                return None, "verification_deadline"
             async with self._actions:
                 if not current():
                     return None, "superseded_or_disabled"
@@ -911,7 +912,7 @@ class CommandEngine:
             current,
             readback,
             interval=options.get("v3_stop_repoll_seconds", 30),
-            window=options.get("v3_stop_verification_seconds", 300),
+            window=max(0, min(window, deadline - time.time())),
         )
         if charging is False:
             reason = "expected_state_observed"

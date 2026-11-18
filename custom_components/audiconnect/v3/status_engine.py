@@ -809,8 +809,8 @@ class StatusEngine:
                     "job": None,
                 }
 
-    def _observe_cariad_status(self, car, profile, reply):
-        observe_read_only(car, profile, reply.data, reply.observed_at)
+    def _observe_cariad_status(self, car, profile, reply, **options):
+        observe_read_only(car, profile, reply.data, reply.observed_at, **options)
         if self._observe_native_requests is not None:
             self._observe_native_requests(car, profile, reply.data, reply.observed_at)
 
@@ -833,7 +833,9 @@ class StatusEngine:
                 return
             self._api_record(profile, ident, "cariad", "GET", reply, car.vin)
             if 200 <= reply.status < 300:
-                self._observe_cariad_status(car, profile, reply)
+                self._observe_cariad_status(
+                    car, profile, reply, operation=ident, complete_discovery=False
+                )
                 self._update_capture_projection()
 
     async def _poll_native_status(self):

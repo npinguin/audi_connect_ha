@@ -98,7 +98,7 @@
     {
       "path": "custom_components/audiconnect/diagnostics.py",
       "upstream_blob": "42b20a7edc1d7228089dc0209f29f2ce144c257f",
-      "development_blob": "405eb951b8b166ccea799f91180ba9bc69887ec8"
+      "development_blob": "8d07cf3520aefa7862658d42f8c87b2b7b473c60"
     },
     {
       "path": "custom_components/audiconnect/lock.py",
@@ -133,7 +133,7 @@
     {
       "path": "custom_components/audiconnect/strings.json",
       "upstream_blob": "ee7cade4b7e3141848bb82a0ce70df5a40437801",
-      "development_blob": "a463fce4bfeb3b5c5d1278dbd8f6b1a9fc245f3b"
+      "development_blob": "ea3b8e5be4b20051e0aa09194192cd10a5cbb160"
     },
     {
       "path": "custom_components/audiconnect/switch.py",
