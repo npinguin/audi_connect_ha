@@ -64,6 +64,7 @@ class CommandEngine:
         api_record,
         notify,
         stop_retry_enabled=lambda: False,
+        recovery_options=lambda: {},
     ):
         self.auth = auth
         self._transport = transport
@@ -74,6 +75,7 @@ class CommandEngine:
         self._api_record = api_record
         self._notify_discovery_change = notify
         self._stop_retry_enabled = stop_retry_enabled
+        self._recovery_options = recovery_options
         self._actions = asyncio.Lock()
 
     def exclusive(self):
@@ -805,7 +807,9 @@ class CommandEngine:
 
         if not self._stop_retry_enabled():
             return None
-        await asyncio.sleep(max(0, record.started_at + 300 - time.time()))
+        options = self._recovery_options()
+        timeout = options.get("v3_stop_confirmation_seconds", 300)
+        await asyncio.sleep(max(0, record.started_at + timeout - time.time()))
         try:
             car = self.require_vehicle(vin)
             profile = self.profiles[vin.lower()]
@@ -857,9 +861,14 @@ class CommandEngine:
                     receipt_after=record.completed_at,
                     capture_after=record.completed_at,
                 ),
+                interval=options.get("v3_stop_repoll_seconds", 30),
+                window=options.get("v3_stop_verification_seconds", 300),
             )
             if charging is not True:
                 _LOGGER.info("Audi charging STOP recovery skipped: %s", reason)
+                return None
+            if options.get("v3_stop_extra_retries", 1) != 1:
+                _LOGGER.info("Audi charging STOP recovery skipped: retry disabled")
                 return None
             return await self.send_control(vin, "stop", "charging", _retry_of=record)
         except (RuntimeError, ValueError, OSError, TimeoutError):

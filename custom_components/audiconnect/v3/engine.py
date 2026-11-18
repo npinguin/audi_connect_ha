@@ -54,6 +54,7 @@ from ..const import (
     CONF_FILTER_VINS,
     CONF_REFRESH_AFTER_ACTION,
     CONF_V3_CHARGING_STOP_RETRY,
+    stop_recovery_options,
     CONF_UPDATE_SLEEP,
     DOMAIN,
     REFRESH_VEHICLE_DATA_COMPLETED_EVENT,
@@ -104,6 +105,9 @@ class V3Engine:
             api_record=self._api_record,
             notify=self._notify_discovery_change,
             stop_retry_enabled=lambda: self.charging_stop_retry_enabled,
+            recovery_options=lambda: stop_recovery_options(
+                getattr(self.entry, "options", {})
+            ),
         )
         self.status = StatusEngine(
             hass=hass,
@@ -1403,6 +1407,8 @@ class V3Engine:
             return  # Latest native state is stopped; not causal execution proof.
         else:
             message = "Charging STOP could not be confirmed after the second request."
+        if not stop_recovery_options(self.entry.options)["v3_stop_final_notification"]:
+            return
         from homeassistant.components import persistent_notification
 
         persistent_notification.async_create(
