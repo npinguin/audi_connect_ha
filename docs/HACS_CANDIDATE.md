@@ -1,23 +1,18 @@
-# Audi Connect 3.0.0b50 — charging and parking reliability
+# Audi Connect 3.0.0b51 — charging STOP recovery
 
 Experimental HACS TEST prerelease for live acceptance. V2 remains the default and fallback; V3 is opt-in. This is not a stable release.
 
 ## What's changed
 
-- Conflicting native observations retain their conflict boundary across restart. Older or undated data cannot silently replace the conflict; no raw timer or location history is added to the profile store.
-- EU Data Act uses the migrated official VW Group portal. Existing native Audi sign-in is unchanged.
-- Charging START/STOP reports actual native or clearly marked last-known vehicle state rather than optimistic charging state.
-- Optional **Retry failed charging STOP** (off by default): one additional direct CARIAD STOP only after an exact terminal timeout and fresh native evidence that charging continues. No retry on pending or uncertain results, after restart or after a newer explicit action. A failed or unconfirmed second STOP is reported in Home Assistant; no third automatic STOP.
-- Optional **Reverse geocoding** (off by default): a separate approximate Parking address sensor, using an authorized HTTPS Nominatim-compatible provider and rounded coordinates. The public OpenStreetMap Nominatim endpoint is not supported. Local Parked in zones and the tracker are unchanged. Home Assistant may record the address in its own history.
+- Optional charging STOP recovery now checks the original and any linked second attempt using the same bounded verification lifecycle. Existing opt-in is retained; configure confirmation timeout, read-only verification interval and window, zero or one additional STOP and final notification.
+- Reuse fresh native vehicle captures; otherwise check only the affected vehicle's charging status, not the full account. A cached response cannot authorize a retry. No automatic STOP without an exact terminal timeout, fresh native still-charging evidence, unchanged intent and available quota.
+- Diagnostics show recovery outcomes and distinguish observed terminal timeout from generic rejection. Home Assistant can notify even when no retry is sent. No third automatic STOP, replay after restart or additional wake.
+- B50 telemetry conflict retention, Data Act portal migration and optional parking address remain included. No changes to V2 defaults or other control eligibility.
 
 ## Upgrade and test
 
-Back up Home Assistant, update the existing Audi Connect integration through HACS and restart. Keep the existing config entry, devices and entities. Confirm existing history and identities survive restart, and test V2 fallback if needed.
-
-For V3 physical acceptance, compare START/STOP with actual charging power and myAudi; check terminal request outcomes, the optional bounded retry and its notification. Enable reverse geocoding only with a provider you are authorized to use, then check the separate address, consent withdrawal and unchanged tracker. Reconnect the optional Data Act source if needed and verify delivery independently. No additional periodic Audi polling is introduced.
+Back up Home Assistant, update the existing integration via HACS and restart. Keep existing entries, devices and entities. For V3 STOP testing, enable the optional recovery setting and compare actual charger power and myAudi against the reported outcome. Share sanitized diagnostics and timestamps, including whether a second STOP was sent. Check normal polling, entity history and V2 fallback.
 
 ## Known limitations
 
-Physical effectiveness of STOP recovery, Audi portal recovery and live geocoding/lifecycle acceptance remain unproven. Backend HTTP acceptance is not physical confirmation. Vehicle support varies; manufacturer identity and some fields can be unavailable. No new 12V voltage, timer, battery-care or charging-profile write support is claimed.
-
-Report model/year, region, integration and HA versions, expected and actual behavior, relevant timestamps and sanitized diagnostics. Do not share credentials, VINs, tokens, private locations or raw responses.
+Physical STOP reliability remains unproven. Audi can return delayed vehicle captures or rejected requests; the integration will not retry without the required evidence. Backend acceptance and matching readback are not proof of physical execution. Vehicle support varies. Do not share credentials, VINs, tokens, raw responses or private locations.
