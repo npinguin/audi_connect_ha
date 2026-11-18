@@ -945,7 +945,9 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
             workbench_start(now.timestamp())
 
     if telemetry in (
-        "disabled_during_save", "retry_zero_during_save", "stopped_during_save"
+        "disabled_during_save",
+        "retry_zero_during_save",
+        "stopped_during_save",
     ):
 
         async def save(_profiles):
@@ -991,7 +993,9 @@ async def test_charging_stop_recovery_requires_exact_timeout_and_fresh_native_st
     else:
         assert result is None
     if telemetry in (
-        "disabled_during_save", "retry_zero_during_save", "stopped_during_save"
+        "disabled_during_save",
+        "retry_zero_during_save",
+        "stopped_during_save",
     ):
         child = profile.last_command
         assert child.parent_command_id == first.command_id
@@ -1201,3 +1205,24 @@ async def test_recovery_reuses_already_fresh_native_evidence():
     )
     assert result == (False, "fresh_native_capture")
     refresh.assert_not_awaited()
+
+
+def test_linked_stop_timeout_is_evidence_not_retry_authority():
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+
+    engine, car = make_engine()
+    engine.entry.options["v3_charging_stop_retry"] = True
+    profile = engine.profiles[VIN.lower()]
+    now = datetime.now(UTC).timestamp()
+    child = CommandRecord.begin(
+        "charging",
+        "stop",
+        "cariad.charging.stop",
+        now - 10,
+        parent_command_id="a" * 32,
+    )
+    child.observe_http(200)
+    child.observe_backend("timeout", now)
+    assert child.stop_retry_timed_out
+    assert not engine.commands.charging_stop_retry_current(car, profile, child)
+    assert not CommandRecord.restore(child.snapshot()).stop_retry_timed_out

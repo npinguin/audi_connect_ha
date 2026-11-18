@@ -824,6 +824,7 @@ class CommandEngine:
             car = self.require_vehicle(vin)
             profile = self.profiles[vin.lower()]
             if not self.charging_stop_retry_current(car, profile, record):
+                record.recovery_result = "superseded_or_disabled"
                 return None
             if not record.stop_retry_timed_out:
                 if (
@@ -833,6 +834,7 @@ class CommandEngine:
                         self._command_allowance("cariad"), cost=5
                     )
                 ):
+                    record.recovery_result = "no_correlated_terminal_timeout"
                     return None
                 outcome = await confirm(
                     self.transport,
@@ -842,6 +844,7 @@ class CommandEngine:
                     distinguish_timeout=True,
                 )
                 if outcome not in ("timeout", "backend_completed", "rejected"):
+                    record.recovery_result = "no_correlated_terminal_timeout"
                     return None
                 async with self._actions:
                     if not self.charging_stop_retry_current(car, profile, record):
