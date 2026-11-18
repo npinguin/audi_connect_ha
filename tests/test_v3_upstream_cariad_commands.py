@@ -1141,7 +1141,7 @@ async def test_initial_stop_confirmation_timeout_preserves_recovery_intent(
     assert record.stop_retry_timed_out is expected
     assert not CommandRecord.restore(record.snapshot()).stop_retry_timed_out
     assert calls == ["POST", "GET"]
-    assert tasks == (["Audi charging STOP recovery"] if expected else [])
+    assert tasks == (["Audi charging STOP recovery"] if enabled else [])
 
 
 @pytest.mark.parametrize(
@@ -1226,3 +1226,33 @@ def test_linked_stop_timeout_is_evidence_not_retry_authority():
     assert child.stop_retry_timed_out
     assert not engine.commands.charging_stop_retry_current(car, profile, child)
     assert not CommandRecord.restore(child.snapshot()).stop_retry_timed_out
+
+
+@pytest.mark.asyncio
+async def test_skipped_stop_recovery_notifies_without_second_write(monkeypatch):
+    from unittest.mock import Mock
+
+    from homeassistant.components import persistent_notification
+
+    from custom_components.audiconnect.v3.command_journal import CommandRecord
+
+    engine, _car = make_engine()
+    engine.hass = object()
+    engine.entry.options["v3_charging_stop_retry"] = True
+    profile = engine.profiles[VIN.lower()]
+    first = CommandRecord.begin(
+        "charging", "stop", "cariad.charging.stop", datetime.now(UTC).timestamp()
+    )
+    profile.track_command(first)
+
+    async def retry(*args):
+        first.recovery_result = "fresh_capture_unavailable"
+
+    monkeypatch.setattr(engine.commands, "retry_charging_stop", retry)
+    monkeypatch.setattr(engine.commands, "charging_stop_retry_current", lambda *a: True)
+    notify = Mock()
+    monkeypatch.setattr(persistent_notification, "async_create", notify)
+    await engine._recover_charging_stop(VIN, first)
+    notify.assert_called_once()
+    assert "no retry was sent" in notify.call_args.args[1]
+    assert profile.last_command is first
