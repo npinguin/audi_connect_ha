@@ -1,18 +1,18 @@
-# Audi Connect 3.0.0b52 — final V3 refinement
+# Audi Connect 3.0.0b53 — shared authentication maintenance
 
 Experimental HACS TEST prerelease for live acceptance. V2 remains the default and fallback; V3 is opt-in. This is not a stable release.
 
 ## What's changed
 
-- Routine V3 configuration changes now save without automatically opening vehicle discovery. Select Vehicle setup & discovery explicitly to review or retest individual vehicle functions.
-- Existing guided and selective discovery, configuration, entity identities, history and V2 rollback remain available. No changes to charging command dispatch or the default-off STOP recovery policy.
-- Added regression coverage for changes to recovery consent during an in-flight STOP request, including enabling recovery after the original intent and disabling it before scheduling.
-- Automated qualification uses Home Assistant 2026.11.2. The existing B51 charging STOP recovery and B50 telemetry, Data Act and optional parking address improvements remain included.
+- V2 and V3 now share one myAudi client identity (5.10.1).
+- Market configuration discovery uses the matching app version. A missing version-specific document (HTTP 404/410) permits one fallback to the previously used configuration version; authentication refusals and rate limits are not retried by this mechanism.
+- Market migration hints are diagnostic only. Existing authentication provider selection, stored tokens, consent, vehicle identities and history remain unchanged.
+- Charging command routes, physical verification, and the default-off STOP recovery policy are unchanged. This release does not claim to solve the Q5 STOP timeout.
 
 ## Upgrade and test
 
-Back up Home Assistant, update the existing integration via HACS and restart. Keep existing entries, devices and entities. Confirm that routine Options changes save normally; use Vehicle setup & discovery when you want to test a function. Verify physical remote actions against the vehicle or charger, not the HTTP result alone.
+Back up Home Assistant and update the existing integration via HACS. Confirm existing sessions continue to work, telemetry refreshes, and token renewal and any required sign-in succeed. If testing remote controls, independently verify the vehicle's physical response. Use a separate test installation or backup for rollback.
 
 ## Known limitations
 
-Physical STOP reliability remains unproven. Vehicle support varies; OEM data can be delayed or unavailable. No stable promotion or upstream acceptance is claimed. Share only sanitized diagnostic evidence; do not share credentials, VINs, tokens, raw responses or private locations.
+Live account and market compatibility with the new app identity still require validation. Physical charging STOP reliability remains unproven. Share only sanitized diagnostic evidence; do not share credentials, VINs, tokens, raw responses or private locations.
