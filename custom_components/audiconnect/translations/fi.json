@@ -166,6 +166,25 @@
         "data_description": {
           "v3_development_workbench": "Show the administrator-only API Development Workbench in the Home Assistant sidebar. Available in V3 only. Off by default; disabling does not delete saved API profiles."
         }
+      },
+      "discovery_vehicle": {
+        "title": "Valitse tunnistettava ajoneuvo",
+        "data": {
+          "vehicle": "Ajoneuvo"
+        }
+      },
+      "dealer_vehicle": {
+        "title": "Valitse ajoneuvo",
+        "data": {
+          "vehicle": "Audi-ajoneuvo"
+        }
+      },
+      "data_act": {
+        "title": "EU Data Act",
+        "description": "{data_act_status}\n\nVahvista portaalin tunnukset yhdistämällä uudelleen tai poista paikalliset tunnukset ja lopeta Data Act -luku katkaisemalla yhteys. Audi-yhteys ja portaalipyyntö eivät muutu.",
+        "data": {
+          "action": "Yhteys"
+        }
       }
     },
     "error": {
@@ -187,6 +206,13 @@
         "stop_preheater": "Pysäytä lisälämmitin",
         "start_window_heating": "Käynnistä ikkunalämmitys",
         "stop_window_heating": "Pysäytä ikkunalämmitys"
+      }
+    },
+    "data_act_action": {
+      "options": {
+        "connect": "Yhdistä / yhdistä uudelleen",
+        "disconnect": "Katkaise yhteys",
+        "keep": "Säilytä nykyinen yhteys"
       }
     }
   },

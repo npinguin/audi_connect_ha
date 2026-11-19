@@ -110,7 +110,7 @@
           "update_sleep": "Cloud Refresh Delay"
         },
         "data_description": {
-          "runtime_version": "V2 — Stable remains available for rollback. After enabling V3, reopen Configure.",
+          "runtime_version": "V3 — Experimental is opt-in. V2 — Stable remains available for rollback. Reopen Configure after switching.",
           "scan_interval": "Minutes between cloud polling updates.",
           "filter_vins": "Comma-separated VIN list to exclude from setup and updates.",
           "scan_initial": "Perform a cloud update immediately upon startup.",

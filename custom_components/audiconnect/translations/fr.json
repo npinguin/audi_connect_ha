@@ -181,6 +181,18 @@
           "email": "E-mail du portail",
           "password": "Mot de passe du portail"
         }
+      },
+      "discovery_vehicle": {
+        "title": "Sélectionner un véhicule à découvrir",
+        "data": {
+          "vehicle": "Véhicule"
+        }
+      },
+      "dealer_vehicle": {
+        "title": "Choisir un véhicule",
+        "data": {
+          "vehicle": "Véhicule Audi"
+        }
       }
     },
     "error": {

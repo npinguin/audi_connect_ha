@@ -166,11 +166,39 @@
         "data_description": {
           "v3_development_workbench": "Show the administrator-only API Development Workbench in the Home Assistant sidebar. Available in V3 only. Off by default; disabling does not delete saved API profiles."
         }
+      },
+      "discovery_vehicle": {
+        "title": "Selecionar veículo para descoberta",
+        "data": {
+          "vehicle": "Veículo"
+        }
+      },
+      "dealer_vehicle": {
+        "title": "Escolher veículo",
+        "data": {
+          "vehicle": "Veículo Audi"
+        }
+      },
+      "data_act": {
+        "title": "EU Data Act",
+        "description": "{data_act_status}\n\nLigue novamente para verificar as credenciais do portal ou desligue para remover as credenciais locais e parar as leituras Data Act. A ligação Audi e o pedido no portal não são alterados.",
+        "data": {
+          "action": "Ligação"
+        }
       }
     },
     "error": {
       "invalid_stop_recovery_settings": "Introduza números inteiros dentro dos limites indicados.",
       "invalid_scan_interval": "Introduza um intervalo válido."
+    }
+  },
+  "selector": {
+    "data_act_action": {
+      "options": {
+        "connect": "Ligar / voltar a ligar",
+        "disconnect": "Desligar",
+        "keep": "Manter ligação atual"
+      }
     }
   }
 }

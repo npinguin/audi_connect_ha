@@ -201,6 +201,12 @@
           "email": "Portal-e-mailadres",
           "password": "Portal-wachtwoord"
         }
+      },
+      "discovery_vehicle": {
+        "title": "Selecteer voertuig voor discovery",
+        "data": {
+          "vehicle": "Voertuig"
+        }
       }
     },
     "error": {

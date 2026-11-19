@@ -242,7 +242,9 @@ async def test_data_act_credentials_change_only_after_successful_source_auth():
     assert "v3_data_act_email" not in result["data"]
 
 
-@pytest.mark.parametrize("language", ["en", "nl", "de", "fr"])
+@pytest.mark.parametrize(
+    "language", ["en", "nl", "de", "fr", "fi", "nb", "pt", "pt-BR"]
+)
 def test_v3_options_have_localized_labels_and_descriptions(language):
     import json
     from pathlib import Path
@@ -455,12 +457,16 @@ async def test_charging_stop_retry_requires_explicit_v3_option(enabled):
         )
     )
     result = await flow.async_step_stop_recovery()
-    assert {key.schema for key in result["data_schema"].schema} == {"v3_charging_stop_retry"}
+    assert {key.schema for key in result["data_schema"].schema} == {
+        "v3_charging_stop_retry"
+    }
     result = await flow.async_step_stop_recovery({"v3_charging_stop_retry": enabled})
     if enabled:
         assert result["step_id"] == "stop_recovery_settings"
         assert flow._test_entry.options["v3_charging_stop_retry"] is False
-        result = await flow.async_step_stop_recovery_settings({"v3_stop_extra_retries": 0})
+        result = await flow.async_step_stop_recovery_settings(
+            {"v3_stop_extra_retries": 0}
+        )
         assert result["data"]["v3_stop_extra_retries"] == 0
     assert result["data"]["v3_charging_stop_retry"] is enabled
 
@@ -535,7 +541,9 @@ async def test_advanced_forms_preserve_saved_settings_and_reject_invalid_numbers
     fields = {key.schema: key.default() for key in result["data_schema"].schema}
     assert fields["v3_stop_extra_retries"] == 0
     assert fields["v3_stop_confirmation_seconds"] == 120
-    result = await flow.async_step_stop_recovery_settings({"v3_stop_extra_retries": 0.5})
+    result = await flow.async_step_stop_recovery_settings(
+        {"v3_stop_extra_retries": 0.5}
+    )
     assert result["errors"]["base"] == "invalid_stop_recovery_settings"
     assert flow._test_entry.options["v3_charging_stop_retry"] is False
     result = await flow.async_step_stop_recovery_settings(fields)

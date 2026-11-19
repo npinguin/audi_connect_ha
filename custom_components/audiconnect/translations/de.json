@@ -220,6 +220,12 @@
           "email": "Portal-E-Mail",
           "password": "Portal-Passwort"
         }
+      },
+      "discovery_vehicle": {
+        "title": "Fahrzeug zur Erkennung auswählen",
+        "data": {
+          "vehicle": "Fahrzeug"
+        }
       }
     },
     "error": {

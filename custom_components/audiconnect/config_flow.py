@@ -932,9 +932,7 @@ class OptionsFlowHandler(OptionsFlow):
             values.setdefault("runtime_version", "v2")
             interval = values.get(
                 CONF_SCAN_INTERVAL,
-                self.config_entry.data.get(
-                    CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
-                ),
+                self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL),
             )
             try:
                 values[CONF_SCAN_INTERVAL] = max(int(interval), MIN_UPDATE_INTERVAL)
