@@ -199,9 +199,7 @@ async def test_missing_market_version_uses_legacy_read(service, api, status):
     api.market_config_status = status
     await service.request_device_code()
     urls = [url for _, url, _ in api.calls if "/configurations/market/DE/de" in url]
-    assert [url.rsplit("=", 1)[-1] for url in urls] == [
-        MYAUDI_APP_VERSION, "4.23.1"
-    ]
+    assert [url.rsplit("=", 1)[-1] for url in urls] == [MYAUDI_APP_VERSION, "4.23.1"]
 
 
 @pytest.mark.parametrize("status", [401, 403, 429, 500])
@@ -210,7 +208,10 @@ async def test_market_refusal_is_not_retried(service, api, status):
     with pytest.raises(ClientResponseError) as error:
         await service.request_device_code()
     assert error.value.status == status
-    assert len([url for _, url, _ in api.calls if "/configurations/market/DE/de" in url]) == 1
+    assert (
+        len([url for _, url, _ in api.calls if "/configurations/market/DE/de" in url])
+        == 1
+    )
 
 
 async def test_market_migration_hint_does_not_switch_provider(service, api):

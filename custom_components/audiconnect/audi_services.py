@@ -2085,7 +2085,9 @@ class AudiService:
 
         self._authorizationServerBaseURLLive = self.__get_cariad_url("/login/v1/audi")
 
-        proxy_url = marketcfg_json.get("myAudiAuthorizationServerProxyServiceURLProduction")
+        proxy_url = marketcfg_json.get(
+            "myAudiAuthorizationServerProxyServiceURLProduction"
+        )
         if isinstance(proxy_url, str) and proxy_url:
             self._authorizationServerBaseURLLive = proxy_url
         self.mbbOAuthBaseURL = "https://mbboauth-1d.prd.ece.vwg-connect.com/mbbcoauth"

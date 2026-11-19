@@ -63,7 +63,7 @@
     {
       "path": "custom_components/audiconnect/audi_services.py",
       "upstream_blob": "24438152f9e725c864f03f5b9f1cc4c5b1fc513c",
-      "development_blob": "9bd30ac00039e6cbb8adfd0d9f18c9b13c034e9d"
+      "development_blob": "00a214c8ad9558bd84363bda157bb058956da55e"
     },
     {
       "path": "custom_components/audiconnect/binary_sensor.py",
