@@ -926,11 +926,15 @@ class OptionsFlowHandler(OptionsFlow):
         if user_input is not None:
             # Only fields visible in this form are writable here.
             fields = {key.schema for key in self._options_schema(values).schema}
-            values.update({key: value for key, value in user_input.items() if key in fields})
+            values.update(
+                {key: value for key, value in user_input.items() if key in fields}
+            )
             values.setdefault("runtime_version", "v2")
             interval = values.get(
                 CONF_SCAN_INTERVAL,
-                self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+                self.config_entry.data.get(
+                    CONF_SCAN_INTERVAL, DEFAULT_UPDATE_INTERVAL
+                ),
             )
             try:
                 values[CONF_SCAN_INTERVAL] = max(int(interval), MIN_UPDATE_INTERVAL)
@@ -992,7 +996,12 @@ class OptionsFlowHandler(OptionsFlow):
         return self.async_show_form(
             step_id="reverse_geocoding",
             data_schema=vol.Schema(
-                {vol.Required(REVERSE_GEOCODING, default=values.get(REVERSE_GEOCODING) is True): bool}
+                {
+                    vol.Required(
+                        REVERSE_GEOCODING,
+                        default=values.get(REVERSE_GEOCODING) is True,
+                    ): bool
+                }
             ),
         )
 
@@ -1034,29 +1043,51 @@ class OptionsFlowHandler(OptionsFlow):
         return self.async_show_form(
             step_id="stop_recovery",
             data_schema=vol.Schema(
-                {vol.Required(CONF_V3_CHARGING_STOP_RETRY, default=values.get(CONF_V3_CHARGING_STOP_RETRY) is True): bool}
+                {
+                    vol.Required(
+                        CONF_V3_CHARGING_STOP_RETRY,
+                        default=values.get(CONF_V3_CHARGING_STOP_RETRY) is True,
+                    ): bool
+                }
             ),
         )
 
-    async def async_step_stop_recovery_settings(self, user_input=None) -> ConfigFlowResult:
+    async def async_step_stop_recovery_settings(
+        self, user_input=None
+    ) -> ConfigFlowResult:
         if not self._is_v3():
             return await self.async_step_init()
         values = dict(self.config_entry.options)
         recovery = stop_recovery_options(values)
+        errors = {}
         if user_input is not None:
-            recovery.update({key: value for key, value in user_input.items() if key in recovery})
-            values.update(stop_recovery_options(recovery))
-            values[CONF_V3_CHARGING_STOP_RETRY] = True
-            return self.async_create_entry(title="", data=values)
+            proposed = {
+                **recovery,
+                **{key: value for key, value in user_input.items() if key in recovery},
+            }
+            normalized = stop_recovery_options(proposed)
+            if proposed != normalized:
+                errors["base"] = "invalid_stop_recovery_settings"
+            else:
+                values.update(normalized)
+                values[CONF_V3_CHARGING_STOP_RETRY] = True
+                return self.async_create_entry(title="", data=values)
         schema = {
             vol.Required(key, default=recovery[key]): NumberSelector(
                 NumberSelectorConfig(min=minimum, max=maximum, step=1, mode="box")
             )
             for key, (_, minimum, maximum) in STOP_RECOVERY_OPTIONS.items()
         }
-        schema[vol.Required("v3_stop_final_notification", default=recovery["v3_stop_final_notification"])] = bool
+        schema[
+            vol.Required(
+                "v3_stop_final_notification",
+                default=recovery["v3_stop_final_notification"],
+            )
+        ] = bool
         return self.async_show_form(
-            step_id="stop_recovery_settings", data_schema=vol.Schema(schema)
+            step_id="stop_recovery_settings",
+            data_schema=vol.Schema(schema),
+            errors=errors,
         )
 
     async def async_step_workbench(self, user_input=None) -> ConfigFlowResult:
